@@ -1,12 +1,14 @@
-function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_side, X_scale)
+function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_scale)
+% [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_side, X_scale)
 % Returns FFT frequencies and magnitude auto spectra for input signal data 
 % (NB: assumed to be stationary or quasi-stationary - transient signals may 
 % require alternative processing).
 % Uses Welch windowed averages to estimate the auto spectrum, which is used
 % as the basis for other spectral scalings of the output.
-% The returned spectral array X has a size like (Nfft/2, <xn.#signals>) with
-% the other dimension corresponding with the number of signals in xn
-% (NB: the output X orientation matches the input orientation).
+% The returned spectral array X has a size like (Nfft/2 + odd,
+% <xn.#signals>), where odd = 0 if Nfft is even, with the other dimension
+% corresponding with the number of signals in xn (NB: the output X
+% orientation matches the input orientation).
 %
 % Inputs
 % ------
@@ -26,8 +28,6 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_side, X_scal
 %      the window type to apply (supported: 'hann', 'hamming',
 %      'flattopwin', 'rectwin'; aliases available for
 %      'flattopwin':'flattop' and 'rectwin':'rect'|'boxcar')
-% X_side : integer, 1 | 2 (default: 1)
-%      indicates 1-sided or 2-sided spectrum output
 % X_scale : keyword string (default: 'psd')
 %      the type (scaling) of output (auto)spectrum. 
 %      'psd':(auto) power spectral density (power spectrum/Hz);
@@ -44,13 +44,17 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_side, X_scal
 % Ben : double
 %      the 'normalised equivalent noise bandwidth' for the window applied
 %
-% Ownership and Quality Assurance
+% Requirements
+% ------------
+% Signal Processing Toolbox
 %
+% Ownership and Quality Assurance
+% -------------------------------
 % Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 % Institution: University of Salford
 %  
 % Date created: 03/01/2023
-% Date last modified: 19/07/2023
+% Date last modified: 25/07/2023
 % MATLAB version: 2022b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -61,7 +65,6 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_side, X_scal
 % Checked by:
 % Date last checked:
 %
-
 
 %%  argument validation
     arguments
@@ -74,9 +77,6 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_side, X_scal
         win string {mustBeMember(win, {'hann', 'hamming', 'flattop',...
                                        'flattopwin', 'rectwin'...
                                        'rect', 'boxcar'})} = 'hann'
-        X_side (1, 1) {mustBePositive, mustBeInteger,...
-                       mustBeLessThanOrEqual(X_side, 2),...
-                       mustBeGreaterThanOrEqual(X_side, 1)} = 1
         X_scale string {mustBeMember(X_scale, {'psd', 'aspec', 'rms',...
                                                'peak'})} = 'psd'
     end
@@ -104,22 +104,22 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_side, X_scal
             fft_win = rectwin(Nfft);
     end
 
-    df = fs/Nfft; % frequency interval for FFT spectrum
-    Be = enbw(fft_win, fs); % equivalent noise bandwidth for window
-    Ben = Be/df; % normalised equivalent noise bandwidth for window
-    S_amp = Nfft/sum(fft_win); % amplitude correction for window
+    df = fs/Nfft;  % frequency interval for FFT spectrum
+    Be = enbw(fft_win, fs);  % equivalent noise bandwidth for window
+    Ben = Be/df;  % normalised equivalent noise bandwidth for window
+    S_amp = Nfft/sum(fft_win);  % amplitude correction for window
 
-    N = floor((Nfft-1)/2);
-    f2 = df*[(0:N), (-N+1:-1)]; % two-sided frequency vector
-    if X_side == 2
-        f = f2;
+    N = floor(Nfft/2);
+    if mod(Nfft, 2) == 0
+        odd = 0;
+        f2 = df*[(0:N - 1), (-N:-1)];  % two-sided frequency vector for even Nfft
     else
-        f = f2(1:floor(Nfft/2)); % one-sided frequency vector
+        odd = 1;
+        f2 = df*[(0:N), (-N:-1)];  % two-sided frequency vector for odd Nfft
     end
-
-    % number of FFT blocks inside signal length
-    nblocks = floor((xnlength - Nfft)/(Nfft*(1 - over))) + 1;
-
+    
+    f = f2(1:floor(Nfft/2) + odd);  % one-sided positive frequency vector
+    
 %%  FFT processing
     % convert array to required form
     if xnaxis == 2
@@ -128,37 +128,34 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_side, X_scal
         xn2 = xn;
     end
 
-    ii = 1; % FFT processing block counter initialisation
-    blstart = 1; % block start index
-    blend = blstart + Nfft - 1; % block end index
-
     % initialise unscaled autospectrum accumulation array
     XXn = zeros(Nfft, xns);
-    while ii <= nblocks
+    block = 1;  % FFT processing block counter initialisation
+    blstart = 1;  % block start index
+    blend = Nfft;  % block end index
+    while blend <= size(xn2, xnaxis)
         % windowed block of xn
         xnw = repmat(fft_win, 1, xns).*xn2(blstart:blend, :);
         % unscaled autospectrum of windowed block
-        XXn = XXn + fft(xnw, Nfft, 1).*conj(fft(xnw, Nfft, 1));
+        XXn = XXn + conj(fft(xnw, Nfft, 1)).*fft(xnw, Nfft, 1);
 
-        ii = ii + 1; % advance block counter
+        block = block + 1;  % advance block counter
+        blstart = (block - 1)*Nfft*(1 - over) + 1;  % increment block start
+        blend = blstart + Nfft - 1;  % increment block end
     end
 
-    % average unscaled autospectrum accumulation array over blocks 
-    XX = XXn./nblocks;
+    % average unscaled autospectrum accumulation array over blocks and    
+    % discard negative frequencies (scaling to one-sided spectrum)
+    XX = XXn(1:length(f), :)./block;
+    XX(2:end, :) = 2*XX(2:end, :);
 
-    if X_side == 1
-        % discard negative frequencies (scaling to one-sided spectrum)
-        XX = XXn(1:floor(Nfft/2), :)./nblocks;
-        XX(2:end, :) = 2*XX(2:end, :);
-    end
-    
     % scale to autospectrum
     Axx = (S_amp/Nfft)^2*XX;
 
     switch X_scale
         case 'psd'
-            X0 = Axx./Be; % note: /df is incorporated into use of Be
-                          % instead of Ben (= Be/df)
+            X0 = Axx./Be;  % note: /df is incorporated into use of Be
+                           % instead of Ben (= Be/df)
         case 'aspec'
             X0 = Axx;
         case 'rms'
@@ -169,7 +166,7 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_side, X_scal
     
     % revert output array to input form
     if xnaxis == 2
-        X = transpose(X0);
+        X = transpose(X0);  % non-conjungate tranpose
     else
         X = X0;
     end

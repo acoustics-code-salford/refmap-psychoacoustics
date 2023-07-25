@@ -1,4 +1,5 @@
 function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_side, X_scale)
+% [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_side, X_scale)
 % Returns FFT frequencies and magnitude auto spectra for input signal data 
 % (NB: assumed to be stationary or quasi-stationary - transient signals may 
 % require alternative processing).
@@ -44,14 +45,23 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_side, X_scal
 % Ben : double
 %      the 'normalised equivalent noise bandwidth' for the window applied
 %
-% Quality assurance
+% Requirements
+% ------------
+% Signal Processing Toolbox
 %
-% Author: Mike JB Lotinga m.j.lotinga@edu.salford.ac.uk
+% Ownership and Quality Assurance
+% -------------------------------
+% Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 % Institution: University of Salford
 %  
 % Date created: 03/01/2023
-% Date last modified: 19/07/2023
+% Date last modified: 25/07/2023
 % MATLAB version: 2022b
+%
+% Copyright statement: This file and code is part of work undertaken within
+% the RefMap project (www.refmap.eu), and is subject to licence as detailed
+% in the code repository
+% (https://github.com/acoustics-code-salford/refmap-psychoacoustics)
 %
 % Checked by:
 % Date last checked:
@@ -104,8 +114,14 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_side, X_scal
     Ben = Be/df; % normalised equivalent noise bandwidth for window
     S_amp = Nfft/sum(fft_win); % amplitude correction for window
 
-    N = floor((Nfft-1)/2);
-    f2 = df*[(0:N), (-N+1:-1)]; % two-sided frequency vector
+    N = floor(Nfft/2);
+    if mod(Nfft, 2) == 0
+        f2 = df*[(0:N - 1), (-N:-1)]; % two-sided frequency vector for even Nfft
+
+    else
+        f2 = df*[(0:N), (-N:-1)]; % two-sided frequency vector for odd Nfft
+    end
+
     if X_side == 2
         f = f2;
     else
@@ -113,7 +129,7 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_side, X_scal
     end
 
     % number of FFT blocks inside signal length
-    nblocks = floor((xnlength - Nfft)/(Nfft*(1 - over))) + 1;
+    %nblocks = floor((xnlength - Nfft)/(Nfft*(1 - over))) + 1;
 
 %%  FFT processing
     % convert array to required form
@@ -123,27 +139,29 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_side, X_scal
         xn2 = xn;
     end
 
-    ii = 1; % FFT processing block counter initialisation
-    blstart = 1; % block start index
-    blend = blstart + Nfft - 1; % block end index
-
     % initialise unscaled autospectrum accumulation array
     XXn = zeros(Nfft, xns);
-    while ii <= nblocks
+    block = 1; % FFT processing block counter initialisation
+    blstart = 1; % block start index
+    blend = Nfft; % block end index
+
+    while blend <= size(xn2, xnaxis)
         % windowed block of xn
         xnw = repmat(fft_win, 1, xns).*xn2(blstart:blend, :);
         % unscaled autospectrum of windowed block
         XXn = XXn + fft(xnw, Nfft, 1).*conj(fft(xnw, Nfft, 1));
 
-        ii = ii + 1; % advance block counter
+        block = block + 1; % advance block counter
+        blstart = (block - 1)*Nfft*(1 - over) + 1;  % increment block start
+        blend = blstart + Nfft - 1;  % increment block end
     end
 
     % average unscaled autospectrum accumulation array over blocks 
-    XX = XXn./nblocks;
+    XX = XXn./block;
 
     if X_side == 1
         % discard negative frequencies (scaling to one-sided spectrum)
-        XX = XXn(1:floor(Nfft/2), :)./nblocks;
+        XX = XXn(1:length(f), :)./nblocks;
         XX(2:end, :) = 2*XX(2:end, :);
     end
     

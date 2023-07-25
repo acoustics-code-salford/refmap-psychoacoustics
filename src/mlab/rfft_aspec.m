@@ -1,4 +1,5 @@
 function [f, X, Ben] = rfft_aspec(xr, fs, Nfft, xraxis, over, win, X_scale)
+% [f, X, Ben] = rfft_aspec(xr, fs, Nfft, xraxis, over, win, X_scale)
 % Returns one-sided FFT frequencies and magnitude auto spectra for real-valued
 % input signal data (NB: assumed to be stationary or quasi-stationary
 % - transient signals may require alternative processing).
@@ -42,8 +43,12 @@ function [f, X, Ben] = rfft_aspec(xr, fs, Nfft, xraxis, over, win, X_scale)
 % Ben : double
 %      the 'normalised equivalent noise bandwidth' for the window applied
 %
-% Ownership and Quality Assurance
+% Requirements
+% ------------
+% Signal Processing Toolbox
 %
+% Ownership and Quality Assurance
+% -------------------------------
 % Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 % Institution: University of Salford
 %  
@@ -98,16 +103,13 @@ function [f, X, Ben] = rfft_aspec(xr, fs, Nfft, xraxis, over, win, X_scale)
             fft_win = rectwin(Nfft);
     end
 
-    df = fs/Nfft; % frequency interval for FFT spectrum
-    Be = enbw(fft_win, fs); % equivalent noise bandwidth for window
-    Ben = Be/df; % normalised equivalent noise bandwidth for window
-    S_amp = Nfft/sum(fft_win); % amplitude correction for window
+    df = fs/Nfft;  % frequency interval for FFT spectrum
+    Be = enbw(fft_win, fs);  % equivalent noise bandwidth for window
+    Ben = Be/df;  % normalised equivalent noise bandwidth for window
+    S_amp = Nfft/sum(fft_win);  % amplitude correction for window
 
-    f = df*(0:floor(Nfft/2)); % one-sided frequency vector
+    f = df*(0:floor(Nfft/2));  % one-sided frequency vector
                                 % (including k=N/2 for even inputs)
-
-    % number of FFT blocks inside signal length
-    nblocks = floor((xrlength - Nfft)/(Nfft*(1 - over))) + 1;
 
 %%  FFT processing
     % convert array to required form
@@ -117,25 +119,26 @@ function [f, X, Ben] = rfft_aspec(xr, fs, Nfft, xraxis, over, win, X_scale)
         xr2 = xr;
     end
 
-    ii = 1; % FFT processing block counter initialisation
-    blstart = 1; % block start index
-    blend = blstart + Nfft - 1; % block end index
-
     % initialise unscaled autospectrum accumulation array
     XXn = zeros(Nfft, xrs);
-    while ii <= nblocks
+    block = 1;  % FFT processing block counter initialisation
+    blstart = 1;  % block start index
+    blend = Nfft;  % block end index
+    while blend <= size(xr2, xraxis)
         % windowed block of xr
         xrw = repmat(fft_win, 1, xrs).*xr2(blstart:blend, :);
         % unscaled autospectrum of windowed block
         XXn = XXn + conj(fft(xrw, Nfft, 1)).*fft(xrw, Nfft, 1);
 
-        ii = ii + 1; % advance block counter
+        block = block + 1;  % advance block counter
+        blstart = (block - 1)*Nfft*(1 - over) + 1;  % increment block start
+        blend = blstart + Nfft - 1;  % increment block end
     end
 
     % average unscaled autospectrum accumulation array over blocks and
     % discard negative frequencies (scaling to one-sided spectrum)
     % (NB: the k=N/2 line is retained, leading to a (Nfft/2)+1 length spectrum)
-    XX = XXn(1:floor(Nfft/2 + 1), :)./nblocks;
+    XX = XXn(1:length(f), :)./block;
     XX(2:end, :) = 2*XX(2:end, :);
     
     % scale to autospectrum
@@ -143,8 +146,8 @@ function [f, X, Ben] = rfft_aspec(xr, fs, Nfft, xraxis, over, win, X_scale)
 
     switch X_scale
         case 'psd'
-            X0 = Axx./Be; % note: /df is incorporated into use of Be
-                          % instead of Ben (= Be/df)
+            X0 = Axx./Be;  % note: /df is incorporated into use of Be
+                           % instead of Ben (= Be/df)
         case 'aspec'
             X0 = Axx;
         case 'rms'
@@ -155,7 +158,7 @@ function [f, X, Ben] = rfft_aspec(xr, fs, Nfft, xraxis, over, win, X_scale)
     
     % revert output array to input form
     if xraxis == 2
-        X = transpose(X0); % non-conjungate tranpose
+        X = transpose(X0);  % non-conjungate tranpose
     else
         X = X0;
     end
