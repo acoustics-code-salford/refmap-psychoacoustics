@@ -1,5 +1,5 @@
 function loud_norm_tvar(dirpath, ster_type, pctl, iter_lim)
-% loud_cal(infilepath, cal_val, cal_type, outfilename)
+% loud_norm_tvar(infilepath, cal_val, cal_type, outfilename)
 % Saves a set of audio (wav) files calibrated to normalise the total
 % loudness of all files, based on the nominal total time-varying loudness
 % of the first file in the selection, specified as a percentile of the
