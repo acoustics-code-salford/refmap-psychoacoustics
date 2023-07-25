@@ -1,5 +1,7 @@
 function loud_norm_tvar(dirpath, ster_type, pctl, iter_lim)
+% loud_norm_tvar
 % loud_norm_tvar(infilepath, cal_val, cal_type, outfilename)
+%
 % Saves a set of audio (wav) files calibrated to normalise the total
 % loudness of all files, based on the nominal total time-varying loudness
 % of the first file in the selection, specified as a percentile of the
@@ -16,8 +18,8 @@ function loud_norm_tvar(dirpath, ster_type, pctl, iter_lim)
 %           input file selection dialog will open.
 % ster_type : keyword string (optional, default = 'average')
 %             the approach to use for equalising the loudness of stereo 
-%             signals. Options comprise 'left', 'right', 'both', or
-%             'average' (default), indicating which channel is used as the
+%             signals. Options comprise 'left', 'right', or 'average'
+%             (default), indicating which channel is used as the
 %             equalisation target.
 % pctl : integer (optional, 0-100, default = 5)
 %        the percentile value for the total loudness calculation
