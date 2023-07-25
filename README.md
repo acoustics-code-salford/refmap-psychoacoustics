@@ -1,4 +1,4 @@
-
+[REFMAP logo](assets/proj/horizontal_REFMAP_FINAL_LOGO-black-bg.png)
 # refmap-psychoacoustics
 REFMAP project task 4.3: Psychoacoustics of unmanned aerial vehicle (UAV) sound
 
