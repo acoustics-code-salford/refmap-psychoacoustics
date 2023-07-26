@@ -1,4 +1,4 @@
-function loud_norm_tvar(dirpath, ster_type, pctl, iter_lim)
+function loud_norm_tvar(ster_type, pctl, iter_lim)
 % loud_norm_tvar
 % loud_norm_tvar(infilepath, cal_val, cal_type, outfilename)
 %
@@ -13,9 +13,6 @@ function loud_norm_tvar(dirpath, ster_type, pctl, iter_lim)
 % 
 % Inputs
 % ------
-% dirpath : string (optional, default = "")
-%           the directory containing the input files. If unspecified, an
-%           input file selection dialog will open.
 % ster_type : keyword string (optional, default = 'average')
 %             the approach to use for equalising the loudness of stereo 
 %             signals. Options comprise 'left', 'right', or 'average'
@@ -48,7 +45,7 @@ function loud_norm_tvar(dirpath, ster_type, pctl, iter_lim)
 % Institution: University of Salford
 %
 % Date created: 24/07/2023
-% Date last modified: 25/07/2023
+% Date last modified: 26/07/2023
 % MATLAB version: 2022b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -62,39 +59,47 @@ function loud_norm_tvar(dirpath, ster_type, pctl, iter_lim)
 
 %% Arguments validation
     arguments
-        dirpath string = ""
         ster_type string {mustBeMember(ster_type, {'left', 'right',...
                           'average'})} = 'average'
         pctl (1, :) {mustBeNonnegative, mustBeInteger,...
                      mustBeLessThanOrEqual(pctl, 100)} = 5
         iter_lim (1, 1) {mustBePositive, mustBeInteger} = 20
     end
+
 %% Input section
-if isempty(dirpath)
-    dirpath = "";
-end
-% check for input dirpath, and if blank open file selection dialog
-if dirpath == ""
-    [files, dirpath] = uigetfile('*.wav', "Select input wav audio files",...
-                               Multiselect='on');
-else
-    curr_dir = pwd;  % get current working directory
-    cd(dirpath);  % change to input directory
-    files = transpose(cellstr(ls('*.wav')));  % compile filenames in cell row array
-    cd(curr_dir);  % change back to working directory
+
+% open reference file selection dialog
+[files1, ~] = uigetfile({'*.wav', "Wave files (*.wav)"},...
+                               "Select input audio file to use as normalisation reference");
+
+if isa(files1, 'double')
+    disp("Error: No normalisation reference file selected - exiting")
+    return
 end
 
-% check multiple files are selected and exit if only one
-if size(files, 2) < 2
-    disp("Error: Multiple files must be selected for normalisation")
+% open file selection dialog
+[files2, dirpath] = uigetfile({'*.wav', "Wave files (*.wav)"},...
+                               "Select input audio files to normalise",...
+                               Multiselect='on');
+
+if isa(files2, 'double')
+    disp("Error: No files selected for normalisation - exiting")
     return
+end
+
+% compile filenames into an array
+for ii = length(files2) + 1:-1:1
+    if ii > 1
+        files(ii) = files2(ii - 1);
+    else
+        files(ii) = cellstr(files1);
+    end
 end
 
 % join filenames with directory path
 for ii = length(files):-1:1
     filepaths(ii) = join([dirpath, files(ii)], "");
 end
-
 
 %% Processing section
 skip_first = false;  % generate truth flag for skipping first file (see below)
@@ -150,6 +155,7 @@ for ii = 1:length(files)
         wait_accum = 0;  % waitbar progress initialisation
         h = waitbar(wait_accum, wait_msg);  % waitbar initialisation
         set(findall(h, 'type', 'text'), 'Interpreter', 'none');
+        waitbar(wait_accum);  % waitbar update (to fix filename text)
 
         % write to file
         cal_N_s = num2str(round(cal_N, 1));
@@ -173,16 +179,39 @@ for ii = 1:length(files)
     % iterate to adjust signal calibration until loudness matches target to
     % within 0.1 sones.
     else
+        % for stereo signal, select normalisation channel
+        if ster_sig
+            if strcmp(ster_type, 'left')
+                percN = percN(1);
+            elseif strcmp(ster_type, 'right')
+                percN = percN(2);
+            else
+                percN = mean(percN);
+            end
+        end
+
         iters = 1;  % iteration counter
         percN0 = percN;  % store initial loudness value for waitbar
         wait_msg = sprintf("Processing %s...", filename);  % waitbar message
         wait_accum = 0;  % waitbar progress initialisation
         h = waitbar(wait_accum, wait_msg);  % waitbar initialisation
         set(findall(h, 'type', 'text'), 'Interpreter', 'none');
+        waitbar(wait_accum);  % waitbar update (to fix filename text)
         while abs(percN - cal_N) > 0.05 && iters <= iter_lim  % iteration condition            
             x = x./(percN/cal_N);  % adjust signal towards target
             [~, ~, percN] = acousticLoudness(x, fs, TimeVarying=true,...
                                        Percentiles=pctl);  % recalculate loudness
+            
+            % for stereo signal, reselect normalisation channel
+            if ster_sig
+                if strcmp(ster_type, 'left')
+                    percN = percN(1);
+                elseif strcmp(ster_type, 'right')
+                    percN = percN(2);
+                else
+                    percN = mean(percN);
+                end
+            end
 
             iters = iters + 1;  % increment iteration counter
             wait_accum = abs(percN0 - cal_N) - abs(percN - cal_N);  % update waitbar progress
