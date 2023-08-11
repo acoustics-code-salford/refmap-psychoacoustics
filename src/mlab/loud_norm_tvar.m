@@ -18,8 +18,12 @@ function loud_norm_tvar(ster_type, pctl, iter_lim)
 %             signals. Options comprise 'left', 'right', or 'average'
 %             (default), indicating which channel is used as the
 %             equalisation target.
-% pctl : integer (optional, 0-100, default = 95)
-%        the percentile value for the total loudness calculation
+%
+% pctl : integer (optional, 0-100, default = 5)
+%        the percentile value for the total loudness calculation (note this
+%        is the percentile exceeded, and not the statistical percentile
+%        value of the cumulative distribution function)
+%
 % iter_lim : integer (optional, default = 20)
 %            the iteration limit on the convergence loop (set to avoid
 %            excessive calculation time - increase if needed to converge)

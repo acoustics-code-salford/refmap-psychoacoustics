@@ -14,9 +14,11 @@ function [N, S, F, R] = sqm_tvar(p, fs, pctl)
 % fs : integer
 %       the sample frequency of the input signal(s)
 %
-% pctl : double or vector of integers 0-100 (default: 95)
+% pctl : double or vector of integers 0-100 (default: 5)
 %        the percentile to use in calculating an overall metric value from
-%        the time-varying distribution
+%        the time-varying distribution (note this is the percentile
+%        exceeded, and not the statistical percentile value of the cumulative
+%        distribution function)
 % 
 % Returns
 % -------
@@ -61,7 +63,7 @@ function [N, S, F, R] = sqm_tvar(p, fs, pctl)
         p (:, :) double {mustBeReal}
         fs (1, 1) double {mustBePositive, mustBeInteger}
         pctl (1, :) double {mustBeNonnegative, mustBeInteger,...
-                            mustBeLessThanOrEqual(pctl, 100)} = 95
+                            mustBeLessThanOrEqual(pctl, 100)} = 5
     end
 
 
@@ -73,15 +75,15 @@ function [N, S, F, R] = sqm_tvar(p, fs, pctl)
 
 % sharpness
 St = acousticSharpness(specNt, TimeVarying=true);
-percS = prctile(St, pctl, 1);
+percS = prctile(St, 100 - pctl, 1);
 
 % roughness
 [Rt, specRt, fModR] = acousticRoughness(p, fs);
-percR = prctile(Rt, pctl, 1);
+percR = prctile(Rt, 100 - pctl, 1);
 
 % fluctuation strength
 [Ft, specFt, fModF] = acousticFluctuation(specNt);
-percF = prctile(Ft, pctl, 1);
+percF = prctile(Ft, 100 - pctl, 1);
 
 % compile results into output data structures
 % loudness
