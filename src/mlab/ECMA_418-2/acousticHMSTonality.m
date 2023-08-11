@@ -83,7 +83,7 @@ function [Tt, ft_ton, Ttz, fz_ton, T, Tz] = acousticHMSTonality(p, r_s, axisn, o
         axisn (1, 1) {mustBeInteger, mustBeInRange(axisn, 1, 2)} = 1
         outplot {mustBeNumericOrLogical} = false
     end
-
+tic
 % Orient input matrix
 if axisn == 2
     p = p.';
@@ -132,6 +132,8 @@ overlap = 0.75;  % block overlap proportion
 % block sizes
 sz_b = [8192*ones(1, 3), 4096*ones(1, 13), 2048*ones(1, 9), 1024*ones(1, 28)];
 sz_h = (1 - overlap)*sz_b;  % hop sizes (section 5.1.2 footnote 3 ECMA 418-2:2022)
+
+r_sd = r_sre/min(sz_h);  % Output sample rate based on hop sizes - Resampling to common time basis Section 6.2.6 ECMA-418-2:2022
 
 % Number of bands that need averaging. Section 6.2.3 Table 5 ECMA-418-2:2022
 NB = [0, 1, 2*ones(1,14), ones(1,9), zeros(1,28);...
@@ -327,10 +329,10 @@ for chan = size(pn_om, 2):-1:1
 
     end
     
-    step_i = step_i + 62;
+    step_i = step_i + 62;  % increment calculation step for waitbar
 
     % Average the ACF over nB bands - Section 6.2.3 ECMA-418-2:2022        
-    for zz = 53:-1:1 % Loop through 53 critical band filtered signals
+    for zz = 53:-1:1  % Loop through 53 critical band filtered signals
         waitbar(((54 - zz) + step_i)/n_steps, w, strcat('Calulating tonality in band', {' '},...
             num2str(zz), {' '}, 'of 53...'));
         
@@ -345,11 +347,11 @@ for chan = size(pn_om, 2):-1:1
         end
         
         % Application of ACF lag window Section 6.2.4 ECMA-418-2:2022
-        tauz_start = max(0.5/dfz(zz), 2e-3); % Equation 31 ECMA-418-2:2022
-        tauz_end = max(4/dfz(zz), tauz_start + 1e-3); % Equation 32 ECMA-418-2:2022
+        tauz_start = max(0.5/dfz(zz), 2e-3);  % Equation 31 ECMA-418-2:2022
+        tauz_end = max(4/dfz(zz), tauz_start + 1e-3);  % Equation 32 ECMA-418-2:2022
         % Equations 33 & 34 ECMA-418-2:2022
-        mz_start = ceil(tauz_start*r_sre); % Starting lag window index
-        mz_end = floor(tauz_end*r_sre); % Ending lag window index
+        mz_start = ceil(tauz_start*r_sre);  % Starting lag window index
+        mz_end = floor(tauz_end*r_sre);  % Ending lag window index
         M = mz_end - mz_start + 1;
         % Equation 35 ECMA-418-2:2022
         phim_lztau = zeros(size(phim_lz_avg));
@@ -374,7 +376,6 @@ for chan = size(pn_om, 2):-1:1
         Nlz_signal = phim_lz_avg(1, :);  % specific loudness of complete band-pass signal in critical band
         
         % Resampling to common time basis Section 6.2.6 ECMA-418-2:2022
-        r_sd = r_sre/min(sz_h); % New sample rate based on hop sizes
         if i_interp(zz) > 1
             Nlz_tonal = resample(Nlz_tonal, i_interp(zz), 1);
             Nlz_signal = resample(Nlz_signal, i_interp(zz), 1);
@@ -401,15 +402,15 @@ for chan = size(pn_om, 2):-1:1
 
         % Noise reduction Section 6.2.7 ECMA-418-2:2020
         % ---------------------------------------------
-        SNRlz = Nlz_tonal./((Nlz_signal - Nlz_tonal) + 1e-12); % Equation 42 ECMA-418-2:2022 signal-noise-ratio first approximation (ratio of tonal component loudness to non-tonal component loudness in critical band)
-        Nlz_tonal = LowPass(Nlz_tonal, r_sd); % Equation 43 ECMA-418-2:2022 low pass filtered specific loudness of non-tonal component in critical band
-        SNRlz = LowPass(SNRlz, r_sd); % Equation 44 ECMA-418-2:2022 lowpass filtered SNR (improved estimation)
-        gz = csz_b(zz)/(Fz(zz)^dsz_b(zz)); % Equation 46 ECMA-418-2:2022
+        SNRlz = Nlz_tonal./((Nlz_signal - Nlz_tonal) + 1e-12);  % Equation 42 ECMA-418-2:2022 signal-noise-ratio first approximation (ratio of tonal component loudness to non-tonal component loudness in critical band)
+        Nlz_tonal = LowPass(Nlz_tonal, r_sd);  % Equation 43 ECMA-418-2:2022 low pass filtered specific loudness of non-tonal component in critical band
+        SNRlz = LowPass(SNRlz, r_sd);  % Equation 44 ECMA-418-2:2022 lowpass filtered SNR (improved estimation)
+        gz = csz_b(zz)/(Fz(zz)^dsz_b(zz));  % Equation 46 ECMA-418-2:2022
         % Equation 45 ECMA-418-2:2022
         crit = exp(-alpha*((SNRlz/gz)-beta));
         nrlz = 1 - crit;  % sigmoidal weighting function
         nrlz(crit >= 1) = 0;
-        Nlz_tonal = nrlz.*Nlz_tonal; % Equation 47 ECMA-418-2:2022
+        Nlz_tonal = nrlz.*Nlz_tonal;  % Equation 47 ECMA-418-2:2022
              
         % Section 6.2.8 Equation 48 ECMA-418-2:2022
         Nlz_noise = LowPass(Nlz_signal, r_sd) - Nlz_tonal;  % specific loudness of non-tonal component in critical band
@@ -429,7 +430,7 @@ for chan = size(pn_om, 2):-1:1
     
     % Section 6.2.8 Equation 50 ECMA-418-2:2022
     crit = exp(-A*(SNRl - B));
-    ql = 1 - crit;   % sigmoidal scaling factor
+    ql = 1 - crit;  % sigmoidal scaling factor
     ql(crit >= 1) = 0;
     
     % Section 6.2.8 Equation 51 ECMA-418-2:2022#
@@ -512,7 +513,7 @@ for chan = size(pn_om, 2):-1:1
     end
 
 end
-
+toc
 end
 
 % LowPass Filter for Noise Reduction
