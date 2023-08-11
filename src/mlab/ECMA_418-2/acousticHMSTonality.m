@@ -1,5 +1,5 @@
 function [Tt, ft_ton, Ttz, fz_ton, T, Tz] = acousticHMSTonality(p, r_s, axisn, outplot)
-% [Tt, specTt, Ta, specTa] = acousticHMTonality(p, rs, axis)
+% [Tt, ft_ton, Ttz, fz_ton, T, Tz] = acousticHMTonality(p, r_s, axisn, outplot)
 % Returns the time-varying overall tonality Tt, the time-varying specific 
 % tonality specTt (in 53 1/2 Bark bands), the time-averaged overall
 % tonality Ta, and the time-averaged specific tonality specTa.
