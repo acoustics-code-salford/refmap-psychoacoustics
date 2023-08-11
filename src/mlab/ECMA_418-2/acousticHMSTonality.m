@@ -83,7 +83,7 @@ function [Tt, ft_ton, Ttz, fz_ton, T, Tz] = acousticHMSTonality(p, r_s, axisn, o
         axisn (1, 1) {mustBeInteger, mustBeInRange(axisn, 1, 2)} = 1
         outplot {mustBeNumericOrLogical} = false
     end
-tic
+
 % Orient input matrix
 if axisn == 2
     p = p.';
@@ -513,7 +513,7 @@ for chan = size(pn_om, 2):-1:1
     end
 
 end
-toc
+
 end
 
 % LowPass Filter for Noise Reduction
