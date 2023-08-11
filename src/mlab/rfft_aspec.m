@@ -1,5 +1,5 @@
-function [f, X, Ben] = rfft_aspec(xr, fs, Nfft, xraxis, over, win, X_scale)
-% [f, X, Ben] = rfft_aspec(xr, fs, Nfft, xraxis, over, win, X_scale)
+function [f, X, Ben] = rfft_aspec(xr, fs, Nfft, axisn, over, win, X_scale)
+% [f, X, Ben] = rfft_aspec(xr, fs, Nfft, axisn, over, win, X_scale)
 % Returns one-sided FFT frequencies and magnitude auto spectra for real-valued
 % input signal data (NB: assumed to be stationary or quasi-stationary
 % - transient signals may require alternative processing).
@@ -16,23 +16,23 @@ function [f, X, Ben] = rfft_aspec(xr, fs, Nfft, xraxis, over, win, X_scale)
 % fs : integer
 %      the sample frequency for the signal(s) - all signals must have same
 %      fs
-% xraxis : integer 0-1 (default: 0, ie along rows)
-%      the input axis over which to apply the FFT (time axis)
+% axisn : integer 0-1 (default: 0, ie along rows)
+%         the input axis over which to apply the FFT (time axis)
 % Nfft : integer
-%      the FFT block size - if this is smaller than the signal length,
-%      ensemble averaging will be carried out using 'over' overlap
+%        the FFT block size - if this is smaller than the signal length,
+%        ensemble averaging will be carried out using 'over' overlap
 % over : float, >=0, < 1
-%      the overlap proportion to use for windowed ensemble averaging
+%       the overlap proportion to use for windowed ensemble averaging
 % win : keyword string (default: 'hann')
-%      the window type to apply (supported: 'hann', 'hamming',
-%      'flattopwin', 'rectwin'; aliases available for
-%      'flattopwin':'flattop' and 'rectwin':'rect'|'boxcar')
+%       the window type to apply (supported: 'hann', 'hamming',
+%       'flattopwin', 'rectwin'; aliases available for
+%       'flattopwin':'flattop' and 'rectwin':'rect'|'boxcar')
 % X_scale : keyword string (default: 'psd')
-%      the type (scaling) of output (auto)spectrum. 
-%      'psd':(auto) power spectral density (power spectrum/Hz);
-%      'aspec':(auto) power spectrum;
-%      'rms': linear root-mean-square amplitude spectrum;
-%      'peak': linear peak amplitude spectrum
+%           the type (scaling) of output (auto)spectrum. 
+%           'psd':(auto) power spectral density (power spectrum/Hz);
+%           'aspec':(auto) power spectrum;
+%           'rms': linear root-mean-square amplitude spectrum;
+%           'peak': linear peak amplitude spectrum
 %
 % Outputs
 % -------
@@ -66,12 +66,12 @@ function [f, X, Ben] = rfft_aspec(xr, fs, Nfft, xraxis, over, win, X_scale)
 %
 
 %%  argument validation
-    arguments
+    arguments (Input)
         xr (:, :) {mustBeReal}
         fs (1, 1) {mustBePositive, mustBeInteger}
         Nfft (1, 1) {mustBePositive, mustBeInteger}
-        xraxis (1, 1) {mustBePositive, mustBeInteger,...
-                       mustBeLessThanOrEqual(xraxis, 2)} = 1
+        axisn (1, 1) {mustBePositive, mustBeInteger,...
+                       mustBeLessThanOrEqual(axisn, 2)} = 1
         over (1, 1) {mustBeNonnegative, mustBeLessThan(over, 1)} = 0.0
         win string {mustBeMember(win, {'hann', 'hamming', 'flattop', ...
                                        'flattopwin', 'rectwin'...
@@ -81,9 +81,9 @@ function [f, X, Ben] = rfft_aspec(xr, fs, Nfft, xraxis, over, win, X_scale)
     end
 
     xrsize = size(xr); % dimensions of input signal array
-    xrlength = xrsize(xraxis); % signal length
+    xrlength = xrsize(axisn); % signal length
     axes_i = [1, 2]; % axis indices
-    xrs = xrsize(axes_i(axes_i ~= xraxis)); % number of signals in xr
+    xrs = xrsize(axes_i(axes_i ~= axisn)); % number of signals in xr
 
     % check signal fits into block window
     if Nfft > xrlength
@@ -113,7 +113,7 @@ function [f, X, Ben] = rfft_aspec(xr, fs, Nfft, xraxis, over, win, X_scale)
 
 %%  FFT processing
     % convert array to required form
-    if xraxis == 2
+    if axisn == 2
         xr2 = transpose(xr);
     else
         xr2 = xr;
@@ -124,7 +124,7 @@ function [f, X, Ben] = rfft_aspec(xr, fs, Nfft, xraxis, over, win, X_scale)
     block = 1;  % FFT processing block counter initialisation
     blstart = 1;  % block start index
     blend = Nfft;  % block end index
-    while blend <= size(xr2, xraxis)
+    while blend <= size(xr2, axisn)
         % windowed block of xr
         xrw = repmat(fft_win, 1, xrs).*xr2(blstart:blend, :);
         % unscaled autospectrum of windowed block
@@ -157,7 +157,7 @@ function [f, X, Ben] = rfft_aspec(xr, fs, Nfft, xraxis, over, win, X_scale)
     end
     
     % revert output array to input form
-    if xraxis == 2
+    if axisn == 2
         X = transpose(X0);  % non-conjungate tranpose
     else
         X = X0;

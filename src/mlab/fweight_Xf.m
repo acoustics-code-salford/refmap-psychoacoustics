@@ -1,4 +1,4 @@
-function Xwf = fweight_Xf(f, Xf, w_type, axis)
+function Xwf = fweight_Xf(f, Xf, w_type, axisn)
 % [f, Xwf] = fweight_Xf(f, Xf, w_type)
 % Returns weighted spectrum from input (unweighted) spectrum.
 % (NB: the output X orientation matches the input orientation).
@@ -6,19 +6,19 @@ function Xwf = fweight_Xf(f, Xf, w_type, axis)
 % Inputs
 % ------
 % f : vector of floats
-%      the frequencies corresponding with the input spectral values
-% Xf : vector or 2D array of floats
+%     the frequencies corresponding with the input spectral values
+% Xf : vector or 2D matrix of floats
 %      the spectrum or spectra to be weighted (in physical magnitude units,
 %      not dB)
 % w_type : keyword string
-%      the weighting to be applied
-% axis : integer (default 1)
-%      the axis along which the spectrum lies (1 or 2)
+%          the weighting to be applied
+% axisn : integer (default 1)
+%         the axis along which the spectrum lies (1 or 2)
 %
 % Outputs
 % -------
-% Xwf : vector or 2D array of floats
-%      the weighted spectral values, in the same orientation as Xf
+% Xwf : vector or 2D matrix of floats
+%       the weighted spectral values, in the same orientation as Xf
 %
 % Requirements
 % ------------
@@ -44,16 +44,20 @@ function Xwf = fweight_Xf(f, Xf, w_type, axis)
 
 
 %%  argument validation
-    arguments
-        f (1, :) double
-        Xf (:, :) {mustBeNonnegative}
+    arguments (Input)
+        f (1, :) double {mustBeNonnegative}
+        Xf (:, :) double {mustBeNonnegative}
         w_type (1, 1) {mustBeMember(w_type, {'A', 'C'})}
-        axis (1, 1) {mustBeMember(axis, [1, 2])} = 1
+        axisn (1, 1) {mustBeMember(axisn, [1, 2])} = 1
+    end
+
+    arguments (Output)
+        Xwf (:, :)
     end
 
 %% processing
 % check input orientation
-if axis == 2
+if axisn == 2
     transpose(Xf);
 end
 
@@ -74,6 +78,6 @@ end
 Xwf = Xf.*weight;
 
 % reorientation
-if axis == 2
+if axisn == 2
     transpose(Xwf);
 end

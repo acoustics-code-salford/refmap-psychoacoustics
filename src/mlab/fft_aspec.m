@@ -1,5 +1,5 @@
-function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_scale)
-% [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_side, X_scale)
+function [f, X, Ben] = fft_aspec(xn, fs, Nfft, axisn, over, win, X_scale)
+% [f, X, Ben] = fft_aspec(xn, fs, Nfft, axisn, over, win, X_side, X_scale)
 % Returns FFT frequencies and magnitude auto spectra for input signal data 
 % (NB: assumed to be stationary or quasi-stationary - transient signals may 
 % require alternative processing).
@@ -17,7 +17,7 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_scale)
 % fs : integer
 %      the sample frequency for the signal(s) - all signals must have same
 %      fs
-% xnaxis : integer 0-1 (default: 0, ie along rows)
+% axisn : integer 0-1 (default: 0, ie along rows)
 %      the input axis over which to apply the FFT (time axis)
 % Nfft : integer
 %      the FFT block size - if this is smaller than the signal length,
@@ -67,12 +67,12 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_scale)
 %
 
 %%  argument validation
-    arguments
+    arguments (Input)
         xn (:, :) double
         fs (1, 1) {mustBePositive, mustBeInteger}
         Nfft (1, 1) {mustBePositive, mustBeInteger}
-        xnaxis (1, 1) {mustBePositive, mustBeInteger,...
-                       mustBeLessThanOrEqual(xnaxis, 2)} = 1
+        axisn (1, 1) {mustBePositive, mustBeInteger,...
+                       mustBeLessThanOrEqual(axisn, 2)} = 1
         over (1, 1) {mustBeNonnegative, mustBeLessThan(over, 1)} = 0.0
         win string {mustBeMember(win, {'hann', 'hamming', 'flattop',...
                                        'flattopwin', 'rectwin'...
@@ -82,9 +82,9 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_scale)
     end
 
     xnsize = size(xn); % dimensions of input signal array
-    xnlength = xnsize(xnaxis); % signal length
+    xnlength = xnsize(axisn); % signal length
     axes_i = [1, 2]; % axis indices
-    xns = xnsize(axes_i(axes_i ~= xnaxis)); % number of signals in xn
+    xns = xnsize(axes_i(axes_i ~= axisn)); % number of signals in xn
 
     % check signal fits into block window
     if Nfft > xnlength
@@ -122,7 +122,7 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_scale)
     
 %%  FFT processing
     % convert array to required form
-    if xnaxis == 2
+    if axisn == 2
         xn2 = transpose(xn);
     else
         xn2 = xn;
@@ -133,7 +133,7 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_scale)
     block = 1;  % FFT processing block counter initialisation
     blstart = 1;  % block start index
     blend = Nfft;  % block end index
-    while blend <= size(xn2, xnaxis)
+    while blend <= size(xn2, axisn)
         % windowed block of xn
         xnw = repmat(fft_win, 1, xns).*xn2(blstart:blend, :);
         % unscaled autospectrum of windowed block
@@ -165,7 +165,7 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, xnaxis, over, win, X_scale)
     end
     
     % revert output array to input form
-    if xnaxis == 2
+    if axisn == 2
         X = transpose(X0);  % non-conjungate tranpose
     else
         X = X0;

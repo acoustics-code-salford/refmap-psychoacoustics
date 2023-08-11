@@ -6,7 +6,7 @@ function [x_Pa, fs] = audio_caltnc(filepath, tnc, cal_val, cal_tnc, cal_type)
 % ------
 % filepath : string
 %            the path to the input audio file
-% tnc : vector or 2D array of floats, length 2
+% tnc : vector or 2D matrix of floats, length 2
 %       the truncation values (in seconds) to be applied to the start or
 %       end of the input file - the first value in tnc applies to the start
 %       and the second value to the end
@@ -23,7 +23,7 @@ function [x_Pa, fs] = audio_caltnc(filepath, tnc, cal_val, cal_tnc, cal_type)
 % 
 % Returns
 % -------
-% x_Pa : vector or 2D array
+% x_Pa : vector or 2D matrix
 %         the audio signal sample data calibrated to units of Pascals
 %
 % fs : positive integer
@@ -52,8 +52,8 @@ function [x_Pa, fs] = audio_caltnc(filepath, tnc, cal_val, cal_tnc, cal_type)
 %
 
 %% Arguments validation
-    arguments
-        filepath string
+    arguments (Input)
+        filepath string {mustBeFile}
         tnc (1, 2) {mustBeNonnegative}
         cal_val (1, 1) double
         cal_tnc string {mustBeMember(cal_tnc, {'pre', 'post'})} = 'pre'

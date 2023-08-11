@@ -1,5 +1,5 @@
-function [N, S, F, R] = sqm_tvar(x_Pa, fs, pctl)
-% [N, S, F, R] = son_qual_tvar(x_Pa, fs, pctl)
+function [N, S, F, R] = sqm_tvar(p, fs, pctl)
+% [N, S, F, R] = son_qual_tvar(p, fs, pctl)
 % Returns time-varying sound quality metric values for an audio signal.
 % Calculates the time-varying loudness N according to ISO 532-1:2017 
 % (Zwicker).
@@ -8,7 +8,12 @@ function [N, S, F, R] = sqm_tvar(x_Pa, fs, pctl)
 % 
 % Inputs
 % ------
-% x_Pa : vector or 2D array of single mono or single stereo audio signals
+% p : vector or 2D matrix of single mono or single stereo audio (sound
+% pressure) signals
+%
+% fs : integer
+%       the sample frequency of the input signal(s)
+%
 % pctl : double or vector of integers 0-100 (default: 5)
 %        the percentile to use in calculating an overall metric value from
 %        the time-varying distribution
@@ -21,13 +26,17 @@ function [N, S, F, R] = sqm_tvar(x_Pa, fs, pctl)
 % S : structure containing percentile sharpness, percentile value, and
 %       time-varying sharpness
 %
+% F : structure containing percentile fluctuation strength, percentile
+%       value, time-varying fluctuation strength, specific time-varying
+%       fluctuation strength, and fluctuation strength modulation frequencies
+%
 % R : structure containing percentile roughness, percentile value,
 %       time-varying roughness, specific time-varying roughness, and roughness
 %       modulation frequencies
 %
-% F : structure containing percentile fluctuation strength, percentile
-%       value, time-varying fluctuation strength, specific time-varying
-%       fluctuation strength, and fluctuation strength modulation frequencies
+% Requirements
+% ------------
+% Audio Toolbox
 %
 % Ownership and Quality Assurance
 %
@@ -35,7 +44,7 @@ function [N, S, F, R] = sqm_tvar(x_Pa, fs, pctl)
 % Institution: University of Salford
 %  
 % Date created: 18/07/2023
-% Date last modified: 20/07/2023
+% Date last modified: 29/07/2023
 % MATLAB version: 2022b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -48,18 +57,18 @@ function [N, S, F, R] = sqm_tvar(x_Pa, fs, pctl)
 %
 
 %% Arguments validation
-    arguments
-        x_Pa (:, :) {mustBeReal}
-        fs (1, 1) {mustBePositive, mustBeInteger}
-        pctl (1, :) {mustBeNonnegative, mustBeInteger,...
-                       mustBeLessThanOrEqual(pctl, 100)} = 5
+    arguments (Input)
+        p (:, :) double {mustBeReal}
+        fs (1, 1) double {mustBePositive, mustBeInteger}
+        pctl (1, :) double {mustBeNonnegative, mustBeInteger,...
+                            mustBeLessThanOrEqual(pctl, 100)} = 5
     end
 
 
 %% Signal processing
 
 % loudness
-[Nt, specNt, percN] = acousticLoudness(x_Pa, fs, TimeVarying=true,...
+[Nt, specNt, percN] = acousticLoudness(p, fs, TimeVarying=true,...
                                        Percentiles=pctl);
 
 % sharpness
@@ -67,7 +76,7 @@ St = acousticSharpness(specNt, TimeVarying=true);
 percS = prctile(St, pctl, 1);
 
 % roughness
-[Rt, specRt, fModR] = acousticRoughness(x_Pa, fs);
+[Rt, specRt, fModR] = acousticRoughness(p, fs);
 percR = prctile(Rt, pctl, 1);
 
 % fluctuation strength
@@ -96,11 +105,11 @@ R.Rt = Rt;
 R.specRt = specRt;
 R.fModR = fModR;
 
-% fluctation strength
+% fluctuation strength
 F = struct;
 F.percF = percF;
 F.pctl = pctl;
-F.Nt = Ft;
+F.Ft = Ft;
 F.specFt = specFt;
 F.fModF = fModF;
 

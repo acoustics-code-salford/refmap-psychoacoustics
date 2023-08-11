@@ -58,12 +58,12 @@ function loud_norm_tvar(ster_type, pctl, iter_lim)
 %
 
 %% Arguments validation
-    arguments
+    arguments (Input)
         ster_type string {mustBeMember(ster_type, {'left', 'right',...
                           'average'})} = 'average'
-        pctl (1, :) {mustBeNonnegative, mustBeInteger,...
-                     mustBeLessThanOrEqual(pctl, 100)} = 5
-        iter_lim (1, 1) {mustBePositive, mustBeInteger} = 20
+        pctl (1, :) double {mustBeNonnegative, mustBeInteger,...
+                            mustBeLessThanOrEqual(pctl, 100)} = 5
+        iter_lim (1, 1) double {mustBePositive, mustBeInteger} = 20
     end
 
 %% Input section
