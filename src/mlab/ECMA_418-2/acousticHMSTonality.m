@@ -494,7 +494,7 @@ for chan = size(pn_om, 2):-1:1
         weightFilt = weightingFilter('A-weighting', r_sre);
         pA = weightFilt(p_re(:, chan));
         LA = 20*log10(rms(pA)/2e-5);
-        axtitle = title(strcat(chan_lab, ' signal sound pressure level =', {' '}, num2str(round(LA,1)), "dB{\it L}_{Aeq}"),...
+        axtitle = title(strcat(chan_lab, ' signal sound pressure level =', {' '}, num2str(round(LA,1)), "dB {\itL}_{Aeq}"),...
               'FontWeight', 'normal', 'FontName', 'Arial');
         colormap(turbo);
         h = colorbar;

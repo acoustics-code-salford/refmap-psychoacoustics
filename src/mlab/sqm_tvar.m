@@ -14,7 +14,7 @@ function [N, S, F, R] = sqm_tvar(p, fs, pctl)
 % fs : integer
 %       the sample frequency of the input signal(s)
 %
-% pctl : double or vector of integers 0-100 (default: 5)
+% pctl : double or vector of integers 0-100 (default: 95)
 %        the percentile to use in calculating an overall metric value from
 %        the time-varying distribution
 % 
@@ -61,7 +61,7 @@ function [N, S, F, R] = sqm_tvar(p, fs, pctl)
         p (:, :) double {mustBeReal}
         fs (1, 1) double {mustBePositive, mustBeInteger}
         pctl (1, :) double {mustBeNonnegative, mustBeInteger,...
-                            mustBeLessThanOrEqual(pctl, 100)} = 5
+                            mustBeLessThanOrEqual(pctl, 100)} = 95
     end
 
 

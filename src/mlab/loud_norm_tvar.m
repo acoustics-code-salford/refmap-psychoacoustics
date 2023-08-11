@@ -18,7 +18,7 @@ function loud_norm_tvar(ster_type, pctl, iter_lim)
 %             signals. Options comprise 'left', 'right', or 'average'
 %             (default), indicating which channel is used as the
 %             equalisation target.
-% pctl : integer (optional, 0-100, default = 5)
+% pctl : integer (optional, 0-100, default = 95)
 %        the percentile value for the total loudness calculation
 % iter_lim : integer (optional, default = 20)
 %            the iteration limit on the convergence loop (set to avoid
@@ -62,7 +62,7 @@ function loud_norm_tvar(ster_type, pctl, iter_lim)
         ster_type string {mustBeMember(ster_type, {'left', 'right',...
                           'average'})} = 'average'
         pctl (1, :) double {mustBeNonnegative, mustBeInteger,...
-                            mustBeLessThanOrEqual(pctl, 100)} = 5
+                            mustBeLessThanOrEqual(pctl, 100)} = 95
         iter_lim (1, 1) double {mustBePositive, mustBeInteger} = 20
     end
 
