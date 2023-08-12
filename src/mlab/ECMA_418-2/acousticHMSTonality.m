@@ -278,8 +278,8 @@ for chan = size(pn_om, 2):-1:1
     
     for zz = 61:-1:1
     
-        waitbar(((62 - zz) + step_i)/n_steps, w, strcat('Applying ACF in band', {' '},...
-            num2str(zz), {' '}, 'of 61...'));
+        waitbar(((62 - zz) + step_i)/n_steps, w, strcat("Applying ACF in 61 bands, ",...
+            num2str(zz), ' to go...'));
         
         % Section 5.1.5 Equation 19 ECMA-418-2:2022
         i_start = sz_b(1) - sz_b_temp(zz) + 1;
@@ -333,8 +333,8 @@ for chan = size(pn_om, 2):-1:1
 
     % Average the ACF over nB bands - Section 6.2.3 ECMA-418-2:2022        
     for zz = 53:-1:1  % Loop through 53 critical band filtered signals
-        waitbar(((54 - zz) + step_i)/n_steps, w, strcat('Calulating tonality in band', {' '},...
-            num2str(zz), {' '}, 'of 53...'));
+        waitbar(((54 - zz) + step_i)/n_steps, w, strcat("Calculating tonality in 53 bands, ",...
+            num2str(zz), " to go..."));
         
         NBZ = NB(1, zz) + NB(2, zz) + 1; % Total number of bands to average over
         
