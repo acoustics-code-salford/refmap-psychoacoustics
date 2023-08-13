@@ -1,5 +1,5 @@
-function [N, S, F, R] = sqm_tvar(p, fs, pctl)
-% [N, S, F, R] = son_qual_tvar(p, fs, pctl)
+function [N, S, F, R] = sqm_tvar(p, fs, pcex)
+% [N, S, F, R] = son_qual_tvar(p, fs, pcex)
 % Returns time-varying sound quality metric values for an audio signal.
 % Calculates the time-varying loudness N according to ISO 532-1:2017 
 % (Zwicker).
@@ -14,11 +14,11 @@ function [N, S, F, R] = sqm_tvar(p, fs, pctl)
 % fs : integer
 %       the sample frequency of the input signal(s)
 %
-% pctl : double or vector of integers 0-100 (default: 5)
+% pcex : double or vector of integers 0-100 (default: 5)
 %        the percentile to use in calculating an overall metric value from
 %        the time-varying distribution (note this is the percentile
-%        exceeded, and not the statistical percentile value of the cumulative
-%        distribution function)
+%        exceeded, and not the statistical percentile value of the
+%        cumulative distribution function, which is 100 - pcex)
 % 
 % Returns
 % -------
@@ -62,8 +62,8 @@ function [N, S, F, R] = sqm_tvar(p, fs, pctl)
     arguments (Input)
         p (:, :) double {mustBeReal}
         fs (1, 1) double {mustBePositive, mustBeInteger}
-        pctl (1, :) double {mustBeNonnegative, mustBeInteger,...
-                            mustBeLessThanOrEqual(pctl, 100)} = 5
+        pcex (1, :) double {mustBeNonnegative, mustBeInteger,...
+                            mustBeLessThanOrEqual(pcex, 100)} = 5
     end
 
 
@@ -71,38 +71,38 @@ function [N, S, F, R] = sqm_tvar(p, fs, pctl)
 
 % loudness
 [Nt, specNt, percN] = acousticLoudness(p, fs, TimeVarying=true,...
-                                       Percentiles=pctl);
+                                       Percentiles=pcex);
 
 % sharpness
 St = acousticSharpness(specNt, TimeVarying=true);
-percS = prctile(St, 100 - pctl, 1);
+percS = prctile(St, 100 - pcex, 1);
 
 % roughness
 [Rt, specRt, fModR] = acousticRoughness(p, fs);
-percR = prctile(Rt, 100 - pctl, 1);
+percR = prctile(Rt, 100 - pcex, 1);
 
 % fluctuation strength
 [Ft, specFt, fModF] = acousticFluctuation(specNt);
-percF = prctile(Ft, 100 - pctl, 1);
+percF = prctile(Ft, 100 - pcex, 1);
 
 % compile results into output data structures
 % loudness
 N = struct;
 N.percN = percN;
-N.pctl = pctl;
+N.pctl = pcex;
 N.Nt = Nt;
 N.specNt = specNt;
 
 % sharpness
 S = struct;
 S.percS = percS;
-S.pctl = pctl;
+S.pctl = pcex;
 S.St = St;
 
 % roughness
 R = struct;
 R.percR = percR;
-R.pctl = pctl;
+R.pctl = pcex;
 R.Rt = Rt;
 R.specRt = specRt;
 R.fModR = fModR;
@@ -110,7 +110,7 @@ R.fModR = fModR;
 % fluctuation strength
 F = struct;
 F.percF = percF;
-F.pctl = pctl;
+F.pctl = pcex;
 F.Ft = Ft;
 F.specFt = specFt;
 F.fModF = fModF;

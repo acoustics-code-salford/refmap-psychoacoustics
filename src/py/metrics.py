@@ -9,7 +9,7 @@ Created on Fri Jul 21 16:21:31 2023
 import mosqito
 
 
-def sqm_tvar(x_Pa, fs, pctl=5):
+def sqm_tvar(x_Pa, fs, pcex=5):
     '''
     Return time-varying sound quality metric values for an audio input file.
     

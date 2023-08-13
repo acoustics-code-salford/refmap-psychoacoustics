@@ -1,4 +1,4 @@
-function loud_norm_tvar(ster_type, pctl, iter_lim)
+function loud_norm_tvar(ster_type, pcex, iter_lim)
 % loud_norm_tvar
 % loud_norm_tvar(infilepath, cal_val, cal_type, outfilename)
 %
@@ -19,10 +19,11 @@ function loud_norm_tvar(ster_type, pctl, iter_lim)
 %             (default), indicating which channel is used as the
 %             equalisation target.
 %
-% pctl : integer (optional, 0-100, default = 5)
-%        the percentile value for the total loudness calculation (note this
-%        is the percentile exceeded, and not the statistical percentile
-%        value of the cumulative distribution function)
+% pcex : integer (optional, 0-100, default = 5)
+%        the 'percentile exceeded' value for the total loudness calculation
+%        (note this is the percentile exceeded, and not the statistical
+%        percentile value of the cumulative distribution function, which is
+%        100 - pcex)
 %
 % iter_lim : integer (optional, default = 20)
 %            the iteration limit on the convergence loop (set to avoid
@@ -65,8 +66,8 @@ function loud_norm_tvar(ster_type, pctl, iter_lim)
     arguments (Input)
         ster_type string {mustBeMember(ster_type, {'left', 'right',...
                           'average'})} = 'average'
-        pctl (1, :) double {mustBeNonnegative, mustBeInteger,...
-                            mustBeLessThanOrEqual(pctl, 100)} = 95
+        pcex (1, :) double {mustBeNonnegative, mustBeInteger,...
+                            mustBeLessThanOrEqual(pcex, 100)} = 95
         iter_lim (1, 1) double {mustBePositive, mustBeInteger} = 20
     end
 
@@ -136,7 +137,7 @@ for ii = 1:length(files)
 
     % calculate percentile loudness
     [~, ~, percN] = acousticLoudness(x, fs, TimeVarying=true,...
-                                       Percentiles=pctl);
+                                       Percentiles=pcex);
     
     % iteration loop to calibrate equal loudness
     % get loudness calibration from first input file and resave output
@@ -204,7 +205,7 @@ for ii = 1:length(files)
         while abs(percN - cal_N) > 0.05 && iters <= iter_lim  % iteration condition            
             x = x./(percN/cal_N);  % adjust signal towards target
             [~, ~, percN] = acousticLoudness(x, fs, TimeVarying=true,...
-                                       Percentiles=pctl);  % recalculate loudness
+                                       Percentiles=pcex);  % recalculate loudness
             
             % for stereo signal, reselect normalisation channel
             if ster_sig
