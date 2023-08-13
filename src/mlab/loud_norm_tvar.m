@@ -50,7 +50,7 @@ function loud_norm_tvar(ster_type, pcex, iter_lim)
 % Institution: University of Salford
 %
 % Date created: 24/07/2023
-% Date last modified: 26/07/2023
+% Date last modified: 13/08/2023
 % MATLAB version: 2022b
 %
 % Copyright statement: This file and code is part of work undertaken within
