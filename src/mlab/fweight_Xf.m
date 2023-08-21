@@ -30,7 +30,7 @@ function Xwf = fweight_Xf(f, Xf, w_type, axisn)
 % Institution: University of Salford
 %  
 % Date created: 22/07/2023
-% Date last modified: 22/07/2023
+% Date last modified: 13/08/2023
 % MATLAB version: 2022b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -67,11 +67,13 @@ switch upper(w_type)
         weightdB = transpose(20.*log10(12194^2*f.^4./((f.^2 + 20.6^2)...
                              .*sqrt((f.^2 + 107.7^2).*(f.^2 + 737.9^2))...
                              .*(f.^2 + 12194^2))) + 2);
+        weightdB(f==0) = 0;  % handling for 0-frequency (DC bias)
         weight = 10.^(weightdB./20);
 
     case 'C'
         weightdB = transpose(20.*log10(12194^2*f.^2./((f.^2 + 20.6^2)...
                              .*(f.^2 + 12194^2))) + 0.061904281992313);
+        weightdB(f==0) = 0;  % handling for 0-frequency (DC bias)
         weight = 10.^(weightdB./20);
 end
 
