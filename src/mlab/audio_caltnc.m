@@ -15,11 +15,14 @@ function [x_Pa, fs] = audio_caltnc(filepath, tnc, cal_val, cal_tnc, cal_type)
 % cal_tnc : keyword string (default: 'pre')
 %           specifies whether calibration of the input file should take
 %           place pre- or post-truncation operation
-%           'pre':apply calibration before file truncation
+%           'pre': apply calibration before file truncation
 %           'post': apply calibration to the truncated file
 % cal_type : keyword string (default: 'LAEQ')
 %            specifies the type of calibration for the input file (ie, what
 %            property cal_val represents)
+%           'LAEQ': A-weighted energy time-averaged sound level
+%           'LAE': A-weighted sound exposure level
+%           'LPEAK': unweighted peak sound level
 % 
 % Returns
 % -------

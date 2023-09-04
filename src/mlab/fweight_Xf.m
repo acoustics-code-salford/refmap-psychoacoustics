@@ -67,14 +67,14 @@ switch upper(w_type)
         weightdB = transpose(20.*log10(12194^2*f.^4./((f.^2 + 20.6^2)...
                              .*sqrt((f.^2 + 107.7^2).*(f.^2 + 737.9^2))...
                              .*(f.^2 + 12194^2))) + 2);
-        weightdB(f==0) = 0;  % handling for 0-frequency (DC bias)
         weight = 10.^(weightdB./20);
+        weight(f==0) = 1 - sum(weight(2:end))/sum(ones(size(f(2:end))));  % handling for 0-frequency (DC bias)
 
     case 'C'
         weightdB = transpose(20.*log10(12194^2*f.^2./((f.^2 + 20.6^2)...
                              .*(f.^2 + 12194^2))) + 0.061904281992313);
-        weightdB(f==0) = 0;  % handling for 0-frequency (DC bias)
         weight = 10.^(weightdB./20);
+        weight(f==0) = 1 - sum(weight(2:end))/sum(ones(size(f(2:end))));  % handling for 0-frequency (DC bias)
 end
 
 Xwf = Xf.*weight;
