@@ -4,8 +4,8 @@ function loud_norm_tvar(ster_type, pcex, iter_lim)
 %
 % Saves a set of audio (wav) files calibrated to normalise the total
 % loudness of all files, based on the nominal total time-varying loudness
-% of the first file in the selection, specified as a percentile of the
-% time-varying total loudness (ISO 532-1:2017).
+% of the first file in the selection, specified as the percent exceeded of
+% the time-varying total loudness (ISO 532-1:2017).
 % The normalisation of individual files is arbitrary, since a signal can be 
 % reproduced at any desired calibration gain - the normalisation has 
 % meaning only when multiple files are processed together and the output 
@@ -20,8 +20,8 @@ function loud_norm_tvar(ster_type, pcex, iter_lim)
 %             equalisation target.
 %
 % pcex : integer (optional, 0-100, default = 5)
-%        the 'percentile exceeded' value for the total loudness calculation
-%        (note this is the percentile exceeded, and not the statistical
+%        the 'percent exceeded' value for the total loudness calculation
+%        (note this is the percent exceeded, and not the statistical
 %        percentile value of the cumulative distribution function, which is
 %        100 - pcex)
 %

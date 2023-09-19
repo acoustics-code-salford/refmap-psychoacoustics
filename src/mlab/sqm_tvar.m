@@ -15,8 +15,8 @@ function [N, S, F, R] = sqm_tvar(p, fs, pcex)
 %       the sample frequency of the input signal(s)
 %
 % pcex : double or vector of integers 0-100 (default: 5)
-%        the percentile to use in calculating an overall metric value from
-%        the time-varying distribution (note this is the percentile
+%        the 'percent exceeded' value to use in calculating an overall metric
+%        value from the time-varying distribution (note this is the percent
 %        exceeded, and not the statistical percentile value of the
 %        cumulative distribution function, which is 100 - pcex)
 % 

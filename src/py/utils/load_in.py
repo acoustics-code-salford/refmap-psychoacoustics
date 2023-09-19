@@ -82,7 +82,7 @@ def audio_caltnc(filepath, cal_val, tnc=[0, 0], cal_tnc='pre', cal_type='LAEQ'):
                 xpeak = np.max(np.abs(xt), axis=0)
                 cal_valPa = 2e-5*10**(cal_val/20)
                 xn = xt*(cal_valPa/xpeak)
-        end
+
     else:
         xn = xt
 
