@@ -67,7 +67,7 @@ function [Tt, ft_ton, Ttz, fz_ton, T, Tz] = acousticHMSTonality(p, r_s, axisn, o
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 07/08/2023
-% Date last modified: 18/09/2023
+% Date last modified: 19/09/2023
 % MATLAB version: 2022b
 %
 % Copyright statement: This file and code is part of work undertaken within
