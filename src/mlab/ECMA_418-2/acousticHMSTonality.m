@@ -161,7 +161,7 @@ sampleRate1875 = sampleRate48k/min(hopSize);  % Output sample rate based on hop 
 
 % Number of bands that need averaging. Section 6.2.3 Table 5 ECMA-418-2:2022
 NBandsAvg = [0, 1, 2*ones(1,14), ones(1,9), zeros(1,28);...
-      1, 1, 2*ones(1,14), ones(1,9), zeros(1,28)];
+             1, 1, 2*ones(1,14), ones(1,9), zeros(1,28)];
 
 % Critical band interpolation factors from Section 6.2.6 Table 6 ECMA-418-2:2022
 i_interp = blockSize/min(blockSize);
@@ -316,8 +316,9 @@ for chan = size(pn_om, 2):-1:1
     blockSizeDupe = [8192*ones(1, 5) 4096*ones(1, 17) 2048*ones(1, 11) 1024*ones(1, 28)];
     hopSizeDupe = (1 - overlap)*blockSizeDupe;
     LTQzDupe = [LTQz(1:5), LTQz(2:18), LTQz(16:26), LTQz(26:53)];
+    % (duplicated) indices corresponding with the NB bands around each z band
     i_NBandsAvgDupe = [1, 1, 1, 6:18, 23:31, 34:61;
-                2, 3, 5, 10:22, 25:33, 34:61];  % these are the (duplicated) indices corresponding with the NB bands around each z band
+                       2, 3, 5, 10:22, 25:33, 34:61];
     
     for i_band = 61:-1:1
     
