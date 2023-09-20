@@ -1,8 +1,14 @@
-function [Tt, ft_ton, Ttz, fz_ton, T, Tz] = acousticHMSTonality(p, r_s, axisn, outplot, ecma)
-% [Tt, ft_ton, Ttz, fz_ton, T, Tz] = acousticHMTonality(p, r_s, axisn, outplot)
+function [tonalityTimeVar, tonalityTimeVarFreqs, specificTonality,...
+          specificTonalityFreqs, tonalityTotal, specificTonalityTotal,...
+          bandCentreFreqs]...
+          = acousticHMSTonality(p, sampleRatein, axisn, outplot, ecma)
+% [tonalityTimeVar, tonalityTimeVarFreqs, specificTonality,
+%  specificTonalityFreqs, tonalityTotal, specificTonalityTotal]
+%   = acousticHMTonality(p, sampleRatein, axisn, outplot, ecma)
+%
 % Returns tonality values according to ECMA-418-2:2022 (using the Hearing
-% Model according to Sottek) for an input calibrated single mono or single
-% stereo audio (sound pressure) time-series signal, p.
+% Model of Sottek) for an input calibrated single mono or single stereo
+% audio (sound pressure) time-series signal, p.
 %
 % Inputs
 % ------
@@ -10,8 +16,8 @@ function [Tt, ft_ton, Ttz, fz_ton, T, Tz] = acousticHMSTonality(p, r_s, axisn, o
 %     the input signal as single mono or stereo audio (sound
 %     pressure) signals
 %
-% r_s : integer
-%      the sample rate (frequency) of the input signal(s)
+% sampleRatein : integer
+%                the sample rate (frequency) of the input signal(s)
 %
 % axisn : integer (1 or 2, default: 1)
 %         the time axis along which to calculate the tonality
@@ -27,29 +33,39 @@ function [Tt, ft_ton, Ttz, fz_ton, T, Tz] = acousticHMSTonality(p, r_s, axisn, o
 % 
 % Returns
 % -------
-% Tt : vector or 2D matrix
-%      time-dependent total tonality values for each input signal channel
+% tonalityTimeVar : vector or 2D matrix
+%                   time-dependent total tonality values for each input
+%                   signal channel
 %
-% ft_ton : vector or 2D matrix
-%          time-dependent frequencies of the dominant tonal components
-%          corresponding with the time-dependent total tonality values for
-%          each input signal channel
+% tonalityTimeVarFreqs : vector or 2D matrix
+%                        time-dependent frequencies of the dominant tonal
+%                        components corresponding with the time-dependent
+%                        total tonality values for each input signal
+%                        channel
 %
-% Ttz : vector or 2D matrix
-%       time-dependent specific tonality values in each half-critical band
-%       rate scale width for each input signal channel
+% specificTonality : 2D or 3D matrix
+%                    time-dependent specific tonality values in each
+%                    half-critical band rate scale width for each input
+%                    signal channel
 %
-% ftz_ton : vector or 2D matrix
-%           time-dependent frequencies of the dominant tonal components
-%           corresponding with each of the time-dependent specific tonality
-%           values in each half-critical band rate scale width for each
-%           input signal channel
+% specificTonalityFreqs : 2D or 3D matrix
+%                         time-dependent frequencies of the dominant tonal
+%                         components corresponding with each of the
+%                         time-dependent specific tonality values in each
+%                         half-critical band rate scale width for each
+%                         input signal channel
 %
-% T : number or vector
-%     total tonality value for each channel in the input signal
+% tonalityTotal : number or vector
+%                 total (average) tonality value for each channel in the
+%                 input signal
 % 
-% Tz : vector or 2D matrix
-%      specific tonality values for each input signal channel
+% specificTonalityTotal : vector or 2D matrix
+%                         specific tonality values for each input signal
+%                         channel
+%
+% bandCentreFreqs : vector
+%                   centre frequencies corresponding with the half-bark
+%                   critical band rates
 %
 % Assumptions
 % -----------
@@ -67,7 +83,7 @@ function [Tt, ft_ton, Ttz, fz_ton, T, Tz] = acousticHMSTonality(p, r_s, axisn, o
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 07/08/2023
-% Date last modified: 19/09/2023
+% Date last modified: 20/09/2023
 % MATLAB version: 2022b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -85,7 +101,7 @@ function [Tt, ft_ton, Ttz, fz_ton, T, Tz] = acousticHMSTonality(p, r_s, axisn, o
 %% Arguments validation
     arguments (Input)
         p (:, :) double {mustBeReal}
-        r_s (1, 1) double {mustBePositive, mustBeInteger}
+        sampleRatein (1, 1) double {mustBePositive, mustBeInteger}
         axisn (1, 1) {mustBeInteger, mustBeInRange(axisn, 1, 2)} = 1
         outplot {mustBeNumericOrLogical} = false
         ecma {mustBeNumericOrLogical} = true
@@ -110,20 +126,20 @@ end
 
 %% Define constants
 
-r_sre = 48e3;  % Signal sample rate prescribed to be 48kHz, Section 5.1.1 ECMA-418-2:2022
-df0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2022
-c = 0.1618;  % defined in Section 5.1.4.1 ECMA-418-2:2022
+sampleRate48k = 48e3;  % Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2022
+deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2022
+c = 0.1618;  % Half-bark band centre-frequency demoninator constant defined in Section 5.1.4.1 ECMA-418-2:2022
 
-z = 0.5:0.5:26.5;  % half-critical band rate scale
-Fz = (df0/c)*sinh(c*z);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2022
-dfz = sqrt(df0^2 + (c*Fz).^2);  % Section 5.1.4.1 Equation 10 ECMA-418-2:2022
+halfBark = 0.5:0.5:26.5;  % half-critical band rate scale
+bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2022
+dfz = sqrt(deltaFreq0^2 + (c*bandCentreFreqs).^2);  % Section 5.1.4.1 Equation 10 ECMA-418-2:2022
 
-c_N = 0.0211668;  % Calibration factor from Section 5.1.8 Equation 23 ECMA-418-2:2022
-c_x = 1.0005;  % Adjustment to calibration factors Footnotes 9, 22 & 33 ECMA-418-2:2022
-a = 1.5;  % Constant from Section 5.1.8 Equation 23 ECMA-418-2:2022
+cal_N = 0.0211668;  % Calibration factor from Section 5.1.8 Equation 23 ECMA-418-2:2022
+cal_Nx = 1.0005;  % Adjustment to calibration factor cal_N Footnotes 9, 22 & 33 ECMA-418-2:2022
+a = 1.5;  % Constant (alpha) from Section 5.1.8 Equation 23 ECMA-418-2:2022
 
 % Values from Section 5.1.8 Table 2 ECMA-418-2:2022
-p_t = 2e-5*10.^((15:10:85)/20).';
+p_threshold = 2e-5*10.^((15:10:85)/20).';
 v = [1, 0.6602, 0.0864, 0.6384, 0.0328, 0.4068, 0.2082, 0.3994, 0.6434];
 
 % Loudness threshold in quiet Section 5.1.9 Table 3 ECMA-418-2:2022
@@ -138,17 +154,17 @@ LTQz = [0.3310, 0.1625, 0.1051, 0.0757, 0.0576, 0.0453, 0.0365, 0.0298,...
 % Block and hop sizes Section 6.2.2 Table 4 ECMA-418-2:2022
 overlap = 0.75;  % block overlap proportion
 % block sizes
-sz_b = [8192*ones(1, 3), 4096*ones(1, 13), 2048*ones(1, 9), 1024*ones(1, 28)];
-sz_h = (1 - overlap)*sz_b;  % hop sizes (section 5.1.2 footnote 3 ECMA 418-2:2022)
+blockSize = [8192*ones(1, 3), 4096*ones(1, 13), 2048*ones(1, 9), 1024*ones(1, 28)];
+hopSize = (1 - overlap)*blockSize;  % hop sizes (section 5.1.2 footnote 3 ECMA 418-2:2022)
 
-r_sd = r_sre/min(sz_h);  % Output sample rate based on hop sizes - Resampling to common time basis Section 6.2.6 ECMA-418-2:2022
+sampleRate1875 = sampleRate48k/min(hopSize);  % Output sample rate based on hop sizes - Resampling to common time basis Section 6.2.6 ECMA-418-2:2022
 
 % Number of bands that need averaging. Section 6.2.3 Table 5 ECMA-418-2:2022
-NB = [0, 1, 2*ones(1,14), ones(1,9), zeros(1,28);...
+NBandsAvg = [0, 1, 2*ones(1,14), ones(1,9), zeros(1,28);...
       1, 1, 2*ones(1,14), ones(1,9), zeros(1,28)];
 
 % Critical band interpolation factors from Section 6.2.6 Table 6 ECMA-418-2:2022
-i_interp = sz_b/min(sz_b);
+i_interp = blockSize/min(blockSize);
 
 % Noise reduction constants from Section 6.2.7 Table 7 ECMA-418-2:2022
 alpha = 20;
@@ -163,15 +179,15 @@ dsz_b = [0.36*ones(1, 3), 0.36*ones(1, 13), 0.71*ones(1, 9),...
 % Scaling factor constants from Section 6.2.8 Table 9 ECMA-418-2:2022
 A = 35;
 B = 0.003;
-c_T = 2.8785151;  % calibration factor in Section 6.2.8 Equation 51 ECMA-418-2:2022
+cal_T = 2.8785151;  % calibration factor in Section 6.2.8 Equation 51 ECMA-418-2:2022
 
 %% Signal processing
 
 % Input pre-processing
 % --------------------
-if r_s ~= r_sre  % Resample signal
-    up = r_sre/gcd(r_sre, r_s);  % upsampling factor
-    down = r_s/gcd(r_sre, r_s);  % downsampling factor
+if sampleRatein ~= sampleRate48k  % Resample signal
+    up = sampleRate48k/gcd(sampleRate48k, sampleRatein);  % upsampling factor
+    down = sampleRatein/gcd(sampleRate48k, sampleRatein);  % downsampling factor
     p_re = resample(p, up, down);  % apply resampling
 else  % don't resample
     p_re = p;
@@ -184,11 +200,11 @@ p_rew = [w_fade.*p_re(1:240, :);
          p_re(241:end, :)];
 
 % Zero-padding Section 5.1.2 ECMA-418-2:2022
-n_zeross = max(sz_b);  % start padding
+n_zeross = max(blockSize);  % start zero-padding
 n_samples = size(p_re, 1);
-n_new = max(sz_h)*(ceil((n_samples + max(sz_h) + n_zeross)/max(sz_h)) - 1);
-n_zerose = n_new - n_samples;  % end padding
-% Apply padding
+n_new = max(hopSize)*(ceil((n_samples + max(hopSize) + n_zeross)/max(hopSize)) - 1);
+n_zerose = n_new - n_samples;  % end zero-padding
+% Apply zero-padding
 pn = [zeros(n_zeross, size(p_rew, 2));
       p_rew;
       zeros(n_zerose, size(p_rew, 2))];
@@ -229,7 +245,7 @@ a_2k = [0.938014080620272, 0.835381997160530, 0.783159968178343,...
 
 sos = [b_0k.', b_1k.', b_2k.', a_0k.', a_1k.', a_2k.'];
 
-% Section 5.1.3.2 ECMA-418-2:2022 Outer and middle/inner ear filtering
+% Section 5.1.3.2 ECMA-418-2:2022 Outer and middle/inner ear signal filtering
 pn_om = sosfilt(sos, pn, 1);
 
 % Check channels
@@ -257,14 +273,14 @@ for chan = size(pn_om, 2):-1:1
     k = 5;  % filter order = 5, footnote 5 ECMA-418-2:2022
     e_i = [0, 1, 11, 11, 1];  % filter coefficients for Section 5.1.4.2 Equation 15 ECMA-418-2:2022
     
-    for zz = 53:-1:1
+    for i_band = 53:-1:1
         % Section 5.1.4.1 Equation 8 ECMA-418-2:2022
-        tau = (1/(2^(2*k - 1))).*nchoosek(2*k - 2, k - 1).*(1./dfz(zz));
+        tau = (1/(2^(2*k - 1))).*nchoosek(2*k - 2, k - 1).*(1./dfz(i_band));
         
-        d = exp(-1./(r_sre.*tau)); % Section 5.1.4.1 ECMA-418-2:2022
+        d = exp(-1./(sampleRate48k.*tau)); % Section 5.1.4.1 ECMA-418-2:2022
         
         % Band-pass modifier Section 5.1.4.2 Equation 16/17 ECMA-418-2:2022
-        bp = exp((1i.*2.*pi.*Fz(zz).*(0:k+1))./r_sre);
+        bp = exp((1i.*2.*pi.*bandCentreFreqs(i_band).*(0:k+1))./sampleRate48k);
         
         % Feed-backward coefficients, Section 5.1.4.2 Equation 14 ECMA-418-2:2022
         m = 1:k;
@@ -278,7 +294,7 @@ for chan = size(pn_om, 2):-1:1
         % Recursive filter Section 5.1.4.2 Equation 13 ECMA-418-2:2022
         % Note, the results are complex so 2x the real-valued band-pass signal
         % is required.
-        pn_omz(:, zz) = 2*real(filter(b_m, a_m, pn_om(:, chan)));
+        pn_omz(:, i_band) = 2*real(filter(b_m, a_m, pn_om(:, chan)));
 
     end
     
@@ -286,37 +302,37 @@ for chan = size(pn_om, 2):-1:1
     % -----------------------
     % Section 5.1.6 Equation 16 ECMA-418-2:2020
     pn_romz = pn_omz;
-    pn_romz(pn_romz <= 0) = 0;
+    pn_romz(pn_romz <= 0) = 0;  % filtered rectified signal
 
     % Autocorrelation function analysis
     % ---------------------------------
     % Duplicate Banded Data for ACF
     % Averaging occurs over neighbouring bands, to do this the segmentation
-    % needs to be duplicated for neigbouring bands.  '_temp' has been added
+    % needs to be duplicated for neigbouring bands. 'Dupe' has been added
     % to variables to indicate that the vectors/matrices have been modified
     % for duplicated neigbouring bands.
     
-    pn_romz_temp = [pn_romz(:, 1:5), pn_romz(:, 2:18), pn_romz(:, 16:26), pn_romz(:, 26:53)];
-    sz_b_temp = [8192*ones(1, 5) 4096*ones(1, 17) 2048*ones(1, 11) 1024*ones(1, 28)];
-    sz_h_temp = (1 - overlap)*sz_b_temp;
-    LTQz_temp = [LTQz(1:5), LTQz(2:18), LTQz(16:26), LTQz(26:53)];
-    NBi_temp = [1, 1, 1, 6:18, 23:31, 34:61;
+    pn_romzDupe = [pn_romz(:, 1:5), pn_romz(:, 2:18), pn_romz(:, 16:26), pn_romz(:, 26:53)];
+    blockSizeDupe = [8192*ones(1, 5) 4096*ones(1, 17) 2048*ones(1, 11) 1024*ones(1, 28)];
+    hopSizeDupe = (1 - overlap)*blockSizeDupe;
+    LTQzDupe = [LTQz(1:5), LTQz(2:18), LTQz(16:26), LTQz(26:53)];
+    i_NBandsAvgDupe = [1, 1, 1, 6:18, 23:31, 34:61;
                 2, 3, 5, 10:22, 25:33, 34:61];  % these are the (duplicated) indices corresponding with the NB bands around each z band
     
-    for zz = 61:-1:1
+    for i_band = 61:-1:1
     
-        waitbar(((62 - zz) + step_i)/n_steps, w, strcat("Applying ACF in 61 bands, ",...
-            num2str(zz), ' to go...'));
+        waitbar(((62 - i_band) + step_i)/n_steps, w, strcat("Applying ACF in 61 bands, ",...
+            num2str(i_band), ' to go...'));
         
         % Section 5.1.5 Equation 19 ECMA-418-2:2022
-        i_start = sz_b(1) - sz_b_temp(zz) + 1;
+        i_start = blockSize(1) - blockSizeDupe(i_band) + 1;
 
         % Truncate the signal to start from i_start and to end at an index
         % corresponding with the truncated signal length that will fill an
         % integer number of overlapped blocks
-        pn_romzt = pn_romz_temp(i_start:end, zz);
-        n_blocks = floor((size(pn_romzt, 1) - overlap*sz_b_temp(zz))/(sz_b_temp(zz) - overlap*sz_b_temp(zz)));
-        i_end = n_blocks*sz_b_temp(zz)*(1 - overlap) + overlap*sz_b_temp(zz);
+        pn_romzt = pn_romzDupe(i_start:end, i_band);
+        n_blocks = floor((size(pn_romzt, 1) - overlap*blockSizeDupe(i_band))/(blockSizeDupe(i_band) - overlap*blockSizeDupe(i_band)));
+        i_end = n_blocks*blockSizeDupe(i_band)*(1 - overlap) + overlap*blockSizeDupe(i_band);
         pn_romzt = pn_romzt(1:i_end);
 
         % Arrange the signal into overlapped blocks - each block reads
@@ -325,7 +341,7 @@ for chan = size(pn_om, 2):-1:1
         % matrix and the column shifted copies of this matrix are
         % concatenated. The first 6 columns are then discarded as these all
         % contain zeros from the appended zero columns.
-        pn_lz = [zeros(sz_h_temp(zz), 3), reshape(pn_romzt, sz_h_temp(zz), [])];
+        pn_lz = [zeros(hopSizeDupe(i_band), 3), reshape(pn_romzt, hopSizeDupe(i_band), [])];
 
         pn_lz = cat(1, circshift(pn_lz, 3, 2), circshift(pn_lz, 2, 2),...
                   circshift(pn_lz, 1, 2), circshift(pn_lz, 0, 2));
@@ -335,85 +351,85 @@ for chan = size(pn_om, 2):-1:1
         % Apply ACF
         % ACF implementation using DFT
         % Section 6.2.2 Equations 27 & 28 ECMA-418-2:2022
-        phim_ulz = ifft(abs(fft(pn_lz, 2*sz_b_temp(zz), 1)).^2, 2*sz_b_temp(zz), 1);
+        unscaledACF = ifft(abs(fft(pn_lz, 2*blockSizeDupe(i_band), 1)).^2, 2*blockSizeDupe(i_band), 1);
         % Section 6.2.2 Equation 29 ECMA-418-2:2022
         denom = sqrt(cumsum(pn_lz.^2, 1, 'reverse').*flipud(cumsum(pn_lz.^2))) + 1e-12; 
-        phim_lz = phim_ulz(1:sz_b_temp(zz), :)./denom;  % note that the block length is used here, rather than the 2*s_b, for compatability with the remaining code - beyond 0.75*s_b is assigned (unused) zeros in the next line
-        phim_lz((0.75*sz_b_temp(zz) + 1):sz_b_temp(zz), :) = 0;
+        unbiasedNormACF = unscaledACF(1:blockSizeDupe(i_band), :)./denom;  % note that the block length is used here, rather than the 2*s_b, for compatability with the remaining code - beyond 0.75*s_b is assigned (unused) zeros in the next line
+        unbiasedNormACF((0.75*blockSizeDupe(i_band) + 1):blockSizeDupe(i_band), :) = 0;
 
         % Transformation into Loudness
         % ----------------------------
         % Section 5.1.7 Equation 22 ECMA-418-2:2022
-        plz{zz} = sqrt((2/sz_b_temp(zz))*sum(pn_lz.^2, 1));
+        plz{i_band} = sqrt((2/blockSizeDupe(i_band))*sum(pn_lz.^2, 1));
         % Section 5.1.8 Equations 23 & 24 ECMA-418-2:2022
-        Nz = c_N*c_x*(plz{zz}/20e-6).*prod((1 + (plz{zz}./p_t).^a).^((diff(v)/a)'));
+        bandLoudness = cal_N*cal_Nx*(plz{i_band}/20e-6).*prod((1 + (plz{i_band}./p_threshold).^a).^((diff(v)/a)'));
         % Section 5.1.9 Equation 25 ECMA-418-2:2022
-        Nz_basis_z = Nz - LTQz_temp(zz);
-        Nz_basis_z((Nz-LTQz_temp(zz)) < 0) = 0;
-        Nz_basis{zz} = Nz_basis_z;
+        bandBasisLoudness_z = bandLoudness - LTQzDupe(i_band);  % half-bark critical band basis loudness
+        bandBasisLoudness_z((bandLoudness-LTQzDupe(i_band)) < 0) = 0;
+        bandBasisLoudness{i_band} = bandBasisLoudness_z;
 
         % Section 6.2.2 Equation 30 ECMA-418-2:202
-        phim_lz_temp{zz} = Nz_basis_z.*phim_lz;
+        unbiasedNormACFDupe{i_band} = bandBasisLoudness{i_band}.*unbiasedNormACF;
 
     end
     
     step_i = step_i + 62;  % increment calculation step for waitbar
 
     % Average the ACF over nB bands - Section 6.2.3 ECMA-418-2:2022        
-    for zz = 53:-1:1  % Loop through 53 critical band filtered signals
-        waitbar(((54 - zz) + step_i)/n_steps, w, strcat("Calculating tonality in 53 bands, ",...
-            num2str(zz), " to go..."));
+    for i_band = 53:-1:1  % Loop through 53 critical band filtered signals
+        waitbar(((54 - i_band) + step_i)/n_steps, w, strcat("Calculating tonality in 53 bands, ",...
+            num2str(i_band), " to go..."));
         
-        NBZ = NB(1, zz) + NB(2, zz) + 1; % Total number of bands to average over
+        NBZ = NBandsAvg(1, i_band) + NBandsAvg(2, i_band) + 1; % Total number of bands to average over
         
         % Averaging of frequency bands
-        phim_lz_avg = mean(reshape(cell2mat(phim_lz_temp(NBi_temp(1, zz):NBi_temp(2, zz))), sz_b(zz), [], NBZ), 3);
+        meanScaledACF = mean(reshape(cell2mat(unbiasedNormACFDupe(i_NBandsAvgDupe(1, i_band):i_NBandsAvgDupe(2, i_band))), blockSize(i_band), [], NBZ), 3);
 
         % Average the ACF over adjacent time blocks
-        if zz <= 16 
-            phim_lz_avg = movmean(phim_lz_avg, 3, 2, 'omitnan', 'EndPoints', 'fill');
+        if i_band <= 16 
+            meanScaledACF = movmean(meanScaledACF, 3, 2, 'omitnan', 'EndPoints', 'fill');
         end
         
         % Application of ACF lag window Section 6.2.4 ECMA-418-2:2022
-        tauz_start = max(0.5/dfz(zz), 2e-3);  % Equation 31 ECMA-418-2:2022
-        tauz_end = max(4/dfz(zz), tauz_start + 1e-3);  % Equation 32 ECMA-418-2:2022
+        tauz_start = max(0.5/dfz(i_band), 2e-3);  % Equation 31 ECMA-418-2:2022
+        tauz_end = max(4/dfz(i_band), tauz_start + 1e-3);  % Equation 32 ECMA-418-2:2022
         % Equations 33 & 34 ECMA-418-2:2022
-        mz_start = ceil(tauz_start*r_sre);  % Starting lag window index
-        mz_end = floor(tauz_end*r_sre);  % Ending lag window index
+        mz_start = ceil(tauz_start*sampleRate48k);  % Starting lag window index
+        mz_end = floor(tauz_end*sampleRate48k);  % Ending lag window index
         M = mz_end - mz_start + 1;
         % Equation 35 ECMA-418-2:2022
-        phim_lztau = zeros(size(phim_lz_avg));
-        phim_lztau(mz_start:mz_end, :) = phim_lz_avg(mz_start:mz_end, :) - mean(phim_lz_avg(mz_start:mz_end, :));  % lag-windowed, detrended ACF
+        lagWindowACF = zeros(size(meanScaledACF));
+        lagWindowACF(mz_start:mz_end, :) = meanScaledACF(mz_start:mz_end, :) - mean(meanScaledACF(mz_start:mz_end, :));  % lag-windowed, detrended ACF
         
         % Estimation of tonal loudness
         % ----------------------------
         % Section 6.2.5 Equation 36 ECMA-418-2:2022
-        Phik_lztau = abs(fft(phim_lztau, 2*max(sz_b), 1));  % ACF spectrum in the lag window
-        Phik_lztau(isnan(Phik_lztau)) = 0;
+        magFFTlagWindowACF = abs(fft(lagWindowACF, 2*max(blockSize), 1));  % ACF spectrum in the lag window
+        magFFTlagWindowACF(isnan(magFFTlagWindowACF)) = 0;
     
         % Section 6.2.5 Equation 37 ECMA-418-2:2022
-        Nlz_tonal = phim_lz_avg(1, :);
-        mask = 2*max(Phik_lztau, [], 1)/(M/2) <= phim_lz_avg(1, :);
-        Nlz_tonal(mask) = 2*max(Phik_lztau(:, mask), [], 1)/(M/2);  % first estimation of specific loudness of tonal component in critical band
+        bandTonalLoudness = meanScaledACF(1, :);
+        mask = 2*max(magFFTlagWindowACF, [], 1)/(M/2) <= meanScaledACF(1, :);
+        bandTonalLoudness(mask) = 2*max(magFFTlagWindowACF(:, mask), [], 1)/(M/2);  % first estimation of specific loudness of tonal component in critical band
     
         % Section 6.2.5 Equations 38 & 39 ECMA-418-2:2022
-        [~, kz_max] = max(Phik_lztau, [], 1);
-        fz_ton = kz_max*(r_sre/(2*max(sz_b)));  % frequency of maximum tonal component in critical band
+        [~, kz_max] = max(magFFTlagWindowACF, [], 1);
+        specificTonalityFreqs = kz_max*(sampleRate48k/(2*max(blockSize)));  % frequency of maximum tonal component in critical band
 
         % Section 6.2.7 Equation 41 ECMA-418-2:2022
-        Nlz_signal = phim_lz_avg(1, :);  % specific loudness of complete band-pass signal in critical band
+        bandLoudness = meanScaledACF(1, :);  % specific loudness of complete band-pass signal in critical band
         
         % Resampling to common time basis Section 6.2.6 ECMA-418-2:2022
-        if i_interp(zz) > 1
+        if i_interp(i_band) > 1
             % Note: use of interpolation function avoids rippling caused by
             % resample function, which disrupts specific loudness 
             % calculation for tonal and noise components
-            l_n = size(phim_lz_avg, 2);
+            l_n = size(meanScaledACF, 2);
             x = linspace(1, l_n, l_n);
-            xq = linspace(1, l_n, i_interp(zz)*l_n);
-            Nlz_tonal = interp1(x, Nlz_tonal, xq);
-            Nlz_signal = interp1(x, Nlz_signal, xq);
-            fz_ton = interp1(x, fz_ton, xq);
+            xq = linspace(1, l_n, i_interp(i_band)*l_n);
+            bandTonalLoudness = interp1(x, bandTonalLoudness, xq);
+            bandLoudness = interp1(x, bandLoudness, xq);
+            specificTonalityFreqs = interp1(x, specificTonalityFreqs, xq);
 
         end
 
@@ -426,62 +442,64 @@ for chan = size(pn_om, 2):-1:1
         % to compensate for the start zero-padding, which results in
         % improved time alignment of the processed signals with the input.
         if ecma == true
-            l_end = ceil(n_samples/r_sre*r_sd) + 1;  % Equation 40 ECMA-418-2:2022
+            l_end = ceil(n_samples/sampleRate48k*sampleRate1875) + 1;  % Equation 40 ECMA-418-2:2022
             l_start = 1;  % start block
         else
-            l_end = ceil((n_samples + n_zeross)/r_sre*r_sd) + 1;  % Equation 40 ECMA-418-2:2022 (edited to account for start zero-padding)
-            l_start = floor(n_zeross/r_sre*r_sd) + 1;  % Additional term to remove start zero-padding lag
+            l_end = ceil((n_samples + n_zeross)/sampleRate48k*sampleRate1875) + 1;  % Equation 40 ECMA-418-2:2022 (edited to account for start zero-padding)
+            l_start = floor(n_zeross/sampleRate48k*sampleRate1875) + 1;  % Additional term to remove start zero-padding lag
         end
 
-        Nlz_tonal = Nlz_tonal(l_start:l_end);
-        Nlz_signal = Nlz_signal(l_start:l_end);
-        fz_ton = fz_ton(l_start:l_end);
+        bandTonalLoudness = bandTonalLoudness(l_start:l_end);
+        bandLoudness = bandLoudness(l_start:l_end);
+        specificTonalityFreqs = specificTonalityFreqs(l_start:l_end);
 
         % Noise reduction Section 6.2.7 ECMA-418-2:2020
         % ---------------------------------------------
-        SNRlz1 = Nlz_tonal./((Nlz_signal - Nlz_tonal) + 1e-12);  % Equation 42 ECMA-418-2:2022 signal-noise-ratio first approximation (ratio of tonal component loudness to non-tonal component loudness in critical band)
-        Nlz_tonal = LowPass(Nlz_tonal, r_sd);  % Equation 43 ECMA-418-2:2022 low pass filtered specific loudness of non-tonal component in critical band
-        SNRlz = LowPass(SNRlz1, r_sd);  % Equation 44 ECMA-418-2:2022 lowpass filtered SNR (improved estimation)
-        gz = csz_b(zz)/(Fz(zz)^dsz_b(zz));  % Equation 46 ECMA-418-2:2022
+        SNRlz1 = bandTonalLoudness./((bandLoudness - bandTonalLoudness) + 1e-12);  % Equation 42 ECMA-418-2:2022 signal-noise-ratio first approximation (ratio of tonal component loudness to non-tonal component loudness in critical band)
+        bandTonalLoudness = LowPass(bandTonalLoudness, sampleRate1875);  % Equation 43 ECMA-418-2:2022 low pass filtered specific loudness of non-tonal component in critical band
+        SNRlz = LowPass(SNRlz1, sampleRate1875);  % Equation 44 ECMA-418-2:2022 lowpass filtered SNR (improved estimation)
+        gz = csz_b(i_band)/(bandCentreFreqs(i_band)^dsz_b(i_band));  % Equation 46 ECMA-418-2:2022
         % Equation 45 ECMA-418-2:2022
         crit = exp(-alpha*((SNRlz/gz) - beta));
         nrlz = 1 - crit;  % sigmoidal weighting function
         nrlz(crit >= 1) = 0;
-        Nlz_tonal = nrlz.*Nlz_tonal;  % Equation 47 ECMA-418-2:2022
+        bandTonalLoudness = nrlz.*bandTonalLoudness;  % Equation 47 ECMA-418-2:2022
 
         % Section 6.2.8 Equation 48 ECMA-418-2:2022
-        Nlz_noise = LowPass(Nlz_signal, r_sd) - Nlz_tonal;  % specific loudness of non-tonal component in critical band
+        bandNoiseLoudness = LowPass(bandLoudness, sampleRate1875) - bandTonalLoudness;  % specific loudness of non-tonal component in critical band
     
         % Store critical band results
         % ---------------------------
-        SNRtz(zz, :, chan) = SNRlz1;  % specific time-dependent signal-noise-ratio in each critical band
-        Ntz(zz, :, chan) = Nlz_signal;  % specific time-dependent loudness of signal in each critical band
-        Ntz_ton(zz, :, chan) = Nlz_tonal;  % specific time-dependent loudness of tonal component in each critical band
-        Ntz_noise(zz, :, chan) = Nlz_noise;   % specific time-dependent loudness of non-tonal component in each critical band
-        ftz_ton(zz, :, chan) = fz_ton;  % time-dependent frequency of tonal component in each critical band
+        specificSNR(i_band, :, chan) = SNRlz1;  % specific time-dependent signal-noise-ratio in each critical band
+        specificLoudness(i_band, :, chan) = bandLoudness;  % specific time-dependent loudness of signal in each critical band
+        specificTonalLoudness(i_band, :, chan) = bandTonalLoudness;  % specific time-dependent loudness of tonal component in each critical band
+        specificNoiseLoudness(i_band, :, chan) = bandNoiseLoudness;   % specific time-dependent loudness of non-tonal component in each critical band
+        ftz_ton(i_band, :, chan) = specificTonalityFreqs;  % time-dependent frequency of tonal component in each critical band
         
     end
 
     % Calculation of specific tonality
     % --------------------------------
     % Section 6.2.8 Equation 49 ECMA-418-2:2022
-    SNRl = max(Ntz_ton, [], 1)./(1e-12 + sum(Ntz_noise, 1));  % loudness signal-noise-ratio
+    overallSNR = max(specificTonalLoudness, [], 1)./(1e-12 + sum(specificNoiseLoudness, 1));  % loudness signal-noise-ratio
     
     % Section 6.2.8 Equation 50 ECMA-418-2:2022
-    crit = exp(-A*(SNRl - B));
+    crit = exp(-A*(overallSNR - B));
     ql = 1 - crit;  % sigmoidal scaling factor
     ql(crit >= 1) = 0;
     
     % Section 6.2.8 Equation 51 ECMA-418-2:2022#
-    Ttz = c_T*ql.*Ntz_ton;  % time-dependent specific tonality
+    specificTonality = cal_T*ql.*specificTonalLoudness;  % time-dependent specific tonality
     
     % Calculation of time-averaged specific tonality Section 6.2.9 ECMA-418-2:2022
-    for zz = 53:-1:1
-        mask = Ttz(zz, :, chan) > 0.02;  % criterion Section 6.2.9 point 2
+    for i_band = 53:-1:1
+        mask = specificTonality(i_band, :, chan) > 0.02;  % criterion Section 6.2.9 point 2
         mask(1:57) = 0;  % criterion Section 6.2.9 point 1
         % Section 6.2.9 Equation 53 ECMA-418-2:2022
-        Tz(zz, 1, chan) = sum(Ttz(zz, mask, chan), 2)./(nnz(mask) + 1e-12);
-        fz_ton(zz, 1, chan) = sum(ftz_ton(zz, mask, chan), 2)./(nnz(mask) + 1e-12);
+        specificTonalityTotal(i_band, 1, chan)...
+            = sum(specificTonality(i_band, mask, chan), 2)./(nnz(mask) + 1e-12);
+        specificTonalityFreqs(i_band, 1, chan)...
+            = sum(ftz_ton(i_band, mask, chan), 2)./(nnz(mask) + 1e-12);
     end
 
     % Calculation of total (non-specific) tonality Section 6.2.10
@@ -490,20 +508,25 @@ for chan = size(pn_om, 2):-1:1
     % total tonality - not yet incorporated
 
     % Section 6.2.8 Equation 52 ECMA-418-2:2022
-    t = (0:(size(Ttz, 2) - 1))/r_sd;  % time (s) corresponding with results output
+    % time (s) corresponding with results output
+    t = (0:(size(specificTonality, 2) - 1))/sampleRate1875;
 
     % Section 6.2.10 Equation 61 ECMA-418-2:2022
-    [Tt(:, chan), zmax] = max(Ttz(:, :, chan), [], 1);  % Time-dependent total tonality
+    % Time-dependent total tonality
+    [tonalityTimeVar(:, chan), zmax] = max(specificTonality(:, :, chan),...
+                                           [], 1);
     for ll = size(ftz_ton, 2):-1:1
-        ft_ton(1, ll, chan) = ftz_ton(zmax(ll), ll);
+        tonalityTimeVarFreqs(1, ll, chan) = ftz_ton(zmax(ll), ll);
     end
     
     % Calculation of representative values Section 6.2.11 ECMA-418-2:2022
     % Time-averaged total tonality
-    mask = Tt(:, chan) > 0.02;  % criterion Section 6.2.9 point 2
+    mask = tonalityTimeVar(:, chan) > 0.02;  % criterion Section 6.2.9 point 2
     mask(1:57) = 0;    % criterion Section 6.2.9 point 1
+
     % Section 6.2.11 Equation 63 ECMA-418-2:2022
-    T(chan) = sum(Tt(mask, chan))/nnz(mask);  % Time-averaged total tonality (note: epsilon is not applied here, according to the standard)
+    % Time-averaged total tonality (note: epsilon is not applied here, according to the standard)
+    tonalityTotal(chan) = sum(tonalityTimeVar(mask, chan))/nnz(mask);
     
     close(w)  % close waitbar
 
@@ -516,13 +539,15 @@ for chan = size(pn_om, 2):-1:1
         tile = tiledlayout(fig, 2, 1);
         movegui(fig, 'center');
         ax1 = nexttile(1);
-        surf(ax1, t, Fz, Ttz(:, :, chan), 'EdgeColor', 'none', 'FaceColor', 'interp');
+        surf(ax1, t, bandCentreFreqs, specificTonality(:, :, chan),...
+             'EdgeColor', 'none', 'FaceColor', 'interp');
         view(2);
         ax1.XLim = [t(1), t(end) + (t(2) - t(1))];
-        ax1.YLim = [Fz(1), Fz(end)];
-        ax1.CLim = [0, ceil(max(Tt(:, chan))*10)/10];
+        ax1.YLim = [bandCentreFreqs(1), bandCentreFreqs(end)];
+        ax1.CLim = [0, ceil(max(tonalityTimeVar(:, chan))*10)/10];
         ax1.YTick = [63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3]; 
-        ax1.YTickLabel = ["63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]; 
+        ax1.YTickLabel = ["63", "125", "250", "500", "1k", "2k", "4k",...
+                          "8k", "16k"]; 
         ax1.YScale = 'log';
         ax1.YLabel.String = 'Frequency, Hz';
         ax1.XLabel.String = 'Time, s';
@@ -530,24 +555,26 @@ for chan = size(pn_om, 2):-1:1
         ax1.FontSize = 12;
         
         
-        weightFilt = weightingFilter('A-weighting', r_sre);
+        weightFilt = weightingFilter('A-weighting', sampleRate48k);
         pA = weightFilt(p_re(:, chan));
         LA = 20*log10(rms(pA)/2e-5);
-        axtitle = title(strcat(chan_lab, ' signal sound pressure level =', {' '}, num2str(round(LA,1)), "dB {\itL}_{Aeq}"),...
-              'FontWeight', 'normal', 'FontName', 'Arial');
+        axtitle = title(strcat(chan_lab,...
+                        ' signal sound pressure level =', {' '},...
+                        num2str(round(LA,1)), "dB {\itL}_{Aeq}"),...
+                        'FontWeight', 'normal', 'FontName', 'Arial');
         colormap(turbo);
         h = colorbar;
         set(get(h,'label'),'string','Specific Tonality, Tu_{HMS}');
         
         ax2 = nexttile(2);
-        plot(ax2, t, Tt(:, chan), 'r', 'LineWidth', 1);
+        plot(ax2, t, tonalityTimeVar(:, chan), 'r', 'LineWidth', 1);
         ax2.XLim = [t(1), t(end) + (t(2) - t(1))];
-        ax2.YLim = [0, ceil(max(Tt(:, chan))*10)/10];
+        ax2.YLim = [0, ceil(max(tonalityTimeVar(:, chan))*10)/10];
         ax2.XLabel.String = 'Time, s';
         ax2.YLabel.String = 'Tonality, Tu_{HMS}';
         ax2.XGrid = 'on';
         ax2.YGrid = 'on';
-        ax2.FontName =  'Arial';
+        ax2.FontName = 'Arial';
         ax2.FontSize = 12;
     end
 
