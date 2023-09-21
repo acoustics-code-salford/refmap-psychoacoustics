@@ -5,7 +5,7 @@ function [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs,...
 % [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs, specificTonality,
 %  specificTonalityFreqs, specificTonalityAvg, specificTonalityAvgFreqs,
 %  bandCentreFreqs]
-%  = acousticHMTonality(p, sampleRatein, axisn, outplot, ecma)
+%  = acousticHMSTonality(p, sampleRatein, axisn, outplot, ecma)
 %
 % Returns tonality values and frequencies according to ECMA-418-2:2022
 % (using the Hearing Model of Sottek) for an input calibrated single mono
@@ -86,7 +86,7 @@ function [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs,...
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 07/08/2023
-% Date last modified: 20/09/2023
+% Date last modified: 21/09/2023
 % MATLAB version: 2022b
 %
 % Copyright statement: This file and code is part of work undertaken within
