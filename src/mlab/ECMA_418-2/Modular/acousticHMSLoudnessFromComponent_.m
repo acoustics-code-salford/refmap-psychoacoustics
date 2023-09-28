@@ -182,8 +182,7 @@ for chan = outchans:-1:1
     % Plot figures
     % ------------
     if outplot
-        addpath("refmap-psychoacoustics\src\mlab\PU_Colormaps\")
-        viridis_cmap = load('viridis_cmap.txt');
+        cmap_viridis = load('cmap_viridis.txt');
         % Plot results
         if inchans > 1 && binaural
             chan_lab = "Binaural";
@@ -208,7 +207,7 @@ for chan = outchans:-1:1
         ax1.XLabel.String = 'Time, s';
         ax1.FontName =  'Arial';
         ax1.FontSize = 12;
-        colormap(viridis_cmap);
+        colormap(cmap_viridis);
         h = colorbar;
         set(get(h,'label'),'string', {'Specific Loudness,'; 'sone_{HMS}/Bark_{HMS}'});        
         

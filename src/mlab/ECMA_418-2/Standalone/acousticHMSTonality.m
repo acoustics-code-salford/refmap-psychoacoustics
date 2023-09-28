@@ -565,7 +565,7 @@ for chan = size(pn_om, 2):-1:1
     % Plot figures
     % ------------
     if outplot
-        inferno_cmap = load('inferno_cmap.txt');
+        cmap_plasma = load('cmap_plasma.txt');
         % Plot results
         chan_lab = chans(chan);
         fig = figure;
@@ -586,7 +586,7 @@ for chan = size(pn_om, 2):-1:1
         ax1.XLabel.String = "Time, s";
         ax1.FontName =  'Arial';
         ax1.FontSize = 12;
-        colormap(inferno_cmap);
+        colormap(cmap_plasma);
         h = colorbar;
         set(get(h,'label'),'string',{'Specific Tonality,'; 'tu_{HMS}/bark_{HMS}'});
 

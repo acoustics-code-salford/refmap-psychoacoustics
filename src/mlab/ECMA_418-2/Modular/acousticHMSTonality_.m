@@ -457,8 +457,7 @@ for chan = size(pn_om, 2):-1:1
     % Plot figures
     % ------------
     if outplot
-        addpath("refmap-psychoacoustics\src\mlab\PU_Colormaps\")
-        inferno_cmap = load('inferno_cmap.txt');
+        cmap_plasma = load('cmap_plasma.txt');
         % Plot results
         chan_lab = chans(chan);
         fig = figure;
@@ -479,7 +478,7 @@ for chan = size(pn_om, 2):-1:1
         ax1.XLabel.String = "Time, s";
         ax1.FontName =  'Arial';
         ax1.FontSize = 12;
-        colormap(inferno_cmap);
+        colormap(cmap_plasma);
         h = colorbar;
         set(get(h,'label'),'string', {'Specific Tonality,'; 'tu_{HMS}/Bark_{HMS}'});
 
@@ -494,7 +493,7 @@ for chan = size(pn_om, 2):-1:1
                      'FontWeight', 'normal', 'FontName', 'Arial');
         
         ax2 = nexttile(2);
-        plot(ax2, t, tonalityTimeVar(:, chan), 'r', 'LineWidth', 1);
+        plot(ax2, t, tonalityTimeVar(:, chan), 'm', 'LineWidth', 1);
         ax2.XLim = [t(1), t(end) + (t(2) - t(1))];
         ax2.YLim = [0, ceil(max(tonalityTimeVar(:, chan))*10)/10];
         ax2.XLabel.String = "Time, s";
