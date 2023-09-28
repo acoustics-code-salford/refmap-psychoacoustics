@@ -8,8 +8,8 @@ function [N, S, F, R] = sqm_tvar(p, fs, pcex)
 % 
 % Inputs
 % ------
-% p : vector or 2D matrix of single mono or single stereo audio (sound
-% pressure) signals
+% p : vector or 2D matrix of single mono or single stereo audio signals 
+%     calibrated to sound pressure in Pascals (Pa)
 %
 % fs : integer
 %       the sample frequency of the input signal(s)
@@ -70,7 +70,7 @@ function [N, S, F, R] = sqm_tvar(p, fs, pcex)
 %% Signal processing
 
 % loudness
-[Nt, specNt, percN] = acousticLoudness(p, fs, TimeVarying=true,...
+[Nt, specNt, percN] = acousticLoudness(p, fs, 1, TimeVarying=true,...
                                        Percentiles=pcex);
 
 % sharpness
@@ -78,7 +78,7 @@ St = acousticSharpness(specNt, TimeVarying=true);
 percS = prctile(St, 100 - pcex, 1);
 
 % roughness
-[Rt, specRt, fModR] = acousticRoughness(p, fs);
+[Rt, specRt, fModR] = acousticRoughness(p, fs, 1);
 percR = prctile(Rt, 100 - pcex, 1);
 
 % fluctuation strength

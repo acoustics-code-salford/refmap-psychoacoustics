@@ -136,8 +136,8 @@ for ii = 1:length(files)
     end
 
     % calculate percentile loudness
-    [~, ~, percN] = acousticLoudness(x, fs, TimeVarying=true,...
-                                       Percentiles=pcex);
+    [~, ~, percN] = acousticLoudness(x, fs, 1, TimeVarying=true,...
+                                     Percentiles=pcex);
     
     % iteration loop to calibrate equal loudness
     % get loudness calibration from first input file and resave output
