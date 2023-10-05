@@ -238,9 +238,9 @@ for chan = outchans:-1:1
                      'FontWeight', 'normal', 'FontName', 'Arial');
 
         ax2 = nexttile(2);
-        plot(ax2, t, loudnessTimeVar(:, chan), 'color', [0.1, 1.0, 0.4], 'LineWidth', 1);
+        plot(ax2, t, loudnessTimeVar(:, chan), 'color', [0.1, 0.9, 0.6], 'LineWidth', 1);
         ax2.XLim = [t(1), t(end) + (t(2) - t(1))];
-        %ax2.YLim = [0, ceil(max(loudnessTimeVar(1, :, chan))*10)/10];
+        ax2.YLim = [0, 1.01*ceil(max(loudnessTimeVar(:, chan))*10)/10];
         ax2.XLabel.String = 'Time, s';
         ax2.YLabel.String = 'Loudness, sone_{HMS}';
         ax2.XGrid = 'on';
