@@ -2,5 +2,10 @@
 # refmap-psychoacoustics
 REFMAP project task 4.3: Psychoacoustics of sound from unmanned aircraft systems (UAS) / unmanned aerial vehicles (UAVs), and urban air mobility (UAM)
 
+# Ownership and licensing
+This repository is maintained by [mlotinga](https://github.com/mlotinga)
+
+The code is licensed for open-access use as defined in [the licensing page](https://github.com/acoustics-code-salford/refmap-psychoacoustics/blob/main/LICENSE)
+
 # Disclaimer
 This repository contains 'work in progress' code for a research project. It is not a completed code library, and is not currently intended for wider use outside the project.
