@@ -76,8 +76,8 @@ function [loudnessPowAvg, loudnessTimeVar, specificLoudness,...
 % Institution: University of Salford
 %
 % Date created: 22/08/2023
-% Date last modified: 27/09/2023
-% MATLAB version: 2022b
+% Date last modified: 19/10/2023
+% MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
 % the RefMap project (www.refmap.eu), and is subject to licence as detailed
@@ -97,7 +97,7 @@ function [loudnessPowAvg, loudnessTimeVar, specificLoudness,...
     end
 
 %% Load path
-addpath(genpath("refmap-psychoacoustics\src\mlab\"))
+addpath(genpath(fullfile("refmap-psychoacoustics", "src", "mlab")))
 
 %% Input checks
 % Check the size of the input matrices (must match)

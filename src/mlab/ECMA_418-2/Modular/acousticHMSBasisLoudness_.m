@@ -47,7 +47,7 @@ function [signalRectSeg, basisLoudness, blockRMS]...
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 27/09/2023
-% Date last modified: 13/10/2023
+% Date last modified: 19/10/2023
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within

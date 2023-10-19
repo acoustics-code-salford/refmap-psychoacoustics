@@ -45,8 +45,8 @@ function signalSegmented = signalSegment_(signal, axisn, blockSize, overlap, i_s
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 27/09/2023
-% Date last modified: 27/09/2023
-% MATLAB version: 2022b
+% Date last modified: 19/10/2023
+% MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
 % the RefMap project (www.refmap.eu), and is subject to licence as detailed
@@ -101,9 +101,9 @@ hopSize = (1 - overlap)*blockSize;
 % integer number of overlapped blocks
 signalTrunc = signal(i_start:end, :);
 n_blocks = floor((size(signalTrunc, 1)...
-                 - overlap*blockSize)/(blockSize - overlap*blockSize));
-i_end = n_blocks*blockSize*(1 - overlap) + overlap*blockSize;
-signalTrunc = signalTrunc(1:i_end);
+                 - overlap*blockSize)/hopSize);
+i_end = n_blocks*hopSize + overlap*blockSize;
+signalTrunc = signalTrunc(1:i_end, :);
 
 %% Signal segmentation
 
@@ -116,15 +116,14 @@ signalTrunc = signalTrunc(1:i_end);
 
 for chan = nchans:-1:1
     signalSegmentedChan = [zeros(hopSize, 3),...
-                                   reshape(signalTrunc, hopSize,...
-                                   [])];
+                           reshape(signalTrunc, hopSize, [])];
     
     signalSegmentedChan = cat(1, circshift(signalSegmentedChan, 3, 2),...
-                                      circshift(signalSegmentedChan, 2, 2),...
-                                      circshift(signalSegmentedChan, 1, 2),...
-                                      circshift(signalSegmentedChan, 0, 2));
+                              circshift(signalSegmentedChan, 2, 2),...
+                              circshift(signalSegmentedChan, 1, 2),...
+                              circshift(signalSegmentedChan, 0, 2));
     
-    signalSegmentedChan = signalSegmentedChan(:, 7:end, chan);
+    signalSegmentedChan = signalSegmentedChan(:, 7:end);
 
     signalSegmented(:, :, chan) = signalSegmentedChan;
 end
