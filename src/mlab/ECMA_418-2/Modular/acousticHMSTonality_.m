@@ -98,8 +98,8 @@ function [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs,...
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 07/08/2023
-% Date last modified: 27/09/2023
-% MATLAB version: 2022b
+% Date last modified: 19/10/2023
+% MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
 % the RefMap project (www.refmap.eu), and is subject to licence as detailed
@@ -123,7 +123,7 @@ function [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs,...
     end
 
 %% Load path
-addpath(genpath("refmap-psychoacoustics\src\mlab\"))
+addpath(genpath(fullfile("refmap-psychoacoustics", "src", "mlab")))
 
 %% Input checks
 % Orient input matrix
@@ -262,7 +262,7 @@ for chan = size(pn_om, 2):-1:1
         % ----------------------------
         % Sections 5.1.6 to 5.1.9 ECMA-418-2:2022
         [pn_rlz, bandBasisLoudness, ~]...
-            = acousticHMSBandBasisLoudness_(pn_lz, bandCentreFreqsDupe(zBand));
+            = acousticHMSBasisLoudness_(pn_lz, bandCentreFreqsDupe(zBand));
         basisLoudness{zBand} = bandBasisLoudness;
 
         % Apply ACF
@@ -358,10 +358,10 @@ for chan = size(pn_om, 2):-1:1
         % to compensate for the start zero-padding, which results in
         % improved time alignment of the processed signals with the input.
         if ecma == true
-            l_end = ceil(size(p, 1)/sampleRate48k*sampleRate1875) + 1;  % Equation 40 ECMA-418-2:2022
+            l_end = ceil(size(p_re, 1)/sampleRate48k*sampleRate1875) + 1;  % Equation 40 ECMA-418-2:2022
             l_start = 1;  % start block
         else
-            l_end = ceil((size(p, 1) + max(blockSize))/sampleRate48k*sampleRate1875) + 1;  % Equation 40 ECMA-418-2:2022 (edited to account for start zero-padding)
+            l_end = ceil((size(p_re, 1) + max(blockSize))/sampleRate48k*sampleRate1875) + 1;  % Equation 40 ECMA-418-2:2022 (edited to account for start zero-padding)
             l_start = floor(max(blockSize)/sampleRate48k*sampleRate1875) + 1;  % Additional term to remove start zero-padding lag
         end
 
