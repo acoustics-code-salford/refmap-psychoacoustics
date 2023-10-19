@@ -37,8 +37,8 @@ function signalFiltered  = acousticHMSOutMidEarFilter_(signal, outplot)
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 26/09/2023
-% Date last modified: 27/09/2023
-% MATLAB version: 2022b
+% Date last modified: 19/10/2023
+% MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
 % the RefMap project (www.refmap.eu), and is subject to licence as detailed
@@ -54,7 +54,7 @@ function signalFiltered  = acousticHMSOutMidEarFilter_(signal, outplot)
 %
 %% Arguments validation
     arguments (Input)
-        signal (:, 1) double {mustBeReal}
+        signal (:, :) double {mustBeReal}
         outplot {mustBeNumericOrLogical} = false
     end
 
