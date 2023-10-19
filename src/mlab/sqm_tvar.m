@@ -46,8 +46,8 @@ function [N, S, F, R] = sqm_tvar(p, fs, pcex)
 % Institution: University of Salford
 %  
 % Date created: 18/07/2023
-% Date last modified: 13/08/2023
-% MATLAB version: 2022b
+% Date last modified: 19/10/2023
+% MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
 % the RefMap project (www.refmap.eu), and is subject to licence as detailed
