@@ -173,6 +173,36 @@ downSample = 32;  % downsampling factor
 sampleRate1500 = sampleRate48k/downSample;
 blockSize1500 = blockSize/downSample;
 hopSize1500 = (1 - overlap)*blockSize1500;
+resDFT1500 = sampleRate1500/blockSize1500;  % DFT resolution (section 7.1.5.1)
+
+% Modulation rate error correction values Table 8, Section 7.1.5.1 ECMA-418-2:2022
+errorCorrection = [0.0000, 0.0457, 0.0907, 0.1346, 0.1765, 0.2157, 0.2515,...
+                   0.2828, 0.3084, 0.3269, 0.3364, 0.3348, 0.3188, 0.2844,...
+                   0.2259, 0.1351, 0.0000];
+errorCorrection = [errorCorrection, flip(-errorCorrection(1:end-1)), 0];
+
+% High modulation rate roughness perceptual scaling function
+% (section 7.1.5.2 ECMA-418-2:2022)
+% Table 11 ECMA-418-2:2022
+roughScaleParams = [0.3560, 0.8024;
+                     0.8049, 0.9333];
+roughScaleParams = [roughScaleParams(:, 1).*ones([2, sum(bandCentreFreqs < 1e3)]),...
+                     roughScaleParams(:, 2).*ones([2, sum(bandCentreFreqs >= 1e3)])];
+% Equation 84 ECMA-418-2:2022
+roughScale = 1./(1 + roughScaleParams(1, :).*abs(log2(bandCentreFreqs/1000)).^roughScaleParams(2, :));
+roughScale = reshape(roughScale, [1, 1, 53]);  % Note: this is to ease parallelised calculations
+
+% High modulation rate roughness perceptual weighting function parameters
+% (section 7.1.5.2 ECMA-418-2:2022)
+% Equation 86 ECMA-418-2:2022
+modfreqMaxWeight = 72.6937*(1 - 1.1739*exp(-5.4583*bandCentreFreqs/1000));
+modfreqMaxWeight = reshape(modfreqMaxWeight, [1, 1, 53]);  % Note: this is to ease parallelised calculations
+% Equation 87 ECMA-418-2:2022
+roughWeightParams = [1.2822*ones(size(bandCentreFreqs));...
+     0.2471*ones(size(bandCentreFreqs))];
+mask = bandCentreFreqs/1000 >= 2^-3.4253;
+roughWeightParams(2, mask) = 0.2471 + 0.0129.*(log2(bandCentreFreqs(mask)/1000) + 3.4253).^2;
+roughWeightParams = reshape(roughWeightParams, [2, 1, 53]);  % Note: this is to ease parallelised calculations
 
 % Output sample rate (section 7.1.7 ECMA-418-2:2022)
 sampleRate50 = 50;
@@ -213,28 +243,36 @@ for chan = size(pn_om, 2):-1:1
     % Section 5.1.4.2 ECMA-418-2:2022
     pn_omz = acousticHMSAuditoryFiltBank_(pn_om(:, chan), false);
 
-    % Segmentation into blocks
-    % ------------------------
-    waitbar(i_step/n_steps, w, 'Segmenting filtered bands...');
-    i_step = i_step + 53;
-    % Section 5.1.5 ECMA-418-2:2022
-    i_start = 1;
-    pn_lz = signalSegment_(pn_omz, 1, blockSize, overlap, i_start);
+    % Note: At this stage, typical computer RAM limits impose a need to loop
+    % through the critical bands rather than continue with a parallelised
+    % approach, until later downsampling is applied
+    for zBand = 53:-1:1
 
-    % Transformation into Loudness
-    % ----------------------------
-    waitbar(i_step/n_steps, w, 'Transforming into loudness...');
-    i_step = i_step + 53;
-    % Sections 5.1.6 to 5.1.9 ECMA-418-2:2022
-    [pn_rlz, basisLoudness, ~] = acousticHMSBandBasisLoudness_(pn_lz, []);
+        % Segmentation into blocks
+        % ------------------------
+        waitbar(i_step/n_steps, w, "Calculating signal envelopes in 53 bands, ",...
+                       num2str(zBand), " to go...");...
+        i_step = i_step + 1;
+        % Section 5.1.5 ECMA-418-2:2022
+        i_start = 1;
+        pn_lz = signalSegment_(pn_omz(:, zBand), 1, blockSize, overlap, i_start);
+    
+        % Transformation into Loudness
+        % ----------------------------
+        i_step = i_step + 1;
+        % Sections 5.1.6 to 5.1.9 ECMA-418-2:2022
+        [pn_rlz, basisLoudness, ~] = acousticHMSBasisLoudness_(pn_lz, bandCentreFreqs(zBand));
+    
+        % Envelope power spectral analysis
+        % --------------------------------
+        i_step = i_step + 1;
+        % Sections 7.1.2 to 7.1.3 ECMA-418-2:2022
+        % magnitude of Hilbert transform with downsample - Equation 65
+        pn_Elz(:, :, zBand) = resample(abs(hilbert(pn_rlz)), 1, downSample);
 
-    % Envelope power spectral analysis
-    % --------------------------------
-    waitbar(i_step/n_steps, w, 'Calculating band envelopes...');
-    i_step = i_step + 53;
-    % Sections 7.1.2 to 7.1.3 ECMA-418-2:2022
-    % magnitude of Hilbert transform with downsample - Equation 65
-    pn_Elz = resample(abs(hilbert(pn_rlz)), 1, downSample);
+    end  % end of for loop for obtaining low frequency signal envelopes
+
+    % Note: With downsampled envelope signals, parallelised approach can continue
 
     % Equation 66 ECMA-418-2:2022
     scaledPowerSpectra = zeros(size(pn_Elz));
@@ -264,15 +302,122 @@ for chan = size(pn_om, 2):-1:1
     mask = clipWeight >= 0.05*max(clipWeight, [], 1);
     weightingFactor(mask) = min(max(clipWeight(mask) - 0.1407, 0), 1);
 
+    % Calculate noise-reduced, scaled, weighted modulation power spectra
     noiseWeightPwrSpectra = avgScaledPwrSpectra.*weightingFactor; % Equation 69
 
     % Spectral weighting
     % ------------------
     % Section 7.1.5 ECMA-418-2:2022
+    n_blocks = size(noiseWeightPwrSpectra, 2);
+    for zBand = 53:-1:1
+        % Section 7.1.5.1 ECMA-418-2:2022
+        for ll = n_blocks:-1:1
+            % assign NaN arrays for spectral maxima amplitudes and
+            % modulation rates in each block
+            ampMaximaBlock = NaN(10, 1);
+            modRateBlock = NaN(10, 1);
+            % identify peaks in each block (for each band)
+            [pks, locs, ~, proms] = findpeaks(noiseWeightPwrSpectra(3:256, ll, zBand));
+            % reindex locs to match spectral index
+            locs = locs + 2;
+            % consider 10 highest prominence peaks only
+            if length(proms) > 10
+                promsSorted = sort(proms, 'descend');
+                mask = proms >= promsSorted(10);
+                pks = pks(mask);
+                locs = locs(mask);
+            end  % end of if branch to select 10 highest prominence peaks
+            % consider peaks meeting criterion
+            if ~isempty(pks)
+                mask = pks > 0.05*max(pks);  % Equation 72 criterion
+                pks = pks(mask);
+                locs = locs(mask);
+                % loop over peaks to obtain modulation rates
+                for ii = length(pks):-1:1
+                    % Equation 74 ECMA-418-2:2022
+                    Phi_Elz = [noiseWeightPwrSpectra(locs(ii) - 1, ll, zBand);
+                               noiseWeightPwrSpectra(locs(ii), ll, zBand);
+                               noiseWeightPwrSpectra(locs(ii) + 1, ll, zBand)];
+                    
+                    ampMaximaBlock(ii) = sum(Phi_Elz);
+
+                    % Equation 75 ECMA-418-2:2022
+                    modIndex = [(locs(ii) - 1)^2, locs(ii) - 1, 1;
+                                locs(ii)^2,       locs(ii),     1;
+                                (locs(ii) + 1)^2, locs(ii) + 1, 1];
+
+                    coeffVec = modIndex\Phi_Elz;  % Equation 73 solution
+
+                    % Equation 76 ECMA-418-2:2022
+                    modRateEst = -coeffVec(2)/(2*coeffVec(1))*resDFT1500;
+
+                    theta = 0:1:33;
+                    % Equation 79 ECMA-418-2:2022
+                    errorBeta = (floor(modRateEst/resDFT1500) + theta/32)*resDFT1500...
+                                - (modRateEst + errorCorrection(1:end));
+
+                    [~, i_minError] = min(abs(errorBeta));
+                    thetaMinError = theta(i_minError);
+
+                    % Equation 81 ECMA-418-2:2022
+                    if  thetaMinError > 0 && (floor(modRateEst/resDFT1500) + thetaMinError/32)*resDFT1500...
+                                - (modRateEst + errorCorrection(i_minError)) < 0
+                        thetaCorr = thetaMinError;
+                    else
+                        thetaCorr = thetaMinError + 1;
+                    end  % end of if branch
+
+                    % reindex for MATLAB indexing
+                    i_theta = thetaCorr + 1;
+
+                    % Equation 78 ECMA-418-2:2022
+                    biasAdjust = errorCorrection(i_theta)...
+                                 - (errorCorrection(i_theta)...
+                                    - errorCorrection(thetaCorr))...
+                                    *(errorBeta(thetaCorr)/(errorBeta(i_theta) - errorBeta(thetaCorr)));
+
+                    % Equation 77 ECMA-418-2:2022
+                    modRateBlock(ii) = modRateEst + biasAdjust;
+
+                end  % end of for loop over peaks in block per band
+            end  % end of if branch for detected peaks in modulation spectrum
+
+            % collect modulation peak amplitudes and frequencies for all
+            % blocks in each band
+            ampMaximaBand(:, ll) = ampMaximaBlock;
+            modRateBand(:, ll) = modRateBlock;
+
+        end  % end of for loop over blocks for peak detection
+        
+        % collect modulation peak amplitudes and frequencies for all bands
+        ampMaxima(:, :, zBand) = ampMaximaBand;
+        modRate(:, :, zBand) = modRateBand;
+        
+    end  % end of for loop over bands for modulation spectral weighting
+
+    % Section 7.1.5.2 ECMA-418-2:2022 - Weighting for high modulation rates
+    % Equation 85
+    roughWeight = 1./...
+                    (1 +...
+                     ((modRate./modfreqMaxWeight...
+                       - modfreqMaxWeight./modRate)...
+                      .*roughWeightParams(1, :, :)).^2).^roughWeightParams(2, :, :);
+    % Equation 83
+    ampMaxWeight = ampMaxima.*roughScale;
+    mask = modRate >= modfreqMaxWeight;
+    ampMaxWeight(mask) = ampMaxWeight(mask).*roughWeight(mask);
+
+    % Section 7.1.5.3 ECMA-418-2:2022 - Estimation of fundamental modulation rate
+    for zBand = 53:-1:1
+        for ii = 10:-1:1
+            modRateRatio(:, :, ii) = round(modRateBand./circshift(modRateBand, ii, 1));
+        end
+        modRateRatio = round()
+    end
+    
+              
     
 
-    for zBand = 53:-1:1
-    
         waitbar(((233 - zBand) + i_step)/n_steps, w,...
                 strcat("Envelope noise reduction in 53 bands, ",...
                 num2str(zBand), ' to go...'));
