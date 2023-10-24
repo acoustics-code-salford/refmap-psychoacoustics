@@ -412,7 +412,7 @@ for chan = size(pn_om, 2):-1:1
         for ii = 10:-1:1
             modRateRatio(:, :, ii) = round(modRateBand./circshift(modRateBand, ii, 1));
         end
-        modRateRatio = round()
+        
     end
     
               
