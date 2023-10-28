@@ -37,7 +37,7 @@ function signalFadePad = acousticHMSPreProc_(signal, blockSize, hopSize)
 % Institution: University of Salford
 %
 % Date created: 26/09/2023
-% Date last modified: 19/10/2023
+% Date last modified: 27/10/2023
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -65,16 +65,16 @@ function signalFadePad = acousticHMSPreProc_(signal, blockSize, hopSize)
 fadeWeight = repmat(transpose(0.5 - 0.5*cos(pi*(0:239)/240)), 1, size(signal, 2));
 % Apply fade in
 signalFade = [fadeWeight.*signal(1:240, :);
-         signal(241:end, :)];
+              signal(241:end, :)];
 
 % Zero-padding Section 5.1.2 ECMA-418-2:2022
-n_zeross = max(blockSize);  % start zero-padding
+n_zeross = blockSize;  % start zero-padding
 n_samples = size(signal, 1);
-n_new = max(hopSize)*(ceil((n_samples + max(hopSize) + n_zeross)/max(hopSize)) - 1);
+n_new = hopSize*(ceil((n_samples + hopSize + n_zeross)/hopSize) - 1);
 n_zerose = n_new - n_samples;  % end zero-padding
 % Apply zero-padding
 signalFadePad = [zeros(n_zeross, size(signalFade, 2));
-      signalFade;
-      zeros(n_zerose, size(signalFade, 2))];
+                 signalFade;
+                 zeros(n_zerose, size(signalFade, 2))];
 
 % end of function

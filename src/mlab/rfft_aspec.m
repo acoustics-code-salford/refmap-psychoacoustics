@@ -3,8 +3,13 @@ function [f, X, Ben] = rfft_aspec(xr, fs, Nfft, axisn, over, win, X_scale)
 % Returns one-sided FFT frequencies and magnitude auto spectra for real-valued
 % input signal data (NB: assumed to be stationary or quasi-stationary
 % - transient signals may require alternative processing).
-% Uses Welch windowed averages to estimate the auto spectrum, which is used
-% as the basis for other spectral scalings of the output.
+% Uses Welch windowed averages to estimate the auto spectrum, which can be 
+% used as the basis for other spectral scalings of the output:
+% linear RMS spectrum = sqrt(autospectrum)
+% linear peak spectrum = sqrt(2)*sqrt(autospectrum)
+% power (auto) spectral density = autospectrum*(Ben/deltaFreq) where Ben is
+% the normalised equivalent noise bandwidth for the window (see outputs
+% below), and deltaFreq is the output spectral line spacing.
 % The returned spectral array X has a size like (Nfft/2 + 1, <xr.#signals>),
 % with the other dimension corresponding with the number of signals in xr
 % (NB: the output X orientation matches the input orientation).
@@ -39,7 +44,7 @@ function [f, X, Ben] = rfft_aspec(xr, fs, Nfft, axisn, over, win, X_scale)
 % f : vector
 %      the one-sided (non-negative) spectral frequencies
 % X : vector or 2D array
-%      the real-valued, one-sided spectrum (or spectra)
+%      the real-valued, one-sided autospectrum (or autospectra)
 % Ben : double
 %      the 'normalised equivalent noise bandwidth' for the window applied
 %
