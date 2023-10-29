@@ -3,9 +3,8 @@
 acousticHMS.py
 ------------
 
-Module provides acoustic signal analysis routines
-implementing the Hearing Model of Sottek, as defined
-in the ECMA-418-2 standard (currently 2022).
+Acoustic signal analysis routines implementing the Hearing Model of Sottek,
+defined in the ECMA-418-2 standard (currently 2022).
 
 Requirements
 ------------
@@ -19,7 +18,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
  
 Date created: 27/10/2023
-Date last modified: 27/10/2023
+Date last modified: 29/10/2023
 Python version: 3.10.11
 
 Copyright statement: This file and code is part of work undertaken within
