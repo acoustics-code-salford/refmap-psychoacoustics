@@ -3,7 +3,7 @@
 acousticHMS.py
 ------------
 
-Acoustic signal analysis routines implementing the Hearing Model of Sottek,
+Acoustic signal analysis routines implementing the Hearing Model of Sottek, as
 defined in the ECMA-418-2 standard (currently 2022).
 
 Requirements
@@ -34,6 +34,10 @@ Date last checked:
 import numpy as np
 import matplotlib as mpl
 from matplotlib import pyplot as plt
+import matplotlib.ticker as ticker
+from scipy.signal import (bilinear, lfilter, lfilter_zi,
+                          resample_poly, sosfilt, sosfreqz)
+from math import gcd
 
 # set plot parameters
 mpl.rcParams['font.family'] = 'sans-serif'
@@ -77,7 +81,7 @@ def acousticHMSPreProc(signal, blockSize, hopSize):
 
     Ownership and Quality Assurance
     -------------------------------
-    Authors: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
+    Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
     Institution: University of Salford
 
     Date created: 26/09/2023
@@ -126,3 +130,265 @@ def acousticHMSPreProc(signal, blockSize, hopSize):
                                     np.zeros((n_zerose, numChans))))
 
     return signalFadePad  # end of acousticHMSPreProc function
+
+
+def acousticHMSOutMidEarFilter(signal, outplot=False):
+    """signalFiltered  = acousticHMSOutMidEarFilter_(signal, outplot)
+
+    Returns signal filtered for outer and middle ear response according to
+    ECMA-418-2:2022 (the Hearing Model of Sottek) for an input calibrated
+    audio (sound pressure) time-series signal. Optional plot output shows
+    frequency and phase response of the filter.
+
+    Inputs
+    ------
+    signal : 1D or 2D array
+             the input signal (sound pressure)
+
+    outplot : Boolean true/false (default: false)
+              flag indicating whether to generate a frequency and phase
+              response figure for the filter
+
+    Returns
+    -------
+    signalFiltered : 1D or 2D array
+                     the output filtered signal
+
+    Assumptions
+    -----------
+    The input signal is oriented with time on axis 0 (and channel # on axis
+    1), ie, the filtering operation is applied along axis 0.
+    The input signal must be sampled at 48 kHz.
+
+    Requirements
+    ------------
+    numpy
+    scipy
+
+    Ownership and Quality Assurance
+    -------------------------------
+    Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
+    Institution: University of Salford
+
+    Date created: 29/10/2023
+    Date last modified: 29/10/2023
+    Python version: 3.10.11
+
+    Copyright statement: This file and code is part of work undertaken within
+    the RefMap project (www.refmap.eu), and is subject to licence as detailed
+    in the code repository
+    (https://github.com/acoustics-code-salford/refmap-psychoacoustics)
+
+    Checked by:
+    Date last checked:
+
+    %% Arguments validation
+        arguments (Input)
+            signal (:, :) double {mustBeReal}
+            outplot {mustBeNumericOrLogical} = false
+        end
+    """
+    # Arguments validation
+    if not type(signal) is np.ndarray:
+        try:
+            np.array(signal)
+        except Exception:  # TODO specific exception handling
+            raise TypeError("\nInput signal does not appear to be an array")
+
+    if not isinstance(outplot, bool):
+        raise ValueError("\nInput argument 'outplot' must be logical True/False")
+
+    # Signal processing
+
+    # Apply outer & middle ear filter bank
+    # ------------------------------------
+    #
+    # Filter coefficients from Section 5.1.3.2 Table 1 ECMA-418-2:2022
+    # b_0k = [1.015896, 0.958943, 0.961372, 2.225804, 0.471735, 0.115267,
+    #         0.988029, 1.952238]
+    # b_1k = [-1.925299, -1.806088, -1.763632, -1.43465, -0.366092, 0.0,
+    #         -1.912434, 0.16232]
+    # b_2k = [0.922118, 0.876439, 0.821788, -0.498204, 0.244145, -0.115267,
+    #         0.926132, -0.667994]
+    # a_0k = ones(size(b_0k))
+    # a_1k = [-1.925299, -1.806088, -1.763632, -1.43465, -0.366092, -1.796003,
+    #         -1.912434, 0.16232]
+    # a_2k = [0.938014, 0.835382, 0.78316, 0.727599, -0.28412, 0.805838,
+    #         0.914161, 0.284244]
+    #
+    # Accurate coefficient values
+    b_0k = [1.01589602025559, 0.958943219304445, 0.961371976333197,
+            2.22580350360974, 0.471735128494163, 0.115267139824401,
+            0.988029297230954, 1.95223768730136]
+    b_1k = [-1.92529887777608, -1.80608801184949, -1.76363215433825,
+            -1.43465048479216, -0.366091796830044, 0.0, -1.91243380293387,
+            0.162319983017519]
+    b_2k = [0.922118060364679, 0.876438777856084, 0.821787991845146,
+            -0.498204282194628, 0.244144703885020, -0.115267139824401,
+            0.926131550180785, -0.667994113035186]
+    a_0k = np.ones(len(b_0k))
+    a_1k = [-1.92529887777608, -1.80608801184949, -1.76363215433825,
+            -1.43465048479216, -0.366091796830044, -1.79600256669201,
+            -1.91243380293387, 0.162319983017519]
+    a_2k = [0.938014080620272, 0.835381997160530, 0.783159968178343,
+            0.727599221415107, -0.284120167620817, 0.805837815618546,
+            0.914160847411739, 0.284243574266175]
+
+    # form 2nd-order section for transfer function (copy is needed to enforce
+    # C-contiguity in the tranposed array)
+    sos = np.array([b_0k, b_1k, b_2k, a_0k, a_1k, a_2k]).T.copy(order='C')
+
+    # Section 5.1.3.2 ECMA-418-2:2022 Outer and middle/inner ear signal filtering
+    signalFiltered = sosfilt(sos, signal, axis=0)
+
+    # Plot figures
+
+    if outplot:
+        f, H = sosfreqz(sos, worN=10000, whole=True, fs=48e3)
+        phir = np.angle(H, deg=False)
+        phirUnwrap = np.unwrap(phir, discont=np.pi)
+        phiUnwrap = phirUnwrap/np.pi*180
+        # Plot frequency and phase response for filter
+        fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(10, 7))
+        ax1.semilogx(f[1:], 20*np.log10(np.abs(H[1:])), color=[0.0, 0.2, 0.8])
+        ax1.set_xticks(ticks=[31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],
+                       labels=["31.5", "63", "125", "250", "500", "1k", "2k",
+                               "4k", "8k", "16k"])
+        ax1.axis(xmin=20, xmax=20e3, ymin=-30, ymax=10)
+        ax1.tick_params(axis='x',          # changes apply to the x-axis
+                        which='minor',      # minor ticks are affected
+                        bottom=False,      # ticks along the bottom edge are off
+                        top=False,         # ticks along the top edge are off
+                        labelbottom=False) # labels along the bottom edge are off
+
+        ax1.set_xlabel("Frequency, Hz", fontname='Arial', fontsize=12)
+        ax1.set_ylabel("$H$, dB", fontname='Arial', fontsize=12)
+        ax1.grid(True, which='major', linestyle='--', alpha=0.5)
+    
+        ax2.semilogx(f[1:], phiUnwrap[1:], color=[0.8, 0.1, 0.8])
+        ax2.set_xticks(ticks=[31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],
+                       labels=["31.5", "63", "125", "250", "500", "1k", "2k",
+                               "4k", "8k", "16k"])
+        ax2.set_yticks(ticks=np.arange(-180, 210, 30))
+        ax2.axis(xmin=20, xmax=20e3, ymin=-180, ymax=90)
+        ax2.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.0f'))
+        ax2.tick_params(axis='x',          # changes apply to the x-axis
+                        which='minor',      # minor ticks are affected
+                        bottom=False,      # ticks along the bottom edge are off
+                        top=False,         # ticks along the top edge are off
+                        labelbottom=False) # labels along the bottom edge are off
+        ax2.set_xlabel("Frequency, Hz", fontname='Arial', fontsize=12)
+        ax2.set_ylabel("Phase angle, $^\circ$", fontname='Arial', fontsize=12)
+        ax2.grid(True, which='major', linestyle='--', alpha=0.5)
+
+    return signalFiltered  # end of acousticHMSOutMidEarFilter function
+
+def A_weight_T(x, fs, axis=0):
+    """
+    Return time-domain-filtered signal according to standard sound frequency
+    weighting 'A'.
+
+    Implements IIR filter via bilinear transform. Includes pre-warping of
+    analogue design frequencies to compensate for bilinear transform frequency
+    distortion.
+
+    Upsamples signals to 36kHz (if necessary)
+    before processing, to ensure compliance with IEC 61672-1 class 1 acceptance
+    limits.
+    
+    Resampling frequency and pre-warping defined according to [1].
+
+    Parameters
+    ----------
+    x : 1D or 2D array
+        contains the time signals to be weighted (filtered)
+    fs : number
+        the sampling frequency of the signals to be processed
+    axis : integer
+        the signal array axis along which to apply the filter
+
+    Returns
+    -------
+    y : 1D or 2D array
+        contains the weighted (filtered) time signals
+    f : 1D array
+        contains the frequencies (Hz) of the filter frequency response function
+    H : 1D array
+        contains the complex frequency response function values for each f
+
+    Requirements
+    ------------
+    numpy
+    scipy
+
+    Assumptions
+    -----------
+
+    References
+    ----------
+    [1] Rimell, AN et al, 2015 - Design of digital filters for frequency
+        weightings (A and C) required for risk assessments of workers exposed
+        to noise. Industrial Health, 53, 21-27.
+
+    """
+
+    if fs < 36000:
+        # upsampled sampling frequency
+        fsu = 36000
+        up = int(fsu/gcd(fsu, fs))
+        down = int(fs/gcd(fsu, fs))
+    else:
+        fsu = fs
+    dtu = 1/fsu
+
+    G_Aw = 10**(2/20)
+    w1 = 2*np.pi*20.598997
+    w1w = 2/dtu*np.tan(w1*dtu/2)  # pre-warped frequency
+    w4 = 2*np.pi*12194.217
+    w4w = 2/dtu*np.tan(w4*dtu/2)  # pre-warped frequency
+    w3 = 2*np.pi*107.65265
+    w3w = 2/dtu*np.tan(w3*dtu/2)  # pre-warped frequency
+    w2 = 2*np.pi*737.86223
+    w2w = 2/dtu*np.tan(w2*dtu/2)  # pre-warped frequency
+
+    B = np.array([G_Aw*w4w**2, 0, 0, 0, 0])
+    A1 = [1.0, 2*w4w, (w4w)**2]
+    A2 = [1.0, 2*w1w, (w1w)**2]
+    A3 = [1.0, w3w]
+    A4 = [1.0, w2w]
+    A = np.convolve(np.convolve(np.convolve(A1, A2), A3), A4)
+
+    b, a = bilinear(B, A, fsu)
+
+    # determine filter initial conditions
+    if len(x.shape) == 1 or axis == 1:
+        zi = lfilter_zi(b, a)
+    else:
+        zi = lfilter_zi(b, a)[:, None]
+
+    # Filter data on upsampled version
+
+    if len(x.shape) == 1:
+        # upsample signal (if necessary)
+        if fsu > fs:
+            x = resample_poly(x, up, down, padtype='line')
+        # filter signal
+        y, _ = lfilter(b, a, x, zi=zi*x[0])
+        # if upsampled, downsample to original fs
+        if fsu > fs:
+            y = resample_poly(y, down, up, padtype='line')
+
+    elif len(x.shape) == 2:
+        # upsample signal (if necessary)
+        if fsu > fs:
+            x = resample_poly(x, up, down, axis=axis, padtype='line')
+        # filter signal
+        y, _ = lfilter(b, a, x, axis=axis, zi=zi*np.take(x, [0], axis=axis))
+        # if upsampled, downsample to original fs
+        if fsu > fs:
+            y = resample_poly(y, down, up, axis, padtype='line')
+
+    else:
+        raise TypeError("\nInput must be 1d or 2d array")
+
+    return y

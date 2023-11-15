@@ -76,7 +76,7 @@ function [loudnessPowAvg, loudnessTimeVar, specificLoudness,...
 % Institution: University of Salford
 %
 % Date created: 22/08/2023
-% Date last modified: 19/10/2023
+% Date last modified: 14/11/2023
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -178,10 +178,10 @@ loudnessPowAvg = (sum(loudnessTimeVar((59 - l_start):(end + 1 - l_start), :).^(1
 % time (s) corresponding with results output
 t = (0:(size(specificLoudness, 2) - 1))/187.5;
 
-for chan = outchans:-1:1
+if outplot
     % Plot figures
     % ------------
-    if outplot
+    for chan = outchans:-1:1
         cmap_viridis = load('cmap_viridis.txt');
         % Plot results
         if inchans > 1 && binaural
@@ -215,7 +215,12 @@ for chan = outchans:-1:1
                      'FontWeight', 'normal', 'FontName', 'Arial');
 
         ax2 = nexttile(2);
-        plot(ax2, t, loudnessTimeVar(:, chan), 'color', [0.1, 1.0, 0.4], 'LineWidth', 1);
+        plot(ax2, t, loudnessPowAvg(1, chan)*ones(size(t)), 'color',...
+             [0.1, 0.3, 0.9], 'LineWidth', 0.75, 'DisplayName', "Power" + string(newline) + "time-avg");
+        hold on
+        plot(ax2, t, loudnessTimeVar(:, chan), 'color', [0.1, 0.9, 0.6],...
+             'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "varying");
+        hold off
         ax2.XLim = [t(1), t(end) + (t(2) - t(1))];
         ax2.YLim = [0, 1.01*ceil(max(loudnessTimeVar(:, chan))*10)/10];
         ax2.XLabel.String = 'Time, s';
@@ -224,8 +229,9 @@ for chan = outchans:-1:1
         ax2.YGrid = 'on';
         ax2.FontName = 'Arial';
         ax2.FontSize = 12;
-    end
-
-end
+        lgd = legend('Location', 'eastoutside', 'FontSize', 8);
+        lgd.Title.String = "Overall";
+    end  % end of for loop for plotting over channels
+end  % end of if branch for plotting if outplot true
 
 % function end

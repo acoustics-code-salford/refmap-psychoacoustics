@@ -23,7 +23,7 @@ function signalFiltered  = acousticHMSOutMidEarFilter_(signal, outplot)
 % Assumptions
 % -----------
 % The input signal is oriented with time on axis 1 (and channel # on axis
-% 2), ie, the resample operation is applied along axis 1.
+% 2), ie, the filtering operation is applied along axis 1.
 % The input signal must be sampled at 48 kHz.
 %
 % Requirements
