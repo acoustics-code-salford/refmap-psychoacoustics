@@ -74,7 +74,7 @@ function [loudnessPowAvg, loudnessTimeVar, specificLoudness,...
 % Institution: University of Salford
 %
 % Date created: 22/09/2023
-% Date last modified: 14/11/2023
+% Date last modified: 03/12/2023
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -156,11 +156,11 @@ b = 0.5459;
 % Weight and combine component specific loudnesses
 for chan = inchans:-1:1
     % Equation 114 ECMA-418-2:2022
-    maxLoudnessFuncez = a./(max(specificTonalLoudness(:, :, chan)...
+    maxLoudnessFuncel = a./(max(specificTonalLoudness(:, :, chan)...
                                 + specificNoiseLoudness(:, :, chan), [],...
-                                2, "omitnan") + 1e-12) + b;
-    specificLoudness(:, :, chan) = (specificTonalLoudness(:, :, chan).^maxLoudnessFuncez...
-                                    + abs((weight_n.*specificNoiseLoudness(:, :, chan)).^maxLoudnessFuncez)).^(1./maxLoudnessFuncez);
+                                1, "omitnan") + 1e-12) + b;
+    specificLoudness(:, :, chan) = (specificTonalLoudness(:, :, chan).^maxLoudnessFuncel...
+                                    + abs((weight_n.*specificNoiseLoudness(:, :, chan)).^maxLoudnessFuncel)).^(1./maxLoudnessFuncel);
 end
 
 if inchans > 1 && binaural
@@ -178,7 +178,7 @@ specificLoudnessPowAvg = (sum(specificLoudness(:, (59 - l_start):(end + 1 - l_st
 
 % Section 8.1.3 ECMA-418-2:2022
 % Time-dependent loudness Equation 116
-loudnessTimeVar = sum(specificLoudness.*0.5, 1).';
+loudnessTimeVar = squeeze(sum(specificLoudness.*0.5, 1));
 
 % Section 8.1.4 ECMA-418-2:2022
 % Overall loudness Equation 117
