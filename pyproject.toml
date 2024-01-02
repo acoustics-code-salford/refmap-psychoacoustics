@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "refmap-psychoacoustics"
+version = "0.1.0"
+description = "REFMAP project task 4.3: Psychoacoustics of sound from unmanned aircraft systems (UAS) / unmanned aerial vehicles (UAVs), and urban air mobility (UAM)"
+authors = ["Michael J B Lotinga <m.j.lotinga@edu.salford.ac.uk>"]
+license = "https://github.com/acoustics-code-salford/refmap-psychoacoustics/blob/2388660843e2f07d1caf4c2959145a9263f9c5c7/LICENSE"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11.5"
+numpy = "^1.26.2"
+scipy = "1.11.4"
+pandas = "^2.1.4"
+modin = "^0.26.0"
+matplotlib = "^3.8.2"
+statsmodels = "^0.14.1"
+bambi = "^0.13.0"
+tqdm = "^4.66.1"
+mosqito = "^1.0.8"
+librosa = "^0.10.1"
+acoustics = "^0.2.6"
+QtPy = "^2.4.1"
+guidata = "^3.2.2"
+XlsxWriter = "^3.1.9"
+openpyxl = "^3.1.2"
+ffmpeg = "^1.4"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
