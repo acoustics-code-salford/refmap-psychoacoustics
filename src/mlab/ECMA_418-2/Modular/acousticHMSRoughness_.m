@@ -185,7 +185,7 @@ errorCorrection = [errorCorrection, flip(-errorCorrection(1:end-1)), 0];
 % (section 7.1.5.2 ECMA-418-2:2022)
 % Table 11 ECMA-418-2:2022
 roughScaleParams = [0.3560, 0.8024;
-                     0.8049, 0.9333];
+                    0.8049, 0.9333];
 roughScaleParams = [roughScaleParams(:, 1).*ones([2, sum(bandCentreFreqs < 1e3)]),...
                      roughScaleParams(:, 2).*ones([2, sum(bandCentreFreqs >= 1e3)])];
 % Equation 84 ECMA-418-2:2022
@@ -312,8 +312,8 @@ for chan = size(pn_om, 2):-1:1
     for zBand = 53:-1:1
         % Section 7.1.5.1 ECMA-418-2:2022
         for ll = n_blocks:-1:1
-            % assign NaN arrays for spectral maxima amplitudes and
-            % modulation rates in each block
+            % assign NaN arrays for ten greatest spectral maxima amplitudes
+            % and modulation rates in each block
             ampMaximaBlock = NaN(10, 1);
             modRateBlock = NaN(10, 1);
             % identify peaks in each block (for each band)
@@ -409,38 +409,29 @@ for chan = size(pn_om, 2):-1:1
 
     % Section 7.1.5.3 ECMA-418-2:2022 - Estimation of fundamental modulation rate
     for zBand = 53:-1:1
-        for ii = 10:-1:1
-            modRateRatio(:, :, ii) = round(modRateBand./circshift(modRateBand, ii, 1));
+        for ii = 9:-1:1
+            % Equation 88
+            modRateRatio(:, :, ii) = round(circshift(modRate(:, :, zBand), -ii, 1)./modRate(:, :, zBand));
+            modRateRatioTest(:, :, ii) = abs(circshift(modRate(:, :, zBand), -ii, 1)./(circshift(modRateRatio(:, :, ii), -ii, 1).*modRate(:, :, zBand)) - 1);
         end
-        
+
+        [modRateRatioTestMin, modRateIndex] = min(modRateRatioTest, [], 3, 'omitnan');
+        % modRateIndex(isnan(modRateRatioTestMin)) = NaN;
+        % modRateIndex(isinf(modRateRatioTestMin)) = NaN;
+
+        for ii = 1:size(modRateRatio, 1)
+            for jj = 1: size(modRateRatio, 2)
+                test(ii, jj) = modRateRatio(ii, jj, modRateIndex(ii, jj));
+            end
+        end
+    
+
+        harmComplexIndices = modRateIndex.*abs(modRateRatioTest < 0.04);
+
+
     end
     
               
-    
-
-        waitbar(((233 - zBand) + i_step)/n_steps, w,...
-                strcat("Envelope noise reduction in 53 bands, ",...
-                num2str(zBand), ' to go...'));
-        
-        % Band averaging
-
-        
-        % Apply ACF
-        % ACF implementation using DFT
-        % Section 6.2.2 Equations 27 & 28 ECMA-418-2:2022
-        unscaledACF = ifft(abs(fft(pn_rlz, 2*blockSizeDupe(zBand), 1)).^2,...
-                           2*blockSizeDupe(zBand), 1);
-        % Section 6.2.2 Equation 29 ECMA-418-2:2022
-        denom = sqrt(cumsum(pn_rlz.^2, 1, 'reverse').*flipud(cumsum(pn_rlz.^2)))...
-                + 1e-12; 
-        unbiasedNormACF = unscaledACF(1:blockSizeDupe(zBand), :)./denom;  % note that the block length is used here, rather than the 2*s_b, for compatability with the remaining code - beyond 0.75*s_b is assigned (unused) zeros in the next line
-        unbiasedNormACF((0.75*blockSizeDupe(zBand) + 1):blockSizeDupe(zBand), :) = 0;
-
-        % Section 6.2.2 Equation 30 ECMA-418-2:202
-        unbiasedNormACFDupe{zBand} = basisLoudness{zBand}.*unbiasedNormACF;
-
-    end
-    
     i_step = i_step + 62;  % increment calculation step for waitbar
 
     % Average the ACF over nB bands - Section 6.2.3 ECMA-418-2:2022        
