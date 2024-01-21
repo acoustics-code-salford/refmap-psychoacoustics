@@ -1,7 +1,0 @@
-name = "refmap"
-uuid = "d4952ee7-7572-4fd8-af39-5fea63e68eba"
-authors = ["Mike Lotinga <m_lotinga@yahoo.co.uk>"]
-version = "0.1.0"
-
-[deps]
-StanSample = "c1514b29-d3a0-5178-b312-660c88baa699"
