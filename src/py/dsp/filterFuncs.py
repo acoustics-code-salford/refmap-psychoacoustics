@@ -1,23 +1,26 @@
 # -*- coding: utf-8 -*-
 """
-f_weight_T.py
+filterFuncs.py
 ------------
 
-Frequency weightings in the time domain (filters)
+Filter functions:
+
+- Frequency weightings in the time domain
+- Time weighting
 
 Requirements
 ------------
-numpy (1.23.4)
-scipy (1.9.3)
+numpy (1.26.3)
+scipy (1.11.4)
 
 Ownership and Quality Assurance
 -------------------------------
 Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
- 
-Date created: 29/10/2023
-Date last modified: 06/11/2023
-Python version: 3.10.11
+
+Date created: 22/01/2024
+Date last modified: 22/01/2024
+Python version: 3.11.5
 
 Copyright statements: This file and code is part of work undertaken within
 the RefMap project (www.refmap.eu), and is subject to licence as detailed
@@ -56,9 +59,9 @@ def A_weight_T(x, fs, axis=0, check=False):
     x : 1D or 2D array
         contains the time signals to be weighted (filtered)
     fs : number
-        the sampling frequency of the signals to be processed
+         the sampling frequency of the signals to be processed
     axis : integer
-        the signal array axis along which to apply the filter
+           the signal array axis along which to apply the filter
 
     Returns
     -------
@@ -180,8 +183,8 @@ def hrv_weight_T(x, fs, weight, axis=0, f_warp=True):
     distortion.
 
     Upsamples signals to minimum sample frequency (if necessary) according to
-    [1] before processing, to ensure compliance with IEC 61672-1 class 1 acceptance
-    limits.
+    [1] before processing, to ensure compliance with IEC 61672-1 class 1
+    acceptance limits.
 
     Parameters
     ----------
@@ -239,7 +242,7 @@ def hrv_weight_T(x, fs, weight, axis=0, f_warp=True):
         Q5 = 0.9
         Q6 = 0.95
         # filter gain for zpk format (not currently used)
-        K = 1.024
+#        K = 1.024
         # check fs is above minimum required - if not, scale up fs for
         # resampling
         if fs < 12*f2:
@@ -262,7 +265,7 @@ def hrv_weight_T(x, fs, weight, axis=0, f_warp=True):
         Q5 = 1.0
         Q6 = 1.0
         # filter gain for zpk format (not currently used)
-        K = 1.0
+#        K = 1.0
         # check fs is above minimum required - if not, scale up fs for
         # resampling
         if fs < 12*f2:
@@ -272,7 +275,7 @@ def hrv_weight_T(x, fs, weight, axis=0, f_warp=True):
             fsu = fs
 
     # Nyquist frequency
-    fnyq = fsu/2
+#    fnyq = fsu/2
     # discrete time step from fs
     dtu = 1/fsu
     # if necessary, resample signals
@@ -350,3 +353,47 @@ def hrv_weight_T(x, fs, weight, axis=0, f_warp=True):
         y = resample_poly(y, down, up, axis=axis, padtype='line')
 
     return y, f, H
+
+
+def time_weight(x, fs, tau=0.125, axis=0):
+    """
+    Return signal filtered to give exponential time-weighted version of
+    input signal x. The low-pass filter represents the root-mean-square
+    integration function with exponential time-weighting. Common values for the
+    input time constant tau are 0.125 ('Fast' weighting) and 1.0 ('Slow'
+    weighting).
+
+    Parameters
+    ----------
+    x : 1D or 2D array
+        contains the time signals to be weighted (filtered)
+    fs : number
+         the sampling frequency of the signals to be processed
+    tau : number, optional
+          exponential time-weighting constant. The default is 0.125.
+    axis : integer, optional
+           the signal array axis along which to apply the filter. The default
+           is 0.
+
+    Returns
+    -------
+    None.
+
+    """
+    if tau.lower() == "fast":
+        tau = 0.125  # Fast time-weighting
+    elif tau.lower() == "slow":
+        tau = 1.0  # Slow time-weighting
+
+    wc = 1/tau
+    dt = 1/fs
+    k = np.exp(-wc*dt)
+    # filter coefficients
+    b = np.array([1 - k])
+    a = np.array([1, -k])
+
+    # generate filter with initial condition
+    zi = lfilter_zi(b, a)
+    y, zf = lfilter(b, a, x**2, axis=axis, zi=zi*x[0]**2)  # apply filter
+    y = np.sqrt(y)
+    return y
