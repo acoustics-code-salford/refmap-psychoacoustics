@@ -380,10 +380,6 @@ def time_weight(x, fs, tau=0.125, axis=0):
     None.
 
     """
-    if tau.lower() == "fast":
-        tau = 0.125  # Fast time-weighting
-    elif tau.lower() == "slow":
-        tau = 1.0  # Slow time-weighting
 
     wc = 1/tau
     dt = 1/fs
@@ -394,6 +390,11 @@ def time_weight(x, fs, tau=0.125, axis=0):
 
     # generate filter with initial condition
     zi = lfilter_zi(b, a)
+    
+    # if necessary, expand zi dimension to avoid lfilter error
+    if zi.ndim != x.ndim:
+        zi = np.expand_dims(zi, axis)
+
     y, zf = lfilter(b, a, x**2, axis=axis, zi=zi*x[0]**2)  # apply filter
     y = np.sqrt(y)
     return y

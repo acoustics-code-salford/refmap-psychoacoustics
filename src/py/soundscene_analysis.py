@@ -6,9 +6,6 @@ Created on Mon Nov  6 09:36:49 2023
 """
 
 import os
-mainpath = os.path.join(r"C:\Users\m_lot\OneDrive - University of Salford\Code\refmap-psychoacoustics\src\py")
-os.chdir(mainpath)
-
 import glob
 import numpy as np
 from scipy.signal import spectrogram
