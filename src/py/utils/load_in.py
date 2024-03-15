@@ -6,11 +6,9 @@ Created on Fri Jul 21 18:11:43 2023
 """
 
 import os
-mainpath = os.path.join(r"C:\Users\m_lot\OneDrive - University of Salford\Code\refmap-psychoacoustics\src\py")
-os.chdir(mainpath)
 import numpy as np
 import librosa
-from dsp.f_weight_T import A_weight_T
+from dsp.filterFuncs import A_weight_T
 
 
 def audio_caltnc(filepath, cal_val, tnc=[0, 0], cal_tnc='pre', cal_type='LAEQ'):

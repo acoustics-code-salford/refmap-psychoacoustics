@@ -38,6 +38,7 @@ import matplotlib.ticker as ticker
 from scipy.signal import (bilinear, lfilter, lfilter_zi,
                           resample_poly, sosfilt, sosfreqz)
 from math import gcd
+from dsp.filterFuncs import A_weight_T
 
 # set plot parameters
 mpl.rcParams['font.family'] = 'sans-serif'
@@ -257,14 +258,14 @@ def acousticHMSOutMidEarFilter(signal, outplot=False):
         ax1.axis(xmin=20, xmax=20e3, ymin=-30, ymax=10)
         ax1.tick_params(axis='x',          # changes apply to the x-axis
                         which='minor',      # minor ticks are affected
-                        bottom=False,      # ticks along the bottom edge are off
+                        bottom=False,     # ticks along the bottom edge are off
                         top=False,         # ticks along the top edge are off
-                        labelbottom=False) # labels along the bottom edge are off
+                        labelbottom=False)  # labels along the bottom edge are off
 
         ax1.set_xlabel("Frequency, Hz", fontname='Arial', fontsize=12)
         ax1.set_ylabel("$H$, dB", fontname='Arial', fontsize=12)
         ax1.grid(True, which='major', linestyle='--', alpha=0.5)
-    
+
         ax2.semilogx(f[1:], phiUnwrap[1:], color=[0.8, 0.1, 0.8])
         ax2.set_xticks(ticks=[31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],
                        labels=["31.5", "63", "125", "250", "500", "1k", "2k",
@@ -274,121 +275,11 @@ def acousticHMSOutMidEarFilter(signal, outplot=False):
         ax2.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.0f'))
         ax2.tick_params(axis='x',          # changes apply to the x-axis
                         which='minor',      # minor ticks are affected
-                        bottom=False,      # ticks along the bottom edge are off
+                        bottom=False,     # ticks along the bottom edge are off
                         top=False,         # ticks along the top edge are off
-                        labelbottom=False) # labels along the bottom edge are off
+                        labelbottom=False)  # labels along the bottom edge are off
         ax2.set_xlabel("Frequency, Hz", fontname='Arial', fontsize=12)
-        ax2.set_ylabel("Phase angle, $^\circ$", fontname='Arial', fontsize=12)
+        ax2.set_ylabel("Phase angle, degrees", fontname='Arial', fontsize=12)
         ax2.grid(True, which='major', linestyle='--', alpha=0.5)
 
     return signalFiltered  # end of acousticHMSOutMidEarFilter function
-
-def A_weight_T(x, fs, axis=0):
-    """
-    Return time-domain-filtered signal according to standard sound frequency
-    weighting 'A'.
-
-    Implements IIR filter via bilinear transform. Includes pre-warping of
-    analogue design frequencies to compensate for bilinear transform frequency
-    distortion.
-
-    Upsamples signals to 36kHz (if necessary)
-    before processing, to ensure compliance with IEC 61672-1 class 1 acceptance
-    limits.
-    
-    Resampling frequency and pre-warping defined according to [1].
-
-    Parameters
-    ----------
-    x : 1D or 2D array
-        contains the time signals to be weighted (filtered)
-    fs : number
-        the sampling frequency of the signals to be processed
-    axis : integer
-        the signal array axis along which to apply the filter
-
-    Returns
-    -------
-    y : 1D or 2D array
-        contains the weighted (filtered) time signals
-    f : 1D array
-        contains the frequencies (Hz) of the filter frequency response function
-    H : 1D array
-        contains the complex frequency response function values for each f
-
-    Requirements
-    ------------
-    numpy
-    scipy
-
-    Assumptions
-    -----------
-
-    References
-    ----------
-    [1] Rimell, AN et al, 2015 - Design of digital filters for frequency
-        weightings (A and C) required for risk assessments of workers exposed
-        to noise. Industrial Health, 53, 21-27.
-
-    """
-
-    if fs < 36000:
-        # upsampled sampling frequency
-        fsu = 36000
-        up = int(fsu/gcd(fsu, fs))
-        down = int(fs/gcd(fsu, fs))
-    else:
-        fsu = fs
-    dtu = 1/fsu
-
-    G_Aw = 10**(2/20)
-    w1 = 2*np.pi*20.598997
-    w1w = 2/dtu*np.tan(w1*dtu/2)  # pre-warped frequency
-    w4 = 2*np.pi*12194.217
-    w4w = 2/dtu*np.tan(w4*dtu/2)  # pre-warped frequency
-    w3 = 2*np.pi*107.65265
-    w3w = 2/dtu*np.tan(w3*dtu/2)  # pre-warped frequency
-    w2 = 2*np.pi*737.86223
-    w2w = 2/dtu*np.tan(w2*dtu/2)  # pre-warped frequency
-
-    B = np.array([G_Aw*w4w**2, 0, 0, 0, 0])
-    A1 = [1.0, 2*w4w, (w4w)**2]
-    A2 = [1.0, 2*w1w, (w1w)**2]
-    A3 = [1.0, w3w]
-    A4 = [1.0, w2w]
-    A = np.convolve(np.convolve(np.convolve(A1, A2), A3), A4)
-
-    b, a = bilinear(B, A, fsu)
-
-    # determine filter initial conditions
-    if len(x.shape) == 1 or axis == 1:
-        zi = lfilter_zi(b, a)
-    else:
-        zi = lfilter_zi(b, a)[:, None]
-
-    # Filter data on upsampled version
-
-    if len(x.shape) == 1:
-        # upsample signal (if necessary)
-        if fsu > fs:
-            x = resample_poly(x, up, down, padtype='line')
-        # filter signal
-        y, _ = lfilter(b, a, x, zi=zi*x[0])
-        # if upsampled, downsample to original fs
-        if fsu > fs:
-            y = resample_poly(y, down, up, padtype='line')
-
-    elif len(x.shape) == 2:
-        # upsample signal (if necessary)
-        if fsu > fs:
-            x = resample_poly(x, up, down, axis=axis, padtype='line')
-        # filter signal
-        y, _ = lfilter(b, a, x, axis=axis, zi=zi*np.take(x, [0], axis=axis))
-        # if upsampled, downsample to original fs
-        if fsu > fs:
-            y = resample_poly(y, down, up, axis, padtype='line')
-
-    else:
-        raise TypeError("\nInput must be 1d or 2d array")
-
-    return y

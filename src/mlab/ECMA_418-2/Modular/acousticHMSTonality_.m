@@ -98,7 +98,7 @@ function [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs,...
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 07/08/2023
-% Date last modified: 14/11/2023
+% Date last modified: 15/03/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -493,7 +493,7 @@ for chan = size(pn_om, 2):-1:1
                      'FontWeight', 'normal', 'FontName', 'Arial');
         
         ax2 = nexttile(2);
-        plot(ax2, t, tonalityAvg(1, chan), 'color', [0.5, 0.1, 0.9],...
+        plot(ax2, t, tonalityAvg(1, chan)*ones(size(t)), 'color', [0.5, 0.1, 0.9],...
              'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "average");
         hold on
         plot(ax2, t, tonalityTimeVar(:, chan), 'm', 'LineWidth', 0.75,...
