@@ -76,7 +76,7 @@ function [loudnessPowAvg, loudnessTimeVar, specificLoudness,...
 % Institution: University of Salford
 %
 % Date created: 22/08/2023
-% Date last modified: 03/12/2023
+% Date last modified: 15/03/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -167,7 +167,11 @@ specificLoudnessPowAvg = (sum(specificLoudness(:, (59 - l_start):(end + 1 - l_st
 
 % Section 8.1.3 ECMA-418-2:2022
 % Time-dependent loudness Equation 116
-loudnessTimeVar = squeeze(sum(specificLoudness.*0.5, 1));
+if outchans == 1
+    loudnessTimeVar = shiftdim(sum(specificLoudness.*0.5, 1), 1);
+else
+    loudnessTimeVar = squeeze(sum(specificLoudness.*0.5, 1));
+end
 
 % Section 8.1.4 ECMA-418-2:2022
 % Overall loudness Equation 117
