@@ -23,7 +23,6 @@ documentation = ["sphinx"]
 fast-fft = ["pyFFTW"]
 
 [[package]]
-<<<<<<< HEAD
 name = "aiohttp"
 version = "3.9.1"
 description = "Async http client/server framework (asyncio)"
@@ -147,8 +146,6 @@ files = [
 frozenlist = ">=1.1.0"
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "alabaster"
 version = "0.7.16"
 description = "A light, configurable Sphinx theme"
@@ -160,7 +157,6 @@ files = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "ansicon"
 version = "1.89.0"
 description = "Python wrapper for loading Jason Hood's ANSICON"
@@ -172,8 +168,6 @@ files = [
 ]
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "anyio"
 version = "4.2.0"
 description = "High level compatibility layer for multiple asynchronous event loop implementations"
@@ -588,7 +582,6 @@ webencodings = "*"
 css = ["tinycss2 (>=1.1.0,<1.3)"]
 
 [[package]]
-<<<<<<< HEAD
 name = "blessed"
 version = "1.20.0"
 description = "Easy, practical library for making terminal apps, by providing an elegant, well-documented interface to Colors, Keyboard input, and screen Positioning capabilities."
@@ -605,8 +598,6 @@ six = ">=1.9.0"
 wcwidth = ">=0.1.4"
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "cachetools"
 version = "5.3.2"
 description = "Extensible memoizing collections and decorators"
@@ -839,7 +830,6 @@ files = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "colorful"
 version = "0.5.6"
 description = "Terminal string styling done right, in Python."
@@ -854,8 +844,6 @@ files = [
 colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "comm"
 version = "0.2.1"
 description = "Jupyter Python Comm implementation, for usage in ipykernel, xeus-python etc."
@@ -1030,7 +1018,6 @@ docs = ["ipython", "matplotlib", "numpydoc", "sphinx"]
 tests = ["pytest", "pytest-cov", "pytest-xdist"]
 
 [[package]]
-<<<<<<< HEAD
 name = "dask"
 version = "2024.1.0"
 description = "Parallel PyData with Task Scheduling"
@@ -1060,8 +1047,6 @@ distributed = ["distributed (==2024.1.0)"]
 test = ["pandas[test]", "pre-commit", "pytest", "pytest-cov", "pytest-rerunfailures", "pytest-timeout", "pytest-xdist"]
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "debugpy"
 version = "1.8.0"
 description = "An implementation of the Debug Adapter Protocol for Python"
@@ -1139,7 +1124,6 @@ files = [
 graph = ["objgraph (>=1.7.2)"]
 
 [[package]]
-<<<<<<< HEAD
 name = "distlib"
 version = "0.3.8"
 description = "Distribution utilities"
@@ -1179,8 +1163,6 @@ urllib3 = ">=1.24.3"
 zict = ">=3.0.0"
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "docstring-to-markdown"
 version = "0.13"
 description = "On the fly conversion of Python docstrings to markdown"
@@ -1404,7 +1386,6 @@ files = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "frozenlist"
 version = "1.4.1"
 description = "A list-like structure which implements collections.abc.MutableSequence"
@@ -1491,8 +1472,6 @@ files = [
 ]
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "fsspec"
 version = "2023.12.2"
 description = "File-system specification"
@@ -1528,7 +1507,6 @@ ssh = ["paramiko"]
 tqdm = ["tqdm"]
 
 [[package]]
-<<<<<<< HEAD
 name = "google-api-core"
 version = "2.15.0"
 description = "Google API client core library"
@@ -1610,8 +1588,6 @@ completion = ["shtab"]
 test = ["mockito (>=1.2.1)", "pytest (>=5.4.1)", "pytest-runner"]
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "graphviz"
 version = "0.20.1"
 description = "Simple Python interface for Graphviz"
@@ -1628,7 +1604,6 @@ docs = ["sphinx (>=5)", "sphinx-autodoc-typehints", "sphinx-rtd-theme"]
 test = ["coverage", "mock (>=4)", "pytest (>=7)", "pytest-cov", "pytest-mock (>=3)"]
 
 [[package]]
-<<<<<<< HEAD
 name = "grpcio"
 version = "1.60.0"
 description = "HTTP/2-based RPC framework"
@@ -1695,8 +1670,6 @@ files = [
 protobuf = ["grpcio-tools (>=1.60.0)"]
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "guidata"
 version = "3.2.2"
 description = "Automatic GUI generation for easy dataset editing and display"
@@ -2100,7 +2073,6 @@ MarkupSafe = ">=2.0"
 i18n = ["Babel (>=2.7)"]
 
 [[package]]
-<<<<<<< HEAD
 name = "jinxed"
 version = "1.2.1"
 description = "Jinxed Terminal Library"
@@ -2115,8 +2087,6 @@ files = [
 ansicon = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "joblib"
 version = "1.3.2"
 description = "Lightweight pipelining with Python functions"
@@ -2668,7 +2638,6 @@ files = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "locket"
 version = "1.0.0"
 description = "File-based locks for Python on Linux and Windows"
@@ -2680,8 +2649,6 @@ files = [
 ]
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "logical-unification"
 version = "0.4.6"
 description = "Logical unification in Python"
@@ -2902,16 +2869,11 @@ files = [
 
 [[package]]
 name = "modin"
-<<<<<<< HEAD
 version = "0.26.1"
-=======
-version = "0.26.0"
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 description = "Modin: Make your pandas code run faster by changing one line of code."
 optional = false
 python-versions = ">=3.9"
 files = [
-<<<<<<< HEAD
     {file = "modin-0.26.1-py3-none-any.whl", hash = "sha256:0671c882ee07af181b3fb62b01fe061fdb565f7843984815b3c342eacd681c80"},
     {file = "modin-0.26.1.tar.gz", hash = "sha256:72045b5fcb9a2f63d7ba2ea7b1503bc95b17505a2ecc3eadbd7dc65b06732cff"},
 ]
@@ -2921,24 +2883,20 @@ dask = {version = ">=2.22.0", optional = true, markers = "extra == \"all\""}
 distributed = {version = ">=2.22.0", optional = true, markers = "extra == \"all\""}
 fsspec = ">=2022.05.0"
 modin-spreadsheet = {version = ">=0.1.0", optional = true, markers = "extra == \"all\""}
-=======
+files = [
     {file = "modin-0.26.0-py3-none-any.whl", hash = "sha256:312a516a4770bb444eb7ec39a24af2c4f4574f3c51a00c479cd014f08e9aac69"},
     {file = "modin-0.26.0.tar.gz", hash = "sha256:81c8dae9bf727241b08d87a1b6ef74775ddcb0ce1febd5e72ad2258d9ac3aaab"},
 ]
 
 [package.dependencies]
 fsspec = ">=2022.05.0"
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 numpy = ">=1.22.4"
 packaging = ">=21.0"
 pandas = ">=2.1,<2.2"
 psutil = ">=5.8.0"
-<<<<<<< HEAD
 pyarrow = {version = ">=7.0.0", optional = true, markers = "extra == \"all\""}
 pydantic = {version = "<2", optional = true, markers = "extra == \"all\""}
 ray = {version = ">=1.13.0,<2.5.0 || >2.5.0", extras = ["default"], optional = true, markers = "extra == \"all\""}
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 
 [package.extras]
 all = ["dask (>=2.22.0)", "distributed (>=2.22.0)", "modin-spreadsheet (>=0.1.0)", "pyarrow (>=7.0.0)", "pydantic (<2)", "ray[default] (>=1.13.0,!=2.5.0)"]
@@ -2948,7 +2906,6 @@ ray = ["pyarrow (>=7.0.0)", "pydantic (<2)", "ray[default] (>=1.13.0,!=2.5.0)"]
 spreadsheet = ["modin-spreadsheet (>=0.1.0)"]
 
 [[package]]
-<<<<<<< HEAD
 name = "modin-spreadsheet"
 version = "0.1.2"
 description = "An implementation for the Spreadsheet API of Modin"
@@ -2968,8 +2925,6 @@ notebook = ">=6.0.3"
 test = ["flake8 (>=3.6.0)", "pytest (>=2.8.5)"]
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "more-itertools"
 version = "10.2.0"
 description = "More routines for operating on iterables, beyond itertools"
@@ -3083,7 +3038,6 @@ files = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "multidict"
 version = "6.0.4"
 description = "multidict implementation"
@@ -3167,8 +3121,6 @@ files = [
 ]
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "multipledispatch"
 version = "1.0.0"
 description = "Multiple dispatch"
@@ -3549,7 +3501,6 @@ files = [
 nvidia-nvjitlink-cu12 = "*"
 
 [[package]]
-<<<<<<< HEAD
 name = "nvidia-ml-py"
 version = "12.535.133"
 description = "Python Bindings for the NVIDIA Management Library"
@@ -3561,8 +3512,6 @@ files = [
 ]
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "nvidia-nccl-cu12"
 version = "2.18.1"
 description = "NVIDIA Collective Communication Library (NCCL) Runtime"
@@ -3595,7 +3544,6 @@ files = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "opencensus"
 version = "0.11.4"
 description = "A stats collection and distributed tracing framework"
@@ -3623,8 +3571,6 @@ files = [
 ]
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "openpyxl"
 version = "3.1.2"
 description = "A Python library to read/write Excel 2010 xlsx/xlsm files"
@@ -3775,7 +3721,6 @@ qa = ["flake8 (==3.8.3)", "mypy (==0.782)"]
 testing = ["docopt", "pytest (<6.0.0)"]
 
 [[package]]
-<<<<<<< HEAD
 name = "partd"
 version = "1.4.1"
 description = "Appendable key-value storage"
@@ -3794,8 +3739,6 @@ toolz = "*"
 complete = ["blosc", "numpy (>=1.9.0)", "pandas (>=0.19.0)", "pyzmq"]
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "pathspec"
 version = "0.12.1"
 description = "Utility library for gitignore style pattern matching of file paths."
@@ -4014,7 +3957,6 @@ files = [
 wcwidth = "*"
 
 [[package]]
-<<<<<<< HEAD
 name = "protobuf"
 version = "4.25.2"
 description = ""
@@ -4035,8 +3977,6 @@ files = [
 ]
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "psutil"
 version = "5.9.7"
 description = "Cross-platform lib for process and system monitoring in Python."
@@ -4090,7 +4030,6 @@ files = [
 tests = ["pytest"]
 
 [[package]]
-<<<<<<< HEAD
 name = "py-spy"
 version = "0.3.14"
 description = "Sampling profiler for Python programs"
@@ -4180,8 +4119,6 @@ files = [
 pyasn1 = ">=0.4.6,<0.6.0"
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "pycodestyle"
 version = "2.11.1"
 description = "Python style guide checker"
@@ -4204,7 +4141,6 @@ files = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "pydantic"
 version = "1.10.14"
 description = "Data validation and settings management using python type hints"
@@ -4257,8 +4193,6 @@ dotenv = ["python-dotenv (>=0.10.4)"]
 email = ["email-validator (>=1.0.3)"]
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "pydocstyle"
 version = "6.3.0"
 description = "Python docstring style checker"
@@ -5114,7 +5048,6 @@ packaging = "*"
 test = ["pytest (>=6,!=7.0.0,!=7.0.1)", "pytest-cov (>=3.0.0)", "pytest-qt"]
 
 [[package]]
-<<<<<<< HEAD
 name = "ray"
 version = "2.9.1"
 description = "Ray provides a simple, universal API for building distributed applications."
@@ -5181,8 +5114,6 @@ train = ["fsspec", "pandas", "pyarrow (>=6.0.1)", "requests", "tensorboardX (>=1
 tune = ["fsspec", "pandas", "pyarrow (>=6.0.1)", "requests", "tensorboardX (>=1.9)"]
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "referencing"
 version = "0.32.1"
 description = "JSON Referencing + Python"
@@ -5389,7 +5320,6 @@ files = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "rsa"
 version = "4.9"
 description = "Pure-Python RSA implementation"
@@ -5404,8 +5334,6 @@ files = [
 pyasn1 = ">=0.1.3"
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "rtree"
 version = "1.1.0"
 description = "R-Tree spatial index for Python GIS"
@@ -5593,7 +5521,6 @@ files = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "smart-open"
 version = "6.4.0"
 description = "Utils for streaming large files (S3, HDFS, GCS, Azure Blob Storage, gzip, bz2...)"
@@ -5615,8 +5542,6 @@ test = ["azure-common", "azure-core", "azure-storage-blob", "boto3", "google-clo
 webhdfs = ["requests"]
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "sniffio"
 version = "1.3.0"
 description = "Sniff out which async library your code is running under"
@@ -6044,7 +5969,7 @@ files = [
 widechars = ["wcwidth"]
 
 [[package]]
-<<<<<<< HEAD
+
 name = "tblib"
 version = "3.0.0"
 description = "Traceback serialization library."
@@ -6056,8 +5981,6 @@ files = [
 ]
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "terminado"
 version = "0.18.0"
 description = "Tornado websocket backend for the Xterm.js Javascript terminal emulator library."
@@ -6515,7 +6438,6 @@ socks = ["pysocks (>=1.5.6,!=1.5.7,<2.0)"]
 zstd = ["zstandard (>=0.18.0)"]
 
 [[package]]
-<<<<<<< HEAD
 name = "virtualenv"
 version = "20.25.0"
 description = "Virtual Python Environment builder"
@@ -6536,8 +6458,6 @@ docs = ["furo (>=2023.7.26)", "proselint (>=0.13)", "sphinx (>=7.1.2)", "sphinx-
 test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess (>=1)", "flaky (>=3.7)", "packaging (>=23.1)", "pytest (>=7.4)", "pytest-env (>=0.8.2)", "pytest-freezer (>=0.4.8)", "pytest-mock (>=3.11.1)", "pytest-randomly (>=3.12)", "pytest-timeout (>=2.1)", "setuptools (>=68)", "time-machine (>=2.10)"]
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "watchdog"
 version = "3.0.0"
 description = "Filesystem events monitoring"
@@ -6735,7 +6655,6 @@ platformdirs = ">=3.5.1"
 tomli = ">=2.0.1"
 
 [[package]]
-<<<<<<< HEAD
 name = "yarl"
 version = "1.9.4"
 description = "Yet another URL library"
@@ -6850,8 +6769,6 @@ files = [
 ]
 
 [[package]]
-=======
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
 name = "zipp"
 version = "3.17.0"
 description = "Backport of pathlib-compatible object wrapper for zip files"
@@ -6869,8 +6786,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-<<<<<<< HEAD
-content-hash = "5489661ae6fb1297c6c6486ce52b0e383c665d691132af159430e07bdae0af40"
-=======
-content-hash = "37f6546db3f10f5c30d87eb8a18632d7955c584ced4b0971928ea82e02692c2a"
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
+
