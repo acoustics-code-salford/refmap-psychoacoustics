@@ -2379,21 +2379,11 @@ files = [
 
 [[package]]
 name = "modin"
-<<<<<<< HEAD
-<<<<<<< HEAD
 version = "0.26.1"
-=======
-version = "0.26.0"
->>>>>>> 49a71ebd02b563306085f58321a8c4af85daa8d1
-=======
-version = "0.26.0"
->>>>>>> 33103453db00812069d310b5f5a626ef288bc80e
 description = "Modin: Make your pandas code run faster by changing one line of code."
 optional = false
 python-versions = ">=3.9"
 files = [
-<<<<<<< HEAD
-<<<<<<< HEAD
     {file = "modin-0.26.1-py3-none-any.whl", hash = "sha256:0671c882ee07af181b3fb62b01fe061fdb565f7843984815b3c342eacd681c80"},
     {file = "modin-0.26.1.tar.gz", hash = "sha256:72045b5fcb9a2f63d7ba2ea7b1503bc95b17505a2ecc3eadbd7dc65b06732cff"},
 ]
