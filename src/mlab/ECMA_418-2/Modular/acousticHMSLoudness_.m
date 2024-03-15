@@ -74,7 +74,7 @@ function [loudnessPowAvg, loudnessTimeVar, specificLoudness,...
 % Institution: University of Salford
 %
 % Date created: 22/09/2023
-% Date last modified: 19/10/2023
+% Date last modified: 03/12/2023
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -156,11 +156,11 @@ b = 0.5459;
 % Weight and combine component specific loudnesses
 for chan = inchans:-1:1
     % Equation 114 ECMA-418-2:2022
-    maxLoudnessFuncez = a./(max(specificTonalLoudness(:, :, chan)...
+    maxLoudnessFuncel = a./(max(specificTonalLoudness(:, :, chan)...
                                 + specificNoiseLoudness(:, :, chan), [],...
-                                2, "omitnan") + 1e-12) + b;
-    specificLoudness(:, :, chan) = (specificTonalLoudness(:, :, chan).^maxLoudnessFuncez...
-                                    + abs((weight_n.*specificNoiseLoudness(:, :, chan)).^maxLoudnessFuncez)).^(1./maxLoudnessFuncez);
+                                1, "omitnan") + 1e-12) + b;
+    specificLoudness(:, :, chan) = (specificTonalLoudness(:, :, chan).^maxLoudnessFuncel...
+                                    + abs((weight_n.*specificNoiseLoudness(:, :, chan)).^maxLoudnessFuncel)).^(1./maxLoudnessFuncel);
 end
 
 if inchans > 1 && binaural
@@ -178,7 +178,7 @@ specificLoudnessPowAvg = (sum(specificLoudness(:, (59 - l_start):(end + 1 - l_st
 
 % Section 8.1.3 ECMA-418-2:2022
 % Time-dependent loudness Equation 116
-loudnessTimeVar = sum(specificLoudness.*0.5, 1).';
+loudnessTimeVar = squeeze(sum(specificLoudness.*0.5, 1));
 
 % Section 8.1.4 ECMA-418-2:2022
 % Overall loudness Equation 117
@@ -189,10 +189,10 @@ loudnessPowAvg = (sum(loudnessTimeVar((59 - l_start):(end + 1 - l_start), :).^(1
 % time (s) corresponding with results output
 t = (0:(size(specificLoudness, 2) - 1))/187.5;
 
-for chan = outchans:-1:1
+if outplot
     % Plot figures
     % ------------
-    if outplot
+    for chan = outchans:-1:1
         cmap_viridis = load('cmap_viridis.txt');
         % Plot results
         if inchans > 1 && binaural
@@ -227,18 +227,36 @@ for chan = outchans:-1:1
         % Filter signal to determine A-weighted time-averaged level
         if inchans > 1 && binaural
             pA = weightFilt(p);
-            pA = sum(pA, 2);  % pressure summation to represent energy incident at each ear
+            LAeq2 = 20*log10(rms(pA, 1)/2e-5);
+            % take the higher channel level as representative (PD ISO/TS
+            % 12913-3:2019 Annex D)
+            [LAeq, LR] = max(LAeq2);
+            % if branch to identify which channel is higher
+            if LR == 1
+                whichEar = ' left ear';
+            else
+                whichEar = ' right ear';
+            end  % end of if branch
+
+            chan_lab = chan_lab + whichEar;
+
         else
             pA = weightFilt(p(:, chan));
+            LAeq = 20*log10(rms(pA)/2e-5);
         end
-        LA = 20*log10(rms(pA)/2e-5);
+        
         title(strcat(chan_lab,...
                      ' signal sound pressure level =', {' '},...
-                     num2str(round(LA,1)), "dB {\itL}_{Aeq}"),...
+                     num2str(round(LAeq,1)), "dB {\itL}_{Aeq}"),...
                      'FontWeight', 'normal', 'FontName', 'Arial');
 
         ax2 = nexttile(2);
-        plot(ax2, t, loudnessTimeVar(:, chan), 'color', [0.1, 0.9, 0.6], 'LineWidth', 1);
+        plot(ax2, t, loudnessPowAvg(1, chan)*ones(size(t)), 'color',...
+             [0.1, 0.3, 0.9], 'LineWidth', 0.75, 'DisplayName', "Power" + string(newline) + "time-avg");
+        hold on
+        plot(ax2, t, loudnessTimeVar(:, chan), 'color', [0.1, 0.9, 0.6],...
+             'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "varying");
+        hold off
         ax2.XLim = [t(1), t(end) + (t(2) - t(1))];
         ax2.YLim = [0, 1.01*ceil(max(loudnessTimeVar(:, chan))*10)/10];
         ax2.XLabel.String = 'Time, s';
@@ -247,8 +265,9 @@ for chan = outchans:-1:1
         ax2.YGrid = 'on';
         ax2.FontName = 'Arial';
         ax2.FontSize = 12;
-    end
-
-end
+        lgd = legend('Location', 'eastoutside', 'FontSize', 8);
+        lgd.Title.String = "Overall";
+    end  % end of for loop for plotting over channels
+end  % end of if branch for plotting if outplot true
 
 % end of function

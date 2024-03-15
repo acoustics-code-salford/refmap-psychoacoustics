@@ -3,8 +3,13 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, axisn, over, win, X_scale)
 % Returns FFT frequencies and magnitude auto spectra for input signal data 
 % (NB: assumed to be stationary or quasi-stationary - transient signals may 
 % require alternative processing).
-% Uses Welch windowed averages to estimate the auto spectrum, which is used
-% as the basis for other spectral scalings of the output.
+% Uses Welch windowed averages to estimate the auto spectrum, which can be 
+% used as the basis for other spectral scalings of the output:
+% linear RMS spectrum = sqrt(autospectrum)
+% linear peak spectrum = sqrt(2)*sqrt(autospectrum)
+% power (auto) spectral density = autospectrum*(Ben/deltaFreq) where Ben is
+% the normalised equivalent noise bandwidth for the window (see outputs
+% below), and deltaFreq is the output spectral line spacing.
 % The returned spectral array X has a size like (Nfft/2 + odd,
 % <xn.#signals>), where odd = 0 if Nfft is even, with the other dimension
 % corresponding with the number of signals in xn (NB: the output X
@@ -40,7 +45,7 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, axisn, over, win, X_scale)
 % f : vector
 %      the spectral frequencies
 % X : vector or 2D array
-%      the real-valued spectrum (or spectra)
+%      the real-valued autospectrum (or autospectra)
 % Ben : double
 %      the 'normalised equivalent noise bandwidth' for the window applied
 %

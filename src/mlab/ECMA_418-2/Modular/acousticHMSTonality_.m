@@ -98,7 +98,7 @@ function [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs,...
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 07/08/2023
-% Date last modified: 19/10/2023
+% Date last modified: 14/11/2023
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -493,7 +493,12 @@ for chan = size(pn_om, 2):-1:1
                      'FontWeight', 'normal', 'FontName', 'Arial');
         
         ax2 = nexttile(2);
-        plot(ax2, t, tonalityTimeVar(:, chan), 'm', 'LineWidth', 1);
+        plot(ax2, t, tonalityAvg(1, chan), 'color', [0.5, 0.1, 0.9],...
+             'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "average");
+        hold on
+        plot(ax2, t, tonalityTimeVar(:, chan), 'm', 'LineWidth', 0.75,...
+             'DisplayName', "Time-" + string(newline) + "varying");
+        hold off
         ax2.XLim = [t(1), t(end) + (t(2) - t(1))];
         ax2.YLim = [0, ceil(max(tonalityTimeVar(:, chan))*10)/10];
         ax2.XLabel.String = "Time, s";
@@ -502,6 +507,8 @@ for chan = size(pn_om, 2):-1:1
         ax2.YGrid = 'on';
         ax2.FontName = 'Arial';
         ax2.FontSize = 12;
+        lgd = legend('Location', 'eastoutside', 'FontSize', 8);
+        lgd.Title.String = "Overall";
     end
 
 end
