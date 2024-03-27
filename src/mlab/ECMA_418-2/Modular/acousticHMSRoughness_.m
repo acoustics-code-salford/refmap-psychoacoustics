@@ -2,7 +2,7 @@ function [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs,...
           specificTonality, specificTonalityFreqs, specificTonalityAvg,...
           specificTonalityAvgFreqs, bandCentreFreqs,...
           specificTonalLoudness, specificNoiseLoudness]...
-          = acousticHMSRoughness_(p, sampleRatein, axisn, outplot, ecma, binaural)
+          = acousticHMSRoughness_(p, sampleRatein, axisn, outplot, binaural)
 % [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs, specificTonality,
 %  specificTonalityFreqs, specificTonalityAvg, specificTonalityAvgFreqs,
 %  bandCentreFreqs]
@@ -26,13 +26,7 @@ function [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs,...
 %
 % outplot : Boolean true/false (default: false)
 %           flag indicating whether to generate a figure from the output
-%
-% ecma : Boolean true/false (default: true)
-%        flag indicating whether to maintain strict standard adherence to
-%        ECMA-418-2:2022 Equation 40, or otherwise to use an alternative
-%        that provides closer time-alignment of the time-dependent tonality
-%        with the original signal
-%
+%%
 % binaural : Boolean true/false (default: true)
 %            flag indicating whether to output binaural roughness for stereo
 %            input signal.% 
@@ -431,6 +425,7 @@ for chan = size(pn_om, 2):-1:1
 
     end
     
+    % INCOMPLETE CODE
               
     i_step = i_step + 62;  % increment calculation step for waitbar
 

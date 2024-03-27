@@ -63,9 +63,12 @@ partBDataBySubj = pd.read_csv(partBDataFilePath, index_col=False)
 
 # data by stimulus
 dataByStimFilePath = list(QFileDialog.getOpenFileName(filter=fileExts))[0]
-dataByStim = pd.read_csv(dataByStimFilePath, index_col=0)
+dataByStimTest = pd.read_csv(dataByStimFilePath, index_col=0)
+
+# Part A
 dataByStimAFilePath = list(QFileDialog.getOpenFileName(filter=fileExts))[0]
 dataByStimTestA = pd.read_csv(dataByStimAFilePath, index_col=0)
+# Part B
 dataByStimBFilePath = list(QFileDialog.getOpenFileName(filter=fileExts))[0]
 dataByStimTestB = pd.read_csv(dataByStimBFilePath, index_col=0)
 
@@ -74,6 +77,7 @@ preTestDataFilePath = list(QFileDialog.getOpenFileName(filter=fileExts))[0]
 preTestResponses = pd.read_csv(preTestDataFilePath, index_col=0)
 postTestDataFilePath = list(QFileDialog.getOpenFileName(filter=fileExts))[0]
 postTestResponses = pd.read_csv(postTestDataFilePath, index_col=0)
+
 
 # categorise columns
 partADataBySubj['SNRlevel'] = pd.Categorical(partADataBySubj['SNRlevel'],
@@ -113,6 +117,150 @@ dataByStimTestB['UASOperation'] = pd.Categorical(dataByStimTestB['UASOperation']
 # --------------------
 # Exploratory analysis
 # --------------------
+
+# Anomalous data checking
+# -----------------------
+
+# Tukey outlier test
+kFact = 1.5  # multiplying factor to identify outliers from IQ range
+
+# Annoyance
+AnnoyLowQ = dataByStimTest.loc[:,
+                               'Annoyance_1':'Annoyance_19'].quantile(0.25,
+                                                                      axis=1).to_frame()
+AnnoyHiQ = dataByStimTest.loc[:,
+                              'Annoyance_1':'Annoyance_19'].quantile(0.75,
+                                                                     axis=1).to_frame()
+AnnoyIQ = AnnoyHiQ.values - AnnoyLowQ.values
+
+AnnoyLowOut = AnnoyLowQ.values - kFact*(AnnoyIQ)
+AnnoyHiOut = AnnoyHiQ.values + kFact*(AnnoyIQ)
+
+AnnoyOutTest = pd.DataFrame(data=np.logical_or(dataByStimTest.loc[:,
+                                                                  'Annoyance_1':'Annoyance_19'].values
+                                               < AnnoyLowOut,
+                                               dataByStimTest.loc[:,
+                                                                  'Annoyance_1':'Annoyance_19'].values
+                                               > AnnoyHiOut),
+                            index=dataByStimTest.loc[:,
+                                                     'Annoyance_1':'Annoyance_19'].index,
+                            columns=[participant.replace("Annoyance_", "") for participant
+                                     in dataByStimTest.loc[:,
+                                                           'Annoyance_1':'Annoyance_19'].columns])
+AnnoyOutTestScore = AnnoyOutTest.sum(axis=0)
+
+# Valence
+ValenceLowQ = dataByStimTest.loc[:,
+                               'Valence_1':'Valence_19'].quantile(0.25,
+                                                                      axis=1).to_frame()
+ValenceHiQ = dataByStimTest.loc[:,
+                              'Valence_1':'Valence_19'].quantile(0.75,
+                                                                     axis=1).to_frame()
+ValenceIQ = ValenceHiQ.values - ValenceLowQ.values
+
+ValenceLowOut = ValenceLowQ.values - kFact*(ValenceIQ)
+ValenceHiOut = ValenceHiQ.values + kFact*(ValenceIQ)
+
+ValenceOutTest = pd.DataFrame(data=np.logical_or(dataByStimTest.loc[:,
+                                                                    'Valence_1':'Valence_19'].values
+                                                 < ValenceLowOut,
+                                               dataByStimTest.loc[:,
+                                                                  'Valence_1':'Valence_19'].values
+                                               > ValenceHiOut),
+                            index=dataByStimTest.loc[:,
+                                                     'Valence_1':'Valence_19'].index,
+                            columns=[participant.replace("Valence_", "") for participant
+                                     in dataByStimTest.loc[:,
+                                                           'Valence_1':'Valence_19'].columns])
+ValenceOutTestScore = ValenceOutTest.sum(axis=0)
+
+# Arousal
+ArousalLowQ = dataByStimTest.loc[:,
+                               'Arousal_1':'Arousal_19'].quantile(0.25,
+                                                                      axis=1).to_frame()
+ArousalHiQ = dataByStimTest.loc[:,
+                              'Arousal_1':'Arousal_19'].quantile(0.75,
+                                                                     axis=1).to_frame()
+ArousalIQ = ArousalHiQ.values - ArousalLowQ.values
+
+ArousalLowOut = ArousalLowQ.values - kFact*(ArousalIQ)
+ArousalHiOut = ArousalHiQ.values + kFact*(ArousalIQ)
+
+ArousalOutTest = pd.DataFrame(data=np.logical_or(dataByStimTest.loc[:,
+                                                                    'Arousal_1':'Arousal_19'].values
+                                                 < ArousalLowOut,
+                                               dataByStimTest.loc[:,
+                                                                  'Arousal_1':'Arousal_19'].values
+                                               > ArousalHiOut),
+                              index=dataByStimTest.loc[:,
+                                                     'Arousal_1':'Arousal_19'].index,
+                              columns=[participant.replace("Arousal_", "") for participant
+                                       in dataByStimTest.loc[:,
+                                                             'Arousal_1':'Arousal_19'].columns])
+ArousalOutTestScore = ArousalOutTest.sum(axis=0)
+
+# Total outliers per participant
+TotalOutTestScore = AnnoyOutTestScore + ValenceOutTestScore + ArousalOutTestScore
+
+# plot response outliers
+fig, ax = plt.subplots(figsize=(13, 4))
+OutScoreProps = {"Annoyance": 100*AnnoyOutTestScore/AnnoyOutTest.shape[0],
+                 "Valence": 100*ValenceOutTestScore/ValenceOutTest.shape[0],
+                 "Arousal": 100*ArousalOutTestScore/ArousalOutTest.shape[0]}
+width = 0.5
+bottom = np.zeros(ArousalOutTestScore.index.size)
+
+for ii, (boolean, OutScoreProp) in enumerate(OutScoreProps.items()):
+    p = ax.bar(OutScoreProp.index, OutScoreProp, width, label=boolean,
+               bottom=bottom, color=mycolours[ii])
+    bottom += OutScoreProp
+
+ax.legend(title="Response")
+ax.set(yticks=range(0, 60, 10), ylabel="Proportion of response outliers, %",
+       xlabel="Participant ID#")
+
+plt.show()
+
+# plot participant sample feature data
+
+# age distribution
+fig, ax = plt.subplots(figsize=(4, 3))
+
+plt.hist(x=postTestResponses.Age[postTestResponses.Age != "No answer"].astype(int),
+         bins=np.arange(18.5, 62.5, 4), histtype='step', color=mycolours[0])
+ax.set(xticks=range(18, 62, 2), xlim=[18, 60], yticks=range(0, 12),
+       xlabel="Age, years", ylabel="No. of participants")
+plt.show()
+
+# residential area
+fig, ax = plt.subplots(figsize=(4, 3))
+
+areaCats = np.sort(postTestResponses['Home Area'].unique())
+data = postTestResponses[['Home Area']
+                         + ['Area soundscape']].apply('.'.join,
+                                                      axis=1).value_counts().sort_index()
+scapeCounts = {"Calm": np.array([1, 8, 11]),
+               "Chaotic": np.array([0, 0, 4]),
+               "Monotonous": np.array([0, 2, 2]),
+               "Vibrant": np.array([0, 4, 10])}
+# wedges, texts = ax.pie(postTestResponses['Home Area'].value_counts(),
+#                        wedgeprops=dict(width=size, edgecolor='w'),
+#                        startangle=-40, radius=1, colors=inner_colors)
+
+width = 0.5
+
+bottom = np.zeros(3)
+
+for ii, (boolean, scapeCounts) in enumerate(scapeCounts.items()):
+    p = ax.bar(areaCats, scapeCounts,
+               label=boolean, bottom=bottom, color=mycolours[ii])
+    bottom += scapeCounts
+
+ax.legend(loc="upper left", title="Area soundscape", fontsize=9)
+ax.set(yticks=range(0, 32, 2), ylabel="No. of participants", xlabel="Area of residence")
+
+plt.show()
+
 
 # Part A
 # ------
@@ -793,42 +941,3 @@ ax.legend(bbox_to_anchor=(0.5, 1.2), loc='upper center', ncol=2, fontsize=11,
           title=r"UAS $L_\mathrm{Aeq}$, dB")
 plt.show()
 
-# plot participant sample feature data
-
-# age distribution
-fig, ax = plt.subplots(figsize=(4, 3))
-
-plt.hist(postTestResponses.Age[postTestResponses.Age != "No answer"],
-         bins=np.arange(18.5, 62.5, 4), histtype='step', color=mycolours[0])
-ax.set(xticks=range(18, 62, 2), xlim=[18, 60], yticks=range(0, 12),
-       xlabel="Age, years", ylabel="No. of participants")
-plt.show()
-
-# residential area
-fig, ax = plt.subplots(figsize=(4, 3))
-
-areaCats = np.sort(postTestResponses['Home Area'].unique())
-data = postTestResponses[['Home Area']
-                         + ['Area soundscape']].apply('.'.join,
-                                                      axis=1).value_counts().sort_index()
-scapeCounts = {"Calm": np.array([1, 8, 11]),
-               "Chaotic": np.array([0, 0, 4]),
-               "Monotonous": np.array([0, 2, 2]),
-               "Vibrant": np.array([0, 4, 10])}
-# wedges, texts = ax.pie(postTestResponses['Home Area'].value_counts(),
-#                        wedgeprops=dict(width=size, edgecolor='w'),
-#                        startangle=-40, radius=1, colors=inner_colors)
-
-width = 0.5
-
-bottom = np.zeros(3)
-
-for ii, (boolean, scapeCounts) in enumerate(scapeCounts.items()):
-    p = ax.bar(areaCats, scapeCounts,
-               label=boolean, bottom=bottom, color=mycolours[ii])
-    bottom += scapeCounts
-
-ax.legend(loc="upper left", title="Area soundscape", fontsize=9)
-ax.set(yticks=range(0, 32, 2), ylabel="No. of participants", xlabel="Area of residence")
-
-plt.show()
