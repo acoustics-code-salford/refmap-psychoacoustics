@@ -15,7 +15,12 @@ import pandas as pd
 from PyQt5.QtWidgets import QFileDialog, QApplication
 import librosa
 import dsp.filterFuncs
-from scipy import stats
+import dsp.noct
+from scipy import stats, optimize
+# import matlab.engine
+
+# create MATLAB engine object
+# eng = matlab.engine.start_matlab()
 
 # enable copy-on-write mode for Pandas (will be default from Pandas 3.0)
 pd.options.mode.copy_on_write = True
@@ -36,7 +41,7 @@ end_skipT = 0.5
 
 # open wav file selection dialog and assign filepaths to list
 # PROJECT NOTE: the calibrated files are stored in
-# https://testlivesalfordac.sharepoint.com/:f:/r/sites/REFMAP/Shared%20Documents/General/03%20Experiment/Experiment%201/Calibration/Post_calib_recs/Take2/Pa_calib?csf=1&web=1&e=oGssZv
+# https://testlivesalfordac.sharepoint.com/:f:/r/sites/REFMAP/Shared%20Documents/General/03%20Experiment/Experiment%201/Calibration/Post_calib_recs/Pa_calib?csf=1&web=1&e=7eX89P
 app = QApplication(sys.argv)
 fileExts = "*.wav"
 filelist = list(QFileDialog.getOpenFileNames(filter=fileExts))[0]
@@ -95,6 +100,35 @@ for ii, file in enumerate(filelist):
 
 # end of for loop over signal wav files
 
+# -----------------
+# EPNL calculations
+# -----------------
+
+# # output variables
+indicesPNL = ["EPNLMaxLR", "EPNLNoTMaxLR", "PNLTmaxMaxLR"]
+
+# # Select Audio2EPNL function file folder
+# Audio2EPNLPath = QFileDialog.getExistingDirectory()
+# eng.addpath(eng.genpath(Audio2EPNLPath));
+# PNLout= eng.Audio2EPNL(1, filelist, nargout=3)
+#TODO
+app = QApplication(sys.argv)
+fileExts = "*.csv"
+filelist = list(QFileDialog.getOpenFileNames(filter=fileExts))[0]
+filelist.sort()
+EPNL = pd.read_csv(filelist[0], header=0, index_col=0)
+EPNL_No_Tone = pd.read_csv(filelist[1], header=0, index_col=0)
+PNLTMax = pd.read_csv(filelist[2], header=0, index_col=0)
+
+dataByStim = dataByStim.merge(pd.DataFrame(EPNL.max(axis=1),
+                                           columns=[indicesPNL[0]]),
+                              how='outer', left_index=True, right_index=True)
+dataByStim = dataByStim.merge(pd.DataFrame(EPNL_No_Tone.max(axis=1),
+                                           columns=[indicesPNL[1]]),
+                              how='outer', left_index=True, right_index=True)
+dataByStim = dataByStim.merge(pd.DataFrame(PNLTMax.max(axis=1),
+                                           columns=[indicesPNL[2]]),
+                              how='outer', left_index=True, right_index=True)
 
 # ------------------------------------------------
 # Psychoacoustic metrics single values calculation
@@ -102,29 +136,61 @@ for ii, file in enumerate(filelist):
 
 # output variables
 indicesPsycho = ["LoudECMAHMSPowAvgBin",
-                 "TonalECMAHMSAvgMaxLR",
-                 "RoughECMAHMS10ExBin",
-                 "FluctstrHMS10ExBin",
-                 "LoudISO105ExMaxLR",
-                 "LoudISO1PowAvgMaxLR",
-                 "LoudISO3PowAvgMaxLR",
-                 "SharpAuresISO3AvgMaxLR",
-                 "SharpAuresISO3PowAvgMaxLR",
-                 "ImpulsHMSPowAvgMaxLR",
-                 "ImpulsHMSAvgMaxLR",
-                 "ImpulsHMSMaxMaxLR"]
+                  "TonalECMAHMSAvgMaxLR",
+                  "TonalECMAHMS05ExMaxLR",
+                  "RoughECMAHMS10ExBin",
+                  "RoughECMAHMS05ExBin",
+                  "FluctstrHMS10ExBin",
+                  "FluctstrHMS05ExBin",
+                  "LoudISO105ExMaxLR",
+                  "LoudISO1PowAvgMaxLR",
+                  "LoudISO3PowAvgMaxLR",
+                  "SharpAuresISO3AvgMaxLR",
+                  "SharpAuresISO3PowAvgMaxLR",
+                  "SharpAuresISO305ExMaxLR",
+                  "ImpulsHMSPowAvgMaxLR",
+                  "ImpulsHMSAvgMaxLR",
+                  "ImpulsHMSMaxMaxLR",
+                  "ImpulsHMS05ExMaxLR",
+                  "dTonalECMAHMSAvgMaxLR",
+                  "dTonalECMAHMS05ExMaxLR",
+                  "dRoughECMAHMS10ExBin",
+                  "dRoughECMAHMS05ExBin",
+                  "dFluctstrHMS10ExBin",
+                  "dFluctstrHMS05ExBin",
+                  "dSharpAuresISO3AvgMaxLR",
+                  "dSharpAuresISO3PowAvgMaxLR",
+                  "dSharpAuresISO305ExMaxLR",
+                  "dImpulsHMSPowAvgMaxLR",
+                  "dImpulsHMSAvgMaxLR",
+                  "dImpulsHMSMaxMaxLR",
+                  "dImpulsHMS05ExMaxLR"]
 
 dataByStim = pd.concat([dataByStim, pd.DataFrame(index=dataByStim.index,
                                                  columns=indicesPsycho,
                                                  dtype=float)], axis=1)
+
+# output SQM sample rates
+sampleRateLoudECMA = 187.5
+sampleRateTonalECMA = 187.5
+sampleRateLoudISO1 = 500
+sampleRateLoudISO3 = 1e3
+sampleRateRoughECMA = 50
+sampleRateFluctHMS = 229390681/4e6
+sampleRateImpulsHMS = 60000/55
+
+# time value for moving averaging of SQMs for difference calculations
+windowT = 0.05
 
 # open xlsx file selection dialog and assign filepaths to list
 # PROJECT NOTE: the calculated files are stored in
 # https://testlivesalfordac.sharepoint.com/:f:/r/sites/REFMAP/Shared%20Documents/General/03%20Experiment/Experiment%201/Analysis/ArtemiS/Output?csf=1&web=1&e=0TAPVz
 app = QApplication(sys.argv)
 fileExts = "*.xlsx"
-filelist = list(QFileDialog.getOpenFileNames(filter=fileExts))[0]
+filelist = list(QFileDialog.getOpenFileNames(filter=fileExts,
+                                             caption=r"Select ArtemiS output files"))[0]
 filelist.sort()
+filenames = [filepath.split('/')[-1] for filepath in filelist]
 
 # loop over files to analyse
 for file in filelist:
@@ -134,167 +200,381 @@ for file in filelist:
     # Calculate ECMA-418-2:2022 Sottek Hearing Model overall loudness from
     # 2-channel specific loudness
     # left channel
-    specificLoudnessHMSL = pd.DataFrame(workbookdata['Sheet1'].iloc[14:, 1:].values,
-                                        columns=workbookdata['Sheet1'].iloc[13, 1:],
-                                        index=workbookdata['Sheet1'].iloc[14:, 0])
-    # right channel
-    specificLoudnessHMSR = pd.DataFrame(workbookdata['Sheet2'].iloc[14:, 1:].values,
-                                        columns=workbookdata['Sheet2'].iloc[13, 1:],
-                                        index=workbookdata['Sheet2'].iloc[14:, 0])
-    # binaural specific loudness (ECMA-418-2:2022 Equation 118)
-    specificLoudnessHMSBin = ((specificLoudnessHMSL**2
-                               + specificLoudnessHMSR**2)/2).pow(1/2)
-    # binaural time-dependent loudness (ECMA-418-2:2022 Equation 116)
-    loudnessHMSTimeVar = specificLoudnessHMSBin.sum(axis=0)*0.5
-    # binaural overall (power-averaged) loudness (ECMA-418-2:2022 Equation 117)
-    loudnessHMSPowAvg = ((loudnessHMSTimeVar.iloc[int(np.ceil(187.5*start_skipT)):
-                                                  -int(np.ceil(187.5*end_skipT))]**(1/np.log10(2))).sum()
-                         / len(loudnessHMSTimeVar.iloc[int(np.ceil(187.5*start_skipT)):
-                                                       -int(np.ceil(187.5*end_skipT))]))**np.log10(2)
+    specLoudnessHMSL = pd.DataFrame(workbookdata['Sheet1'].iloc[14:, 1:].values,
+                                    columns=workbookdata['Sheet1'].iloc[13, 1:],
+                                    index=workbookdata['Sheet1'].iloc[14:, 0])
+    # # right channel
+    specLoudnessHMSR = pd.DataFrame(workbookdata['Sheet2'].iloc[14:, 1:].values,
+                                    columns=workbookdata['Sheet2'].iloc[13, 1:],
+                                    index=workbookdata['Sheet2'].iloc[14:, 0])
+    # # binaural specific loudness (ECMA-418-2:2022 Equation 118)
+    specLoudnessHMSBin = ((specLoudnessHMSL**2
+                            + specLoudnessHMSR**2)/2).pow(1/2)
+    # # binaural time-dependent loudness (ECMA-418-2:2022 Equation 116)
+    loudnessHMSTimeVar = specLoudnessHMSBin.sum(axis=0)*0.5
+    # # binaural overall (power-averaged) loudness (ECMA-418-2:2022 Equation 117)
+    loudnessHMSPowAvg = ((loudnessHMSTimeVar.iloc[int(np.ceil(sampleRateLoudECMA*start_skipT)):
+                                                  -int(np.ceil(sampleRateLoudECMA*end_skipT))]**(1/np.log10(2))).sum()
+                          / len(loudnessHMSTimeVar.iloc[int(np.ceil(sampleRateLoudECMA*start_skipT)):
+                                                        -int(np.ceil(sampleRateLoudECMA*end_skipT))]))**np.log10(2)
 
     # Calculate ECMA-418-2:2022 Sottek Hearing Model overall tonality from
     # 2-channel specific tonality
     # left channel
-    specificTonalityHMSL = pd.DataFrame(workbookdata['Sheet3'].iloc[14:, 1:].values,
-                                        columns=workbookdata['Sheet3'].iloc[13, 1:],
-                                        index=workbookdata['Sheet3'].iloc[14:, 0])
+    specTonalityHMSL = pd.DataFrame(workbookdata['Sheet3'].iloc[14:, 1:].values,
+                                    columns=workbookdata['Sheet3'].iloc[13, 1:],
+                                    index=workbookdata['Sheet3'].iloc[14:, 0])
     # right channel
-    specificTonalityHMSR = pd.DataFrame(workbookdata['Sheet4'].iloc[14:, 1:].values,
-                                        columns=workbookdata['Sheet4'].iloc[13, 1:],
-                                        index=workbookdata['Sheet4'].iloc[14:, 0])
+    specTonalityHMSR = pd.DataFrame(workbookdata['Sheet4'].iloc[14:, 1:].values,
+                                    columns=workbookdata['Sheet4'].iloc[13, 1:],
+                                    index=workbookdata['Sheet4'].iloc[14:, 0])
     # 2-channel time-varing tonality (max, not integration)
-    tonalityHMSTimeVar = pd.concat([specificTonalityHMSL.max(axis=0),
-                                    specificTonalityHMSR.max(axis=0)],
-                                   axis=1)
+    tonalityHMSTimeVar = pd.concat([specTonalityHMSL.max(axis=0),
+                                    specTonalityHMSR.max(axis=0)],
+                                    axis=1)
     # 2-channel time-averaged tonality (omitting T<=0.02)
-    tonalityHMSAvgL = tonalityHMSTimeVar.iloc[int(np.ceil(187.5*start_skipT)):
-                                              -int(np.ceil(187.5*end_skipT)),
-                                              0][tonalityHMSTimeVar.iloc[int(np.ceil(187.5*start_skipT)):
-                                                                         -int(np.ceil(187.5*end_skipT)), 0]
-                                                                         >= 0.02].mean(axis=0)
-    tonalityHMSAvgR = tonalityHMSTimeVar.iloc[int(np.ceil(187.5*start_skipT)):
-                                              -int(np.ceil(187.5*end_skipT)),
-                                              1][tonalityHMSTimeVar.iloc[int(np.ceil(187.5*start_skipT)):
-                                                                         -int(np.ceil(187.5*end_skipT)), 1]
-                                                                         >= 0.02].mean(axis=0)
+    tonalityHMSAvgL = tonalityHMSTimeVar.iloc[int(np.ceil(sampleRateTonalECMA*start_skipT)):
+                                              -int(np.ceil(sampleRateTonalECMA*end_skipT)),
+                                              0][tonalityHMSTimeVar.iloc[int(np.ceil(sampleRateTonalECMA*start_skipT)):
+                                                                          -int(np.ceil(sampleRateTonalECMA*end_skipT)), 0]
+                                                                          > 0.02].mean(axis=0)
+    tonalityHMSAvgR = tonalityHMSTimeVar.iloc[int(np.ceil(sampleRateTonalECMA*start_skipT)):
+                                              -int(np.ceil(sampleRateTonalECMA*end_skipT)),
+                                              1][tonalityHMSTimeVar.iloc[int(np.ceil(sampleRateTonalECMA*start_skipT)):
+                                                                          -int(np.ceil(sampleRateTonalECMA*end_skipT)), 1]
+                                                                          > 0.02].mean(axis=0)
     tonalityHMSAvgMaxLR = max(tonalityHMSAvgL, tonalityHMSAvgR)
+    # 2-channel 5% exceeded tonality (omitting T<=0.02)
+    tonalityHMS05ExL = tonalityHMSTimeVar.iloc[int(np.ceil(sampleRateTonalECMA*start_skipT)):
+                                              -int(np.ceil(sampleRateTonalECMA*end_skipT)),
+                                              0][tonalityHMSTimeVar.iloc[int(np.ceil(sampleRateTonalECMA*start_skipT)):
+                                                                          -int(np.ceil(sampleRateTonalECMA*end_skipT)), 0]
+                                                                          > 0.02].quantile(q=0.95)
+    tonalityHMS05ExR = tonalityHMSTimeVar.iloc[int(np.ceil(sampleRateTonalECMA*start_skipT)):
+                                                -int(np.ceil(sampleRateTonalECMA*end_skipT)),
+                                                1][tonalityHMSTimeVar.iloc[int(np.ceil(sampleRateTonalECMA*start_skipT)):
+                                                                          -int(np.ceil(sampleRateTonalECMA*end_skipT)), 1]
+                                                                          > 0.02].quantile(q=0.95)
+    tonalityHMS05ExMaxLR = max(tonalityHMS05ExL, tonalityHMS05ExR)
 
     # Calculate ECMA-418-2:2022 Sottek Hearing Model binaural overall roughness
     # from binaural specific roughness
-    specificRoughnessHMSBin = pd.DataFrame(workbookdata['Sheet5'].iloc[14:, 1:].values,
-                                        columns=workbookdata['Sheet5'].iloc[13, 1:],
-                                        index=workbookdata['Sheet5'].iloc[14:, 0])
+    specRoughHMSBin = pd.DataFrame(workbookdata['Sheet5'].iloc[14:, 1:].values,
+                                    columns=workbookdata['Sheet5'].iloc[13, 1:],
+                                    index=workbookdata['Sheet5'].iloc[14:, 0])
     # binaural time-varying roughness
-    roughnessHMSTimeVar = specificRoughnessHMSBin.sum(axis=0)*0.5
+    roughHMSTimeVar = specRoughHMSBin.sum(axis=0)*0.5
     # binaural overall (90th percentile = 10% exceeded) roughness
-    roughnessHMS10Ex = roughnessHMSTimeVar.iloc[int(np.ceil(50*start_skipT)):
-                                                -int(np.ceil(50*end_skipT))].quantile(q=0.9)
+    roughHMS10Ex = roughHMSTimeVar.iloc[int(np.ceil(sampleRateRoughECMA*start_skipT)):
+                                        -int(np.ceil(sampleRateRoughECMA*end_skipT))].quantile(q=0.9)
+    # binaural overall (95th percentile = 5% exceeded) roughness
+    roughHMS05Ex = roughHMSTimeVar.iloc[int(np.ceil(sampleRateRoughECMA*start_skipT)):
+                                        -int(np.ceil(sampleRateRoughECMA*end_skipT))].quantile(q=0.95)
 
     # Calculate overall Sottek Hearing Model fluctuation strength from
     # 2-channel specific fluctuation strength 
     # calculate according to ECMA-418-2:2022 approach for roughness
     # left channel
-    specificFluctStrHMSL = pd.DataFrame(workbookdata['Sheet6'].iloc[14:, 1:].values,
-                                        columns=workbookdata['Sheet6'].iloc[13, 1:],
-                                        index=workbookdata['Sheet6'].iloc[14:, 0])
+    specFluctStrHMSL = pd.DataFrame(workbookdata['Sheet6'].iloc[14:, 1:].values,
+                                    columns=workbookdata['Sheet6'].iloc[13, 1:],
+                                    index=workbookdata['Sheet6'].iloc[14:, 0])
     # right channel
-    specificFluctStrHMSR = pd.DataFrame(workbookdata['Sheet7'].iloc[14:, 1:].values,
-                                        columns=workbookdata['Sheet7'].iloc[13, 1:],
-                                        index=workbookdata['Sheet7'].iloc[14:, 0])
+    specFluctStrHMSR = pd.DataFrame(workbookdata['Sheet7'].iloc[14:, 1:].values,
+                                    columns=workbookdata['Sheet7'].iloc[13, 1:],
+                                    index=workbookdata['Sheet7'].iloc[14:, 0])
     # binaural specific fluctuation strength
     # (using ECMA-418-2:2022 Equation 112 for roughness)
-    specificFluctStrHMSBin = ((specificFluctStrHMSL**2
-                               + specificFluctStrHMSR**2)/2).pow(1/2)
+    specFluctStrHMSBin = ((specFluctStrHMSL**2
+                            + specFluctStrHMSR**2)/2).pow(1/2)
     # binaural time-dependent fluctuation strength
     # (using ECMA-418-2:2022 Equation 111 for roughness)
-    fluctStrHMSTimeVar = specificFluctStrHMSBin.sum(axis=0)*0.5
+    fluctStrHMSTimeVar = specFluctStrHMSBin.sum(axis=0)*0.5
     # binaural overall (90th percentile = 10% exceeded) fluctuation strength
     # (using ECMA-418-2:2022 Section 7.1.8 for roughness)
-    fluctStrHMSTime10Ex = fluctStrHMSTimeVar.iloc[int(np.ceil(start_skipT*(229390681/4e6))):
-                                                  -int(np.ceil(end_skipT*(229390681/4e6)))].quantile(q=0.9)
-
-    # Calculate overall ISO 532-1 loudness from 2-channel time-varing loudness
+    fluctStrHMSTime10Ex = fluctStrHMSTimeVar.iloc[int(np.ceil(start_skipT*(sampleRateFluctHMS))):
+                                                  -int(np.ceil(end_skipT*(sampleRateFluctHMS)))].quantile(q=0.9)
+    # binaural overall (95th percentile = 5% exceeded) fluctuation strength
+    fluctStrHMSTime05Ex = fluctStrHMSTimeVar.iloc[int(np.ceil(start_skipT*(sampleRateFluctHMS))):
+                                                  -int(np.ceil(end_skipT*(sampleRateFluctHMS)))].quantile(q=0.95)
+    # # Calculate overall ISO 532-1 loudness from 2-channel time-varing loudness
     loudnessISO1TimeVar = pd.DataFrame(workbookdata['Sheet8'].iloc[13:, 1:3].values,
-                                       columns=workbookdata['Sheet8'].iloc[12, 1:3],
-                                       index=workbookdata['Sheet8'].iloc[13:, 0])
-    # 2-channel overall (5% exceeded = 95th percentile) loudness
-    loudnessISO105Ex = loudnessISO1TimeVar.iloc[int(start_skipT*1e3):-int(end_skipT*1e3)].quantile(q=0.95)
-    # max of l/r channel (5% exceeded = 95th percentile) loudness
+                                        columns=workbookdata['Sheet8'].iloc[12, 1:3],
+                                        index=workbookdata['Sheet8'].iloc[13:, 0])
+    # # 2-channel overall (5% exceeded = 95th percentile) loudness
+    loudnessISO105Ex = loudnessISO1TimeVar.iloc[int(start_skipT*sampleRateLoudISO1):
+                                                -int(end_skipT*sampleRateLoudISO1)].quantile(q=0.95)
+    # # max of l/r channel (5% exceeded = 95th percentile) loudness
     loudnessISO105ExMaxLR = loudnessISO105Ex.max()
 
-    # 2-channel overall (power-averaged) loudness
-    loudnessISO1PowAvg = ((loudnessISO1TimeVar.iloc[int(start_skipT*500):
-                                                    -int(end_skipT*500)]**(1/np.log10(2))).sum(axis=0)
-                          / len(loudnessISO1TimeVar.iloc[int(start_skipT*500):
-                                                         -int(end_skipT*500)]))**np.log10(2)
-    # max of l/r channel (95th-percentile) loudness
+    # # 2-channel overall (power-averaged) loudness
+    loudnessISO1PowAvg = ((loudnessISO1TimeVar.iloc[int(start_skipT*sampleRateLoudISO1):
+                                                    -int(end_skipT*sampleRateLoudISO1)]**(1/np.log10(2))).sum(axis=0)
+                          / len(loudnessISO1TimeVar.iloc[int(start_skipT*sampleRateLoudISO1):
+                                                          -int(end_skipT*sampleRateLoudISO1)]))**np.log10(2)
+    # # max of l/r channel (95th-percentile) loudness
     loudnessISO1PowAvgMaxLR = loudnessISO1PowAvg.max()
 
-    # Calculate overall ISO 532-3 loudness from binaural time-varing loudness
+    # # Calculate overall ISO 532-3 loudness from binaural time-varing loudness
     loudnessISO3TimeVar = pd.DataFrame(workbookdata['Sheet9'].iloc[13:, 1:2].values,
-                                       columns=workbookdata['Sheet9'].iloc[12, 1:2],
-                                       index=workbookdata['Sheet9'].iloc[13:, 0])
-    # binaural overall (power-averaged) loudness
-    loudnessISO3PowAvg = ((loudnessISO3TimeVar.iloc[int(start_skipT*1e3):
-                                                    -int(end_skipT*1e3)]**(1/np.log10(2))).sum(axis=0)
-                          / len(loudnessISO3TimeVar.iloc[int(start_skipT*1e3):
-                                                         -int(end_skipT*1e3)]))**np.log10(2)
-    loudnessISO3PowAvg = loudnessISO3PowAvg.iloc[0]  # convert series to float
+                                        columns=workbookdata['Sheet9'].iloc[12, 1:2],
+                                        index=workbookdata['Sheet9'].iloc[13:, 0])
+    # # binaural overall (power-averaged) loudness
+    loudnessISO3PowAvg = ((loudnessISO3TimeVar.iloc[int(start_skipT*sampleRateLoudISO3):
+                                                    -int(end_skipT*sampleRateLoudISO3)]**(1/np.log10(2))).sum(axis=0)
+                          / len(loudnessISO3TimeVar.iloc[int(start_skipT*sampleRateLoudISO3):
+                                                          -int(end_skipT*sampleRateLoudISO3)]))**np.log10(2)
+    # loudnessISO3PowAvg = loudnessISO3PowAvg.iloc[0]  # convert series to float
 
     # Calculate overall Aures+ISO532-3 sharpness from 2-channel time-varying
     # sharpness
-    sharpnessAISO3TimeVar = pd.DataFrame(workbookdata['Sheet10'].iloc[13:, 1:3].values,
-                                         columns=workbookdata['Sheet10'].iloc[12, 1:3],
-                                         index=workbookdata['Sheet10'].iloc[13:, 0])
+    sharpAISO3TimeVar = pd.DataFrame(workbookdata['Sheet10'].iloc[13:, 1:3].values,
+                                      columns=workbookdata['Sheet10'].iloc[12, 1:3],
+                                      index=workbookdata['Sheet10'].iloc[13:, 0])
     # 2-channel overall (mean) sharpness
-    sharpnessAISO3Mean = sharpnessAISO3TimeVar.mean(axis=0)
+    sharpAISO3Mean = sharpAISO3TimeVar.iloc[int(start_skipT*sampleRateLoudISO3):
+                                            -int(end_skipT*sampleRateLoudISO3)].mean(axis=0)
     # max of l/r channel overall (mean) sharpness
-    sharpnessAISO3MeanMaxLR = sharpnessAISO3Mean.max()
+    sharpAISO3MeanMaxLR = sharpAISO3Mean.max()
     # 2-channel overall (power-averaged) sharpness
-    sharpnessAISO3PowAvg = ((sharpnessAISO3TimeVar.iloc[int(start_skipT*1e3):
-                                                        -int(end_skipT*1e3)]**(1/np.log10(2))).sum(axis=0)
-                            / len(sharpnessAISO3TimeVar.iloc[int(start_skipT*1e3):
-                                                             -int(end_skipT*1e3)]))**np.log10(2)
+    sharpAISO3PowAvg = ((sharpAISO3TimeVar.iloc[int(start_skipT*sampleRateLoudISO3):
+                                                -int(end_skipT*sampleRateLoudISO3)]**(1/np.log10(2))).sum(axis=0)
+                        / len(sharpAISO3TimeVar.iloc[int(start_skipT*sampleRateLoudISO3):
+                                                      -int(end_skipT*sampleRateLoudISO3)]))**np.log10(2)
     # max of l/r channel overall (power-averaged) sharpness
-    sharpnessAISO3PowAvgMaxLR = sharpnessAISO3PowAvg.max()
-
+    sharpAISO3PowAvgMaxLR = sharpAISO3PowAvg.max()
+    # 2-channel overall 5% exceeded sharpness
+    sharpAISO305Ex = sharpAISO3TimeVar.iloc[int(start_skipT*sampleRateLoudISO3):
+                                            -int(end_skipT*sampleRateLoudISO3)].quantile(q=0.95)
+    # max of l/r channel overall 5% exceeded sharpness
+    sharpAISO305ExMaxLR = sharpAISO305Ex.max()
+    
     # Calculate overall Sottek Hearing Model impulsiveness from 2-channel
     # time-varying impulsiveness
-    impulsivenessHMSTimeVar = pd.DataFrame(workbookdata['Sheet12'].iloc[13:, 1:3].values,
-                                           columns=workbookdata['Sheet12'].iloc[12, 1:3],
-                                           index=workbookdata['Sheet12'].iloc[13:, 0])
+    impulsiveHMSTimeVar = pd.DataFrame(workbookdata['Sheet12'].iloc[13:, 1:3].values,
+                                        columns=workbookdata['Sheet12'].iloc[12, 1:3],
+                                        index=workbookdata['Sheet12'].iloc[13:, 0])
     # 2-channel overall (power-averaged) impulsiveness
-    impulsivenessHMSPowAvg = ((impulsivenessHMSTimeVar.iloc[int(np.ceil(60000/55*start_skipT)):
-                                                            -int(np.ceil(60000/55*end_skipT))]**(1/np.log10(2))).sum(axis=0)
-                              / len(impulsivenessHMSTimeVar.iloc[int(np.ceil(60000/55*start_skipT)):-int(np.ceil(60000/55*end_skipT))]))**np.log10(2)
+    impulsiveHMSPowAvg = ((impulsiveHMSTimeVar.iloc[int(np.ceil(sampleRateImpulsHMS*start_skipT)):
+                                                    -int(np.ceil(sampleRateImpulsHMS*end_skipT))]**(1/np.log10(2))).sum(axis=0)
+                          / len(impulsiveHMSTimeVar.iloc[int(np.ceil(sampleRateImpulsHMS*start_skipT)):
+                                                          -int(np.ceil(sampleRateImpulsHMS*end_skipT))]))**np.log10(2)
     # max of l/r overall (power-averaged) impulsiveness
-    impulsivenessHMSPowAvgMaxLR = impulsivenessHMSPowAvg.max()
+    impulsiveHMSPowAvgMaxLR = impulsiveHMSPowAvg.max()
     # 2-channel overall (mean) impulsiveness
-    impulsivenessHMSMean = impulsivenessHMSTimeVar.mean(axis=0)
+    impulsiveHMSMean = impulsiveHMSTimeVar.iloc[int(np.ceil(sampleRateImpulsHMS*start_skipT)):
+                                                -int(np.ceil(sampleRateImpulsHMS*end_skipT))].mean(axis=0)
     # max of l/r channel overall (mean) impulsiveness
-    impulsivenessHMSMeanMaxLR = impulsivenessHMSMean.max()
+    impulsiveHMSMeanMaxLR = impulsiveHMSMean.max()
     # max of l/r channel overall (max) impulsiveness
-    impulsivenessHMSMaxMaxLR = impulsivenessHMSTimeVar.max(axis=None)
+    impulsiveHMSMaxMaxLR = impulsiveHMSTimeVar.iloc[int(np.ceil(sampleRateImpulsHMS*start_skipT)):
+                                                    -int(np.ceil(sampleRateImpulsHMS*end_skipT))].max(axis=None)
+    # 2-channel overall 5% exceeded impulsiveness
+    impulsiveHMS05Ex = impulsiveHMSTimeVar.iloc[int(np.ceil(sampleRateImpulsHMS*start_skipT)):
+                                                -int(np.ceil(sampleRateImpulsHMS*end_skipT))].quantile(q=0.95)
+    # max of l/r channel overall 5% exceeded impulsiveness
+    impulsiveHMS05ExMaxLR = impulsiveHMS05Ex.max()
 
     # add results to output DataFrame
     dataByStim.loc[stimulus, 'LoudECMAHMSPowAvgBin'] = loudnessHMSPowAvg
     dataByStim.loc[stimulus, 'TonalECMAHMSAvgMaxLR'] = tonalityHMSAvgMaxLR
-    dataByStim.loc[stimulus, 'RoughECMAHMS10ExBin'] = roughnessHMS10Ex
+    dataByStim.loc[stimulus, 'TonalECMAHMS05ExMaxLR'] = tonalityHMS05ExMaxLR
+    dataByStim.loc[stimulus, 'RoughECMAHMS10ExBin'] = roughHMS10Ex
+    dataByStim.loc[stimulus, 'RoughECMAHMS05ExBin'] = roughHMS05Ex
     dataByStim.loc[stimulus, 'FluctstrHMS10ExBin'] = fluctStrHMSTime10Ex
+    dataByStim.loc[stimulus, 'FluctstrHMS05ExBin'] = fluctStrHMSTime05Ex
     dataByStim.loc[stimulus, 'LoudISO105ExMaxLR'] = loudnessISO105ExMaxLR
     dataByStim.loc[stimulus, 'LoudISO1PowAvgMaxLR'] = loudnessISO1PowAvgMaxLR
     dataByStim.loc[stimulus, 'LoudISO3PowAvgMaxLR'] = loudnessISO3PowAvg
-    dataByStim.loc[stimulus, 'SharpAuresISO3AvgMaxLR'] = sharpnessAISO3MeanMaxLR
-    dataByStim.loc[stimulus, 'SharpAuresISO3PowAvgMaxLR'] = sharpnessAISO3PowAvgMaxLR
-    dataByStim.loc[stimulus, 'ImpulsHMSPowAvgMaxLR'] = impulsivenessHMSPowAvgMaxLR
-    dataByStim.loc[stimulus, 'ImpulsHMSAvgMaxLR'] = impulsivenessHMSMeanMaxLR
-    dataByStim.loc[stimulus, 'ImpulsHMSMaxMaxLR'] = impulsivenessHMSMaxMaxLR
+    dataByStim.loc[stimulus, 'SharpAuresISO3AvgMaxLR'] = sharpAISO3MeanMaxLR
+    dataByStim.loc[stimulus, 'SharpAuresISO3PowAvgMaxLR'] = sharpAISO3PowAvgMaxLR
+    dataByStim.loc[stimulus, 'SharpAuresISO305ExMaxLR'] = sharpAISO305ExMaxLR
+    dataByStim.loc[stimulus, 'ImpulsHMSPowAvgMaxLR'] = impulsiveHMSPowAvgMaxLR
+    dataByStim.loc[stimulus, 'ImpulsHMSAvgMaxLR'] = impulsiveHMSMeanMaxLR
+    dataByStim.loc[stimulus, 'ImpulsHMSMaxMaxLR'] = impulsiveHMSMaxMaxLR
+    dataByStim.loc[stimulus, 'ImpulsHMS05ExMaxLR'] = impulsiveHMS05ExMaxLR
+
+    
+    # calculation section for SQM differences
+    # NOTE: THIS SECTION RELIES ON THE ALPHABETIC ORDER OF THE STIMULI FILES AS
+    # ORIGINALLY NAMED: EACH AMBIENT SOUND FILE PRECEDING THE CORRESPONDING
+    # COMBINED STIMULI FILES. IF THE ORDERING OR FILE NAMING IS CHANGED, THIS
+    # CALCULATION WILL BE INVALIDATED AND *MAY ALSO* CAUSE AN ERROR.
+    # a rolling 50 ms window is applied to average the SQM values over time -
+    # this is to reduce uncertainty due to imperfect time-alignment between the
+    # ambient vs combined stimuli files (all are from recordings, so there will
+    # be some slippage due to imperfect editing)
+    if stimulus in ["A1_CALBIN_Pa.wav", "A2_CALBIN_Pa.wav",
+                    "B2_CALBIN_Pa.wav"]:
+        # NOTE: we could dropna() the first <windowT values, but these will be
+        # ignored anyway in the statistical analysis, assuming start_skipT >
+        # windowT
+
+        # calculate moving average values for ambient stimulus
+        ambSpecTonalityHMSLMovAvg = specTonalityHMSL.T.rolling(window=int(np.ceil(sampleRateTonalECMA*windowT))).mean().T
+        ambSpecTonalityHMSRMovAvg = specTonalityHMSR.T.rolling(window=int(np.ceil(sampleRateTonalECMA*windowT))).mean().T
+        ambSpecRoughHMSBinMovAvg = specRoughHMSBin.T.rolling(window=int(np.ceil(sampleRateRoughECMA*windowT))).mean().T
+        ambSpecFluctStrHMSLMovAvg = specFluctStrHMSL.T.rolling(window=int(np.ceil((sampleRateFluctHMS)*windowT))).mean().T
+        ambSpecFluctStrHMSRMovAvg = specFluctStrHMSR.T.rolling(window=int(np.ceil((sampleRateFluctHMS)*windowT))).mean().T
+        ambSharpAISO3TimeVarMovAvg = sharpAISO3TimeVar.rolling(window=int(np.ceil(sampleRateLoudISO3*windowT))).mean()
+        ambImpulsiveHMSTimeVarMovAvg = impulsiveHMSTimeVar.rolling(window=int(np.ceil(sampleRateImpulsHMS*windowT))).mean()
+        
+    elif stimulus[0:3] in ["A1_", "A2_", "B2_"]:
+        # calculation moving average values for combined stimulus
+        specTonalityHMSLMovAvg = specTonalityHMSL.T.rolling(window=int(np.ceil(sampleRateTonalECMA*windowT))).mean().T
+        specTonalityHMSRMovAvg = specTonalityHMSR.T.rolling(window=int(np.ceil(sampleRateTonalECMA*windowT))).mean().T
+        specRoughHMSBinMovAvg = specRoughHMSBin.T.rolling(window=int(np.ceil(sampleRateRoughECMA*windowT))).mean().T
+        specFluctStrHMSLMovAvg = specFluctStrHMSL.T.rolling(window=int(np.ceil((sampleRateFluctHMS)*windowT))).mean().T
+        specFluctStrHMSRMovAvg = specFluctStrHMSR.T.rolling(window=int(np.ceil((sampleRateFluctHMS)*windowT))).mean().T
+        sharpAISO3TimeVarMovAvg = sharpAISO3TimeVar.rolling(window=int(np.ceil(sampleRateLoudISO3*windowT))).mean()
+        impulsiveHMSTimeVarMovAvg = impulsiveHMSTimeVar.rolling(window=int(np.ceil(sampleRateImpulsHMS*windowT))).mean()
+        
+        # calculate differences and make negative values 0
+        dSpecTonalityHMSL = np.maximum(specTonalityHMSLMovAvg
+                                        - ambSpecTonalityHMSLMovAvg, 0)
+        dSpecTonalityHMSR = np.maximum(specTonalityHMSRMovAvg
+                                        - ambSpecTonalityHMSRMovAvg, 0)
+        dSpecRoughHMSBin = np.maximum(specRoughHMSBinMovAvg
+                                      - ambSpecRoughHMSBinMovAvg, 0)
+        dSpecFluctStrHMSL = np.maximum(specFluctStrHMSLMovAvg
+                                        - ambSpecFluctStrHMSLMovAvg, 0)
+        dSpecFluctStrHMSR = np.maximum(specFluctStrHMSRMovAvg
+                                        - ambSpecFluctStrHMSRMovAvg, 0)
+        dSharpAISO3TimeVar = np.maximum(sharpAISO3TimeVarMovAvg
+                                        - ambSharpAISO3TimeVarMovAvg, 0)
+        dImpulsiveHMSTimeVar = np.maximum(impulsiveHMSTimeVarMovAvg
+                                          - ambImpulsiveHMSTimeVarMovAvg,
+                                          0)
+
+        # calculate aggregated difference values
+
+        # 2-channel time-varing tonality
+        dTonalityHMSTimeVar = pd.concat([dSpecTonalityHMSL.max(axis=0),
+                                          dSpecTonalityHMSR.max(axis=0)],
+                                        axis=1)
+        # 2-channel time-averaged tonality (omitting T<=0.02)
+        dTonalityHMSAvgL = dTonalityHMSTimeVar.iloc[int(np.ceil(sampleRateTonalECMA*start_skipT)):
+                                                    -int(np.ceil(sampleRateTonalECMA*end_skipT)),
+                                                    0][dTonalityHMSTimeVar.iloc[int(np.ceil(sampleRateTonalECMA*start_skipT)):
+                                                                                -int(np.ceil(sampleRateTonalECMA*end_skipT)), 0]
+                                                                                > 0.02].mean(axis=0)
+        dTonalityHMSAvgR = dTonalityHMSTimeVar.iloc[int(np.ceil(sampleRateTonalECMA*start_skipT)):
+                                                    -int(np.ceil(sampleRateTonalECMA*end_skipT)),
+                                                    1][dTonalityHMSTimeVar.iloc[int(np.ceil(sampleRateTonalECMA*start_skipT)):
+                                                                                -int(np.ceil(sampleRateTonalECMA*end_skipT)), 1]
+                                                                                > 0.02].mean(axis=0)
+        dTonalityHMSAvgMaxLR = max(dTonalityHMSAvgL, dTonalityHMSAvgR)
+        # 2-channel 5% exceeded tonality (automatically omitting T<=0.02)
+        dTonalityHMS05ExL = dTonalityHMSTimeVar.iloc[int(np.ceil(sampleRateTonalECMA*start_skipT)):
+                                                      -int(np.ceil(sampleRateTonalECMA*end_skipT)),
+                                                      0][dTonalityHMSTimeVar.iloc[int(np.ceil(sampleRateTonalECMA*start_skipT)):
+                                                                                  -int(np.ceil(sampleRateTonalECMA*end_skipT)), 0]
+                                                                                  > 0.02].quantile(q=0.95)
+        dTonalityHMS05ExR = dTonalityHMSTimeVar.iloc[int(np.ceil(sampleRateTonalECMA*start_skipT)):
+                                                      -int(np.ceil(sampleRateTonalECMA*end_skipT)),
+                                                      1][dTonalityHMSTimeVar.iloc[int(np.ceil(sampleRateTonalECMA*start_skipT)):
+                                                                                  -int(np.ceil(sampleRateTonalECMA*end_skipT)), 1]
+                                                                                  > 0.02].quantile(q=0.95)
+        dTonalityHMS05ExMaxLR = max(dTonalityHMS05ExL, dTonalityHMS05ExR)
+
+        # binaural time-varying roughness
+        dRoughHMSTimeVar = dSpecRoughHMSBin.sum(axis=0)*0.5
+        # binaural overall (90th percentile = 10% exceeded) roughness
+        dRoughHMS10Ex = dRoughHMSTimeVar.iloc[int(np.ceil(sampleRateRoughECMA*start_skipT)):
+                                              -int(np.ceil(sampleRateRoughECMA*end_skipT))].quantile(q=0.9)
+        # binaural overall (95th percentile = 5% exceeded) roughness
+        dRoughHMS05Ex = dRoughHMSTimeVar.iloc[int(np.ceil(sampleRateRoughECMA*start_skipT)):
+                                              -int(np.ceil(sampleRateRoughECMA*end_skipT))].quantile(q=0.95)
+
+        # binaural specific fluctuation strength
+        # (using ECMA-418-2:2022 Equation 112 for roughness)
+        dSpecFluctStrHMSBin = ((dSpecFluctStrHMSL**2
+                                + dSpecFluctStrHMSR**2)/2).pow(1/2)
+        # binaural time-dependent fluctuation strength
+        # (using ECMA-418-2:2022 Equation 111 for roughness)
+        dFluctStrHMSTimeVar = dSpecFluctStrHMSBin.sum(axis=0)*0.5
+        # binaural overall (90th percentile = 10% exceeded) fluctuation strength
+        # (using ECMA-418-2:2022 Section 7.1.8 for roughness)
+        dFluctStrHMSTime10Ex = dFluctStrHMSTimeVar.iloc[int(np.ceil(start_skipT*(sampleRateFluctHMS))):
+                                                        -int(np.ceil(end_skipT*(sampleRateFluctHMS)))].quantile(q=0.9)
+        # binaural overall (95th percentile = 5% exceeded) fluctuation strength
+        dFluctStrHMSTime05Ex = dFluctStrHMSTimeVar.iloc[int(np.ceil(start_skipT*(sampleRateFluctHMS))):
+                                                        -int(np.ceil(end_skipT*(sampleRateFluctHMS)))].quantile(q=0.95)
+
+        # 2-channel overall (mean) sharpness
+        dSharpAISO3Mean = dSharpAISO3TimeVar.iloc[int(start_skipT*sampleRateLoudISO3):
+                                                  -int(end_skipT*sampleRateLoudISO3)].mean(axis=0)
+        # max of l/r channel overall (mean) sharpness
+        dSharpAISO3MeanMaxLR = dSharpAISO3Mean.max()
+        # 2-channel overall (power-averaged) sharpness
+        dSharpAISO3PowAvg = ((dSharpAISO3TimeVar.iloc[int(start_skipT*sampleRateLoudISO3):
+                                                      -int(end_skipT*sampleRateLoudISO3)]**(1/np.log10(2))).sum(axis=0)
+                              / len(dSharpAISO3TimeVar.iloc[int(start_skipT*sampleRateLoudISO3):
+                                                            -int(end_skipT*sampleRateLoudISO3)]))**np.log10(2)
+        # max of l/r channel overall (power-averaged) sharpness
+        dSharpAISO3PowAvgMaxLR = dSharpAISO3PowAvg.max()
+        # 2-channel overall 5% exceeded sharpness
+        dSharpAISO305Ex = dSharpAISO3TimeVar.iloc[int(start_skipT*sampleRateLoudISO3):
+                                                  -int(end_skipT*sampleRateLoudISO3)].quantile(q=0.95)
+        # max of l/r channel overall 5% exceeded sharpness
+        dSharpAISO305ExMaxLR = dSharpAISO305Ex.max()
+
+        # 2-channel overall (power-averaged) impulsiveness
+        dImpulsiveHMSPowAvg = ((dImpulsiveHMSTimeVar.iloc[int(np.ceil(sampleRateImpulsHMS*start_skipT)):
+                                                          -int(np.ceil(sampleRateImpulsHMS*end_skipT))]**(1/np.log10(2))).sum(axis=0)
+                              / len(dImpulsiveHMSTimeVar.iloc[int(np.ceil(sampleRateImpulsHMS*start_skipT)):-int(np.ceil(sampleRateImpulsHMS*end_skipT))]))**np.log10(2)
+        # max of l/r overall (power-averaged) impulsiveness
+        dImpulsiveHMSPowAvgMaxLR = dImpulsiveHMSPowAvg.max()
+        # 2-channel overall (mean) impulsiveness
+        dImpulsiveHMSMean = dImpulsiveHMSTimeVar.iloc[int(np.ceil(sampleRateImpulsHMS*start_skipT)):
+                                                      -int(np.ceil(sampleRateImpulsHMS*end_skipT))].mean(axis=0)
+        # max of l/r channel overall (mean) impulsiveness
+        dImpulsiveHMSMeanMaxLR = dImpulsiveHMSMean.max()
+        # max of l/r channel overall (max) impulsiveness
+        dImpulsiveHMSMaxMaxLR = dImpulsiveHMSTimeVar.iloc[int(np.ceil(sampleRateImpulsHMS*start_skipT)):
+                                                          -int(np.ceil(sampleRateImpulsHMS*end_skipT))].max(axis=None)
+        # 2-channel overall 5% exceeded impulsiveness
+        dImpulsiveHMS05Ex = dImpulsiveHMSTimeVar.iloc[int(np.ceil(sampleRateImpulsHMS*start_skipT)):
+                                                      -int(np.ceil(sampleRateImpulsHMS*end_skipT))].quantile(q=0.95)
+        # max of l/r channel overall 5% exceeded impulsiveness
+        dImpulsiveHMS05ExMaxLR = dImpulsiveHMS05Ex.max()
+
+        # add results to output DataFrame
+        dataByStim.loc[stimulus, 'dTonalECMAHMSAvgMaxLR'] = dTonalityHMSAvgMaxLR
+        dataByStim.loc[stimulus, 'dTonalECMAHMS05ExMaxLR'] = dTonalityHMS05ExMaxLR
+        dataByStim.loc[stimulus, 'dRoughECMAHMS10ExBin'] = dRoughHMS10Ex
+        dataByStim.loc[stimulus, 'dRoughECMAHMS05ExBin'] = dRoughHMS05Ex
+        dataByStim.loc[stimulus, 'dFluctstrHMS10ExBin'] = dFluctStrHMSTime10Ex
+        dataByStim.loc[stimulus, 'dFluctstrHMS05ExBin'] = dFluctStrHMSTime05Ex
+        dataByStim.loc[stimulus, 'dSharpAuresISO3AvgMaxLR'] = dSharpAISO3MeanMaxLR
+        dataByStim.loc[stimulus, 'dSharpAuresISO3PowAvgMaxLR'] = dSharpAISO3PowAvgMaxLR
+        dataByStim.loc[stimulus, 'dSharpAuresISO305ExMaxLR'] = dSharpAISO305ExMaxLR
+        dataByStim.loc[stimulus, 'dImpulsHMSPowAvgMaxLR'] = dImpulsiveHMSPowAvgMaxLR
+        dataByStim.loc[stimulus, 'dImpulsHMSAvgMaxLR'] = dImpulsiveHMSMeanMaxLR
+        dataByStim.loc[stimulus, 'dImpulsHMSMaxMaxLR'] = dImpulsiveHMSMaxMaxLR
+        dataByStim.loc[stimulus, 'dImpulsHMS05ExMaxLR'] = dImpulsiveHMS05ExMaxLR
 
 # end of for loop over psychoacoustic metrics xlsx files
 
 # add UAS-only and ambient-only data to combined stimuli
 # ------------------------------------------------------
-indices = indicesAcoustic + indicesPsycho
+indicesDiffPsycho = ["dTonalECMAHMSAvgMaxLR",
+                     "dTonalECMAHMS05ExMaxLR",
+                     "dRoughECMAHMS10ExBin",
+                     "dRoughECMAHMS05ExBin",
+                     "dFluctstrHMS10ExBin",
+                     "dFluctstrHMS05ExBin",
+                     "dSharpAuresISO3AvgMaxLR",
+                     "dSharpAuresISO3PowAvgMaxLR",
+                     "dSharpAuresISO305ExMaxLR",
+                     "dImpulsHMSPowAvgMaxLR",
+                     "dImpulsHMSAvgMaxLR",
+                     "dImpulsHMSMaxMaxLR",
+                     "dImpulsHMS05ExMaxLR"]
+
+indicesAbsPsycho = [index for index in indicesPsycho
+                    if index not in indicesDiffPsycho]
+
+indices = indicesAcoustic + indicesAbsPsycho
 
 # Part A UAS only
 mask = dataByStim.index.str.find("A_") != -1
@@ -354,16 +634,28 @@ AmbonlyPtB.set_index('newindex', inplace=True)
 Ambonly = pd.concat([AmbonlyPtA, AmbonlyPtB], axis=0)
 
 # concatenate UAS only and ambient only
-UASAmbonly = pd.concat([UASonly, Ambonly], axis=1)
+UASAmb = pd.concat([UASonly, Ambonly], axis=1)
+
+# insert zeros for No UAS stimuli UAS SQMs
+NoUASStims = ['A1_CALBIN_Pa.wav', 'A2_CALBIN_Pa.wav', 'B2_CALBIN_Pa.wav']
+indicesUASPsycho = ["UAS" + index for index in indicesPsycho if index not in indicesDiffPsycho]
+UASAmb.loc[NoUASStims, indicesUASPsycho] = 0
 
 # merge into output
-dataByStim = dataByStim.merge(UASAmbonly.astype(float), how='outer',
+dataByStim = dataByStim.merge(UASAmb.astype(float), how='outer',
                               left_index=True, right_index=True)
+
+# insert zeros for SQM differences
+dataByStim.loc[NoUASStims, indicesDiffPsycho] = 0
 
 # calculate level differences and ratios between UAS and ambient
 dataByStim['UASLAeqdiffAmbLAF90'] = dataByStim['UASLAeqMaxLR'] - dataByStim['AmbLAF90ExMaxLR']
 dataByStim['UASLASmaxdiffAmbLAF90'] = dataByStim['UASLASmaxMaxLR'] - dataByStim['AmbLAF90ExMaxLR']
 dataByStim['UASLASmaxdiffAmbLAF50'] = dataByStim['UASLASmaxMaxLR'] - dataByStim['AmbLAF50ExMaxLR']
+dataByStim['UASLASmaxdiffAmbLAeq'] = dataByStim['UASLASmaxMaxLR'] - dataByStim['AmbLAeqMaxLR']
+dataByStim['EPNLdiff'] = dataByStim['UASEPNLMaxLR'] - dataByStim['AmbEPNLMaxLR']
+dataByStim['EPNLNoTdiff'] = dataByStim['UASEPNLNoTMaxLR'] - dataByStim['AmbEPNLNoTMaxLR']
+dataByStim['PNLTmaxdiff'] = dataByStim['UASPNLTmaxMaxLR'] - dataByStim['AmbPNLTmaxMaxLR']
 
 
 # ---------------------
@@ -374,21 +666,31 @@ dataByStim['UASLASmaxdiffAmbLAF50'] = dataByStim['UASLASmaxMaxLR'] - dataByStim[
 # PROJECT NOTE: the calculated files are stored in
 # https://testlivesalfordac.sharepoint.com/:f:/r/sites/REFMAP/Shared%20Documents/General/03%20Experiment/Experiment%201/Analysis/deeuu_loudness/output?csf=1&web=1&e=ZvblMt
 app = QApplication(sys.argv)
-fileExts = "*ShortTermPartialLoudness.pkl"
+fileExts = "*TermPartialLoudness.pkl"
 filelist = list(QFileDialog.getOpenFileNames(filter=fileExts))[0]
 filelist.sort()
 
 filenames = [filepath.split('/')[-1] for filepath in filelist]
+filenamesST = [filename for filename in filenames
+               if filename.find("Short") != -1]
+filenamesLT = [filename for filename in filenames
+               if filename.find("Long") != -1]
 
 # setup results DataFrame
-partLoudness = pd.DataFrame(index=filenames, columns=['UASPartLoudGMSTPowAvg'])
-
+partLoudnessST = pd.DataFrame(index=filenamesST,
+                              columns=['UASPartLoudGMSTPowAvg',
+                                       'UASPartLoudGMST05Ex'])
+partLoudnessLT = pd.DataFrame(index=filenamesLT,
+                              columns=['UASPartLoudGMLTPowAvg',
+                                       'UASPartLoudGMLT05Ex'])
 # the deeuu Glasberg&Moore loudness outputs are all sampled at 1 ms
 # in each of the deeuu loudness outputs, the first 0.031 seconds is
 # redundant 'negative time' and the final 0.169 seconds is redundant added time
 # skip indices
 skip_starti = 31
 skip_endi = -169
+
+sampleRatePartLoudGM = 1e3
 
 # loop over files to extract data
 for ii, file in enumerate(filelist):
@@ -402,23 +704,90 @@ for ii, file in enumerate(filelist):
     partN = pd.Series(data=partN[skip_starti:skip_endi, 1],
                       index=np.arange(0, timeTotal, 1e-3))
 
-    partialLoudnessPowAvg = (np.sum(partN**(1/np.log10(2)), axis=0)
-                             / len(partN))**np.log10(2)
+    partialLoudnessPowAvg = (np.sum(partN.iloc[int(start_skipT*sampleRatePartLoudGM)
+                                               :int(-end_skipT*sampleRatePartLoudGM)]**(1/np.log10(2)),
+                                    axis=0)
+                             / len(partN.iloc[int(start_skipT*sampleRatePartLoudGM)
+                                              :int(-end_skipT*sampleRatePartLoudGM)]))**np.log10(2)
+    
+    partialLoudness05Ex = partN.iloc[int(start_skipT*sampleRatePartLoudGM)
+                                     :int(-end_skipT*sampleRatePartLoudGM)].quantile(q=0.95)
 
-    partLoudness.loc[filenames[ii], 'UASPartLoudGMSTPowAvg'] = partialLoudnessPowAvg
-
+    if file.find("Short") != -1:
+        partLoudnessST.loc[filenames[ii], 'UASPartLoudGMSTPowAvg'] = partialLoudnessPowAvg
+        partLoudnessST.loc[filenames[ii], 'UASPartLoudGMST05Ex'] = partialLoudness05Ex
+    elif file.find("Long") != -1:
+        partLoudnessLT.loc[filenames[ii], 'UASPartLoudGMLTPowAvg'] = partialLoudnessPowAvg
+        partLoudnessLT.loc[filenames[ii], 'UASPartLoudGMLT05Ex'] = partialLoudness05Ex
 
 # reindex partial loudness DataFrame to match recording files and merge into
 # output DataFrame
-partLoudness['newindex'] = [file.replace("ShortTermPartialLoudness", "")
-                            for file in list(partLoudness.index)]
-partLoudness['newindex'] = [file.replace(".pkl", ".wav")
-                            for file in partLoudness['newindex']]
+partLoudnessST['newindex'] = [file.replace("ShortTermPartialLoudness.pkl", ".wav")
+                              for file in list(partLoudnessST.index)]
+partLoudnessST.set_index('newindex', inplace=True)
+partLoudnessLT['newindex'] = [file.replace("LongTermPartialLoudness.pkl", ".wav")
+                              for file in list(partLoudnessLT.index)]
+partLoudnessLT.set_index('newindex', inplace=True)
 
-partLoudness.set_index('newindex', inplace=True)
+partLoudness = partLoudnessST.merge(right=partLoudnessLT, how='outer',
+                                    left_index=True, right_index=True)
 
 dataByStim = dataByStim.merge(partLoudness.astype(float), how='outer',
                               left_index=True, right_index=True)
+
+# insert zeros for No UAS stimuli partial loudness
+dataByStim.loc[NoUASStims, ['UASPartLoudGMSTPowAvg', 'UASPartLoudGMST05Ex',
+                            'UASPartLoudGMLTPowAvg', 'UASPartLoudGMLT05Ex'] ] = 0
+
+# move SQM difference metrics to after level difference metrics
+indicesDiffPsycho.reverse()
+for col in indicesDiffPsycho:
+    popcol = dataByStim.pop(col)
+    dataByStim.insert(loc=(dataByStim.columns.get_loc(partLoudness.columns[-1])
+                           + 1),
+                      column=col, value=popcol)
+indicesDiffPsycho.reverse()  # revert list for use later   
+
+
+# --------------------------------
+# Detectability index calculations
+# --------------------------------
+
+detectEfficiencyData = pd.DataFrame(data=np.array([[32.3, 39.8, 51.2, 66.2,
+                                                   89.1, 119.9, 161.4, 217.2,
+                                                   292.3, 393.4, 529.5, 654.1,
+                                                   800.5, 979.9, 1290.8,
+                                                   1737.3, 2338.2, 3146.9,
+                                                   4235.4, 5700.3, 7671.9,
+                                                   10325.5, 13441.1],
+                                                  [0.134, 0.163, 0.203, 0.247,
+                                                   0.293, 0.334, 0.369, 0.394,
+                                                   0.411, 0.422, 0.429, 0.430,
+                                                   0.431, 0.430, 0.424, 0.414,
+                                                   0.397, 0.373, 0.343, 0.310,
+                                                   0.276, 0.243, 0.213]]).T,
+                                    columns=["Hz", "eta"])
+
+def detectEfficiencyFunc(freq, a, b, c, d, e, f):
+    return (freq/800)**a/(b + c*(freq/800)**d)**e + f
+
+p0 = [19, 0.02, 1, 0.14, 140, -0.9]
+
+fm, f1, f2 = dsp.noct.noctf(20, 20e3, 3)
+
+detectEffCurveFit, _ = optimize.curve_fit(f=detectEfficiencyFunc,
+                                          xdata=detectEfficiencyData['Hz'],
+                                          ydata=detectEfficiencyData['eta'],
+                                          p0=p0, maxfev=1000000,
+                                          bounds=(-10, 10000))
+detectEffCurveTestFit = detectEfficiencyFunc(detectEfficiencyData['Hz'],
+                                             detectEffCurveFit[0],
+                                             detectEffCurveFit[1],
+                                             detectEffCurveFit[2],
+                                             detectEffCurveFit[3],
+                                             detectEffCurveFit[4],
+                                             detectEffCurveFit[5])
+
 
 
 # -------------
@@ -430,7 +799,8 @@ dataByStim = dataByStim.merge(partLoudness.astype(float), how='outer',
 # https://testlivesalfordac.sharepoint.com/:f:/r/sites/REFMAP/Shared%20Documents/General/03%20Experiment/Experiment%201/Test_files/Results?csf=1&web=1&e=f3ejcD
 app = QApplication(sys.argv)
 fileExts = "*.xlsx"
-filepath = QFileDialog.getOpenFileName(filter=fileExts)[0]
+filepath = QFileDialog.getOpenFileName(filter=fileExts,
+                                       caption=r"Select test response data files")[0]
 
 
 # Part A
@@ -444,6 +814,11 @@ partAResponses['Recording'] = [StimFile.split('.')[0] + "_CALBIN_Pa.wav"
 
 partAData = partAResponses.drop(columns=['Typology', 'Aircraft', 'Other'])
 partAData.columns = [s.replace(' ', '') for s in partAData.columns]
+
+# add highly annoyed data
+partAData['HighAnnoy'] = (partAData['Annoyance'] >= 8).astype(int)
+partAData.insert(loc=partAData.columns.get_loc('UAS_noticed'),
+                 column='HighAnnoy', value=partAData.pop('HighAnnoy'))
 
 # initialise DataFrames for loop over stimulus recordings
 partA = pd.DataFrame(index=partAResponses['Recording'].unique())
@@ -468,11 +843,14 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
     columns = ["Annoyance_" + str(ID) for ID in partAAnnoy['ID#']]
     partAAnnoy = pd.DataFrame(data=np.array(partAAnnoy['Annoyance']),
                               index=columns, columns=[file]).transpose()
+    partAHighAnnoy = (partAAnnoy >= 8).astype(int)
+    partAHighAnnoy.columns = partAHighAnnoy.columns.str.replace("Annoyance",
+                                                                "HighAnnoy")
     partANotice = partAResponses.loc[partAResponses['Recording'] == file,
                                      ['ID#', 'UAS_noticed']]
     columns = ["UAS_noticed_" + str(ID) for ID in partANotice['ID#']]
     partANotice = pd.DataFrame(data=np.array(partANotice['UAS_noticed']),
-                               index=columns, columns=[file]).transpose()       
+                               index=columns, columns=[file]).transpose()
 
     # response data normality testing and aggregation
     # (partAValence.transpose()).plot.hist(bins=np.arange(0.5, 7.5, 1),
@@ -505,19 +883,27 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
                                   np.mean(partAAnnoy.values, axis=1)[0]]],
                             columns=['AnnoyMedian', 'AnnoyMean'],
                             index=[file])
+    highAnnoyAgg = pd.DataFrame(data=[[np.sum(partAHighAnnoy.values,
+                                              axis=1)[0],
+                                       np.mean(partAHighAnnoy.values,
+                                               axis=1)[0]]],
+                                columns=['HighAnnoyTotal',
+                                         'HighAnnoyProportion'],
+                                index=[file])
     noticeAgg = pd.DataFrame(data=[[np.sum(partANotice.values, axis=1)[0],
-                                   np.mean(partANotice.values, axis=1)[0]]],
+                                    np.mean(partANotice.values, axis=1)[0]]],
                              columns=['NoticedTotal', 'NoticedProportion'],
                              index=[file])
 
     # add results to DataFrame
     if ii == 0:
         partA = partA.join([partAValence, partAArousal, partAAnnoy,
+                            partAHighAnnoy,
                             partANotice, valenceAgg, arousalAgg,
-                            annoyAgg, noticeAgg])
+                            annoyAgg, highAnnoyAgg, noticeAgg])
         partAstats = partAstats.join([valenceSWtest, arousalSWtest,
                                       annoySWtest, valenceAgg, arousalAgg,
-                                      annoyAgg, noticeAgg])
+                                      annoyAgg, highAnnoyAgg, noticeAgg])
     else:
         partAstats.loc[file, valenceSWtest.columns] = valenceSWtest.loc[file]
         partAstats.loc[file, arousalSWtest.columns] = arousalSWtest.loc[file]
@@ -525,15 +911,18 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
         partAstats.loc[file, valenceAgg.columns] = valenceAgg.loc[file]
         partAstats.loc[file, arousalAgg.columns] = arousalAgg.loc[file]
         partAstats.loc[file, annoyAgg.columns] = annoyAgg.loc[file]
+        partAstats.loc[file, highAnnoyAgg.columns] = highAnnoyAgg.loc[file]
         partAstats.loc[file, noticeAgg.columns] = noticeAgg.loc[file]
-    
+
         partA.loc[file, partAValence.columns] = partAValence.loc[file]
         partA.loc[file, partAArousal.columns] = partAArousal.loc[file]
         partA.loc[file, partAAnnoy.columns] = partAAnnoy.loc[file]
+        partA.loc[file, partAHighAnnoy.columns] = partAHighAnnoy.loc[file]
         partA.loc[file, partANotice.columns] = partANotice.loc[file]
         partA.loc[file, valenceAgg.columns] = valenceAgg.loc[file]
         partA.loc[file, arousalAgg.columns] = arousalAgg.loc[file]
         partA.loc[file, annoyAgg.columns] = annoyAgg.loc[file]
+        partA.loc[file, highAnnoyAgg.columns] = highAnnoyAgg.loc[file]
         partA.loc[file, noticeAgg.columns] = noticeAgg.loc[file]
 
 
@@ -544,13 +933,19 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
 partBResponses = pd.read_excel(io=filepath, sheet_name="PtBResponse",
                                header=0)
 partBResponses['Recording'] = [StimFile.split('.')[0] + "_CALBIN_Pa.wav"
-                                for StimFile in partBResponses['Stim File']]
+                               for StimFile in partBResponses['Stim File']]
 
 partBData = partBResponses.copy()
 partBData.columns = [s.replace(' ', '') for s in partBData.columns]
 
+# add highly annoyed data
+partBData['HighAnnoy'] = (partBData['Annoyance'] >= 8).astype(int)
+partBData.insert(loc=partBData.columns.get_loc('Recording'),
+                 column='HighAnnoy', value=partBData.pop('HighAnnoy'))
+
 # initialise DataFrames for loop over stimulus recordings
 partB = pd.DataFrame(index=partBResponses['Recording'].unique())
+
 partBstats = pd.DataFrame(index=partBResponses['Recording'].unique())
 
 # loop over stimuli recording names, extract corresponding response data and
@@ -569,10 +964,13 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
                                 index=columns, columns=[file]).transpose()
     partBAnnoy = partBResponses.loc[partBResponses['Recording'] == file,
                                     ['ID#', 'Annoyance']]
+
     columns = ["Annoyance_" + str(ID) for ID in partBAnnoy['ID#']]
     partBAnnoy = pd.DataFrame(data=np.array(partBAnnoy['Annoyance']),
                               index=columns, columns=[file]).transpose()
-
+    partBHighAnnoy = (partBAnnoy >= 8).astype(int)
+    partBHighAnnoy.columns = partBHighAnnoy.columns.str.replace("Annoyance",
+                                                                "HighAnnoy")
     # response data normality testing and aggregation
     # (partBValence.transpose()).plot.hist(bins=np.arange(0.5, 7.5, 1),
     #                                      alpha=0.75, xlabel="Valence rating")
@@ -604,14 +1002,22 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
                                   np.mean(partBAnnoy.values, axis=1)[0]]],
                             columns=['AnnoyMedian', 'AnnoyMean'],
                             index=[file])
+    highAnnoyAgg = pd.DataFrame(data=[[np.sum(partBHighAnnoy.values,
+                                              axis=1)[0],
+                                       np.mean(partBHighAnnoy.values,
+                                               axis=1)[0]]],
+                                columns=['HighAnnoyTotal',
+                                         'HighAnnoyProportion'],
+                                index=[file])
 
     # add results to DataFrame
     if ii == 0:
         partB = partB.join([partBValence, partBArousal, partBAnnoy,
-                            valenceAgg, arousalAgg, annoyAgg])
+                            partBHighAnnoy,
+                            valenceAgg, arousalAgg, annoyAgg, highAnnoyAgg])
         partBstats = partBstats.join([valenceSWtest, arousalSWtest,
                                       annoySWtest, valenceAgg, arousalAgg,
-                                      annoyAgg])
+                                      annoyAgg, highAnnoyAgg])
     else:
         partBstats.loc[file, valenceSWtest.columns] = valenceSWtest.loc[file]
         partBstats.loc[file, arousalSWtest.columns] = arousalSWtest.loc[file]
@@ -619,14 +1025,17 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
         partBstats.loc[file, valenceAgg.columns] = valenceAgg.loc[file]
         partBstats.loc[file, arousalAgg.columns] = arousalAgg.loc[file]
         partBstats.loc[file, annoyAgg.columns] = annoyAgg.loc[file]
+        partBstats.loc[file, highAnnoyAgg.columns] = highAnnoyAgg.loc[file]
         
         partB.loc[file, partBValence.columns] = partBValence.loc[file]
         partB.loc[file, partBArousal.columns] = partBArousal.loc[file]
         partB.loc[file, partBAnnoy.columns] = partBAnnoy.loc[file]
+        partB.loc[file, partBHighAnnoy.columns] = partBHighAnnoy.loc[file]
         partB.loc[file, valenceAgg.columns] = valenceAgg.loc[file]
         partB.loc[file, arousalAgg.columns] = arousalAgg.loc[file]
         partB.loc[file, annoyAgg.columns] = annoyAgg.loc[file]
-
+        partB.loc[file, highAnnoyAgg.columns] = highAnnoyAgg.loc[file]
+    
 allResponses = pd.concat([partB, partA], axis=0, join='outer')
 allResponses.sort_index(inplace=True)
 
@@ -649,6 +1058,8 @@ postTestResponses.drop(columns=['Nationality', 'Language',
                                 'General Feedback'], inplace=True)
 postTestResponses.drop(columns=postTestResponses.loc[:, 'NSS21':'NSS8'].columns,
                        inplace=True)
+# replace problem columns names
+postTestResponses.columns = postTestResponses.columns.str.replace(" ", "_")
 
 prePostTestResponses = preTestResponses.merge(postTestResponses, on='ID#')
 
@@ -798,7 +1209,7 @@ dataByStim.insert(loc=7, column='UASEventDensity',
                   value=dataByStim.pop('UASEventDensity'))
 
 # UAS type
-dataByStim.loc[dataByStim.index.str.find("_YnTy_") != -1, 'UASType'] = "YnTy"
+dataByStim.loc[dataByStim.index.str.find("_H520_") != -1, 'UASType'] = "H520"
 dataByStim.loc[dataByStim.index.str.find("_M300_") != -1, 'UASType'] = "M300"
 dataByStim.loc[dataByStim.index.str.find("_T150_") != -1, 'UASType'] = "T150"
 dataByStim.loc[np.logical_or(dataByStim.index.str.find("B2_CALBIN") != -1,
@@ -806,7 +1217,7 @@ dataByStim.loc[np.logical_or(dataByStim.index.str.find("B2_CALBIN") != -1,
                                            dataByStim.index.str.find("A2_CALBIN") != -1)),
                'UASType'] = "No UAS"
 dataByStim['UASType'] = pd.Categorical(dataByStim['UASType'], ["No UAS",
-                                                               "YnTy",
+                                                               "H520",
                                                                "M300",
                                                                "T150"])
 dataByStim.insert(loc=8, column='UASType',
@@ -864,35 +1275,13 @@ dataByStimFilePath = os.path.join(outFilePath,
                                   "refmap_listest1_alldata_ByStim.csv")
 dataByStim.to_csv(dataByStimFilePath)
 
-# form sub datasets for inter-rater reliability testing
-subdataByStimAnnoy = dataByStim.loc[:, "Annoyance_1":"Annoyance_19"].copy()
-subdataByStimValence = dataByStim.loc[:, "Valence_1":"Valence_19"].copy()
-subdataByStimArousal = dataByStim.loc[:, "Arousal_1":"Arousal_19"].copy()
-
-subdataByStimAnnoy.set_index(dataByStim.index, inplace=True)
-subdataByStimAnnoy = subdataByStimAnnoy.transpose()
-subdataByStimAnnoyFilePath = os.path.join(outFilePath,
-                                          "refmap_listest1_testdataAnnoyRater.csv")
-subdataByStimAnnoy.to_csv(subdataByStimAnnoyFilePath)
-
-subdataByStimValence.set_index(dataByStim.index, inplace=True)
-subdataByStimValence = subdataByStimValence.transpose()
-subdataByStimValenceFilePath = os.path.join(outFilePath,
-                                          "refmap_listest1_testdataValenceRater.csv")
-subdataByStimValence.to_csv(subdataByStimValenceFilePath)
-
-subdataByStimArousal.set_index(dataByStim.index, inplace=True)
-subdataByStimArousal = subdataByStimArousal.transpose()
-subdataByStimArousalFilePath = os.path.join(outFilePath,
-                                          "refmap_listest1_testdataArousalRater.csv")
-subdataByStimArousal.to_csv(subdataByStimArousalFilePath)
 
 # merge response and stimuli data into 'by participant' test datasets, and
 # save to file
 
 partADataBySubj = pd.merge(left=partAData,
                            right=dataByStimTestA.loc[:,
-                                                     :'UASPartLoudGMSTPowAvg'],
+                                                     :indicesDiffPsycho[-1]],
                            how='outer', left_on='Recording', right_index=True)
 partADataBySubj.sort_values(by='ID#', axis=0, inplace=True)
 partADataBySubj = pd.merge(left=partADataBySubj,
@@ -904,7 +1293,7 @@ partADataBySubj.insert(loc=0, column='SessionPart',
 
 partBDataBySubj = pd.merge(left=partBData,
                            right=dataByStimTestB.loc[:,
-                                                     :'UASPartLoudGMSTPowAvg'],
+                                                     :indicesDiffPsycho[-1]],
                            how='left', left_on='Recording', right_index=True)
 partBDataBySubj.sort_values(by='ID#', axis=0, inplace=True)
 partBDataBySubj = pd.merge(left=partBDataBySubj,
@@ -927,6 +1316,49 @@ partBDataFilePath = os.path.join(outFilePath,
                                  "refmap_listest1_testdataB_BySubj.csv")
 partBDataBySubj.to_csv(partBDataFilePath, index=False)
 
+# Re-save filtered datasets for noticeability analysis only
+omitParticipants = [2, 5, 21, 32, 34, 36, 38, 39, 40, 44, 45]
+omitColumns = ["UAS_noticed_" + str(partID) for partID in omitParticipants]
+
+partADataBySubjNotice = partADataBySubj.loc[~partADataBySubj['ID#'].isin(omitParticipants), :]
+partADataBySubjNoticeFilePath = os.path.join(outFilePath,
+                                             "refmap_listest1_testdataANoticeFilt_BySubj.csv")
+partADataBySubjNotice.to_csv(partADataBySubjNoticeFilePath, index=False)
+
+omitColumns = omitColumns + (["Arousal_" + str(partID) for partID in omitParticipants])
+omitColumns = omitColumns + (["Valence_" + str(partID) for partID in omitParticipants])
+omitColumns = omitColumns + (["Annoyance_" + str(partID) for partID in omitParticipants])
+omitColumns = omitColumns + (["HighAnnoy_" + str(partID) for partID in omitParticipants])
+dataByStimTestANotice = dataByStimTestA.drop(labels=omitColumns, axis=1)
+dataByStimTestANotice.drop(labels=['ArousalMean', 'ArousalMedian',
+                                   'ValenceMean', 'ValenceMedian',
+                                   'AnnoyMean', 'AnnoyMedian',
+                                   'HighAnnoyTotal', 'HighAnnoyProportion',
+                                   'NoticedTotal', 'NoticedProportion'], axis=1,
+                           inplace=True)
+
+keepColumns = [col for col in dataByStimTestA.columns[dataByStimTestA.columns.str.find("UAS_noticed_") == 0]
+               if col not in omitColumns]
+dataByStimTestANotice['NoticedTotalFilt'] = dataByStimTestANotice[keepColumns].sum(axis=1)
+dataByStimTestANotice['NoticedPropFilt'] = dataByStimTestANotice[keepColumns].mean(axis=1)
+keepParticipants = [label.replace("UAS_noticed_", "") for label in keepColumns]
+keepColumns = [label.replace("UAS_noticed_", "Arousal_") for label in keepColumns]
+dataByStimTestANotice['ArousalMeanFilt'] = dataByStimTestANotice[keepColumns].mean(axis=1)
+dataByStimTestANotice['ArousalMedianFilt'] = dataByStimTestANotice[keepColumns].median(axis=1)
+keepColumns = [label.replace("Arousal_", "Valence_") for label in keepColumns]
+dataByStimTestANotice['ValenceMeanFilt'] = dataByStimTestANotice[keepColumns].mean(axis=1)
+dataByStimTestANotice['ValenceMedianFilt'] = dataByStimTestANotice[keepColumns].median(axis=1)
+keepColumns = [label.replace("Valence_", "Annoyance_") for label in keepColumns]
+dataByStimTestANotice['AnnoyMeanFilt'] = dataByStimTestANotice[keepColumns].mean(axis=1)
+dataByStimTestANotice['AnnoyMedianFilt'] = dataByStimTestANotice[keepColumns].median(axis=1)
+keepColumns = [label.replace("Annoyance_", "HighAnnoy_") for label in keepColumns]
+dataByStimTestANotice['HighAnnoyTotalFilt'] = dataByStimTestANotice[keepColumns].sum(axis=1)
+dataByStimTestANotice['HighAnnoyPropFilt'] = dataByStimTestANotice['HighAnnoyTotalFilt']/len(keepParticipants)
+
+dataByStimTestANoticeFilePath = os.path.join(outFilePath,
+                                             "refmap_listest1_testdataANoticeFilt_ByStim.csv")
+dataByStimTestANotice.to_csv(dataByStimTestANoticeFilePath)
+
 # save pre-test and post-test response data to separate files
 
 preTestDataFilePath = os.path.join(outFilePath,
@@ -936,3 +1368,122 @@ preTestResponses.to_csv(preTestDataFilePath, index=False)
 postTestDataFilePath = os.path.join(outFilePath,
                                    "refmap_listest1_posttestdata.csv")
 postTestResponses.to_csv(postTestDataFilePath, index=False)
+
+# form wide format datasets for each part and outcome
+# Part A
+partAAnnoyDataBySubjWide = partADataBySubj.pivot(index='ID#',
+                                                 columns='Recording',
+                                                 values='Annoyance')
+partAValenceDataBySubjWide = partADataBySubj.pivot(index='ID#',
+                                                   columns='Recording',
+                                                   values='Valence')
+partAArousalDataBySubjWide = partADataBySubj.pivot(index='ID#',
+                                                   columns='Recording',
+                                                   values='Arousal')
+partANoticeDataBySubjWide = partADataBySubj.pivot(index='ID#',
+                                                  columns='Recording',
+                                                  values='UAS_noticed')
+partANoticeFiltDataBySubjWide = partADataBySubjNotice.pivot(index='ID#',
+                                                        columns='Recording',
+                                                        values='UAS_noticed')
+
+# merge all together for multivariate analysis
+partADataBySubjWide = partADataBySubj.pivot(index='ID#',
+                                            columns='Recording',
+                                            values='Annoyance')
+partADataBySubjWide.columns = partADataBySubjWide.columns.str.replace("_CALBIN_Pa.wav", "_annoy")
+partADataBySubjWide = partADataBySubjWide.merge(partAValenceDataBySubjWide,
+                                                on='ID#')
+partADataBySubjWide.columns = partADataBySubjWide.columns.str.replace("_CALBIN_Pa.wav", "_valence")
+partADataBySubjWide = partADataBySubjWide.merge(partAArousalDataBySubjWide,
+                                                on='ID#')
+partADataBySubjWide.columns = partADataBySubjWide.columns.str.replace("_CALBIN_Pa.wav", "_arousal")
+partADataBySubjWide = partADataBySubjWide.merge(partANoticeDataBySubjWide,
+                                                on='ID#')
+partADataBySubjWide.columns = partADataBySubjWide.columns.str.replace("_CALBIN_Pa.wav", "_notice")
+
+# merge with participant info and then save
+partAAnnoyDataBySubjWide = partAAnnoyDataBySubjWide.merge(prePostTestResponses,
+                                                          on='ID#')
+partAValenceDataBySubjWide = partAValenceDataBySubjWide.merge(prePostTestResponses,
+                                                              on='ID#')
+partAArousalDataBySubjWide = partAArousalDataBySubjWide.merge(prePostTestResponses,
+                                                              on='ID#')
+partANoticeDataBySubjWide = partANoticeDataBySubjWide.merge(prePostTestResponses,
+                                                            on='ID#')
+partANoticeFiltDataBySubjWide = partANoticeFiltDataBySubjWide.merge(prePostTestResponses,
+                                                                    on='ID#')
+partADataBySubjWide = partADataBySubjWide.merge(prePostTestResponses,
+                                                on='ID#')
+
+partAAnnoyDataBySubjWide.to_csv(os.path.join(outFilePath,
+                                             "refmap_listest1_AnnoyDataABySubjWide.csv"),
+                                             index=False)
+partAValenceDataBySubjWide.to_csv(os.path.join(outFilePath,
+                                               "refmap_listest1_ValenceDataABySubjWide.csv"),
+                                  index=False)
+partAArousalDataBySubjWide.to_csv(os.path.join(outFilePath,
+                                               "refmap_listest1_ArousalDataABySubjWide.csv"),
+                                  index=False)
+partANoticeDataBySubjWide.to_csv(os.path.join(outFilePath,
+                                              "refmap_listest1_NoticeDataABySubjWide.csv"),
+                                 index=False)
+partANoticeFiltDataBySubjWide.to_csv(os.path.join(outFilePath,
+                                                  "refmap_listest1_NoticeFiltDataABySubjWide.csv"),
+                                     index=False)
+partADataBySubjWide.to_csv(os.path.join(outFilePath,
+                                        "refmap_listest1_DataABySubjWide.csv"),
+                           index=False)
+
+# filter for anomalous notice
+partADataBySubjSubsetFiltWide = partADataBySubjWide.loc[~partADataBySubjWide.index.isin(omitParticipants), :]
+partADataBySubjWide.to_csv(os.path.join(outFilePath,
+                                        "refmap_listest1_DataABySubjSubsetFiltWide.csv"),
+                           index=False)
+
+
+# Part B
+partBAnnoyDataBySubjWide = partBDataBySubj.pivot(index='ID#',
+                                                 columns='Recording',
+                                                 values='Annoyance')
+partBValenceDataBySubjWide = partBDataBySubj.pivot(index='ID#',
+                                                   columns='Recording',
+                                                   values='Valence')
+partBArousalDataBySubjWide = partBDataBySubj.pivot(index='ID#',
+                                                   columns='Recording',
+                                                   values='Arousal')
+
+# merge all together for multivariate analysis
+partBDataBySubjWide = partBDataBySubj.pivot(index='ID#',
+                                            columns='Recording',
+                                            values='Annoyance')
+partBDataBySubjWide.columns = partBDataBySubjWide.columns.str.replace("_CALBIN_Pa.wav", "_annoy")
+partBDataBySubjWide = partBDataBySubjWide.merge(partBValenceDataBySubjWide,
+                                                on='ID#')
+partBDataBySubjWide.columns = partBDataBySubjWide.columns.str.replace("_CALBIN_Pa.wav", "_valence")
+partBDataBySubjWide = partBDataBySubjWide.merge(partBArousalDataBySubjWide,
+                                                on='ID#')
+partBDataBySubjWide.columns = partBDataBySubjWide.columns.str.replace("_CALBIN_Pa.wav", "_arousal")
+
+# merge with participant info and then save
+partBAnnoyDataBySubjWide = partBAnnoyDataBySubjWide.merge(prePostTestResponses,
+                                                          on='ID#')
+partBValenceDataBySubjWide = partBValenceDataBySubjWide.merge(prePostTestResponses,
+                                                              on='ID#')
+partBArousalDataBySubjWide = partBArousalDataBySubjWide.merge(prePostTestResponses,
+                                                              on='ID#')
+partBDataBySubjWide = partBDataBySubjWide.merge(prePostTestResponses,
+                                                on='ID#')
+
+partBAnnoyDataBySubjWide.to_csv(os.path.join(outFilePath,
+                                             "refmap_listest1_AnnoyDataBBySubjWide.csv"),
+                                index=False)
+partBValenceDataBySubjWide.to_csv(os.path.join(outFilePath,
+                                               "refmap_listest1_ValenceDataBBySubjWide.csv"),
+                                  index=False)
+partBArousalDataBySubjWide.to_csv(os.path.join(outFilePath,
+                                               "refmap_listest1_ArousalDataBBySubjWide.csv"),
+                                  index=False)
+partBDataBySubjWide.to_csv(os.path.join(outFilePath,
+                                        "refmap_listest1_DataBBySubjWide.csv"),
+                           index=False)

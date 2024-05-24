@@ -30,7 +30,8 @@ Date last checked:
 
 """
 
-from scipy.signal import (butter, sosfilt, sosfiltfilt, sosfilt_zi, sosfreqz)
+from scipy.signal import (butter, resample_poly, sosfilt, sosfiltfilt, sosfilt_zi,
+                          sosfreqz)
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -273,7 +274,7 @@ def noctlimits(n, fm):
     return Lu, Ll, f
 
 
-def noctfiltc(n, fm, fs, order=4, fwd_bwd=False, plot=False):
+def noctfiltc(n, fm, fs, order=4, fwd_bwd=False, down_fact=1, plot=False):
     """
     Return second-order-sections (sos) for a 1/n fractional-octave-band filter
     according to BS EN IEC 61260:2014
@@ -304,6 +305,14 @@ def noctfiltc(n, fm, fs, order=4, fwd_bwd=False, plot=False):
     f1 = fm/octRatio
     f2 = fm*octRatio
 
+    # downsampling based on Nyquist and filter upper edge frequency
+    down_fact = np.maximum(np.minimum(np.floor(fs/(2 + 0.1))/f2, 50), 1).astype(int)
+    
+    if down_fact > 1:
+        fs_filt = fs/down_fact
+    else:
+        fs_filt = fs
+
     if fwd_bwd is True:
         # Suggested pre-warp for 2nd order Butterworth filtfilt cutoff
         # from Robertson et al 2014 Research methods in Biomechanics (2e)
@@ -316,14 +325,14 @@ def noctfiltc(n, fm, fs, order=4, fwd_bwd=False, plot=False):
         order = int(order/2)
         
         # Pre-warping of cutoff frequencies to compensate for forward-backward
-        f1, f2 = noctf_fbw([f1, f2], fbw_order, fs, 'bandpass')
+        f1, f2 = noctf_fbw([f1, f2], fbw_order, fs_filt, 'bandpass')
 
-    sos = butter(order, [f1, f2], btype='bandpass', output='sos', fs=fs)
+    sos = butter(order, [f1, f2], btype='bandpass', output='sos', fs=fs_filt)
     # initial condition for steady-state of step response to pass to filter function
     zi = sosfilt_zi(sos)
 
     if plot:
-        ff, Hf = sosfreqz(sos, worN=150000, fs=fs)  # Filter frequency response, 150000 values
+        ff, Hf = sosfreqz(sos, worN=150000, fs=fs_filt)  # Filter frequency response, 150000 values
         if fwd_bwd:
             Hf = Hf*np.conj(Hf)
         plt.plot(ff[1:], 20*np.log10(abs(Hf[1:])), label=str(np.rint(fm)))
@@ -334,14 +343,15 @@ def noctfiltc(n, fm, fs, order=4, fwd_bwd=False, plot=False):
         plt.ylabel("Filter response, dB")
         plt.legend(loc=4)
 
-    return sos, zi
+    return sos, zi, fs_filt
 
 
-def noct_filter(x, n, fm, fs, order=4, axis=0, fwd_bwd=True, check=True):
+def noct_filter(x, n, fm, fs, order=4, axis=0, fwd_bwd=False, check=True):
     """
-    update
     Return 1/n fractional-octave-band-filtered signals for a single passband
     using second-order-sections.
+    
+    Signal is automatically downsampled for low frequency band filters.
 
     Parameters
     ----------
@@ -384,7 +394,6 @@ def noct_filter(x, n, fm, fs, order=4, axis=0, fwd_bwd=True, check=True):
 
     References
     ----------
-
     1. BSI, 2014. BS EN IEC 61260:2014
     2. Boore, DM, 2005. On pads and filters: processing strong-motion data. In:
         Bulletin of the Seismological Society of America, 95(2), 745-750.
@@ -395,15 +404,16 @@ def noct_filter(x, n, fm, fs, order=4, axis=0, fwd_bwd=True, check=True):
                           + str(N)))
 
     fm, f1, f2 = noctf(fm, fm, n)  # convert to exact filter mid-frequency
+
     # derive filter coefficients
-    sos, _ = noctfiltc(n, fm, fs, order=order, fwd_bwd=fwd_bwd)
+    sos, _, fs_filt = noctfiltc(n, fm, fs, order=order, fwd_bwd=fwd_bwd)
 
     if check is True:
         # Check that filter corresponds to standard limits, or issue warning
         # The filter shape is checked in freq. range fc/5 < f < 5*fc
         Lu, Ll, f = noctlimits(n, fm)  # Calculate class 1 limits
         # Filter frequency response, 150000 values
-        ff, Hf = sosfreqz(sos, worN=150000, fs=fs)
+        ff, Hf = sosfreqz(sos, worN=150000, fs=fs_filt)
 
         if fwd_bwd:
             Hf = Hf*np.conj(Hf)
@@ -434,13 +444,28 @@ def noct_filter(x, n, fm, fs, order=4, axis=0, fwd_bwd=True, check=True):
             plt.ylabel("Filter response, dB")
             plt.legend(loc=4)
 
-    if fwd_bwd:
-        # generate fbw pad length based on Boore, 2005
-        padN = np.min([x.shape[axis]-1, int(x.shape[axis]*1.5*order/2/f2)])
-        # filter signal using forward-backward processing
-        y = sosfiltfilt(sos, x, axis=axis, padtype='constant', padlen=padN)
+    # if necessary, downsample signal for filter
+    if fs_filt != fs:
+        x_filt = resample_poly(x, up=1, down=int(fs/fs_filt),
+                               padtype='line', axis=axis)
     else:
-        y = sosfilt(sos, x, axis=axis)  # filter signal
+        x_filt = x
+
+    if fwd_bwd:
+        # filter signal using forward-backward processing
+        # generate fbw pad length based on Boore, 2005
+        padN = np.min([x_filt.shape[axis]-1, int(x_filt.shape[axis]*1.5*order/2/f2)])
+        y_filt = sosfiltfilt(sos, x_filt, axis=axis, padtype='constant',
+                             padlen=padN)
+    else:
+        y_filt = sosfilt(sos, x_filt, axis=axis)  # filter signal
+    
+    # resample to original frequency
+    if fs_filt != fs:
+        y = resample_poly(y_filt, up=int(fs/fs_filt), down=1,
+                          padtype='line', axis=axis)
+    else:
+        y = y_filt
 
     return y
 

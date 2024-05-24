@@ -1,0 +1,355 @@
+---
+title: "REFMAP Listening test 1 analysis: Data analysis with bootstrap estimation (DABEST)"
+output: html_notebook
+---
+
+This notebook analyses the Part A and B data in terms of mean differences between groups using within-subjects paired analysis with bootstrap estimation of confidence intervals.
+
+# Setup
+
+## Load packages and set seed
+
+```{r}
+# load packages
+library(tidyr)
+library(unikn)
+library(ggplot2)
+library(dabestr)
+
+# set random seed
+set.seed(303)
+
+# set output plot directory
+choose.files(caption="Just cancel this")  # workaround for bug in RTerm choose.dir
+outFigPath <- utils::choose.dir(caption="Select output folder to save plots")
+
+```
+
+## Import data and wrangle
+
+```{r}
+subjLongDataA <- read.csv("C:\\Users\\m_lot\\OneDrive - University of Salford\\REFMAP General\\03 Experiment\\Experiment 1\\Analysis\\PostProcess\\refmap_listest1_testdataA_BySubj.csv", header=TRUE)
+
+dfA <- subjLongDataA[c('ID.', 'Recording', 'AmbientEnv', 'UASLAeq', 'SNRlevel', 'UASOperation', 'UASType', 'Annoyance')]
+
+UASLAeqCatsA <- c("No UAS", "42", "48", "54", "60")
+SNRCatsA <- c("No UAS", "-16", "-10", "-4", "2", "8")
+UASOpCatsA <- c("No UAS", "Flyby", "Landing", "Takeoff")
+UASTypeCatsA <- c("No UAS", "H520", "M300", "T150")
+
+dfA$ID. <- factor(dfA$ID.)
+dfA$AmbientEnv <- factor(dfA$AmbientEnv)
+dfA$UASLAeq <- factor(dfA$UASLAeq, levels=UASLAeqCatsA)
+dfA$SNRlevel <- factor(dfA$SNRlevel, levels=SNRCatsA)
+dfA$UASOperation <- factor(dfA$UASOperation, levels=UASOpCatsA)
+dfA$UASType <- factor(dfA$UASType, levels=UASTypeCatsA)
+
+subjLongDataB <- read.csv("C:\\Users\\m_lot\\OneDrive - University of Salford\\REFMAP General\\03 Experiment\\Experiment 1\\Analysis\\PostProcess\\refmap_listest1_testdataB_BySubj.csv", header=TRUE)
+
+dfB <- subjLongDataB[c('ID.', 'Recording', 'UASLAeq', 'UASEvents', 'SNRlevel', 'UASType', 'Annoyance')]
+
+UASLAeqCatsB <- c("No UAS", "54", "60")
+SNRCatsB <- c("No UAS", "2", "8")
+UASTypeCatsB <- c("No UAS", "H520", "T150")
+
+dfB$ID. <- factor(dfB$ID.)
+dfB$UASLAeq <- factor(dfB$UASLAeq, levels=UASLAeqCatsB)
+dfB$SNRlevel <- factor(dfB$SNRlevel, levels=SNRCatsB)
+dfB$UASType <- factor(dfB$UASType, levels=UASTypeCatsB)
+
+```
+
+Test for differences between the response to the propagated flyover vs power-scaled flyover:
+
+```{r}
+
+# select all flyover level 2 data
+dfA_F_2 <- dfA[grep(pattern="F_2", dfA$Recording),]
+
+dfA_F_2[, 'LvlType'] <- "Modelled"
+
+dfA_F_2$LvlType[grep(pattern="PwrScale", dfA_F_2$Recording)] <- "Scaled"
+
+# assign to processor
+
+dbA_F_2 <- dabestr::load(dfA_F_2,
+                         x = LvlType, y = Annoyance,
+                         idx = c("Modelled", "Scaled"),
+                         paired = "baseline", id_col = ID., colour=AmbientEnv)
+
+dbA_F_2.dmean <- dabestr::mean_diff(dbA_F_2, perm_count=5000)
+
+dbA_F_2_pltmean <- dabestr::dabest_plot(dbA_F_2.dmean, custom_palette='igv',
+                                        raw_marker_size = 0.5, raw_marker_alpha = 0.3,
+                                        swarm_label="Annoyance ratings", )
+
+svg(filename=file.path(outFigPath, "PtAFlyScaleDabest.svg"), family='serif', width=6, height=5)
+dbA_F_2_pltmean
+dump <- dev.off()
+
+dbA_F_2_pltmean
+```
+
+Test for differences in Part A between UAS types, segregating by ambient environment.
+
+```{r}
+dfA_Park <- dfA[dfA$AmbientEnv == 'Park',]
+dfA_Street <- dfA[dfA$AmbientEnv == 'Street',]
+
+dbA_TypeH520 <- dabestr::load(dfA_Park,
+                             x = UASType, y = Annoyance,
+                             idx = c("H520", "M300", "T150"),
+                             paired = "baseline", id_col = ID., colour=UASLAeq)
+
+dbA_TypeH520.dmean <- dabestr::mean_diff(dbA_TypeH520, perm_count=5000)
+
+dbA_TypeH520_pltmean <- dabestr::dabest_plot(dbA_TypeH520.dmean, custom_palette='d3',
+                                            raw_marker_size = 0.5, raw_marker_alpha = 0.3,
+                                            swarm_label="Annoyance ratings",
+                                            contrast_ylim=c(-1, 0.5))
+svg(filename=file.path(outFigPath, "PtATypeParkDabest.svg"), family='serif', width=6, height=7.5)
+dbA_TypeH520_pltmean
+dump <- dev.off()
+
+dbA_Type_St <- load(dfA_Street,
+                    x = UASType, y = Annoyance,
+                    idx = c("H520", "M300", "T150"),
+                    paired = "baseline", id_col = ID., colour=UASLAeq)
+
+dbA_Type_St.dmean <- dabestr::mean_diff(dbA_Type_St, perm_count=5000)
+
+dbA_Type_St_pltmean <- dabestr::dabest_plot(dbA_Type_St.dmean, custom_palette='d3',
+                                            raw_marker_size = 0.5, raw_marker_alpha = 0.3,
+                                            swarm_label="Annoyance ratings",
+                                            contrast_ylim=c(-1, 0.5))
+
+
+svg(filename=file.path(outFigPath, "PtATypeStreetDabest.svg"), family='serif', width=6, height=7.5)
+dbA_Type_St_pltmean
+dump <- dev.off()
+
+dbA_TypeH520_pltmean
+dbA_Type_St_pltmean
+
+```
+
+Test for differences between UAS operations, segregating by ambient environment.
+
+```{r}
+
+dbA_Op_Pk <- dabestr::load(dfA_Park[!grepl(pattern="PwrScale", dfA_Park$Recording),],
+                           x = UASOperation, y = Annoyance,
+                           idx = c("Flyby", "Landing", "Takeoff"),
+                           paired = "baseline", id_col = ID., colour=UASLAeq)
+
+dbA_Op_Pk.dmean <- dabestr::mean_diff(dbA_Op_Pk, perm_count=5000)
+
+dbA_Op_Pk_pltmean <- dabestr::dabest_plot(dbA_Op_Pk.dmean, custom_palette='d3',
+                                          raw_marker_size = 0.5, raw_marker_alpha = 0.3,
+                                          swarm_label="Annoyance ratings",
+                                          contrast_ylim=c(-0.5, 1))
+
+svg(filename=file.path(outFigPath, "PtAOpParkDabest.svg"), family='serif', width=6, height=7.5)
+dbA_Op_Pk_pltmean
+dump <- dev.off()
+
+dbA_Op_St <- load(dfA_Street[!grepl(pattern="PwrScale", dfA_Street$Recording),],
+                  x = UASOperation, y = Annoyance,
+                  idx = c("Flyby", "Landing", "Takeoff"),
+                  paired = "baseline", id_col = ID., colour=UASLAeq)
+
+dbA_Op_St.dmean <- dabestr::mean_diff(dbA_Op_St, perm_count=5000)
+
+dbA_Op_St_pltmean <- dabestr::dabest_plot(dbA_Op_St.dmean, custom_palette='d3',
+                                          raw_marker_size = 0.5, raw_marker_alpha = 0.3,
+                                          swarm_label="Annoyance ratings",
+                                          contrast_ylim=c(-0.5, 1))
+
+svg(filename=file.path(outFigPath, "PtAOpStreetDabest.svg"), family='serif', width=6, height=7.5)
+dbA_Op_St_pltmean
+dump <- dev.off()
+
+dbA_Op_Pk_pltmean
+dbA_Op_St_pltmean
+
+```
+Test for differences in Part B for varying event numbers, segregated by UAS type
+
+```{r}
+dfB_H520 <- dfB[dfB$UASType == 'H520',]
+dfB_T150 <- dfB[dfB$UASType == 'T150',]
+
+dbB_TypeH520b <- dabestr::load(dfB_H520,
+                               x = UASEvents, y = Annoyance,
+                               idx = c(1, 3, 5, 9),
+                               paired = "baseline", id_col = ID., colour=UASLAeq)
+
+dbB_TypeH520s <- dabestr::load(dfB_H520,
+                               x = UASEvents, y = Annoyance,
+                               idx = c(1, 3, 5, 9),
+                               paired = "sequential", id_col = ID., colour=UASLAeq)
+
+dbB_TypeH520b.dmean <- dabestr::mean_diff(dbB_TypeH520b, perm_count=5000)
+dbB_TypeH520s.dmean <- dabestr::mean_diff(dbB_TypeH520s, perm_count=5000)
+
+dbB_TypeH520b_pltmean <- dabestr::dabest_plot(dbB_TypeH520b.dmean, custom_palette='d3',
+                                              raw_marker_size = 0.5, raw_marker_alpha = 0.3,
+                                              swarm_label="Annoyance ratings",
+                                              contrast_ylim=c(-1, 2.5))
+dbB_TypeH520s_pltmean <- dabestr::dabest_plot(dbB_TypeH520s.dmean, custom_palette='d3',
+                                              raw_marker_size = 0.5, raw_marker_alpha = 0.3,
+                                              swarm_label="Annoyance ratings",
+                                              contrast_ylim=c(-1, 2.5))
+
+svg(filename=file.path(outFigPath, "PtBTypeH520DabestBase.svg"), family='serif', width=6, height=7.5)
+dbB_TypeH520b_pltmean
+dump <- dev.off()
+svg(filename=file.path(outFigPath, "PtBTypeH520DabestSeq.svg"), family='serif', width=6, height=7.5)
+dbB_TypeH520s_pltmean
+dump <- dev.off()
+
+dbB_Type_T150b <- load(dfB_T150,
+                       x = UASEvents, y = Annoyance,
+                       idx = c(1, 3, 5, 9),
+                       paired = "baseline", id_col = ID., colour=UASLAeq)
+
+dbB_Type_T150s <- load(dfB_T150,
+                       x = UASEvents, y = Annoyance,
+                       idx = c(1, 3, 5, 9),
+                       paired = "sequential", id_col = ID., colour=UASLAeq)
+
+dbB_Type_T150b.dmean <- dabestr::mean_diff(dbB_Type_T150b, perm_count=5000)
+dbB_Type_T150s.dmean <- dabestr::mean_diff(dbB_Type_T150s, perm_count=5000)
+
+dbB_Type_T150b_pltmean <- dabestr::dabest_plot(dbB_Type_T150b.dmean, custom_palette='d3',
+                                              raw_marker_size = 0.5, raw_marker_alpha = 0.3,
+                                              swarm_label="Annoyance ratings",
+                                              contrast_ylim=c(-1, 2.5))
+
+dbB_Type_T150s_pltmean <- dabestr::dabest_plot(dbB_Type_T150s.dmean, custom_palette='d3',
+                                               raw_marker_size = 0.5, raw_marker_alpha = 0.3,
+                                               swarm_label="Annoyance ratings",
+                                               contrast_ylim=c(-1, 2.5))
+
+svg(filename=file.path(outFigPath, "PtBTypeT150DabestBase.svg"), family='serif', width=6, height=7.5)
+dbB_Type_T150b_pltmean
+dump <- dev.off()
+
+svg(filename=file.path(outFigPath, "PtBTypeT150DabestSeq.svg"), family='serif', width=6, height=7.5)
+dbB_Type_T150s_pltmean
+dump <- dev.off()
+
+dbB_TypeH520b_pltmean
+dbB_TypeH520s_pltmean
+dbB_Type_T150b_pltmean
+dbB_Type_T150s_pltmean
+
+```
+Test for differences in Part B for varying event numbers, segregated by UAS LAeq
+
+```{r}
+dfB_54 <- dfB[dfB$UASLAeq == '54',]
+dfB_60 <- dfB[dfB$UASLAeq == '60',]
+
+dbB_54b <- dabestr::load(dfB_54,
+                         x = UASEvents, y = Annoyance,
+                         idx = c(1, 3, 5, 9),
+                         paired = "baseline", id_col = ID., colour=UASType)
+
+dbB_54s <- dabestr::load(dfB_54,
+                         x = UASEvents, y = Annoyance,
+                         idx = c(1, 3, 5, 9),
+                         paired = "sequential", id_col = ID., colour=UASType)
+
+dbB_54b.dmean <- dabestr::mean_diff(dbB_54b, perm_count=5000)
+dbB_54s.dmean <- dabestr::mean_diff(dbB_54s, perm_count=5000)
+
+dbB_54b_pltmean <- dabestr::dabest_plot(dbB_54b.dmean, custom_palette='d3',
+                                        raw_marker_size = 0.5, raw_marker_alpha = 0.3,
+                                        swarm_label="Annoyance ratings",
+                                        contrast_ylim=c(-1, 2.5))
+dbB_54s_pltmean <- dabestr::dabest_plot(dbB_54s.dmean, custom_palette='d3',
+                                        raw_marker_size = 0.5, raw_marker_alpha = 0.3,
+                                        swarm_label="Annoyance ratings",
+                                        contrast_ylim=c(-1, 2.5))
+
+svg(filename=file.path(outFigPath, "PtB54DabestBase.svg"), family='serif', width=6, height=7.5)
+dbB_54b_pltmean
+dump <- dev.off()
+svg(filename=file.path(outFigPath, "PtB54DabestSeq.svg"), family='serif', width=6, height=7.5)
+dbB_54s_pltmean
+dump <- dev.off()
+
+dbB_60b <- load(dfB_60,
+                x = UASEvents, y = Annoyance,
+                idx = c(1, 3, 5, 9),
+                paired = "baseline", id_col = ID., colour=UASType)
+
+dbB_60s <- load(dfB_60,
+                x = UASEvents, y = Annoyance,
+                idx = c(1, 3, 5, 9),
+                paired = "sequential", id_col = ID., colour=UASType)
+
+dbB_60b.dmean <- dabestr::mean_diff(dbB_60b, perm_count=5000)
+dbB_60s.dmean <- dabestr::mean_diff(dbB_60s, perm_count=5000)
+
+dbB_60b_pltmean <- dabestr::dabest_plot(dbB_60b.dmean, custom_palette='d3',
+                                        raw_marker_size = 0.5, raw_marker_alpha = 0.3,
+                                        swarm_label="Annoyance ratings",
+                                        contrast_ylim=c(-1, 2.5))
+
+dbB_60s_pltmean <- dabestr::dabest_plot(dbB_60s.dmean, custom_palette='d3',
+                                        raw_marker_size = 0.5, raw_marker_alpha = 0.3,
+                                        swarm_label="Annoyance ratings",
+                                        contrast_ylim=c(-1, 2.5))
+
+svg(filename=file.path(outFigPath, "PtB60DabestBase.svg"), family='serif', width=6, height=7.5)
+dbB_60b_pltmean
+dump <- dev.off()
+
+svg(filename=file.path(outFigPath, "PtB60DabestSeq.svg"), family='serif', width=6, height=7.5)
+dbB_60s_pltmean
+dump <- dev.off()
+
+dbB_54b_pltmean
+dbB_54s_pltmean
+dbB_60b_pltmean
+dbB_60s_pltmean
+
+```
+
+Test for differences in Part B for varying event numbers, unsegregated
+
+```{r}
+dbB_b <- dabestr::load(dfB,
+                         x = UASEvents, y = Annoyance,
+                         idx = c(1, 3, 5, 9),
+                         paired = "baseline", id_col = ID., colour=UASLAeq)
+
+dbB_s <- dabestr::load(dfB,
+                         x = UASEvents, y = Annoyance,
+                         idx = c(1, 3, 5, 9),
+                         paired = "sequential", id_col = ID., colour=UASLAeq)
+
+dbB_b.dmean <- dabestr::mean_diff(dbB_b, perm_count=5000)
+dbB_s.dmean <- dabestr::mean_diff(dbB_s, perm_count=5000)
+
+dbB_b_pltmean <- dabestr::dabest_plot(dbB_b.dmean, custom_palette='d3',
+                                        raw_marker_size = 0.5, raw_marker_alpha = 0.3,
+                                        swarm_label="Annoyance ratings",
+                                        contrast_ylim=c(-1, 2.5))
+dbB_s_pltmean <- dabestr::dabest_plot(dbB_s.dmean, custom_palette='d3',
+                                        raw_marker_size = 0.5, raw_marker_alpha = 0.3,
+                                        swarm_label="Annoyance ratings",
+                                        contrast_ylim=c(-1, 2.5))
+
+svg(filename=file.path(outFigPath, "PtBDabestBase.svg"), family='serif', width=6, height=7.5)
+dbB_b_pltmean
+dump <- dev.off()
+svg(filename=file.path(outFigPath, "PtBDabestSeq.svg"), family='serif', width=6, height=7.5)
+dbB_s_pltmean
+dump <- dev.off()
+
+dbB_b_pltmean
+dbB_s_pltmean
+```

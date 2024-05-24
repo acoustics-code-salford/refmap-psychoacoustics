@@ -1,0 +1,267 @@
+---
+title: "REFMAP Listening test 1 analysis: Random forest variable importance identification"
+output: html_notebook
+---
+
+This notebook analyses the Part A and B data in terms of variable importance using a random forest model based on conditional inference trees and a conditional permutation variable importance algorithm.
+
+# Setup
+
+## Load packages
+
+```{r}
+# load packages
+library(tidyr)
+library(unikn)
+library(ggplot2)
+require(flexplot)
+library(party)
+library(randomForest)
+
+# set package parameters
+theme_set(theme_bw())
+
+```
+
+```{r}
+# function to enable plot dimension adjustment
+set_plot_dimensions <- function(width_choice, height_choice) {
+        options(repr.plot.width=width_choice, repr.plot.height=height_choice)
+        }
+```
+
+## Import data and wrangle
+
+```{r}
+stimDataA <- read.csv("C:\\Users\\m_lot\\OneDrive - University of Salford\\REFMAP General\\03 Experiment\\Experiment 1\\Analysis\\PostProcess\\refmap_listest1_testdataA_ByStim.csv", header=TRUE)
+
+subjLongDataA <- read.csv("C:\\Users\\m_lot\\OneDrive - University of Salford\\REFMAP General\\03 Experiment\\Experiment 1\\Analysis\\PostProcess\\refmap_listest1_testdataA_BySubj.csv", header=TRUE)
+```
+
+```{r}
+# function to encode categorical to ordinal variables
+encode_ordinal <- function(x, order=unique(x)) {
+  x <- as.numeric(factor(x, levels=order, exclude=NULL))
+  x
+}
+
+# definition of ordinal variable levels
+SNRCats <- c("No UAS", "-16", "-10", "-4", "2", "8")
+UASLAeqCats <- c("No UAS", "42", "48", "54", "60")
+
+```
+
+The aggregated data by stimulus are assigned to a dataframe, relevant categorical variables are converted to ordinal, and then the variable subset of interest is selected, NA rows dropped (ie, the 'no UAS' stimuli, as the conditional variable importance algorithm cannot currently handle NA values, which are present in all the UAS dB metrics), and a formula assigned.
+
+```{r}
+
+stimDataANum <- stimDataA
+
+stimDataANum[['SNRlevel']] <- encode_ordinal(stimDataA[['SNRlevel']], order=SNRCats)
+stimDataANum[['UASLAeq']] <- encode_ordinal(stimDataA[['UASLAeq']], order=UASLAeqCats)
+
+stimDataANum <- cbind(stimDataANum[, which(colnames(stimDataANum)=="UASLAeq"):
+                                     which(colnames(stimDataANum)=="SNRlevel")],
+                      stimDataANum[, which(colnames(stimDataANum)=="UASLAeqMaxLR"):
+                                     which(colnames(stimDataANum)=="UASImpulsHMS05ExMaxLR")],
+                      stimDataANum[, which(colnames(stimDataANum)=="UASLAeqdiffAmbLAF90"):
+                                     which(colnames(stimDataANum)=="UASPartLoudGMSTPowAvg")],
+                      stimDataANum[, which(colnames(stimDataANum)=="dTonalECMAHMSAvgMaxLR"):
+                                     which(colnames(stimDataANum)=="dImpulsHMS05ExMaxLR")])
+colSelect = c('ValenceMedian', 'ArousalMedian', 'AnnoyMedian', 'HighAnnoyProportion')
+stimDataANum <- cbind(stimDataANum, stimDataA[, colSelect])
+stimDataANum <- subset(stimDataANum, select = -c(UASLAEMaxLR))
+
+# drop rows missing with missing values, as conditional variable importance cannot handle these 
+stimDataANum <- stimDataANum[complete.cases(stimDataANum),]
+
+includeVarsStim <- names(stimDataANum)[1:which(names(stimDataANum) == 'dImpulsHMS05ExMaxLR')]
+formVarStim <- reformulate(includeVarsStim, 'AnnoyMedian')
+
+```
+
+This process is repeated for the disaggregated data by subject.
+
+```{r}
+
+subjDataANum <- subjLongDataA
+
+subjDataANum[['SNRlevel']] <- encode_ordinal(subjLongDataA[['SNRlevel']], order=SNRCats)
+subjDataANum[['UASLAeq']] <- encode_ordinal(subjLongDataA[['UASLAeq']], order=UASLAeqCats)
+
+subjDataANum <- cbind(subjDataANum[, which(colnames(subjDataANum)=="UASLAeq"):
+                                     which(colnames(subjDataANum)=="SNRlevel")],
+                      subjDataANum[, which(colnames(subjDataANum)=="UASLAeqMaxLR"):
+                                     which(colnames(subjDataANum)=="UASImpulsHMS05ExMaxLR")],
+                      subjDataANum[, which(colnames(subjDataANum)=="UASLAeqdiffAmbLAF90"):
+                                     which(colnames(subjDataANum)=="UASPartLoudGMSTPowAvg")],
+                      subjDataANum[, which(colnames(subjDataANum)=="dTonalECMAHMSAvgMaxLR"):
+                                     which(colnames(subjDataANum)=="dImpulsHMS05ExMaxLR")])
+colSelect = c('Valence', 'Arousal', 'Annoyance', 'HighAnnoy')
+subjDataANum <- cbind(subjDataANum, subjLongDataA[, colSelect])
+subjDataANum <- subset(subjDataANum, select = -c(UASLAEMaxLR))
+
+# drop rows missing with missing values, as conditional variable importance cannot handle these
+subjDataANum <- subjDataANum[complete.cases(subjDataANum),]
+
+includeVarsSubj <- names(subjDataANum)[1:which(names(subjDataANum) == 'dImpulsHMS05ExMaxLR')]
+formVarSubj <- reformulate(includeVarsSubj, 'Annoyance')
+
+```
+
+## Training the model
+
+### Aggregated data
+
+#### All variables
+
+The random forest modelling is run on the aggregated data, including all the variables.
+
+```{r}
+set.seed(909)
+crf_AggModel <- party::cforest(formVarStim, data=stimDataANum,
+                               controls=party::cforest_unbiased(ntree=1000,
+                                                                mtry=as.integer(length(includeVarsStim)/1.25)))
+
+crf_AggModelOOB <- predict(crf_AggModel, OOB=TRUE, type='response')
+
+# Error quantiles
+round(quantile(abs(crf_AggModelOOB - data.matrix(crf_AggModel@data@env$response))), digits=3)
+
+cor(crf_AggModelOOB, crf_AggModel@data@env$response)^2  # Rsquared
+```
+
+The marginal variable importance is calculated.
+
+
+```{r}
+sort(party::varimp(crf_AggModel), decreasing=TRUE)
+```
+
+Now, the conditional variable permutations importance is calculated.
+
+```{r}
+# using permimp cpi
+start.time <- Sys.time()
+
+pimpCrfAggModel <- permimp::permimp(crf_AggModel, nperm=1, conditional=TRUE,
+                                    threshold=0.95, progressBar=FALSE)
+
+end.time <- Sys.time()
+time.taken <- round(end.time - start.time, 2)
+time.taken
+
+```
+```{r}
+pimpCrfAggOrdered <- round(sort(pimpCrfAggModel$values, decreasing=F), digits=4)
+rev(pimpCrfAggOrdered)
+```
+
+```{r, fig.width=10,fig.height=12}
+par(mai=c(0,3,0,0))
+pimpCrfAggOrdereddf <- data.frame(pimpCrfAggOrdered)
+pimpCrfAggOrdereddf <- plyr::rename(pimpCrfAggOrdereddf, c("pimpCrfAggOrdered" = "Variable_importance"))
+
+pBar <- ggplot(pimpCrfAggOrdereddf) + geom_col(aes(x=factor(rownames(pimpCrfAggOrdereddf), levels=rownames(pimpCrfAggOrdereddf)), y=Variable_importance), fill="#076fa2", width=0.5) + labs(x="Variable", y="Conditional variable importance") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+```
+
+
+```{r, fig.width=10,fig.height=12}
+# plot cpi
+permimp::plot.VarImp(pimpCrfAggModel, type='box', horizontal=TRUE)
+
+```
+#### Remove loudness and level variables
+
+Now a model is run omitting loudness and level variables, while retaining only the top importance loudness variable.
+
+```{r}
+```
+
+
+### Individual data
+
+Next, a new model is run on the disaggregated data:
+
+```{r}
+set.seed(909)
+crf_IndModel <- party::cforest(formVarSubj, data=subjDataANum,
+                               controls=party::cforest_unbiased(ntree=500,
+                                                                mtry=as.integer(length(includeVarsSubj)/1.25)))
+
+crf_IndModelOOB <- predict(crf_IndModel, OOB=TRUE, type='response')
+
+# Error quantiles
+round(quantile(abs(crf_IndModelOOB - data.matrix(crf_IndModel@data@env$response))), digits=3)
+
+cor(crf_IndModelOOB, crf_IndModel@data@env$response)^2  # Rsquared
+```
+
+
+```{r}
+sort(party::varimp(crf_IndModel), decreasing=TRUE)
+
+```
+
+```{r}
+start.time <- Sys.time()
+impCrfIndModel <- permimp::permimp(crf_IndModel, nperm=1, conditional=TRUE, progressBar=FALSE)
+end.time <- Sys.time()
+time.taken <- round(end.time - start.time, 2)
+time.taken
+```
+
+```{r}
+impCrfIndOrdered <- sort(impCrfIndModel$values, decreasing=F)
+rev(impCrfIndOrdered)
+```
+
+```{r, fig.width=10,fig.height=12}
+par(mai=c(0,3,0,0))
+impCrfIndOrdereddf <- data.frame(impCrfIndOrdered)
+impCrfIndOrdereddf <- plyr::rename(impCrfIndOrdereddf, c("impCrfIndOrdered" = "Variable_importance"))
+
+pBar <- ggplot(impCrfIndOrdereddf) + geom_col(aes(x=factor(rownames(impCrfIndOrdereddf), levels=rownames(impCrfIndOrdereddf)), y=Variable_importance), fill="#076fa2", width=0.5) + labs(x="Variable") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+```
+
+
+Run again, omitting AmbientLAeq variable
+
+```{r}
+
+includeVarsSubj <- c(names(subjDataANum)[1], names(subjDataANum)[3:which(names(subjDataANum) == 'dImpulsHMS05ExMaxLR')])
+formVarSubj <- reformulate(includeVarsSubj, 'Annoyance')
+
+set.seed(909)
+crf_IndModel <- party::cforest(formVarSubj, data=subjDataANum[, !(names(subjDataANum) %in% "AmbientLAeq")],
+                               controls=party::cforest_unbiased(ntree=500,
+                                                                mtry=as.integer(length(includeVarsSubj)/1.25)))
+
+crf_IndModelOOB <- predict(crf_IndModel, OOB=TRUE, type='response')
+
+# Error quantiles
+round(quantile(abs(crf_IndModelOOB - data.matrix(crf_IndModel@data@env$response))), digits=3)
+
+cor(crf_IndModelOOB, crf_IndModel@data@env$response)^2  # Rsquared
+```
+
+```{r}
+start.time <- Sys.time()
+impCrfIndModel <- permimp::permimp(crf_IndModel, nperm=1, conditional=TRUE, progressBar=FALSE)
+end.time <- Sys.time()
+time.taken <- round(end.time - start.time, 2)
+time.taken
+```
+
+```{r, fig.width=10,fig.height=12}
+impCrfIndOrdered <- sort(impCrfIndModel$values, decreasing=F)
+par(mai=c(0,3,0,0))
+impCrfIndOrdereddf <- data.frame(impCrfIndOrdered)
+impCrfIndOrdereddf <- plyr::rename(impCrfIndOrdereddf, c("impCrfIndOrdered" = "Variable_importance"))
+
+pBar <- ggplot(impCrfIndOrdereddf) + geom_col(aes(x=factor(rownames(impCrfIndOrdereddf), levels=rownames(impCrfIndOrdereddf)), y=Variable_importance), fill="#076fa2", width=0.5) + labs(x="Variable") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+```
+

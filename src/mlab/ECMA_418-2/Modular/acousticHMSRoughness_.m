@@ -1,14 +1,11 @@
-function [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs,...
-          specificTonality, specificTonalityFreqs, specificTonalityAvg,...
-          specificTonalityAvgFreqs, bandCentreFreqs,...
-          specificTonalLoudness, specificNoiseLoudness]...
+function [roughnessAgg, roughnessTimeVar, roughnessFreqs,...
+          specificRoughness, specificRoughnessFreqs, specificRoughnessAvg]...
           = acousticHMSRoughness_(p, sampleRatein, axisn, outplot, binaural)
-% [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs, specificTonality,
-%  specificTonalityFreqs, specificTonalityAvg, specificTonalityAvgFreqs,
-%  bandCentreFreqs]
-%  = acousticHMSTonality(p, sampleRatein, axisn, outplot, ecma)
+% [roughnessAgg, roughnessTimeVar, roughnessFreqs,...
+%  specificRoughness, specificRoughnessFreqs, specificRoughnessAvg]
+%  = acousticHMSRoughness_(p, sampleRatein, axisn, outplot, binaural)
 %
-% Returns tonality values and frequencies according to ECMA-418-2:2022
+% Returns roughness values **and frequencies** according to ECMA-418-2:2022
 % (using the Hearing Model of Sottek) for an input calibrated single mono
 % or single stereo audio (sound pressure) time-series signal, p.
 %
@@ -34,11 +31,12 @@ function [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs,...
 % -------
 % For each channel in the input signal:
 %
-% tonalityAvg : number or vector
-%               average (overall) tonality value
+% roughnessAgg : number or vector
+%                aggregated (overall) roughness value (90th percentile of
+%                time varying roughness)
 % 
-% tonalityTimeVar : vector or 2D matrix
-%                   time-dependent overall tonality values
+% roughnessTimeVar : vector or 2D matrix
+%                    time-dependent overall roughness values
 %
 % tonalityTimeVarFreqs : vector or 2D matrix
 %                        time-dependent frequencies of the dominant tonal
@@ -90,22 +88,17 @@ function [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs,...
 %
 % Ownership and Quality Assurance
 % -------------------------------
-% Authors: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk) &
-%          Matt Torjussen (matt@anv.co.uk)
-% Institution: University of Salford / ANV Measurement Systems
+% Authors: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
+% Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 13/10/2023
+% Date last modified: 01/04/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
 % the RefMap project (www.refmap.eu), and is subject to licence as detailed
 % in the code repository
 % (https://github.com/acoustics-code-salford/refmap-psychoacoustics)
-%
-% This code was developed from an original file 'SottekTonality.m' authored
-% by Matt Torjussen (14/02/2022), based on implementing ECMA-418-2:2020.
-% The original code has been reused and updated here with permission.
 %
 % Checked by:
 % Date last checked:
@@ -116,7 +109,6 @@ function [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs,...
         sampleRatein (1, 1) double {mustBePositive, mustBeInteger}
         axisn (1, 1) {mustBeInteger, mustBeInRange(axisn, 1, 2)} = 1
         outplot {mustBeNumericOrLogical} = false
-        ecma {mustBeNumericOrLogical} = true
         binaural {mustBeNumericOrLogical} = true
     end
 
@@ -278,7 +270,8 @@ for chan = size(pn_om, 2):-1:1
     scaling = basisLoudness.^2./denom;  % Equation 66 factor
     scaledPowerSpectra(maskRep)...
         = repmat(reshape(scaling(mask), 1, [], 53),...
-                 blockSize1500, 1, 1).*abs(fft(reshape(pn_Elz_Hann(maskRep), blockSize1500, [], 53))).^2;
+                 blockSize1500, 1, 1).*abs(fft(reshape(pn_Elz_Hann(maskRep),...
+                                           blockSize1500, [], 53))).^2;
 
     % Envelope noise reduction
     % ------------------------
@@ -311,8 +304,11 @@ for chan = size(pn_om, 2):-1:1
             ampMaximaBlock = NaN(10, 1);
             modRateBlock = NaN(10, 1);
             % identify peaks in each block (for each band)
-            [pks, locs, ~, proms] = findpeaks(noiseWeightPwrSpectra(3:256, ll, zBand));
-            % reindex locs to match spectral index
+            [pks, locs, ~, proms] = findpeaks(noiseWeightPwrSpectra(3:256,...
+                                                                    ll,...
+                                                                    zBand));
+
+            % reindex locs to match spectral start index used in findpeaks
             locs = locs + 2;
             % consider 10 highest prominence peaks only
             if length(proms) > 10
@@ -401,29 +397,122 @@ for chan = size(pn_om, 2):-1:1
     mask = modRate >= modfreqMaxWeight;
     ampMaxWeight(mask) = ampMaxWeight(mask).*roughWeight(mask);
 
+
     % Section 7.1.5.3 ECMA-418-2:2022 - Estimation of fundamental modulation rate
+
+    % the loop approach
+    fundModRate = nan(size(ampMaxWeight));
+    A_hat = zeros(size(ampMaxWeight));
     for zBand = 53:-1:1
-        for ii = 9:-1:1
-            % Equation 88
-            modRateRatio(:, :, ii) = round(circshift(modRate(:, :, zBand), -ii, 1)./modRate(:, :, zBand));
-            modRateRatioTest(:, :, ii) = abs(circshift(modRate(:, :, zBand), -ii, 1)./(circshift(modRateRatio(:, :, ii), -ii, 1).*modRate(:, :, zBand)) - 1);
-        end
+        for llBlock = n_blocks:-1:1
+            modRateForLoop = modRate(~isnan(modRate(:, llBlock, zBand)), llBlock, zBand);
+            NPeaks = length(modRateForLoop);
+            I_i0 = {};
+            E_i0 = double.empty(NPeaks, 0);
+            if ~isempty(modRateForLoop)
+                for iiPeak = NPeaks:-1:1
+                    modRateRatio = round(modRateForLoop/modRateForLoop(iiPeak));
+                    [uniqVals, iiADupes, iiCDupes] = unique(modRateRatio);
+                    countDupes = accumarray(iiCDupes, 1);
 
-        [modRateRatioTestMin, modRateIndex] = min(modRateRatioTest, [], 3, 'omitnan');
-        % modRateIndex(isnan(modRateRatioTestMin)) = NaN;
-        % modRateIndex(isinf(modRateRatioTestMin)) = NaN;
+                    candidateInds = iiADupes(countDupes==1);
 
-        for ii = 1:size(modRateRatio, 1)
-            for jj = 1: size(modRateRatio, 2)
-                test(ii, jj) = modRateRatio(ii, jj, modRateIndex(ii, jj));
+                    if max(countDupes) > 1
+                        b = uniqVals(countDupes > 1);
+                        for jj = length(uniqVals(countDupes > 1)):-1:1
+                            c = b(jj);
+                            
+                            ic = find(modRateRatio == c);
+                            crit = abs(modRateForLoop(ic)./(modRateRatio(ic)*modRateForLoop(iiPeak)) - 1);
+
+                            [~, argMin] = min(crit);
+                            candidateInds(end + 1) = ic(argMin);
+                            candidateInds = fliplr(candidateInds);
+
+                        end
+                    end
+
+                    hComplex = abs(modRateForLoop(candidateInds)./(modRateRatio(candidateInds)*modRateForLoop(iiPeak) + 1e-20) - 1);
+                    I_i0{iiPeak}= candidateInds(hComplex < 0.04);
+
+                    E_i0(iiPeak) = sum(ampMaxWeight(I_i0{iiPeak}, llBlock, zBand));
+        
+                end
+            
+                [~, i_max] = max(E_i0);
+                I_max = I_i0{i_max};
+                fundModRate(iiPeak, llBlock, zBand) = modRateForLoop(i_max);
+                [~, i_peak] = max(ampMaxWeight(I_max, llBlock, zBand));
+    
+                w_peak = 1 + 0.1*abs(sum(modRateForLoop(I_max).*ampMaxWeight(I_max, llBlock, zBand))/sum(ampMaxWeight(I_max, llBlock, zBand))...
+                                     - modRateForLoop(i_peak))^0.749;
+                A_hat(I_max, llBlock, zBand) = ampMaxWeight(I_max, llBlock, zBand)*w_peak;
             end
         end
-    
-
-        harmComplexIndices = modRateIndex.*abs(modRateRatioTest < 0.04);
-
-
     end
+
+    % clear modRateRatio modRateRatioTest
+    % for zBand = 53:-1:1    
+    %     for ii = 9:-1:0  % shift indexes to get integer ratios
+    %         % Equation 88
+    %         modRateRatio(:, :, ii + 1) = round(circshift(modRate(:, :, zBand),...
+    %                                            -ii, 1)./modRate(:, :, zBand));
+    %         % Equation 89 argument
+    %         modRateRatioTest(:, :, ii + 1) = abs(circshift(modRate(:, :, zBand),...
+    %                                              -ii, 1)./(modRateRatio(:, :, ii + 1).*modRate(:, :, zBand)) - 1);
+    %     end
+    % 
+    %     % bring shift dimension into columns
+    %     modRateRatio = permute(modRateRatio, [1, 3, 2]);
+    %     modRateRatioTest = permute(modRateRatioTest, [1, 3, 2]);
+    % 
+    %     % check for duplicate ratio indexes
+    %     for llBlock = n_blocks:-1:1
+    %         modRateForLoop = modRate(~isnan(modRate(:, llBlock, zBand)), llBlock, zBand);
+    %         if ~isempty(modRateForLoop)
+    %             for iiPeak = 10:-1:1
+    %                 [uniqVals, ~, IC] = unique(modRateRatio(iiPeak, :, llBlock));
+    %                 % count the number of occurrences of each element of uniqVals
+    %                 countDupes = accumarray(IC, 1);
+    %                 countDupes = countDupes(~isnan(uniqVals));
+    % 
+    %                 % if any ratio duplicates identified, pick using minimum
+    %                 % criterion
+    %                 if max(countDupes) > 1
+    %                     dupes = uniqVals(countDupes > 1);
+    %                     for jjDupe = length(unique(dupes)):-1:1
+    %                         dupeVal = dupes(jjDupe);
+    % 
+    %                         dupeIndexes = find(modRateRatio(iiPeak, :, llBlock) == dupeVal);
+    %                         minTestVal = min(modRateRatioTest(iiPeak,...
+    %                                                           modRateRatio(iiPeak, :, llBlock) == dupeVal,...
+    %                                                           llBlock));
+    %                         [~, minIndex] = min(abs(minTestVal - modRateRatioTest(iiPeak, :, llBlock)));
+    % 
+    %                         nonMinIndexes = dupeIndexes(dupeIndexes ~=  minIndex);
+    % 
+    %                         % set ratios of tested non-min duplicates to NaN
+    %                         modRateRatio(iiPeak, nonMinIndexes, llBlock) = nan;
+    %                         modRateRatioTest(iiPeak, nonMinIndexes, llBlock) = nan;
+    %                     end
+    %                 end
+    %             end
+    %         end
+    %     end
+    %     % logical indices of modulation rate ratio test
+    %     % Equations 89 & Equation 90
+    %     harmComplexIndices = modRateRatioTest < 0.04;
+    % 
+    %     harmComplexEnergy = zeros(size(ampMaxWeight));
+    %     for llBlock = n_blocks:-1:1
+    %         for iiPeak = 10:-1:1
+    %             % Equation 91
+    %             if ~isempty(ampMaxWeight(harmComplexIndices(iiPeak, :, llBlock), llBlock, zBand))
+    %                 harmComplexEnergy(iiPeak, llBlock) = sum(ampMaxWeight(harmComplexIndices(iiPeak, :, llBlock), llBlock, zBand), 1);
+    %             end
+    %         end
+    %     end
+    % end
     
     % INCOMPLETE CODE
               
@@ -639,7 +728,12 @@ for chan = size(pn_om, 2):-1:1
                      'FontWeight', 'normal', 'FontName', 'Arial');
         
         ax2 = nexttile(2);
-        plot(ax2, t, tonalityTimeVar(:, chan), 'm', 'LineWidth', 1);
+        plot(ax2, t, tonalityAvg(1, chan)*ones(size(t)), 'color', [0.5, 0.1, 0.9],...
+             'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "average");
+        hold on
+        plot(ax2, t, tonalityTimeVar(:, chan), 'm', 'LineWidth', 0.75,...
+             'DisplayName', "Time-" + string(newline) + "varying");
+        hold off
         ax2.XLim = [t(1), t(end) + (t(2) - t(1))];
         ax2.YLim = [0, ceil(max(tonalityTimeVar(:, chan))*10)/10];
         ax2.XLabel.String = "Time, s";
@@ -648,6 +742,8 @@ for chan = size(pn_om, 2):-1:1
         ax2.YGrid = 'on';
         ax2.FontName = 'Arial';
         ax2.FontSize = 12;
+        lgd = legend('Location', 'eastoutside', 'FontSize', 8);
+        lgd.Title.String = "Overall";
     end
 
 end
