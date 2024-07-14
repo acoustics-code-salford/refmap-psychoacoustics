@@ -1,0 +1,239 @@
+---
+title: "REFMAP listening test 1 analysis: Generalised estimating equations for annoyance and noticeability"
+output: html_document
+date: "2024-06-21"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup
+
+Load packages
+
+```{r}
+library(flexplot)
+library(multgee)
+library(ggplot2)
+library(openxlsx)
+library(performance)
+library(rstanarm)
+
+```
+
+Set parameters
+
+```{r}
+
+# plot colour scheme
+
+mycolourlist = list(c(0, 102, 255), c(0, 204, 153), c(255, 0, 102), c(74, 111, 152), c(251, 164, 49), c(204, 153, 255), c(90, 192, 255), c(80, 245, 233), c(255, 90, 192), c(164, 201, 242), c(255, 254, 139), c(255, 243, 255))
+mycolours = matrix()
+
+for (ii in 1:length(mycolourlist)){
+  mycolours[ii] = rgb(mycolourlist[[ii]][1]/255,
+                      mycolourlist[[ii]][2]/255,
+                      mycolourlist[[ii]][3]/255)
+}
+
+# toggle to save plots
+saveplots = TRUE
+
+if (saveplots){
+  # set output plot directory
+  choose.files(caption="Just cancel this", filters=matrix(data=c(" ", " "), ncol=2))  # workaround for bug in RTerm choose.dir
+  outFigPath <- utils::choose.dir(caption="Select output folder to save plots")
+}
+
+# toggle to save data
+savedata = TRUE
+
+if (savedata){
+  # set output plot directory
+  if (saveplots==FALSE){
+    choose.files(caption="Just cancel this", filters=matrix(data=c(" ", " "), ncol=2))  # workaround for bug in RTerm choose.dir
+  }
+  outDataPath <- utils::choose.dir(caption="Select output folder to save data")
+}
+
+
+```
+
+# Part A analysis
+
+## Import data and wrangle
+
+```{r}
+
+subjDataApath <- utils::choose.files(caption=r"(Select refmap_listest1_testdataA_BySubj.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
+                                     filters=matrix(data=c("refmap_listest1_testdataA_BySubj.csv", "refmap_listest1_testdataA_BySubj.csv"), ncol=2))
+
+subjDataA <- read.csv(subjDataApath, header=TRUE)
+
+```
+
+```{r}
+# function to encode categorical to ordinal numeric variables
+encode_ordinal <- function(x, order=unique(x)) {
+  x <- as.numeric(factor(x, levels=order, exclude=NULL, order=TRUE))
+  x
+}
+
+# definition of ordinal variable levels
+UASLAeqCatsA <- c("No UAS", "42", "48", "54", "60")
+SNRCatsA <- c("No UAS", "-16", "-10", "-4", "2", "8")
+UASOpCatsA <- c("No UAS", "Flyby", "Landing", "Takeoff")
+UASTypeCatsA <- c("No UAS", "H520", "M300", "T150")
+
+# encode factors
+subjDataA$ID. <- factor(subjDataA$ID.)
+subjDataA$UASLAeq <- factor(subjDataA$UASLAeq, levels=UASLAeqCatsA, order=TRUE)
+subjDataA$SNRlevel <- factor(subjDataA$SNRlevel, levels=SNRCatsA, order=TRUE)
+subjDataA$UASOperation <- factor(subjDataA$UASOperation, levels=UASOpCatsA)
+subjDataA$UASType <- factor(subjDataA$UASType, levels=UASTypeCatsA)
+subjDataA$AmbientEnv <- factor(subjDataA$AmbientEnv, levels=c("Park", "Street"))
+
+
+```
+
+## Fit a baseline model
+
+```{r}
+control <- lme4::lmerControl(optimizer = 'bobyqa')
+data(math)
+# baseline model (no predictors, only clustered intercept)
+baselineA <- lme4::lmer(Annoyance ~ 1 + (1 | ID.), data=subjDataA,
+                        control=control, REML=FALSE)
+
+baselineA_B <- rstanarm::stan_glmer(Annoyance ~ 1 + (1 | ID.), data = subjDataA, cores = 12)
+
+# check the intraclass correlation coefficient and pseudo-Rsquared
+performance::icc(baselineA)
+performance::r2(baselineA)
+
+performance::icc(baselineA_B)
+performance::r2(baselineA_B)
+
+
+```
+
+Now fit a frequentist model which includes the ambient environment category as a fixed effect predictor, and compare with the baseline
+
+```{r}
+AmbEnv <- lme4::lmer(Annoyance ~ 1 + AmbientEnv + (1 | ID.), data=subjDataA,
+                     control=control, REML=FALSE)
+AmbEnv.ID <- lme4::lmer(Annoyance ~ 1 + AmbientEnv + (1 + AmbientEnv | ID.), data=subjDataA,
+                     control=control, REML=FALSE)
+
+flexplot::compare.fits(Annoyance ~ AmbientEnv | ID., data=subjDataA,
+                       model1=baselineA, model2=AmbEnv)
+
+flexplot::compare.fits(Annoyance ~ AmbientEnv | ID., data=subjDataA,
+                       model1=baselineA, model2=AmbEnv.ID)
+
+flexplot::model.comparison(model1=AmbEnv.ID, model2=AmbEnv)
+```
+
+```{r}
+LAeq <- lme4::lmer(Annoyance ~ UASLAeq + (1 | ID.),
+                   data=subjDataA, control=control, REML=FALSE)
+LoudGMS <- lme4::lmer(Annoyance ~ UASLoudISO3PowAvgBin + (1 | ID.),
+                      data=subjDataA, control=control, REML=FALSE)
+LoudGMS.ID <- lme4::lmer(Annoyance ~ UASLoudISO3PowAvgBin + (1  | ID.) + (UASLoudISO3PowAvgBin - 1 | ID.),
+                         data=subjDataA, control=control, REML=FALSE)
+
+LoudGMS.AmbEnv <- lme4::lmer(Annoyance ~ UASLoudISO3PowAvgBin + AmbientEnv + (1 + AmbientEnv | ID.),
+                             data=subjDataA, control=control, REML=FALSE)
+
+LoudGMS.ID_AmbEnv <- lme4::lmer(Annoyance ~ UASLoudISO3PowAvgBin + AmbientEnv + (1 + AmbientEnv | ID.) + (UASLoudISO3PowAvgBin - 1 | ID.),
+                                data=subjDataA, control=control, REML=FALSE)
+
+LoudGMSAmbEnv.ID_AmbEnv <- lme4::lmer(Annoyance ~ UASLoudISO3PowAvgBin + AmbientEnv + UASLoudISO3PowAvgBin:AmbientEnv + (1 +  UASLoudISO3PowAvgBin + UASLoudISO3PowAvgBin:AmbientEnv + AmbientEnv | ID.),
+                                data=subjDataA, control=control, REML=FALSE)
+
+
+flexplot::compare.fits(Annoyance ~ UASLAeq | ID., data=subjDataA, model1=baselineA, model2=LAeq)
+
+# flexplot::model.comparison(model1=baselineA, model2=LAeq)
+
+flexplot::compare.fits(Annoyance ~ UASLoudISO3PowAvgBin | ID., data=subjDataA, model1=LoudGMS.AmbEnv, model2=AmbEnv.ID)
+
+flexplot::compare.fits(Annoyance ~ UASLoudISO3PowAvgBin | ID., data=subjDataA, model1=LoudGMS.AmbEnv, model2=LoudGMS)
+
+flexplot::compare.fits(Annoyance ~ UASLoudISO3PowAvgBin | ID., data=subjDataA, model1=LoudGMS.ID, model2=LoudGMS)
+
+flexplot::compare.fits(Annoyance ~ UASLoudISO3PowAvgBin | ID., data=subjDataA, model1=LoudGMS.ID_AmbEnv, model2=LoudGMS)
+
+
+# flexplot::model.comparison(model1=LAeq, model2=LoudGMS)
+# 
+# flexplot::model.comparison(model1=LoudGMS, model2=LoudGMS.ID)
+
+performance::compare_performance(baselineA, AmbEnv.ID, LAeq, LoudGMS, LoudGMS.ID, LoudGMS.ID_AmbEnv, LoudGMSAmbEnv.ID_AmbEnv,
+                                 rank=FALSE, verbose=FALSE)
+
+flexplot::model.comparison(model1=LoudGMS.ID_AmbEnv, model2=LoudGMS)
+flexplot::model.comparison(model1=LoudGMS.ID_AmbEnv, model2=LoudGMS.ID)
+
+```
+
+
+```{r}
+flexplot::model.comparison(baseline, ses)
+
+flexplot::icc(baseline)
+
+flexplot::visualize(baseline, plot='model')
+
+```
+```{r}
+
+#fixed_slopes = lme4::lmer(Annoyance ~ UASLAeqMaxLR + (1|ID.), data=subjDataA, control=control)
+#random_slopes = lme4::lmer(Annoyance ~ UASLAeqMaxLR + (UASLAeqMaxLR|ID.), data=subjDataA, control=control)
+
+fixed_slopes <- lme4::lmer(MathAch ~ SES + (1 | School), data=math, control=control)
+random_slopes <- lme4::lmer(MathAch ~ SES + (SES | School), data=math, control=control)
+
+flexplot::visualize(random_slopes, plot='model')
+
+```
+
+```{r}
+
+flexplot::compare.fits(MathAch ~ SES | School, data =math,
+                       model1=fixed_slopes, model2=random_slopes, clusters = 5)
+
+
+
+```
+```{r}
+
+flexplot::model.comparison(fixed_slopes, baseline)
+flexplot::model.comparison(random_slopes, baseline)
+flexplot::model.comparison(fixed_slopes, random_slopes)
+
+```
+```{r}
+
+summary(fixed_slopes)
+
+```
+```{r}
+minority <- lme4::lmer(MathAch ~ SES + Minority + (SES | School), data=flexplot::math)
+
+flexplot::compare.fits(MathAch ~ SES | Minority + School, data=flexplot::math,
+                       model1=fixed_slopes, model2=minority)
+
+```
+```{r}
+
+flexplot::model.comparison(fixed_slopes, minority)
+
+
+summary(minority)
+
+
+```
+
+

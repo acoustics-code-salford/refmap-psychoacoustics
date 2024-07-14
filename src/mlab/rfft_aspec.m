@@ -58,8 +58,8 @@ function [f, X, Ben] = rfft_aspec(xr, fs, Nfft, axisn, over, win, X_scale)
 % Institution: University of Salford
 %  
 % Date created: 03/01/2023
-% Date last modified: 19/07/2023
-% MATLAB version: 2022b
+% Date last modified: 12/07/2024
+% MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
 % the RefMap project (www.refmap.eu), and is subject to licence as detailed
@@ -123,13 +123,15 @@ function [f, X, Ben] = rfft_aspec(xr, fs, Nfft, axisn, over, win, X_scale)
     else
         xr2 = xr;
     end
+    axisn2 = 1;  % dummy axis variable
 
     % initialise unscaled autospectrum accumulation array
     XXn = zeros(Nfft, xrs);
     block = 1;  % FFT processing block counter initialisation
     blstart = 1;  % block start index
     blend = Nfft;  % block end index
-    while blend <= size(xr2, axisn)
+
+    while blend <= size(xr2, axisn2)
         % windowed block of xr
         xrw = repmat(fft_win, 1, xrs).*xr2(blstart:blend, :);
         % unscaled autospectrum of windowed block
@@ -140,10 +142,13 @@ function [f, X, Ben] = rfft_aspec(xr, fs, Nfft, axisn, over, win, X_scale)
         blend = blstart + Nfft - 1;  % increment block end
     end
 
+    % total number of blocks
+    nBlocks = block - 1;
+
     % average unscaled autospectrum accumulation array over blocks and
     % discard negative frequencies (scaling to one-sided spectrum)
     % (NB: the k=N/2 line is retained, leading to a (Nfft/2)+1 length spectrum)
-    XX = XXn(1:length(f), :)./block;
+    XX = XXn(1:length(f), :)./nBlocks;
     XX(2:end, :) = 2*XX(2:end, :);
     
     % scale to autospectrum

@@ -40,6 +40,9 @@ def _detectBBNEfficiency():
         DESCRIPTION.
 
     """
+    
+    # curve from Figure 5 of Fidell & Horonjeff, 1982, A graphic method for
+    # predicting audibility of noise sources
     detectEfficiencyData = pd.DataFrame(data=np.array([[32.3, 39.8, 51.2, 66.2,
                                                        89.1, 119.9, 161.4,
                                                        217.2, 292.3, 393.4,

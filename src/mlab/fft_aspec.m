@@ -1,4 +1,4 @@
-function [f, X, Ben] = fft_aspec(xn, fs, Nfft, axisn, over, win, X_scale)
+function [f, X, Ben] = fft_aspec(xn, fs, Nfft, axisn, over, win, X_scale, twosided)
 % [f, X, Ben] = fft_aspec(xn, fs, Nfft, axisn, over, win, X_side, X_scale)
 % Returns FFT frequencies and magnitude auto spectra for input signal data 
 % (NB: assumed to be stationary or quasi-stationary - transient signals may 
@@ -9,11 +9,12 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, axisn, over, win, X_scale)
 % linear peak spectrum = sqrt(2)*sqrt(autospectrum)
 % power (auto) spectral density = autospectrum*(Ben/deltaFreq) where Ben is
 % the normalised equivalent noise bandwidth for the window (see outputs
-% below), and deltaFreq is the output spectral line spacing.
-% The returned spectral array X has a size like (Nfft/2 + odd,
-% <xn.#signals>), where odd = 0 if Nfft is even, with the other dimension
-% corresponding with the number of signals in xn (NB: the output X
-% orientation matches the input orientation).
+% below), and deltaFreq is the output spectral line spacing, f(2) - f(1).
+% If one-sided, the returned spectral array X has a size like
+% (Nfft/2 + odd, <xn.#signals>), where odd = 0 if Nfft is even, with the
+% other dimension corresponding with the number of signals in xn (NB: the
+% output X orientation matches the input orientation). If two-sided, the
+% length of the spectrum/spectra will be Nfft.
 %
 % Inputs
 % ------
@@ -39,6 +40,8 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, axisn, over, win, X_scale)
 %      'aspec':(auto) power spectrum;
 %      'rms': linear root-mean-square amplitude spectrum;
 %      'peak': linear peak amplitude spectrum
+% twosided : Boolean
+%            indicates the type of spectrum to output (one- or two-sided)
 %
 % Outputs
 % -------
@@ -59,8 +62,8 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, axisn, over, win, X_scale)
 % Institution: University of Salford
 %  
 % Date created: 03/01/2023
-% Date last modified: 25/07/2023
-% MATLAB version: 2022b
+% Date last modified: 12/07/2024
+% MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
 % the RefMap project (www.refmap.eu), and is subject to licence as detailed
@@ -84,6 +87,7 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, axisn, over, win, X_scale)
                                        'rect', 'boxcar'})} = 'hann'
         X_scale string {mustBeMember(X_scale, {'psd', 'aspec', 'rms',...
                                                'peak'})} = 'psd'
+        twosided {mustBeNumericOrLogical} = false
     end
 
     xnsize = size(xn); % dimensions of input signal array
@@ -123,7 +127,13 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, axisn, over, win, X_scale)
         f2 = df*[(0:N), (-N:-1)];  % two-sided frequency vector for odd Nfft
     end
     
-    f = f2(1:floor(Nfft/2) + odd);  % one-sided positive frequency vector
+    if twosided
+        f = f2;
+    else
+        f = f2(1:floor(Nfft/2) + odd);  % one-sided positive frequency vector
+    end
+
+    iiEnd = size(f);
     
 %%  FFT processing
     % convert array to required form
@@ -132,13 +142,15 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, axisn, over, win, X_scale)
     else
         xn2 = xn;
     end
+    axisn2 = 1;  % dummy axis variable
 
     % initialise unscaled autospectrum accumulation array
     XXn = zeros(Nfft, xns);
     block = 1;  % FFT processing block counter initialisation
     blstart = 1;  % block start index
     blend = Nfft;  % block end index
-    while blend <= size(xn2, axisn)
+
+    while blend <= size(xn2, axisn2)
         % windowed block of xn
         xnw = repmat(fft_win, 1, xns).*xn2(blstart:blend, :);
         % unscaled autospectrum of windowed block
@@ -149,10 +161,19 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, axisn, over, win, X_scale)
         blend = blstart + Nfft - 1;  % increment block end
     end
 
-    % average unscaled autospectrum accumulation array over blocks and    
-    % discard negative frequencies (scaling to one-sided spectrum)
-    XX = XXn(1:length(f), :)./block;
-    XX(2:end, :) = 2*XX(2:end, :);
+    % total number of blocks
+    nBlocks = block - 1;
+
+    % average unscaled autospectrum accumulation array over blocks
+    XX = XXn(1:length(f), :)./nBlocks;
+
+    if ~twosided
+        % discard negative frequencies (scaling to one-sided spectrum)
+        XX(2:iiEnd, :) = 2*XX(2:iiEnd, :);
+    else
+        % shift negative frequencies
+        f = fftshift(f);
+        XX = fftshift(XX);
 
     % scale to autospectrum
     Axx = (S_amp/Nfft)^2*XX;

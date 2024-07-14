@@ -1,0 +1,3761 @@
+---
+title: "REFMAP Listening test 1 analysis: Random forest variable importance identification"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This notebook analyses the Part A and B data in terms of variable importance using a random forest model based on conditional inference trees and a conditional permutation variable importance algorithm.
+
+# Setup
+
+## Load packages
+
+```{r}
+# load packages
+library(tidyr)
+library(ggplot2)
+library(party)
+library(conflicted)
+library(tidyverse)
+library(openxlsx)
+
+
+# set package parameters
+theme_set(theme_bw())
+
+```
+
+```{r}
+
+# plot colour scheme
+
+mycolourlist = list(c(0, 102, 255), c(0, 204, 153), c(255, 0, 102), c(74, 111, 152), c(251, 164, 49), c(204, 153, 255), c(90, 192, 255), c(80, 245, 233), c(255, 90, 192), c(164, 201, 242), c(255, 254, 139), c(255, 243, 255))
+mycolours = matrix()
+
+for (ii in 1:length(mycolourlist)){
+  mycolours[ii] = rgb(mycolourlist[[ii]][1]/255,
+                      mycolourlist[[ii]][2]/255,
+                      mycolourlist[[ii]][3]/255)
+}
+
+# toggle to save plots
+saveplots = TRUE
+
+if (saveplots){
+  # set output plot directory
+  choose.files(caption="Just cancel this", filters=matrix(data=c(" ", " "), ncol=2))  # workaround for bug in RTerm choose.dir
+  outFigPath <- utils::choose.dir(caption="Select output folder to save plots")
+}
+
+# toggle to save data
+savedata = TRUE
+
+if (savedata){
+  # set output plot directory
+  if (saveplots==FALSE){
+    choose.files(caption="Just cancel this", filters=matrix(data=c(" ", " "), ncol=2))  # workaround for bug in RTerm choose.dir
+  }
+  outDataPath <- utils::choose.dir(caption="Select output folder to save data")
+}
+ 
+
+```
+
+# Part A analysis
+
+## Import data and wrangle
+
+```{r}
+
+stimDataApath <- utils::choose.files(caption=r"(Select refmap_listest1_testdataA_ByStim.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
+                                     filters=matrix(data=c("refmap_listest1_testdataA_ByStim.csv", "refmap_listest1_testdataA_ByStim.csv"), ncol=2))
+
+stimNoticeDataApath <- utils::choose.files(caption=r"(Select refmap_listest1_testdataANoticeFilt_ByStim.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)", filters=matrix(data=c("refmap_listest1_testdataANoticeFilt_ByStim.csv", "refmap_listest1_testdataANoticeFilt_ByStim.csv"), ncol=2))
+
+stimDataA <- utils::read.csv(stimDataApath, header=TRUE)
+stimNoticeDataA <- utils::read.csv(stimNoticeDataApath, header=TRUE)
+
+colnames(stimDataA)[1] <- "Recording"
+colnames(stimNoticeDataA)[1] <- "Recording"
+
+```
+
+```{r}
+# function to encode categorical to ordinal numeric variables
+encode_ordinal <- function(x, order=unique(x)) {
+  x <- as.numeric(factor(x, levels=order, exclude=NULL, order=TRUE))
+  x
+}
+
+# definition of ordinal variable levels
+SNRCatsA <- c("No UAS", "-16", "-10", "-4", "2", "8")
+UASLAeqCatsA <- c("No UAS", "42", "48", "54", "60")
+
+```
+
+The aggregated data by stimulus are assigned to a dataframe, relevant categorical variables are converted to ordinal, and then the variable subset of interest is selected, NA rows dropped (ie, the 'no UAS' stimuli, as the conditional variable importance algorithm cannot currently handle NA values, which are present in all the UAS dB metrics), and a formula assigned.
+
+```{r}
+
+stimDataANum <- data.frame()
+
+stimDataANum <- cbind(stimDataA[, 'Recording'],
+                      stimDataA[, which(colnames(stimDataA)=="UASLAeq"):
+                                  which(colnames(stimDataA)=="SNRlevel")],
+                      stimDataA[, which(colnames(stimDataA)=="UASLAeqMaxLR"):
+                                  which(colnames(stimDataA)=="UASImpulsHMS05ExMaxLR")],
+                      stimDataA[, which(colnames(stimDataA)=="LAeqdiffLAF90"):
+                                  which(colnames(stimDataA)=="PartLoudGMLT05Ex")],
+                      stimDataA[, which(colnames(stimDataA)=="dTonalECMAHMSAvgMaxLR"):
+                                  which(colnames(stimDataA)=="dImpulsHMS05ExMaxLR")],
+                      stimDataA[, which(colnames(stimDataA)=="ValenceMedian"):
+                                  which(colnames(stimDataA)=="HighAnnoyProportion")])
+  
+stimDataANum <- subset(stimDataANum, select = -c(UASLAEMaxLR))
+
+colnames(stimDataANum)[1] <- "Recording"
+
+# make the categorical outcome variables numerical dummy factors
+# stimDataANum[['SNRlevel']] <- encode_ordinal(stimDataA[['SNRlevel']], order=SNRCatsA)
+# stimDataANum[['UASLAeq']] <- encode_ordinal(stimDataA[['UASLAeq']], order=UASLAeqCatsA)
+
+# make the discrete ordinal outcome variables factors
+stimDataANum[['ValenceMedian']] <- factor(stimDataANum[['ValenceMedian']], levels=c(1, 2, 3, 4, 5), order=TRUE)
+stimDataANum[['ArousalMedian']] <- factor(stimDataANum[['ArousalMedian']], levels=c(1, 2, 3, 4, 5), order=TRUE)
+stimDataANum[['AnnoyMedian']] <- factor(stimDataANum[['AnnoyMedian']], levels=c(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10), order=TRUE)
+stimDataANum[['dValenceMedian']] <- factor(stimDataANum[['dValenceMedian']], levels=c(-4, -3, -2, -1, 0, 1, 2, 3, 4), order=TRUE)
+stimDataANum[['dArousalMedian']] <- factor(stimDataANum[['dArousalMedian']], levels=c(-4, -3, -2, -1, 0, 1, 2, 3, 4), order=TRUE)
+stimDataANum[['dAnnoyMedian']] <- factor(stimDataANum[['dAnnoyMedian']], levels=c(-10, -9, -8, -7, -6, -5, -4, -3, -2, -1,
+                                                                                 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10), order=TRUE)
+```
+
+```{r}
+
+stimNoticeDataANum <- data.frame()
+
+stimNoticeDataANum <- cbind(stimNoticeDataA[, 'Recording'],
+                            stimNoticeDataA[, which(colnames(stimNoticeDataA)=="UASLAeq"):
+                                              which(colnames(stimNoticeDataA)=="SNRlevel")],
+                            stimNoticeDataA[, which(colnames(stimNoticeDataA)=="UASLAeqMaxLR"):
+                                              which(colnames(stimNoticeDataA)=="UASImpulsHMS05ExMaxLR")],
+                            stimNoticeDataA[, which(colnames(stimNoticeDataA)=="LAeqdiffLAF90"):
+                                              which(colnames(stimNoticeDataA)=="PartLoudGMLT05Ex")],
+                            stimNoticeDataA[, which(colnames(stimNoticeDataA)=="dTonalECMAHMSAvgMaxLR"):
+                                              which(colnames(stimNoticeDataA)=="dImpulsHMS05ExMaxLR")],
+                            stimNoticeDataA[, which(colnames(stimNoticeDataA)=="NoticedTotalFilt"):
+                                              which(colnames(stimNoticeDataA)=="HighAnnoyPropFilt")])
+
+stimNoticeDataANum <- subset(stimNoticeDataANum, select = -c(UASLAEMaxLR))
+
+colnames(stimNoticeDataANum)[1] <- "Recording"
+
+# make the categorical outcome variables numerical dummy factors
+# stimNoticeDataANum[['SNRlevel']] <- encode_ordinal(stimNoticeDataA[['SNRlevel']], order=SNRCatsA)
+# stimNoticeDataANum[['UASLAeq']] <- encode_ordinal(stimNoticeDataA[['UASLAeq']], order=UASLAeqCatsA)
+
+```
+
+## Random forest function
+
+Write a function to train a conditional-inference random forest (crf) model on input data according to input formula, iterate over input random seeds, average error and variable importance metrics, and output metrics with plotted
+
+```{r}
+
+multi_crfReg <- function(dataIn, iVars, dVar, seeds, ntree, mtry, minsplit=20,
+                         minbucket=7, nperm=1){
+  # initialise variables
+  crfOOBErrAll <- 0
+  crfOOBRMSE <- 0
+  crfOOBErrQ <- 0
+  crfOOBErrR2 <- 0
+  crfMarVarImpVals <- 0
+  crfConPermImpVals <- 0
+  
+  for (iters in 1:length(seeds)){
+    
+    # formula for regression
+    formVars <- reformulate(iVars, dVar)
+    
+    # set random seed
+    set.seed(seeds[iters])
+    # train crf model
+    crfModel <- party::cforest(formVars, data=dataIn,
+                               controls=party::cforest_unbiased(ntree=ntree,
+                                                                mtry=mtry,
+                                                                minsplit=minsplit,
+                                                                minbucket=minbucket))
+    
+    # get OOB predictions
+    crfModelOOB <- predict(crfModel, OOB=TRUE, type='response')
+    
+    # get OOB error
+    crfModelOOBErr <- as.numeric(as.matrix(as.numeric(as.matrix(crfModelOOB))
+                                            - as.numeric(as.matrix(crfModel@data@env$response[[names(crfModel@data@env$response)]]))))
+
+    # cumulative error for averaging
+    crfOOBErrAll <- crfOOBErrAll + crfModelOOBErr
+    
+    # OOB RMSE, error quartiles and Rsquared
+    crfOOBRMSE <- crfOOBRMSE + sqrt(mean(crfModelOOBErr^2))
+    crfOOBErrQ <- crfOOBErrQ + quantile(abs(crfModelOOBErr),
+                                        type=8, names=TRUE)
+    crfOOBErrR2 <- crfOOBErrR2 + cor(as.numeric(as.matrix(crfModelOOB)),
+                                     as.numeric(as.matrix(crfModel@data@env$response[[names(crfModel@data@env$response)]])))^2
+
+    # set random seed
+    set.seed(seeds[iters])
+    # marginal variable permutation importance
+    crfMarVarImp <- permimp::permimp(crfModel, nperm=nperm, conditional=FALSE, threshold=0.95, progressBar=FALSE)
+    
+    crfMarVarImpVals <- crfMarVarImpVals + crfMarVarImp$values
+    
+    # set random seed
+    set.seed(seeds[iters])
+    # conditional variable permutation importance
+    crfConPermImp <- permimp::permimp(crfModel, nperm=nperm, conditional=TRUE, threshold=0.95, progressBar=FALSE)
+    
+    crfConPermImpVals <- crfConPermImpVals + crfConPermImp$values
+    
+  }
+  
+  # average metrics
+  crfOOBErrAll <- crfOOBErrAll/length(seeds)
+  crfOOBRMSE <- crfOOBRMSE/length(seeds)
+  crfOOBErrQ <- crfOOBErrQ/length(seeds)
+  crfOOBErrR2 <- crfOOBErrR2/length(seeds)
+  crfMarVarImpVals <- sort(crfMarVarImpVals/length(seeds), decreasing=TRUE)
+  crfConPermImpVals <- sort(crfConPermImpVals/length(seeds), decreasing=TRUE)
+  
+  resultsOut <- list('OOB_errors'=crfOOBErrAll, 'OOB_RMSE'=crfOOBRMSE, 'OOB_abserror'=crfOOBErrQ, 'Rsquared'=crfOOBErrR2, 'marginal_permimp'=crfMarVarImpVals, 'conditional_permimp'=crfConPermImpVals)
+  return(resultsOut)
+}
+
+```
+
+## Annoyance
+
+### Absolute variables
+
+
+#### Remove ambient only stimuli
+
+Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
+
+```{r}
+stimDataANum <- stimDataANum[complete.cases(stimDataANum),]
+stimDataANum$UASLAeq <- as.numeric(stimDataANum$UASLAeq)
+stimDataANum$SNRlevel <- as.numeric(stimDataANum$SNRlevel)
+```
+
+```{r}
+resAnnoyMedFit <- data.frame(RMSE = numeric(),
+                             Rsquared = numeric(),
+                             AEq0 = numeric(),
+                             AEq25 = numeric(),
+                             AEq50 = numeric(),
+                             AEq75 = numeric(),
+                             AEq100 = numeric())
+resAnnoyMedPermImp <- list()
+
+```
+
+The random forest modelling is run on the aggregated data, including all the absolute variables.
+
+```{r}
+iVars <- names(stimDataANum)[which(names(stimDataANum) == 'UASLAeq'):which(names(stimDataANum) == 'UASImpulsHMS05ExMaxLR')]
+iVars <- iVars[! iVars %in% 'SNRlevel']
+resultsOutAbs <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='AnnoyMedian', seeds=c(101, 303, 808, 909, 2486), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutAbs$OOB_RMSE
+resultsOutAbs$OOB_abserror
+resultsOutAbs$Rsquared
+```
+
+```{r}
+# store results
+resAnnoyMedFit['Abs vars', 'RMSE'] <- resultsOutAbs$OOB_RMSE
+resAnnoyMedFit['Abs vars', 'Rsquared'] <- resultsOutAbs$Rsquared
+resAnnoyMedFit['Abs vars', which(colnames(resAnnoyMedFit) == 'AEq0'):
+                           which(colnames(resAnnoyMedFit) == 'AEq100')] <- resultsOutAbs$OOB_abserror
+resAnnoyMedPermImp$AbsVars <- resultsOutAbs$conditional_permimp
+```
+
+
+```{r, fig.width=5, fig.height=5}
+# set.seed(303)
+# xjitter = runif(length(stimDataANum$dAnnoyMedian), 0, 0.2)
+# yjitter = runif(length(resultsOutAbs$OOB_predicts), 0, 0.2)
+# base::plot(as.numeric(as.character(stimDataANum$AnnoyMedian)) + xjitter, as.numeric(as.character(resultsOutAbs$OOB_predicts)) + yjitter, col=rgb(0, 102/255, 255/255, 0.2),
+#            xlim=c(0, 10), ylim=c(0, 10), xlab="Median annoyance rating", ylab="Predicted median annoyance")
+```
+
+```{r, fig.width=10,fig.height=11.5}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutAbs.conimp <- data.frame('Var_imp'=rev(resultsOutAbs$conditional_permimp))
+
+pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimp), levels=rownames(resultsOutAbs.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAAnnoyAbsVarsConPermimp.svg", width=10, height=11.5, path=outFigPath)
+  unlink("PtAAnnoyAbsVarsConPermimp.svg")
+}
+
+```
+
+### SQM analysis
+
+#### Replace ambient only stimuli
+
+Here, the 'ambient only' stimuli are replaced, as the SQM analysis can incorporate 0 values (whereas dB metrics cannot be handled in this way).
+
+```{r}
+
+stimDataANum <- rbind(stimDataANum, stimDataA[stimDataA['Recording']
+                                              == "A1_CALBIN_Pa.wav",
+                                              colnames(stimDataANum)],
+                      stimDataA[stimDataA['Recording']
+                                              == "A2_CALBIN_Pa.wav",
+                                              colnames(stimDataANum)])
+stimDataANum <- arrange(stimDataANum, Recording)
+
+```
+
+#### Individual SQMs
+
+Now a model is run omitting loudness and level variables, while retaining only (one of) the top importance loudness variables, and each category of SQM in turn.
+
+```{r}
+# Sharpness
+iVars <- c("UASLoudISO3PowAvgBin", "AmbientLAeq", "UASSharpAuresISO3PowAvgMaxLR", "UASSharpAuresISO305ExMaxLR")
+resultsOutSharp <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='AnnoyMedian', seeds=c(222, 1, 606, 66, 98745), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutSharp$OOB_RMSE
+resultsOutSharp$OOB_abserror
+resultsOutSharp$Rsquared
+```
+
+```{r}
+# store results
+resAnnoyMedFit['Abs sharp', 'RMSE'] <- resultsOutSharp$OOB_RMSE
+resAnnoyMedFit['Abs sharp', 'Rsquared'] <- resultsOutSharp$Rsquared
+resAnnoyMedFit['Abs sharp', which(colnames(resAnnoyMedFit) == 'AEq0'):
+                            which(colnames(resAnnoyMedFit) == 'AEq100')] <- resultsOutSharp$OOB_abserror
+resAnnoyMedPermImp$AbsSharp <- resultsOutSharp$conditional_permimp
+```
+
+```{r, fig.width=10,fig.height=1.7}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSharp.conimp <- data.frame('Var_imp'=rev(resultsOutSharp$conditional_permimp))
+
+pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAAnnoySharpConPermimp.svg", width=10, height=1.7, path=outFigPath)
+  unlink("PtAAnnoySharpConPermimp.svg")
+}
+
+```
+Tonality including tonal loudness
+
+```{r}
+# Tonality inc tonal loudness
+iVars <- c("UASLoudISO3PowAvgBin", "AmbientLAeq", "UASTonalECMAHMSAvgMaxLR", "UASTonalECMAHMS05ExMaxLR", "UASTonalIntAvgMaxLR", "UASTonalInt05ExMaxLR", "UASTonLdECMAHMSPowAvgBin", "UASTonLdECMAHMS05ExBin", "UASTonalAuAvgMaxLR", "UASTonalAu05ExMaxLR", "UASTonalAu10ExMaxLR")
+resultsOutTonal1 <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='AnnoyMedian', seeds=c(8756, 32, 875, 7446, 3), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutTonal1$OOB_RMSE
+resultsOutTonal1$OOB_abserror
+resultsOutTonal1$Rsquared
+```
+
+```{r}
+# store results
+resAnnoyMedFit['Abs inc tonal loud', 'RMSE'] <- resultsOutTonal1$OOB_RMSE
+resAnnoyMedFit['Abs inc tonal loud', 'Rsquared'] <- resultsOutTonal1$Rsquared
+resAnnoyMedFit['Abs inc tonal loud', which(colnames(resAnnoyMedFit) == 'AEq0'):
+                                     which(colnames(resAnnoyMedFit) == 'AEq100')] <- resultsOutTonal1$OOB_abserror
+resAnnoyMedPermImp$AbsTonal1 <- resultsOutTonal1$conditional_permimp
+```
+
+```{r, fig.width=10,fig.height=3.8}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal1.conimp <- data.frame('Var_imp'=rev(resultsOutTonal1$conditional_permimp))
+
+pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(0, 0.175))
+
+if (saveplots){
+  ggsave(filename="PtAAnnoyTonalLdConPermimp.svg", width=10, height=3.8, path=outFigPath)
+  unlink("PtAAnnoyTonalLdConPermimp.svg")
+}
+
+```
+Re-run tonality evaluation omitting tonal loudness 
+
+```{r}
+# Tonality
+iVars <- c("UASLoudISO3PowAvgBin", "AmbientLAeq", "UASTonalECMAHMSAvgMaxLR", "UASTonalECMAHMS05ExMaxLR", "UASTonalIntAvgMaxLR", "UASTonalInt05ExMaxLR", "UASTonalAuAvgMaxLR", "UASTonalAu05ExMaxLR", "UASTonalAu10ExMaxLR")
+resultsOutTonal2 <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='AnnoyMedian', seeds=c(8756, 32, 875, 7446, 3), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutTonal2$OOB_RMSE
+resultsOutTonal2$OOB_abserror
+resultsOutTonal2$Rsquared
+```
+
+```{r}
+# store results
+resAnnoyMedFit['Abs no tonal loud', 'RMSE'] <- resultsOutTonal2$OOB_RMSE
+resAnnoyMedFit['Abs no tonal loud', 'Rsquared'] <- resultsOutTonal2$Rsquared
+resAnnoyMedFit['Abs no tonal loud', which(colnames(resAnnoyMedFit) == 'AEq0'):
+                                    which(colnames(resAnnoyMedFit) == 'AEq100')] <- resultsOutTonal2$OOB_abserror
+resAnnoyMedPermImp$AbsTonal2 <- resultsOutTonal2$conditional_permimp
+```
+
+```{r, fig.width=10,fig.height=3.2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal2.conimp <- data.frame('Var_imp'=rev(resultsOutTonal2$conditional_permimp))
+
+pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(0, 0.175))
+
+if (saveplots){
+  ggsave(filename="PtAAnnoyTonalNoLdConPermimp.svg", width=10, height=3.2, path=outFigPath)
+  unlink("PtAAnnoyTonalNoLdConPermimp.svg")
+}
+
+```
+
+
+```{r}
+# Fluctuation strength
+iVars <- c("UASLoudISO3PowAvgBin", "AmbientLAeq", "UASFluctHMS10ExBin", "UASFluctHMS05ExBin", "UASFluctFZ10ExMaxLR", "UASFluctFZ05ExMaxLR", "UASFluctOV10ExMaxLR", "UASFluctOV05ExMaxLR")
+resultsOutFluct <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='AnnoyMedian', seeds=c(565, 9872, 64, 82645, 337), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutFluct$OOB_RMSE
+resultsOutFluct$OOB_abserror
+resultsOutFluct$Rsquared
+```
+
+```{r}
+# store results
+resAnnoyMedFit['Abs fluct', 'RMSE'] <- resultsOutFluct$OOB_RMSE
+resAnnoyMedFit['Abs fluct', 'Rsquared'] <- resultsOutFluct$Rsquared
+resAnnoyMedFit['Abs fluct', which(colnames(resAnnoyMedFit) == 'AEq0'):
+                            which(colnames(resAnnoyMedFit) == 'AEq100')] <- resultsOutFluct$OOB_abserror
+resAnnoyMedPermImp$AbsFluct <- resultsOutFluct$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutFluct.conimp <- data.frame('Var_imp'=rev(resultsOutFluct$conditional_permimp))
+
+pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAAnnoyFluctConPermimp.svg", width=10, height=2.9, path=outFigPath)
+  unlink("PtAAnnoyFluctConPermimp.svg")
+}
+
+```
+
+```{r}
+# Roughness
+iVars <- c("UASLoudISO3PowAvgBin", "AmbientLAeq", "UASRoughECMAHMS10ExBin", "UASRoughECMAHMS05ExBin", "UASRoughFZ10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASRoughDW10ExMaxLR", "UASRoughDW05ExMaxLR")
+resultsOutRough <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='AnnoyMedian', seeds=c(66745, 711, 4, 6645, 888), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutRough$OOB_RMSE
+resultsOutRough$OOB_abserror
+resultsOutRough$Rsquared
+```
+
+```{r}
+# store results
+resAnnoyMedFit['Abs rough', 'RMSE'] <- resultsOutRough$OOB_RMSE
+resAnnoyMedFit['Abs rough', 'Rsquared'] <- resultsOutRough$Rsquared
+resAnnoyMedFit['Abs rough', which(colnames(resAnnoyMedFit) == 'AEq0'):
+                            which(colnames(resAnnoyMedFit) == 'AEq100')] <- resultsOutRough$OOB_abserror
+resAnnoyMedPermImp$AbsRough <- resultsOutRough$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutRough.conimp <- data.frame('Var_imp'=rev(resultsOutRough$conditional_permimp))
+
+pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAAnnoyRoughConPermimp.svg", width=10, height=2.9, path=outFigPath)
+  unlink("PtAAnnoyRoughConPermimp.svg")
+}
+
+```
+
+```{r}
+# Impulsiveness
+iVars <- c("UASLoudISO3PowAvgBin", "AmbientLAeq", "UASImpulsHMSAvgMaxLR", "UASImpulsHMS05ExMaxLR", "UASImpulsHMSPowAvgMaxLR")
+resultsOutImpuls <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='AnnoyMedian', seeds=c(3337, 58, 12, 666987, 331), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutImpuls$OOB_RMSE
+resultsOutImpuls$OOB_abserror
+resultsOutImpuls$Rsquared
+```
+
+```{r}
+# store results
+resAnnoyMedFit['Abs impuls', 'RMSE'] <- resultsOutImpuls$OOB_RMSE
+resAnnoyMedFit['Abs impuls', 'Rsquared'] <- resultsOutImpuls$Rsquared
+resAnnoyMedFit['Abs impuls', which(colnames(resAnnoyMedFit) == 'AEq0'):
+                             which(colnames(resAnnoyMedFit) == 'AEq100')] <- resultsOutImpuls$OOB_abserror
+resAnnoyMedPermImp$AbsImpuls <- resultsOutImpuls$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutImpuls.conimp <- data.frame('Var_imp'=rev(resultsOutImpuls$conditional_permimp))
+
+pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAAnnoyImpulsConPermimp.svg", width=10, height=2, path=outFigPath)
+  unlink("PtAAnnoyImpulsConPermimp.svg")
+}
+
+```
+#### SQM and loudness comparison
+
+Now the highest importance SQMs are ranked against each other, controlling for UAS loudness and ambient LAeq.
+
+```{r}
+iVars <- c("UASLoudISO3PowAvgBin", "AmbientLAeq", "UASSharpAuresISO305ExMaxLR", "UASTonLdECMAHMSPowAvgBin", "UASFluctOV10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASImpulsHMSAvgMaxLR")
+resultsOutSQMs1 <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='AnnoyMedian', seeds=c(12313, 22, 9, 788, 1765), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutSQMs1$OOB_RMSE
+resultsOutSQMs1$OOB_abserror
+resultsOutSQMs1$Rsquared
+```
+
+```{r}
+
+# store results
+resAnnoyMedFit['Abs SQMs inc tonal loud', 'RMSE'] <- resultsOutSQMs1$OOB_RMSE
+resAnnoyMedFit['Abs SQMs inc tonal loud', 'Rsquared'] <- resultsOutSQMs1$Rsquared
+resAnnoyMedFit['Abs SQMs inc tonal loud', which(colnames(resAnnoyMedFit) == 'AEq0'):
+                                          which(colnames(resAnnoyMedFit) == 'AEq100')] <- resultsOutSQMs1$OOB_abserror
+resAnnoyMedPermImp$AbsSQMs1 <- resultsOutSQMs1$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs1.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs1$conditional_permimp))
+
+pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(0, 0.125))
+
+if (saveplots){
+  ggsave(filename="PtAAnnoyAbsSQMsTonLdConPermimp.svg", width=10, height=2.4, path=outFigPath)
+  unlink("PtAAnnoyAbsSQMsTonLdConPermimp.svg")
+}
+
+```
+
+Repeated without tonal loudness
+
+```{r}
+iVars <- c("UASLoudISO3PowAvgBin", "AmbientLAeq", "UASSharpAuresISO305ExMaxLR", "UASTonalInt05ExMaxLR", "UASFluctOV10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASImpulsHMSAvgMaxLR")
+resultsOutSQMs2 <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='AnnoyMedian', seeds=c(12313, 22, 9, 788, 1765), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutSQMs2$OOB_RMSE
+resultsOutSQMs2$OOB_abserror
+resultsOutSQMs2$Rsquared
+```
+
+```{r}
+
+# store results
+resAnnoyMedFit['Abs SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_RMSE
+resAnnoyMedFit['Abs SQMs no tonal loud', 'Rsquared'] <- resultsOutSQMs2$Rsquared
+resAnnoyMedFit['Abs SQMs no tonal loud', which(colnames(resAnnoyMedFit) == 'AEq0'):
+                                         which(colnames(resAnnoyMedFit) == 'AEq100')] <- resultsOutSQMs2$OOB_abserror
+resAnnoyMedPermImp$AbsSQMs2 <- resultsOutSQMs2$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs2.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs2$conditional_permimp))
+
+pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAAnnoyAbsSQMsNoTonLdConPermimp.svg", width=10, height=2.4, path=outFigPath)
+  unlink("PtAAnnoyAbsSQMsNoTonLdConPermimp.svg")
+}
+
+```
+
+### Difference variables
+
+Next, the difference metrics are analysed, 
+
+#### Remove ambient only stimuli
+
+Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
+
+```{r}
+stimDataANum <- stimDataANum[complete.cases(stimDataANum),]
+stimDataANum$UASLAeq <- as.numeric(stimDataANum$UASLAeq)
+stimDataANum$SNRlevel <- as.numeric(stimDataANum$SNRlevel)
+```
+
+
+```{r}
+iVars <- c(names(stimDataANum)[which(colnames(stimDataANum)=="LAeqdiffLAF90"):
+                               which(colnames(stimDataANum)=="dImpulsHMS05ExMaxLR")], "SNRlevel")
+resultsOutDiffs <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='AnnoyMedian', seeds=c(738, 1928, 7343, 1137, 838), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutDiffs$OOB_RMSE
+resultsOutDiffs$OOB_abserror
+resultsOutDiffs$Rsquared
+```
+
+```{r}
+
+# store results
+resAnnoyMedFit['Diff vars', 'RMSE'] <- resultsOutDiffs$OOB_RMSE
+resAnnoyMedFit['Diff vars', 'Rsquared'] <- resultsOutDiffs$Rsquared
+resAnnoyMedFit['Diff vars', which(colnames(resAnnoyMedFit) == 'AEq0'):
+                            which(colnames(resAnnoyMedFit) == 'AEq100')] <- resultsOutDiffs$OOB_abserror
+resAnnoyMedPermImp$DiffVars <- resultsOutDiffs$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutDiffs.conimp <- data.frame('Var_imp'=rev(resultsOutDiffs$conditional_permimp))
+
+pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp), levels=rownames(resultsOutDiffs.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAAnnoyDiffVarsConPermimp.svg", width=10, height=9, path=outFigPath)
+  unlink("PtAAnnoyDiffVarsConPermimp.svg")
+}
+
+```
+Save the results outputs to file
+
+```{r}
+
+if (savedata){
+  utils::write.csv(resAnnoyMedFit, paste(outDataPath, "\\ptACRFAnnoyOOBFit.csv", sep=""))
+  ii <- 0
+  temp = list()
+  for (res in resAnnoyMedPermImp){
+    ii <- ii + 1
+    temp[[ii]] <- as.data.frame(resAnnoyMedPermImp[ii])
+    names(temp[[ii]]) <- names(resAnnoyMedPermImp[ii])
+  }
+  openxlsx::write.xlsx(temp, paste(outDataPath, "\\ptACRFAnnoyConPermimp.xlsx",
+                                   sep=""),
+                       rowNames=TRUE)
+}
+
+```
+## Change in annoyance
+
+### Absolute variables
+
+Now the response outcome 'change in annoyance' is analysed in the same way.
+
+#### Remove ambient only stimuli
+
+Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
+
+```{r}
+stimDataANum <- stimDataANum[complete.cases(stimDataANum),]
+stimDataANum$UASLAeq <- as.numeric(stimDataANum$UASLAeq)
+stimDataANum$SNRlevel <- as.numeric(stimDataANum$SNRlevel)
+```
+
+```{r}
+resdAnnoyMedFit <- data.frame(RMSE = numeric(),
+                              Rsquared = numeric(),
+                              AEq0 = numeric(),
+                              AEq25 = numeric(),
+                              AEq50 = numeric(),
+                              AEq75 = numeric(),
+                              AEq100 = numeric())
+resdAnnoyMedPermImp <- list()
+
+```
+
+```{r}
+iVars <- names(stimDataANum)[which(names(stimDataANum) == 'UASLAeq'):which(names(stimDataANum) == 'UASImpulsHMS05ExMaxLR')]
+iVars <- iVars[! iVars %in% 'SNRlevel']
+resultsOutAbs <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(8883, 74645, 3387, 9994, 33), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutAbs$OOB_RMSE
+resultsOutAbs$OOB_abserror
+resultsOutAbs$Rsquared
+```
+
+```{r}
+
+# store results
+resdAnnoyMedFit['Abs vars', 'RMSE'] <- resultsOutAbs$OOB_RMSE
+resdAnnoyMedFit['Abs vars', 'Rsquared'] <- resultsOutAbs$Rsquared
+resdAnnoyMedFit['Abs vars', which(colnames(resdAnnoyMedFit) == 'AEq0'):
+                                       which(colnames(resdAnnoyMedFit) == 'AEq100')] <- resultsOutAbs$OOB_abserror
+resdAnnoyMedPermImp$AbsVars <- resultsOutAbs$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=11.5}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutAbs.conimp <- data.frame('Var_imp'=rev(resultsOutAbs$conditional_permimp))
+
+pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimp), levels=rownames(resultsOutAbs.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAdAnnoyAbsVarsConPermimp.svg", width=10, height=11.5, path=outFigPath)
+  unlink("PtAdAnnoyAbsVarsConPermimp.svg")
+}
+
+
+```
+
+### SQM analysis
+
+#### Replace ambient only stimuli
+
+Here, the 'ambient only' stimuli are replaced, as the SQM analysis can incorporate 0 values (whereas dB metrics cannot be handled in this way).
+
+```{r}
+
+stimDataANum <- rbind(stimDataANum, stimDataA[stimDataA['Recording']
+                                              == "A1_CALBIN_Pa.wav",
+                                              colnames(stimDataANum)],
+                      stimDataA[stimDataA['Recording']
+                                              == "A2_CALBIN_Pa.wav",
+                                              colnames(stimDataANum)])
+stimDataANum <- arrange(stimDataANum, Recording)
+
+```
+
+#### Individual SQMs
+
+
+```{r}
+# Sharpness
+iVars <- c("UASLoudECMAHMSPowAvgBin", "AmbientLAeq", "UASSharpAuresISO3PowAvgMaxLR", "UASSharpAuresISO305ExMaxLR")
+resultsOutSharp <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(55536, 8224, 1365, 37, 446), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutSharp$OOB_RMSE
+resultsOutSharp$OOB_abserror
+resultsOutSharp$Rsquared
+```
+
+```{r}
+# store results
+resdAnnoyMedFit['Abs sharp', 'RMSE'] <- resultsOutSharp$OOB_RMSE
+resdAnnoyMedFit['Abs sharp', 'Rsquared'] <- resultsOutSharp$Rsquared
+resdAnnoyMedFit['Abs sharp', which(colnames(resdAnnoyMedFit) == 'AEq0'):
+                             which(colnames(resdAnnoyMedFit) == 'AEq100')] <- resultsOutSharp$OOB_abserror
+resdAnnoyMedPermImp$AbsSharp <- resultsOutSharp$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=1.7}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSharp.conimp <- data.frame('Var_imp'=rev(resultsOutSharp$conditional_permimp))
+
+pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAdAnnoySharpConPermimp.svg", width=10, height=1.7, path=outFigPath)
+  unlink("PtAdAnnoySharpConPermimp.svg")
+}
+
+
+```
+
+```{r}
+# Tonality with tonal loudness
+iVars <- c("UASLoudECMAHMSPowAvgBin", "AmbientLAeq", "UASTonalECMAHMSAvgMaxLR", "UASTonalInt05ExMaxLR", "UASTonalIntAvgMaxLR", "UASTonalECMAHMS05ExMaxLR", "UASTonLdECMAHMSPowAvgBin", "UASTonLdECMAHMS05ExBin", "UASTonalAuAvgMaxLR", "UASTonalAu05ExMaxLR", "UASTonalAu10ExMaxLR")
+resultsOutTonal1 <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(8274, 1313, 885, 64475, 10), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutTonal1$OOB_RMSE
+resultsOutTonal1$OOB_abserror
+resultsOutTonal1$Rsquared
+```
+
+```{r}
+# store results
+resdAnnoyMedFit['Abs tonal inc loud', 'RMSE'] <- resultsOutTonal1$OOB_RMSE
+resdAnnoyMedFit['Abs tonal inc loud', 'Rsquared'] <- resultsOutTonal1$Rsquared
+resdAnnoyMedFit['Abs tonal inc loud', which(colnames(resdAnnoyMedFit) == 'AEq0'):
+                                      which(colnames(resdAnnoyMedFit) == 'AEq100')] <- resultsOutTonal1$OOB_abserror
+resdAnnoyMedPermImp$AbsTonal1 <- resultsOutTonal1$conditional_permimp
+```
+
+
+```{r, fig.width=10,fig.height=3.8}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal1.conimp <- data.frame('Var_imp'=rev(resultsOutTonal1$conditional_permimp))
+
+pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(0, 0.18))
+
+if (saveplots){
+  ggsave(filename="PtAdAnnoyTonalLdConPermimp.svg", width=10, height=3.8, path=outFigPath)
+  unlink("PtAdAnnoyTonalLdConPermimp.svg")
+}
+
+
+```
+
+Repeated without tonal loudness
+
+```{r}
+# Tonality
+iVars <- c("UASLoudECMAHMSPowAvgBin", "AmbientLAeq", "UASTonalECMAHMSAvgMaxLR", "UASTonalInt05ExMaxLR", "UASTonalIntAvgMaxLR", "UASTonalECMAHMS05ExMaxLR", "UASTonalAuAvgMaxLR", "UASTonalAu05ExMaxLR", "UASTonalAu10ExMaxLR")
+resultsOutTonal2 <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(8274, 1313, 885, 64475, 10), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutTonal2$OOB_RMSE
+resultsOutTonal2$OOB_abserror
+resultsOutTonal2$Rsquared
+```
+
+```{r}
+# store results
+resdAnnoyMedFit['Abs tonal no loud', 'RMSE'] <- resultsOutTonal2$OOB_RMSE
+resdAnnoyMedFit['Abs tonal no loud', 'Rsquared'] <- resultsOutTonal2$Rsquared
+resdAnnoyMedFit['Abs tonal no loud', which(colnames(resdAnnoyMedFit) == 'AEq0'):
+                                     which(colnames(resdAnnoyMedFit) == 'AEq100')] <- resultsOutTonal2$OOB_abserror
+resdAnnoyMedPermImp$AbsTonal2 <- resultsOutTonal2$conditional_permimp
+```
+
+
+```{r, fig.width=10,fig.height=3.2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal2.conimp <- data.frame('Var_imp'=rev(resultsOutTonal2$conditional_permimp))
+
+pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(0, 0.18))
+
+
+if (saveplots){
+  ggsave(filename="PtAdAnnoyTonalNoLdConPermimp.svg", width=10, height=3.2, path=outFigPath)
+  unlink("PtAdAnnoyTonalNoLdConPermimp.svg")
+}
+
+
+```
+
+
+```{r}
+# Fluctuation strength
+iVars <- c("UASLoudECMAHMSPowAvgBin", "AmbientLAeq", "UASFluctHMS10ExBin", "UASFluctHMS05ExBin", "UASFluctFZ10ExMaxLR", "UASFluctFZ05ExMaxLR", "UASFluctOV10ExMaxLR", "UASFluctOV05ExMaxLR")
+resultsOutFluct <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(5537, 616544, 2247, 302, 3098), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutFluct$OOB_RMSE
+resultsOutFluct$OOB_abserror
+resultsOutFluct$Rsquared
+```
+
+```{r}
+
+# store results
+resdAnnoyMedFit['Abs fluct', 'RMSE'] <- resultsOutFluct$OOB_RMSE
+resdAnnoyMedFit['Abs fluct', 'Rsquared'] <- resultsOutFluct$Rsquared
+resdAnnoyMedFit['Abs fluct', which(colnames(resdAnnoyMedFit) == 'AEq0'):
+                             which(colnames(resdAnnoyMedFit) == 'AEq100')] <- resultsOutFluct$OOB_abserror
+resdAnnoyMedPermImp$AbsFluct <- resultsOutFluct$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutFluct.conimp <- data.frame('Var_imp'=rev(resultsOutFluct$conditional_permimp))
+
+pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAdAnnoyFluctConPermimp.svg", width=10, height=2.9, path=outFigPath)
+  unlink("PtAdAnnoyFluctConPermimp.svg")
+}
+
+```
+
+```{r}
+# Roughness
+iVars <- c("UASLoudECMAHMSPowAvgBin", "AmbientLAeq", "UASRoughECMAHMS10ExBin", "UASRoughECMAHMS05ExBin", "UASRoughFZ10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASRoughDW10ExMaxLR", "UASRoughDW05ExMaxLR")
+resultsOutRough <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(89668, 782, 94, 613, 64678), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutRough$OOB_RMSE
+resultsOutRough$OOB_abserror
+resultsOutRough$Rsquared
+```
+
+```{r}
+# store results
+resdAnnoyMedFit['Abs rough', 'RMSE'] <- resultsOutRough$OOB_RMSE
+resdAnnoyMedFit['Abs rough', 'Rsquared'] <- resultsOutRough$Rsquared
+resdAnnoyMedFit['Abs rough', which(colnames(resdAnnoyMedFit) == 'AEq0'):
+                             which(colnames(resdAnnoyMedFit) == 'AEq100')] <- resultsOutRough$OOB_abserror
+resdAnnoyMedPermImp$AbsRough <- resultsOutRough$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutRough.conimp <- data.frame('Var_imp'=rev(resultsOutRough$conditional_permimp))
+
+pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  svg(filename=file.path(outFigPath, "PtAdAnnoyRoughConPermimp.svg"), family='serif', width=10, height=7)
+  pBar
+  dump <- dev.off()
+}
+
+if (saveplots){
+  ggsave(filename="PtAdAnnoyRoughConPermimp.svg", width=10, height=2.9, path=outFigPath)
+  unlink("PtAdAnnoyRoughConPermimp.svg")
+}
+
+
+```
+
+```{r}
+# Impulsiveness
+iVars <- c("UASLoudECMAHMSPowAvgBin", "AmbientLAeq", "UASImpulsHMSAvgMaxLR", "UASImpulsHMS05ExMaxLR", "UASImpulsHMSPowAvgMaxLR")
+resultsOutImpuls <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(82724, 187, 93812, 2427, 19), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutImpuls$OOB_RMSE
+resultsOutImpuls$OOB_abserror
+resultsOutImpuls$Rsquared
+```
+
+```{r}
+
+# store results
+resdAnnoyMedFit['Abs impuls', 'RMSE'] <- resultsOutImpuls$OOB_RMSE
+resdAnnoyMedFit['Abs impuls', 'Rsquared'] <- resultsOutImpuls$Rsquared
+resdAnnoyMedFit['Abs impuls', which(colnames(resdAnnoyMedFit) == 'AEq0'):
+                              which(colnames(resdAnnoyMedFit) == 'AEq100')] <- resultsOutImpuls$OOB_abserror
+resdAnnoyMedPermImp$AbsImpuls <- resultsOutImpuls$conditional_permimp
+
+```
+
+
+```{r, fig.width=10,fig.height=2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutImpuls.conimp <- data.frame('Var_imp'=rev(resultsOutImpuls$conditional_permimp))
+
+pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAdAnnoyImpulsConPermimp.svg", width=10, height=2, path=outFigPath)
+  unlink("PtAdAnnoyImpulsConPermimp.svg")
+}
+
+```
+#### SQM and loudness comparison
+
+Now the highest importance SQMs are ranked against each other, controlling for UAS loudness and ambient LAeq.
+
+```{r}
+iVars <- c("UASLoudECMAHMSPowAvgBin", "AmbientLAeq", "UASSharpAuresISO305ExMaxLR", "UASTonLdECMAHMSPowAvgBin", "UASFluctOV10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASImpulsHMSPowAvgMaxLR")
+resultsOutSQMs1 <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(7558, 614, 6578, 6139, 15), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutSQMs1$OOB_RMSE
+resultsOutSQMs1$OOB_abserror
+resultsOutSQMs1$Rsquared
+```
+
+```{r}
+
+# store results
+resdAnnoyMedFit['Abs SQMs inc tonal loud', 'RMSE'] <- resultsOutSQMs1$OOB_RMSE
+resdAnnoyMedFit['Abs SQMs inc tonal loud', 'Rsquared'] <- resultsOutSQMs1$Rsquared
+resdAnnoyMedFit['Abs SQMs inc tonal loud', which(colnames(resdAnnoyMedFit) == 'AEq0'):
+                                           which(colnames(resdAnnoyMedFit) == 'AEq100')] <- resultsOutSQMs1$OOB_abserror
+resdAnnoyMedPermImp$AbsSQMs1 <- resultsOutSQMs1$conditional_permimp
+
+```
+
+
+```{r, fig.width=10,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs1.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs1$conditional_permimp))
+
+pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAdAnnoyAbsSQMsTonLdConPermimp.svg", width=10, height=2.4, path=outFigPath)
+  unlink("PtAdAnnoyAbsSQMsTonLdConPermimp.svg")
+}
+
+```
+
+Repeated without tonal loudness.
+
+```{r}
+iVars <- c("UASLoudECMAHMSPowAvgBin", "AmbientLAeq", "UASSharpAuresISO305ExMaxLR", "UASTonalInt05ExMaxLR", "UASFluctOV10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASImpulsHMSPowAvgMaxLR")
+resultsOutSQMs2 <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(7558, 614, 6578, 6139, 15), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutSQMs2$OOB_RMSE
+resultsOutSQMs2$OOB_abserror
+resultsOutSQMs2$Rsquared
+```
+
+```{r}
+
+# store results
+resdAnnoyMedFit['Abs SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_RMSE
+resdAnnoyMedFit['Abs SQMs no tonal loud', 'Rsquared'] <- resultsOutSQMs2$Rsquared
+resdAnnoyMedFit['Abs SQMs no tonal loud', which(colnames(resdAnnoyMedFit) == 'AEq0'):
+                                          which(colnames(resdAnnoyMedFit) == 'AEq100')] <- resultsOutSQMs2$OOB_abserror
+resdAnnoyMedPermImp$AbsSQMs2 <- resultsOutSQMs2$conditional_permimp
+
+```
+
+
+```{r, fig.width=10,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs2.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs2$conditional_permimp))
+
+pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAdAnnoyAbsSQMsNoTonLdConPermimp.svg", width=10, height=2.4, path=outFigPath)
+  unlink("PtAdAnnoyAbsSQMsNoTonLdConPermimp.svg")
+}
+
+```
+
+### Difference variables
+
+Next, the difference metrics are analysed, 
+
+#### Remove ambient only stimuli
+
+Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
+
+```{r}
+stimDataANum <- stimDataANum[complete.cases(stimDataANum),]
+stimDataANum$UASLAeq <- as.numeric(stimDataANum$UASLAeq)
+stimDataANum$SNRlevel <- as.numeric(stimDataANum$SNRlevel)
+```
+
+```{r}
+
+iVars <- c(names(stimDataANum)[which(colnames(stimDataANum)=="LAeqdiffLAF90"):
+                               which(colnames(stimDataANum)=="dImpulsHMS05ExMaxLR")], "SNRlevel")
+
+resultsOutDiffs <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(65, 6568, 548, 49878, 98), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutDiffs$OOB_RMSE
+resultsOutDiffs$OOB_abserror
+resultsOutDiffs$Rsquared
+```
+
+```{r}
+
+# store results
+resdAnnoyMedFit['Diff vars', 'RMSE'] <- resultsOutDiffs$OOB_RMSE
+resdAnnoyMedFit['Diff vars', 'Rsquared'] <- resultsOutDiffs$Rsquared
+resdAnnoyMedFit['Diff vars', which(colnames(resdAnnoyMedFit) == 'AEq0'):
+                             which(colnames(resdAnnoyMedFit) == 'AEq100')] <- resultsOutDiffs$OOB_abserror
+resdAnnoyMedPermImp$DiffVars <- resultsOutDiffs$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutDiffs.conimp <- data.frame('Var_imp'=rev(resultsOutDiffs$conditional_permimp))
+
+pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp), levels=rownames(resultsOutDiffs.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAdAnnoyDiffVarsConPermimp.svg", width=10, height=9, path=outFigPath)
+  unlink("PtAdAnnoyDiffVarsConPermimp.svg")
+}
+
+```
+
+Save the results outputs to file
+
+```{r}
+
+if (savedata){
+  utils::write.csv(resdAnnoyMedFit, paste(outDataPath, "\\ptACRFdAnnoyOOBFit.csv", sep=""))
+  ii <- 0
+  temp = list()
+  for (res in resdAnnoyMedPermImp){
+    ii <- ii + 1
+    temp[[ii]] <- as.data.frame(resdAnnoyMedPermImp[ii])
+    names(temp[[ii]]) <- names(resdAnnoyMedPermImp[ii])
+  }
+  openxlsx::write.xlsx(temp, paste(outDataPath, "\\ptACRFdAnnoyConPermimp.xlsx",
+                                   sep=""),
+                       rowNames=TRUE)
+}
+
+```
+
+## High annoyance
+
+### Absolute variables
+
+Now the response outcome 'high annoyance' is analysed, once more in the same way.
+
+#### Remove ambient only stimuli
+
+Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
+
+```{r}
+stimDataANum <- stimDataANum[complete.cases(stimDataANum),]
+stimDataANum$UASLAeq <- as.numeric(stimDataANum$UASLAeq)
+stimDataANum$SNRlevel <- as.numeric(stimDataANum$SNRlevel)
+```
+
+```{r}
+resHiAnnoyMedFit <- data.frame(RMSE = numeric(),
+                               Rsquared = numeric(),
+                               AEq0 = numeric(),
+                               AEq25 = numeric(),
+                               AEq50 = numeric(),
+                               AEq75 = numeric(),
+                               AEq100 = numeric())
+resHiAnnoyMedPermImp <- list()
+
+```
+
+```{r}
+iVars <- names(stimDataANum)[which(names(stimDataANum) == 'UASLAeq'):which(names(stimDataANum) == 'UASImpulsHMS05ExMaxLR')]
+iVars <- iVars[! iVars %in% 'SNRlevel']
+resultsOutAbs <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(4645, 5656, 23, 44848, 222), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutAbs$OOB_RMSE
+resultsOutAbs$OOB_abserror
+resultsOutAbs$Rsquared
+```
+
+```{r, fig.width=5, fig.height=5}
+# base::plot(as.numeric(as.character(stimDataANum$HighAnnoyProportion))*100,
+#            as.numeric(as.character(resultsOutAbs$OOB_predicts))*100, col=rgb(0, 102/255, 255/255, 0.2),
+#            xlim=c(0, 50), ylim=c(0, 50), xlab="% High annoyance", ylab="Predicted % high annoyance")
+```
+
+```{r}
+# store results
+resHiAnnoyMedFit['Abs vars', 'RMSE'] <- resultsOutAbs$OOB_RMSE
+resHiAnnoyMedFit['Abs vars', 'Rsquared'] <- resultsOutAbs$Rsquared
+resHiAnnoyMedFit['Abs vars', which(colnames(resHiAnnoyMedFit) == 'AEq0'):
+                             which(colnames(resHiAnnoyMedFit) == 'AEq100')] <- resultsOutAbs$OOB_abserror
+resHiAnnoyMedPermImp$AbsVars <- resultsOutAbs$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=11.5}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutAbs.conimp <- data.frame('Var_imp'=rev(resultsOutAbs$conditional_permimp))
+
+pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimp), levels=rownames(resultsOutAbs.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAHiAnnoyAbsVarsConPermimp.svg", width=10, height=7, path=outFigPath)
+  unlink("PtAHiAnnoyAbsVarsConPermimp.svg")
+}
+
+
+```
+### SQM analysis
+
+#### Replace ambient only stimuli
+
+Here, the 'ambient only' stimuli are replaced, as the SQM analysis can incorporate 0 values (whereas dB metrics cannot be handled in this way).
+
+```{r}
+
+stimDataANum <- rbind(stimDataANum, stimDataA[stimDataA['Recording']
+                                              == "A1_CALBIN_Pa.wav",
+                                              colnames(stimDataANum)],
+                      stimDataA[stimDataA['Recording']
+                                              == "A2_CALBIN_Pa.wav",
+                                              colnames(stimDataANum)])
+stimDataANum <- arrange(stimDataANum, Recording)
+
+```
+
+#### Individual SQMs
+
+```{r}
+# Sharpness
+iVars <- c("UASLoudISO1PowAvgMaxLR", "AmbientLAeq", "UASSharpAuresISO3PowAvgMaxLR", "UASSharpAuresISO305ExMaxLR")
+resultsOutSharp <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(5227, 7174, 47, 4447, 999), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutSharp$OOB_RMSE
+resultsOutSharp$OOB_abserror
+resultsOutSharp$Rsquared
+```
+
+```{r}
+# store results
+resHiAnnoyMedFit['Abs sharp', 'RMSE'] <- resultsOutSharp$OOB_RMSE
+resHiAnnoyMedFit['Abs sharp', 'Rsquared'] <- resultsOutSharp$Rsquared
+resHiAnnoyMedFit['Abs sharp', which(colnames(resHiAnnoyMedFit) == 'AEq0'):
+                              which(colnames(resHiAnnoyMedFit) == 'AEq100')] <- resultsOutSharp$OOB_abserror
+resHiAnnoyMedPermImp$AbsSharp <- resultsOutSharp$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=1.7}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSharp.conimp <- data.frame('Var_imp'=rev(resultsOutSharp$conditional_permimp))
+
+pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAHiAnnoySharpConPermimp.svg", width=10, height=1.7, path=outFigPath)
+  unlink("PtAHiAnnoySharpConPermimp.svg")
+}
+
+
+```
+Tonality including tonal loudness
+
+```{r}
+# Tonality inc tonal loudness
+iVars <- c("UASLoudISO1PowAvgMaxLR", "AmbientLAeq", "UASTonalECMAHMSAvgMaxLR", "UASTonalECMAHMS05ExMaxLR", "UASTonalIntAvgMaxLR", "UASTonalInt05ExMaxLR", "UASTonLdECMAHMSPowAvgBin", "UASTonLdECMAHMS05ExBin", "UASTonalAuAvgMaxLR", "UASTonalAu05ExMaxLR", "UASTonalAu10ExMaxLR")
+resultsOutTonal1 <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(303, 5644, 100, 20, 326), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutTonal1$OOB_RMSE
+resultsOutTonal1$OOB_abserror
+resultsOutTonal1$Rsquared
+```
+
+```{r}
+# store results
+resHiAnnoyMedFit['Abs tonal inc loud', 'RMSE'] <- resultsOutTonal1$OOB_RMSE
+resHiAnnoyMedFit['Abs tonal inc loud', 'Rsquared'] <- resultsOutTonal1$Rsquared
+resHiAnnoyMedFit['Abs tonal inc loud', which(colnames(resHiAnnoyMedFit) == 'AEq0'):
+                                       which(colnames(resHiAnnoyMedFit) == 'AEq100')] <- resultsOutTonal1$OOB_abserror
+resHiAnnoyMedPermImp$AbsTonal1 <- resultsOutTonal1$conditional_permimp
+```
+
+```{r, fig.width=10,fig.height=3.8}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal1.conimp <- data.frame('Var_imp'=rev(resultsOutTonal1$conditional_permimp))
+
+pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(0, 0.008))
+
+if (saveplots){
+  ggsave(filename="PtAHiAnnoyTonalLdConPermimp.svg", width=10, height=3.8, path=outFigPath)
+  unlink("PtAHiAnnoyTonalLdConPermimp.svg")
+}
+
+```
+
+Tonality without tonal loudness
+
+```{r}
+# Tonality without tonal loudness
+iVars <- c("UASLoudISO1PowAvgMaxLR", "AmbientLAeq", "UASTonalECMAHMSAvgMaxLR", "UASTonalECMAHMS05ExMaxLR", "UASTonalIntAvgMaxLR", "UASTonalInt05ExMaxLR", "UASTonalAuAvgMaxLR", "UASTonalAu05ExMaxLR", "UASTonalAu10ExMaxLR")
+resultsOutTonal2 <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(303, 5644, 100, 20, 326), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutTonal2$OOB_RMSE
+resultsOutTonal2$OOB_abserror
+resultsOutTonal2$Rsquared
+```
+
+```{r}
+# store results
+resHiAnnoyMedFit['Abs tonal no loud', 'RMSE'] <- resultsOutTonal2$OOB_RMSE
+resHiAnnoyMedFit['Abs tonal no loud', 'Rsquared'] <- resultsOutTonal2$Rsquared
+resHiAnnoyMedFit['Abs tonal no loud', which(colnames(resHiAnnoyMedFit) == 'AEq0'):
+                                      which(colnames(resHiAnnoyMedFit) == 'AEq100')] <- resultsOutTonal2$OOB_abserror
+resHiAnnoyMedPermImp$AbsTonal2 <- resultsOutTonal2$conditional_permimp
+```
+
+
+```{r, fig.width=10,fig.height=3.2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal2.conimp <- data.frame('Var_imp'=rev(resultsOutTonal2$conditional_permimp))
+
+pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(0, 0.008))
+
+if (saveplots){
+  ggsave(filename="PtAHiAnnoyTonalNoLdConPermimp.svg", width=10, height=3.2, path=outFigPath)
+  unlink("PtAHiAnnoyTonalNoLdConPermimp.svg")
+}
+
+```
+
+```{r}
+# Fluctuation strength
+iVars <- c("UASLoudISO1PowAvgMaxLR", "AmbientLAeq", "UASFluctHMS10ExBin", "UASFluctHMS05ExBin", "UASFluctFZ10ExMaxLR", "UASFluctFZ05ExMaxLR", "UASFluctOV10ExMaxLR", "UASFluctOV05ExMaxLR")
+resultsOutFluct <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(7474, 585325, 2524, 2, 4124), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutFluct$OOB_RMSE
+resultsOutFluct$OOB_abserror
+resultsOutFluct$Rsquared
+```
+
+```{r}
+
+# store results
+resHiAnnoyMedFit['Abs fluct', 'RMSE'] <- resultsOutFluct$OOB_RMSE
+resHiAnnoyMedFit['Abs fluct', 'Rsquared'] <- resultsOutFluct$Rsquared
+resHiAnnoyMedFit['Abs fluct', which(colnames(resHiAnnoyMedFit) == 'AEq0'):
+                                         which(colnames(resHiAnnoyMedFit) == 'AEq100')] <- resultsOutFluct$OOB_abserror
+resHiAnnoyMedPermImp$AbsFluct <- resultsOutFluct$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutFluct.conimp <- data.frame('Var_imp'=rev(resultsOutFluct$conditional_permimp))
+
+pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAHiAnnoyFluctConPermimp.svg", width=10, height=2.9, path=outFigPath)
+  unlink("PtAHiAnnoyFluctConPermimp.svg")
+}
+
+```
+
+```{r}
+# Roughness
+iVars <- c("UASLoudISO1PowAvgMaxLR", "AmbientLAeq", "UASRoughECMAHMS10ExBin", "UASRoughECMAHMS05ExBin", "UASRoughFZ10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASRoughDW10ExMaxLR", "UASRoughDW05ExMaxLR")
+resultsOutRough <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(4141, 412, 974, 757, 752), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutRough$OOB_RMSE
+resultsOutRough$OOB_abserror
+resultsOutRough$Rsquared
+```
+
+```{r}
+# store results
+resHiAnnoyMedFit['Abs rough', 'RMSE'] <- resultsOutRough$OOB_RMSE
+resHiAnnoyMedFit['Abs rough', 'Rsquared'] <- resultsOutRough$Rsquared
+resHiAnnoyMedFit['Abs rough', which(colnames(resHiAnnoyMedFit) == 'AEq0'):
+                              which(colnames(resHiAnnoyMedFit) == 'AEq100')] <- resultsOutRough$OOB_abserror
+resHiAnnoyMedPermImp$AbsRough <- resultsOutRough$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutRough.conimp <- data.frame('Var_imp'=rev(resultsOutRough$conditional_permimp))
+
+pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAHiAnnoyRoughConPermimp.svg", width=10, height=2.9, path=outFigPath)
+  unlink("PtAHiAnnoyRoughConPermimp.svg")
+}
+
+
+```
+
+```{r}
+# Impulsiveness
+iVars <- c("UASLoudISO1PowAvgMaxLR", "AmbientLAeq", "UASImpulsHMSAvgMaxLR", "UASImpulsHMS05ExMaxLR", "UASImpulsHMSPowAvgMaxLR")
+resultsOutImpuls <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(24, 74242, 16576, 717, 33), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutImpuls$OOB_RMSE
+resultsOutImpuls$OOB_abserror
+resultsOutImpuls$Rsquared
+```
+
+```{r}
+
+# store results
+resHiAnnoyMedFit['Abs impuls', 'RMSE'] <- resultsOutImpuls$OOB_RMSE
+resHiAnnoyMedFit['Abs impuls', 'Rsquared'] <- resultsOutImpuls$Rsquared
+resHiAnnoyMedFit['Abs impuls', which(colnames(resHiAnnoyMedFit) == 'AEq0'):
+                               which(colnames(resHiAnnoyMedFit) == 'AEq100')] <- resultsOutImpuls$OOB_abserror
+resHiAnnoyMedPermImp$AbsImpuls <- resultsOutImpuls$conditional_permimp
+
+```
+
+
+```{r, fig.width=10,fig.height=2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutImpuls.conimp <- data.frame('Var_imp'=rev(resultsOutImpuls$conditional_permimp))
+
+pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAHiAnnoyImpulsConPermimp.svg", width=10, height=2, path=outFigPath)
+  unlink("PtAHiAnnoyImpulsConPermimp.svg")
+}
+
+```
+#### SQM and loudness comparison
+
+Now the highest importance SQMs are ranked against each other, controlling for UAS loudness and ambient LAeq.
+
+```{r}
+iVars <- c("UASLoudISO1PowAvgMaxLR", "AmbientLAeq", "UASSharpAuresISO305ExMaxLR", "UASTonLdECMAHMSPowAvgBin", "UASFluctOV10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASImpulsHMSAvgMaxLR")
+resultsOutSQMs1 <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(7758, 787, 5875, 686, 59), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutSQMs1$OOB_RMSE
+resultsOutSQMs1$OOB_abserror
+resultsOutSQMs1$Rsquared
+```
+
+```{r}
+
+# store results
+resHiAnnoyMedFit['Abs SQMs inc tonal loud', 'RMSE'] <- resultsOutSQMs1$OOB_RMSE
+resHiAnnoyMedFit['Abs SQMs inc tonal loud', 'Rsquared'] <- resultsOutSQMs1$Rsquared
+resHiAnnoyMedFit['Abs SQMs inc tonal loud', which(colnames(resHiAnnoyMedFit) == 'AEq0'):
+                                            which(colnames(resHiAnnoyMedFit) == 'AEq100')] <- resultsOutSQMs1$OOB_abserror
+resHiAnnoyMedPermImp$AbsSQMs1 <- resultsOutSQMs1$conditional_permimp
+
+```
+
+
+```{r, fig.width=10,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs1.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs1$conditional_permimp))
+
+pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(0, 0.006))
+
+if (saveplots){
+  ggsave(filename="PtAHiAnnoyAbsSQMsTonLdConPermimp.svg", width=10, height=2.4, path=outFigPath)
+  unlink("PtAHiAnnoyAbsSQMsTonLdConPermimp.svg")
+}
+
+```
+Repeated without tonal loudness
+
+```{r}
+iVars <- c("UASLoudISO1PowAvgMaxLR", "AmbientLAeq", "UASSharpAuresISO305ExMaxLR", "UASTonalInt05ExMaxLR", "UASFluctOV10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASImpulsHMSAvgMaxLR")
+resultsOutSQMs2 <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(7758, 787, 5875, 686, 59), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutSQMs2$OOB_RMSE
+resultsOutSQMs2$OOB_abserror
+resultsOutSQMs2$Rsquared
+```
+
+```{r}
+
+# store results
+resHiAnnoyMedFit['Abs SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_RMSE
+resHiAnnoyMedFit['Abs SQMs no tonal loud', 'Rsquared'] <- resultsOutSQMs2$Rsquared
+resHiAnnoyMedFit['Abs SQMs no tonal loud', which(colnames(resHiAnnoyMedFit) == 'AEq0'):
+                                           which(colnames(resHiAnnoyMedFit) == 'AEq100')] <- resultsOutSQMs2$OOB_abserror
+resHiAnnoyMedPermImp$AbsSQMs2 <- resultsOutSQMs2$conditional_permimp
+
+```
+
+
+```{r, fig.width=10,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs2.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs2$conditional_permimp))
+
+pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(0, 0.006))
+
+if (saveplots){
+  ggsave(filename="PtAHiAnnoyAbsSQMsNoTonLdConPermimp.svg", width=10, height=2.4, path=outFigPath)
+  unlink("PtAHiAnnoyAbsSQMsNoTonLdConPermimp.svg")
+}
+
+```
+
+### Difference variables
+
+Next, the difference metrics are analysed, 
+
+#### Remove ambient only stimuli
+
+Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
+
+```{r}
+stimDataANum <- stimDataANum[complete.cases(stimDataANum),]
+stimDataANum$UASLAeq <- as.numeric(stimDataANum$UASLAeq)
+stimDataANum$SNRlevel <- as.numeric(stimDataANum$SNRlevel)
+```
+
+```{r}
+
+iVars <- c(names(stimDataANum)[which(colnames(stimDataANum)=="LAeqdiffLAF90"):
+                               which(colnames(stimDataANum)=="dImpulsHMS05ExMaxLR")], "SNRlevel")
+
+resultsOutDiffs <- multi_crfReg(dataIn=stimDataANum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(75465, 42, 273, 32758, 9370), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutDiffs$OOB_RMSE
+resultsOutDiffs$OOB_abserror
+resultsOutDiffs$Rsquared
+```
+
+```{r}
+
+# store results
+resHiAnnoyMedFit['Diff vars', 'RMSE'] <- resultsOutDiffs$OOB_RMSE
+resHiAnnoyMedFit['Diff vars', 'Rsquared'] <- resultsOutDiffs$Rsquared
+resHiAnnoyMedFit['Diff vars', which(colnames(resHiAnnoyMedFit) == 'AEq0'):
+                              which(colnames(resHiAnnoyMedFit) == 'AEq100')] <- resultsOutDiffs$OOB_abserror
+resHiAnnoyMedPermImp$DiffVars <- resultsOutDiffs$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutDiffs.conimp <- data.frame('Var_imp'=rev(resultsOutDiffs$conditional_permimp))
+
+pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp), levels=rownames(resultsOutDiffs.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtAHiAnnoyDiffVarsConPermimp.svg", width=10, height=9, path=outFigPath)
+  unlink("PtAHiAnnoyDiffVarsConPermimp.svg")
+}
+
+```
+
+Save the results outputs to file
+
+```{r}
+
+if (savedata){
+  utils::write.csv(resHiAnnoyMedFit, paste(outDataPath, "\\ptACRFHiAnnoyOOBFit.csv", sep=""))
+  ii <- 0
+  temp = list()
+  for (res in resHiAnnoyMedPermImp){
+    ii <- ii + 1
+    temp[[ii]] <- as.data.frame(resHiAnnoyMedPermImp[ii])
+    names(temp[[ii]]) <- names(resHiAnnoyMedPermImp[ii])
+  }
+  openxlsx::write.xlsx(temp, paste(outDataPath, "\\ptACRFHiAnnoyConPermimp.xlsx",
+                                   sep=""),
+                       rowNames=TRUE)
+}
+
+```
+
+## Noticeability
+
+### Absolute variables
+
+Now the response outcome 'noticeability' is analysed, once more in the same way, but using the truncated N=30 dataset.
+
+#### Remove ambient only stimuli
+
+Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
+
+```{r}
+stimNoticeDataANum <- stimNoticeDataANum[complete.cases(stimNoticeDataANum),]
+stimNoticeDataANum$UASLAeq <- as.numeric(stimNoticeDataANum$UASLAeq)
+stimNoticeDataANum$SNRlevel <- as.numeric(stimNoticeDataANum$SNRlevel)
+```
+
+```{r}
+resNoticeMedFit<- data.frame(RMSE = numeric(),
+                             Rsquared = numeric(),
+                             AEq0 = numeric(),
+                             AEq25 = numeric(),
+                             AEq50 = numeric(),
+                             AEq75 = numeric(),
+                             AEq100 = numeric())
+resNoticeMedPermImp <- list()
+
+```
+
+```{r}
+iVars <- names(stimNoticeDataANum)[which(names(stimNoticeDataANum) == 'UASLAeq'):which(names(stimNoticeDataANum) == 'UASImpulsHMS05ExMaxLR')]
+iVars <- iVars[! iVars %in% 'SNRlevel']
+resultsOutAbs <- multi_crfReg(dataIn=stimNoticeDataANum, iVars=iVars, dVar='NoticedPropFilt', seeds=c(484, 5494, 8888, 6564, 13268), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutAbs$OOB_RMSE
+resultsOutAbs$OOB_abserror
+resultsOutAbs$Rsquared
+```
+
+```{r}
+# store results
+resNoticeMedFit['Abs vars', 'RMSE'] <- resultsOutAbs$OOB_RMSE
+resNoticeMedFit['Abs vars', 'Rsquared'] <- resultsOutAbs$Rsquared
+resNoticeMedFit['Abs vars', which(colnames(resNoticeMedFit) == 'AEq0'):
+                            which(colnames(resNoticeMedFit) == 'AEq100')] <- resultsOutAbs$OOB_abserror
+resNoticeMedPermImp$AbsVars <- resultsOutAbs$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=11.5}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutAbs.conimp <- data.frame('Var_imp'=rev(resultsOutAbs$conditional_permimp))
+
+pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimp), levels=rownames(resultsOutAbs.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtANoticeAbsVarsConPermimp.svg", width=10, height=11.5, path=outFigPath)
+  unlink("PtANoticeAbsVarsConPermimp.svg")
+}
+
+
+```
+### SQM analysis
+
+#### Replace ambient only stimuli
+
+Here, the 'ambient only' stimuli are not replaced, as the SQM analysis is using PNL.
+
+```{r}
+
+# stimNoticeDataANum <- rbind(stimNoticeDataANum, stimNoticeDataA[stimNoticeDataA['Recording']
+#                                                                 == "A1_CALBIN_Pa.wav",
+#                                                                 colnames(stimNoticeDataANum)],
+#                             stimNoticeDataA[stimNoticeDataA['Recording']
+#                                             == "A2_CALBIN_Pa.wav",
+#                                             colnames(stimNoticeDataANum)])
+# stimNoticeDataANum <- arrange(stimNoticeDataANum, Recording)
+
+```
+
+#### Individual SQMs
+
+Sharpness
+
+```{r}
+# Sharpness
+iVars <- c("UASPNLmaxMaxLR", "AmbientLAeq", "UASSharpAuresISO3PowAvgMaxLR", "UASSharpAuresISO305ExMaxLR")
+resultsOutSharp <- multi_crfReg(dataIn=stimNoticeDataANum, iVars=iVars, dVar='NoticedPropFilt', seeds=c(77681, 56, 2326, 9156, 3357), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutSharp$OOB_RMSE
+resultsOutSharp$OOB_abserror
+resultsOutSharp$Rsquared
+```
+
+```{r}
+# store results
+resNoticeMedFit['Abs sharp', 'RMSE'] <- resultsOutSharp$OOB_RMSE
+resNoticeMedFit['Abs sharp', 'Rsquared'] <- resultsOutSharp$Rsquared
+resNoticeMedFit['Abs sharp', which(colnames(resNoticeMedFit) == 'AEq0'):
+                             which(colnames(resNoticeMedFit) == 'AEq100')] <- resultsOutSharp$OOB_abserror
+resNoticeMedPermImp$AbsSharp <- resultsOutSharp$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=1.7}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSharp.conimp <- data.frame('Var_imp'=rev(resultsOutSharp$conditional_permimp))
+
+pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtANoticeSharpConPermimp.svg", width=10, height=1.7, path=outFigPath)
+  unlink("PtANoticeSharpConPermimp.svg")
+}
+
+
+```
+Tonality including tonal loudness
+
+```{r}
+# Tonality
+iVars <- c("UASPNLmaxMaxLR", "AmbientLAeq", "UASTonalECMAHMSAvgMaxLR", "UASTonalECMAHMS05ExMaxLR", "UASTonalIntAvgMaxLR", "UASTonalInt05ExMaxLR", "UASTonLdECMAHMSPowAvgBin", "UASTonLdECMAHMS05ExBin", "UASTonalAuAvgMaxLR", "UASTonalAu05ExMaxLR", "UASTonalAu10ExMaxLR")
+resultsOutTonal1 <- multi_crfReg(dataIn=stimNoticeDataANum, iVars=iVars, dVar='NoticedPropFilt', seeds=c(85, 546, 9530, 5024, 146450), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutTonal1$OOB_RMSE
+resultsOutTonal1$OOB_abserror
+resultsOutTonal1$Rsquared
+```
+
+```{r}
+# store results
+resNoticeMedFit['Abs tonal inc loud', 'RMSE'] <- resultsOutTonal1$OOB_RMSE
+resNoticeMedFit['Abs tonal inc loud', 'Rsquared'] <- resultsOutTonal1$Rsquared
+resNoticeMedFit['Abs tonal inc loud', which(colnames(resNoticeMedFit) == 'AEq0'):
+                                      which(colnames(resNoticeMedFit) == 'AEq100')] <- resultsOutTonal1$OOB_abserror
+resNoticeMedPermImp$AbsTonal1 <- resultsOutTonal1$conditional_permimp
+```
+
+
+```{r, fig.width=10,fig.height=3.8}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal1.conimp <- data.frame('Var_imp'=rev(resultsOutTonal1$conditional_permimp))
+
+pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(0, 0.1))
+
+if (saveplots){
+  ggsave(filename="PtANoticeTonalLdConPermimp.svg", width=10, height=3.8, path=outFigPath)
+  unlink("PtANoticeTonalLdConPermimp.svg")
+}
+
+```
+Repeated without tonal loudness
+
+```{r}
+# Tonality
+iVars <- c("UASPNLmaxMaxLR", "AmbientLAeq", "UASTonalECMAHMSAvgMaxLR", "UASTonalECMAHMS05ExMaxLR", "UASTonalIntAvgMaxLR", "UASTonalInt05ExMaxLR", "UASTonalAuAvgMaxLR", "UASTonalAu05ExMaxLR", "UASTonalAu10ExMaxLR")
+resultsOutTonal2 <- multi_crfReg(dataIn=stimNoticeDataANum, iVars=iVars, dVar='NoticedPropFilt', seeds=c(85, 546, 9530, 5024, 146450), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutTonal2$OOB_RMSE
+resultsOutTonal2$OOB_abserror
+resultsOutTonal2$Rsquared
+```
+
+```{r}
+# store results
+resNoticeMedFit['Abs tonal no loud', 'RMSE'] <- resultsOutTonal2$OOB_RMSE
+resNoticeMedFit['Abs tonal no loud', 'Rsquared'] <- resultsOutTonal2$Rsquared
+resNoticeMedFit['Abs tonal no loud', which(colnames(resNoticeMedFit) == 'AEq0'):
+                                     which(colnames(resNoticeMedFit) == 'AEq100')] <- resultsOutTonal2$OOB_abserror
+resNoticeMedPermImp$AbsTonal2 <- resultsOutTonal2$conditional_permimp
+```
+
+
+```{r, fig.width=10,fig.height=3.2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal2.conimp <- data.frame('Var_imp'=rev(resultsOutTonal2$conditional_permimp))
+
+pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(0, 0.1))
+
+if (saveplots){
+  ggsave(filename="PtANoticeTonalNoLdConPermimp.svg", width=10, height=3.2, path=outFigPath)
+  unlink("PtANoticeTonalNoLdConPermimp.svg")
+}
+
+```
+
+
+```{r}
+# Fluctuation strength
+iVars <- c("UASPNLmaxMaxLR", "AmbientLAeq", "UASFluctHMS10ExBin", "UASFluctHMS05ExBin", "UASFluctFZ10ExMaxLR", "UASFluctFZ05ExMaxLR", "UASFluctOV10ExMaxLR", "UASFluctOV05ExMaxLR")
+resultsOutFluct <- multi_crfReg(dataIn=stimNoticeDataANum, iVars=iVars, dVar='NoticedPropFilt', seeds=c(50354, 2047, 4524, 872, 27074), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutFluct$OOB_RMSE
+resultsOutFluct$OOB_abserror
+resultsOutFluct$Rsquared
+```
+
+```{r}
+
+# store results
+resNoticeMedFit['Abs fluct', 'RMSE'] <- resultsOutFluct$OOB_RMSE
+resNoticeMedFit['Abs fluct', 'Rsquared'] <- resultsOutFluct$Rsquared
+resNoticeMedFit['Abs fluct', which(colnames(resNoticeMedFit) == 'AEq0'):
+                             which(colnames(resNoticeMedFit) == 'AEq100')] <- resultsOutFluct$OOB_abserror
+resNoticeMedPermImp$AbsFluct <- resultsOutFluct$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutFluct.conimp <- data.frame('Var_imp'=rev(resultsOutFluct$conditional_permimp))
+
+pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtANoticeFluctConPermimp.svg", width=10, height=2.9, path=outFigPath)
+  unlink("PtANoticeFluctConPermimp.svg")
+}
+
+```
+
+```{r}
+# Roughness
+iVars <- c("UASPNLmaxMaxLR", "AmbientLAeq", "UASRoughECMAHMS10ExBin", "UASRoughECMAHMS05ExBin", "UASRoughFZ10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASRoughDW10ExMaxLR", "UASRoughDW05ExMaxLR")
+resultsOutRough <- multi_crfReg(dataIn=stimNoticeDataANum, iVars=iVars, dVar='NoticedPropFilt', seeds=c(7520, 757, 8582, 863, 7757), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutRough$OOB_RMSE
+resultsOutRough$OOB_abserror
+resultsOutRough$Rsquared
+```
+
+```{r}
+# store results
+resNoticeMedFit["Abs rough", 'RMSE'] <- resultsOutRough$OOB_RMSE
+resNoticeMedFit["Abs rough", 'Rsquared'] <- resultsOutRough$Rsquared
+resNoticeMedFit["Abs rough", which(colnames(resNoticeMedFit) == 'AEq0'):
+                             which(colnames(resNoticeMedFit) == 'AEq100')] <- resultsOutRough$OOB_abserror
+resNoticeMedPermImp$AbsRough <- resultsOutRough$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutRough.conimp <- data.frame('Var_imp'=rev(resultsOutRough$conditional_permimp))
+
+pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtANoticeRoughConPermimp.svg", width=10, height=2.9, path=outFigPath)
+  unlink("PtANoticeRoughConPermimp.svg")
+}
+
+
+```
+
+```{r}
+# Impulsiveness
+iVars <- c("UASPNLmaxMaxLR", "AmbientLAeq", "UASImpulsHMSAvgMaxLR", "UASImpulsHMS05ExMaxLR", "UASImpulsHMSPowAvgMaxLR")
+resultsOutImpuls <- multi_crfReg(dataIn=stimNoticeDataANum, iVars=iVars, dVar='NoticedPropFilt', seeds=c(557220, 757, 5708, 7864, 2044), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutImpuls$OOB_RMSE
+resultsOutImpuls$OOB_abserror
+resultsOutImpuls$Rsquared
+```
+
+```{r}
+
+# store results
+resNoticeMedFit["Abs impuls", 'RMSE'] <- resultsOutImpuls$OOB_RMSE
+resNoticeMedFit["Abs impuls", 'Rsquared'] <- resultsOutImpuls$Rsquared
+resNoticeMedFit["Abs impuls", which(colnames(resNoticeMedFit) == 'AEq0'):
+                              which(colnames(resNoticeMedFit) == 'AEq100')] <- resultsOutImpuls$OOB_abserror
+resNoticeMedPermImp$AbsImpuls <- resultsOutImpuls$conditional_permimp
+
+```
+
+
+```{r, fig.width=10,fig.height=2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutImpuls.conimp <- data.frame('Var_imp'=rev(resultsOutImpuls$conditional_permimp))
+
+pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtANoticeImpulsConPermimp.svg", width=10, height=2, path=outFigPath)
+  unlink("PtANoticeImpulsConPermimp.svg")
+}
+
+```
+#### SQM and loudness comparison
+
+Now the highest importance SQMs are ranked against each other, controlling for UAS loudness and ambient LAeq.
+
+```{r}
+iVars <- c("UASPNLmaxMaxLR", "AmbientLAeq", "UASSharpAuresISO305ExMaxLR", "UASTonLdECMAHMS05ExBin", "UASFluctOV10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASImpulsHMSAvgMaxLR")
+resultsOutSQMs1 <- multi_crfReg(dataIn=stimNoticeDataANum, iVars=iVars, dVar='NoticedPropFilt', seeds=c(3830, 77750, 6480, 59297, 42), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutSQMs1$OOB_RMSE
+resultsOutSQMs1$OOB_abserror
+resultsOutSQMs1$Rsquared
+```
+
+```{r}
+
+# store results
+resNoticeMedFit['Abs SQMS inc loud', 'RMSE'] <- resultsOutSQMs1$OOB_RMSE
+resNoticeMedFit['Abs SQMS inc loud', 'Rsquared'] <- resultsOutSQMs1$Rsquared
+resNoticeMedFit['Abs SQMS inc loud', which(colnames(resNoticeMedFit) == 'AEq0'):
+                                     which(colnames(resNoticeMedFit) == 'AEq100')] <- resultsOutSQMs1$OOB_abserror
+resNoticeMedPermImp$AbsSQMs1 <- resultsOutSQMs1$conditional_permimp
+
+```
+
+
+```{r, fig.width=10,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs1.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs1$conditional_permimp))
+
+pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtANoticeAbsSQMsTonLdConPermimp.svg", width=10, height=2.4, path=outFigPath)
+  unlink("PtANoticeAbsSQMsTonLdConPermimp.svg")
+}
+
+```
+Repeated without tonal loudness
+
+```{r}
+iVars <- c("UASPNLmaxMaxLR", "AmbientLAeq", "UASSharpAuresISO305ExMaxLR", "UASTonalInt05ExMaxLR", "UASFluctOV10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASImpulsHMSAvgMaxLR")
+resultsOutSQMs2 <- multi_crfReg(dataIn=stimNoticeDataANum, iVars=iVars, dVar='NoticedPropFilt', seeds=c(3830, 77750, 6480, 59297, 42), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutSQMs2$OOB_RMSE
+resultsOutSQMs2$OOB_abserror
+resultsOutSQMs2$Rsquared
+```
+
+```{r}
+
+# store results
+resNoticeMedFit['Abs SQMS no loud', 'RMSE'] <- resultsOutSQMs2$OOB_RMSE
+resNoticeMedFit['Abs SQMS no loud', 'Rsquared'] <- resultsOutSQMs2$Rsquared
+resNoticeMedFit['Abs SQMS no loud', which(colnames(resNoticeMedFit) == 'AEq0'):
+                                    which(colnames(resNoticeMedFit) == 'AEq100')] <- resultsOutSQMs2$OOB_abserror
+resNoticeMedPermImp$AbsSQMs2 <- resultsOutSQMs2$conditional_permimp
+
+```
+
+
+```{r, fig.width=10,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs2.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs2$conditional_permimp))
+
+pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtANoticeAbsSQMsNoTonLdConPermimp.svg", width=10, height=2.4, path=outFigPath)
+  unlink("PtANoticeAbsSQMsNoTonLdConPermimp.svg")
+}
+
+```
+
+### Difference variables
+
+Next, the difference metrics are analysed, 
+
+#### Remove ambient only stimuli
+
+Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
+
+```{r}
+stimNoticeDataANum <- stimNoticeDataANum[complete.cases(stimNoticeDataANum),]
+stimNoticeDataANum$UASLAeq <- as.numeric(stimNoticeDataANum$UASLAeq)
+stimNoticeDataANum$SNRlevel <- as.numeric(stimNoticeDataANum$SNRlevel)
+```
+
+```{r}
+iVars <- c(names(stimNoticeDataANum)[which(colnames(stimNoticeDataANum)=="LAeqdiffLAF90"):
+                               which(colnames(stimNoticeDataANum)=="dImpulsHMS05ExMaxLR")], "SNRlevel")
+
+resultsOutDiffs <- multi_crfReg(dataIn=stimNoticeDataANum, iVars=iVars, dVar='NoticedPropFilt', seeds=c(3, 782, 560, 995, 46546), ntree=1000, mtry=as.integer(length(iVars)/1.25), nperm=5)
+
+# print model prediction results
+resultsOutDiffs$OOB_RMSE
+resultsOutDiffs$OOB_abserror
+resultsOutDiffs$Rsquared
+```
+
+```{r}
+
+# store results
+resNoticeMedFit['Diff vars', 'RMSE'] <- resultsOutDiffs$OOB_RMSE
+resNoticeMedFit['Diff vars', 'Rsquared'] <- resultsOutDiffs$Rsquared
+resNoticeMedFit['Diff vars', which(colnames(resNoticeMedFit) == 'AEq0'):
+                             which(colnames(resNoticeMedFit) == 'AEq100')] <- resultsOutDiffs$OOB_abserror
+resNoticeMedPermImp$DiffVars <- resultsOutDiffs$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutDiffs.conimp <- data.frame('Var_imp'=rev(resultsOutDiffs$conditional_permimp))
+
+pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp), levels=rownames(resultsOutDiffs.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtANoticeDiffVarsConPermimp.svg", width=10, height=9, path=outFigPath)
+  unlink("PtANoticeDiffVarsConPermimp.svg")
+}
+
+```
+
+Save the results outputs to file
+
+```{r}
+
+if (savedata){
+  utils::write.csv(resNoticeMedFit, paste(outDataPath, "\\ptACRFNoticeOOBFit.csv", sep=""))
+
+  ii <- 0
+  temp = list()
+  for (res in resNoticeMedPermImp){
+    ii <- ii + 1
+    temp[[ii]] <- as.data.frame(resNoticeMedPermImp[ii])
+    names(temp[[ii]]) <- names(resNoticeMedPermImp[ii])
+  }
+  openxlsx::write.xlsx(temp, paste(outDataPath, "\\ptACRFNoticeConPermimp.xlsx",
+                                   sep=""),
+                       rowNames=TRUE)
+}
+
+```
+
+## Part A summary
+
+Summary of annoyance results for Part A
+
+```{r, fig.width=10, fig.height=7}
+# combine the annoyance perm importance results
+res = transform(merge(x=as.data.frame(resAnnoyMedPermImp$AbsSQMs1/max(resAnnoyMedPermImp$AbsSQMs1)),
+                      y=as.data.frame(resdAnnoyMedPermImp$AbsSQMs1/max(resdAnnoyMedPermImp$AbsSQMs1)),
+                      by.x='row.names',
+                      by.y='row.names',
+                      all=TRUE),
+                row.names=Row.names,
+                Row.names=NULL)
+
+
+
+res = transform(merge(x=res,
+                      y=as.data.frame(resHiAnnoyMedPermImp$AbsSQMs1/max(resHiAnnoyMedPermImp$AbsSQMs1)),
+                      by.x='row.names',
+                      by.y='row.names',
+                      all=TRUE),
+                row.names=Row.names,
+                Row.names=NULL)
+
+rownames(res) <- c("Ambient env. LAeq", "UAS fluct. str. O-V ^10%", "UAS impuls. HMS mean", "UAS impuls. HMS pow. avg.", "UAS loud. HMS pow. avg.", "UAS loud. ISO 532-1 pow. avg.", "UAS loud. ISO 532-3 pow. avg.", "UAS rough. F&Z ^5%", "UAS sharp. Aures+ISO 532-3 ^5%", "UAS ton. loud. HMS pow. avg.")
+colnames(res) <- c("Annoyance", "Change in annoyance", "%HA")
+res[is.na(res)] <- 0
+
+res <- tibble::rownames_to_column(res, var="Variable")
+
+res <- tidyr::pivot_longer(res, cols=-Variable, names_to="Outcome", values_to="Imp")
+
+res <- res[order(res$Imp),]
+
+pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text = element_text(family = "serif"), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours)
+pBar
+
+if (saveplots){
+  ggsave(filename="PtAcrfSQMsSummary.svg", width=10, height=7, path=outFigPath)
+  unlink("PtAcrfSQMsSummary.svg")
+}
+
+
+# par(mai=c(1, 3, 0.2, 0.5), family='serif')
+# pCol <- barplot(as.matrix(t(res[order(res$Annoyance),])), col=mycolours, las=1, xlim=c(0, 3), horiz=TRUE, xlab="Normalised importance", family=windowsFont('serif'))
+# legend(x='topright', fill=mycolours, legend=colnames(res))
+# 
+# if (saveplots){
+#   svg(filename=file.path(outFigPath, "PtAcrfSQMsSummary.svg"), family='serif', width=10, height=7)
+#   par(mai=c(1, 3, 0.2, 0.5), family='serif')
+#   pCol <- barplot(as.matrix(t(res[order(res$Annoyance),])), col=mycolours, las=1, xlim=c(0, 3), horiz=TRUE, xlab="Normalised importance", family=windowsFont('serif'))
+#   legend(x='topright', fill=mycolours, legend=colnames(res))
+#   dump <- dev.off()
+# }
+
+
+```
+
+```{r, fig.width=10, fig.height=7}
+# combine the annoyance perm importance results
+res = transform(merge(x=as.data.frame(resAnnoyMedPermImp$AbsSQMs2/max(resAnnoyMedPermImp$AbsSQMs2)),
+                      y=as.data.frame(resdAnnoyMedPermImp$AbsSQMs2/max(resdAnnoyMedPermImp$AbsSQMs2)),
+                      by.x='row.names',
+                      by.y='row.names',
+                      all=TRUE),
+                row.names=Row.names,
+                Row.names=NULL)
+
+res = transform(merge(x=res,
+                      y=as.data.frame(resHiAnnoyMedPermImp$AbsSQMs2/max(resHiAnnoyMedPermImp$AbsSQMs2)),
+                      by.x='row.names',
+                      by.y='row.names',
+                      all=TRUE),
+                row.names=Row.names,
+                Row.names=NULL)
+
+rownames(res) <- c("Ambient env. LAeq", "UAS fluct. str. O-V ^10%", "UAS impuls. HMS mean", "UAS impuls. HMS pow. avg.", "UAS loud. HMS pow. avg.", "UAS loud. ISO 532-1 pow. avg.", "UAS loud. ISO 532-3 pow. avg.", "UAS rough. F&Z ^5%", "UAS sharp. Aures+ISO 532-3 ^5%", "UAS tonality HMS (integ.) ^5%")
+colnames(res) <- c("Annoyance", "Change in annoyance", "%HA")
+res[is.na(res)] <- 0
+
+res <- tibble::rownames_to_column(res, var="Variable")
+
+res <- tidyr::pivot_longer(res, cols=-Variable, names_to="Outcome", values_to="Imp")
+
+res <- res[order(res$Imp),]
+
+pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text=element_text(family = "serif"), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours)
+pBar
+
+if (saveplots){
+  ggsave(filename="PtAcrfSQMsNoTonLdSummary.svg", width=10, height=7, path=outFigPath)
+  unlink("PtAcrfSQMsNoTonLdSummary.svg")
+}
+
+# par(mai=c(1, 3, 0.2, 0.5), family='serif')
+#   pCol <- barplot(as.matrix(t(res[order(res$Annoyance),])), col=mycolours, las=1, xlim=c(0, 3), horiz=TRUE, xlab="Normalised importance", family=windowsFont('serif'))
+#   legend(x='topright', fill=mycolours, legend=colnames(res))
+# 
+# if (saveplots){
+#   svg(filename=file.path(outFigPath, "PtAcrfSQMsNoTonLdSummary.svg"), family='serif', width=10, height=7)
+#   par(mai=c(1, 3, 0.2, 0.5), family='serif')
+#   pCol <- barplot(as.matrix(t(res[order(res$Annoyance),])), col=mycolours, las=1, xlim=c(0, 3), horiz=TRUE, xlab="Normalised importance", family=windowsFont('serif'))
+#   legend(x='topright', fill=mycolours, legend=colnames(res))
+#   dump <- dev.off()
+# }
+
+```
+
+
+# Part B analysis
+
+## Import data and wrangle
+
+```{r}
+
+stimDataBpath <- utils::choose.files(caption=r"(Select refmap_listest1_testdataB_ByStim.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)", filters=matrix(data=c("refmap_listest1_testdataB_ByStim.csv", "refmap_listest1_testdataB_ByStim.csv"), ncol=2))
+
+stimDataB <- utils::read.csv(stimDataBpath, header=TRUE)
+colnames(stimDataB)[1] <- "Recording"
+
+```
+
+```{r}
+
+# definition of ordinal variable levels
+# SNRCatsB <- c("No UAS", "2", "8")
+# UASLAeqCatsB <- c("No UAS", "54", "60")
+
+```
+
+```{r}
+
+stimDataBNum <- data.frame()
+
+stimDataBNum <- cbind(stimDataB[, 'Recording'],
+                      stimDataB[, which(colnames(stimDataB)=="UASEvents"):
+                                which(colnames(stimDataB)=="UASEventDensity")],
+                      stimDataB[, which(colnames(stimDataB)=="UASLAeq"):
+                                which(colnames(stimDataB)=="SNRlevel")],
+                      stimDataB[, which(colnames(stimDataB)=="UASLAeqMaxLR"):
+                                which(colnames(stimDataB)=="UASImpulsHMS05ExMaxLR")],
+                      stimDataB[, which(colnames(stimDataB)=="LAeqdiffLAF90"):
+                                which(colnames(stimDataB)=="PartLoudGMLT05Ex")],
+                      stimDataB[, which(colnames(stimDataB)=="dTonalECMAHMSAvgMaxLR"):
+                                which(colnames(stimDataB)=="dImpulsHMS05ExMaxLR")],
+                      stimDataB[, which(colnames(stimDataB)=="ValenceMedian"):
+                                which(colnames(stimDataB)=="HighAnnoyProportion")])
+stimDataBNum <- stimDataBNum[, !(colnames(stimDataBNum) %in% c('UASLAEMaxLR', 'UASEventDensity', 'AmbientLAeq'))]
+
+colnames(stimDataBNum)[1] <- "Recording"
+
+# stimDataBNum[['SNRlevel']] <- encode_ordinal(stimDataB[['SNRlevel']], order=SNRCatsB)
+# stimDataBNum[['UASLAeq']] <- encode_ordinal(stimDataB[['UASLAeq']], order=UASLAeqCatsB)
+
+# make the discrete ordinal variables factors
+stimDataBNum[['UASEvents']] <- factor(stimDataBNum[['UASEvents']], levels=c(0, 1, 3, 5, 9), order=TRUE)
+stimDataBNum[['ValenceMedian']] <- factor(stimDataBNum[['ValenceMedian']], levels=c(1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5), order=TRUE)
+stimDataBNum[['ArousalMedian']] <- factor(stimDataBNum[['ArousalMedian']], levels=c(1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5), order=TRUE)
+stimDataBNum[['AnnoyMedian']] <- factor(stimDataBNum[['AnnoyMedian']], levels=c(0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5,
+                                                                                5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10), order=TRUE)
+stimDataBNum[['dValenceMedian']] <- factor(stimDataBNum[['dValenceMedian']], levels=c(-4, -3.5, -3, -2.5, -2, -1.5, -1, -0.5, 0,
+                                                                                      0.5, 1, 1.5, 2, 2.5, 3, 3.5,  4), order=TRUE)
+stimDataBNum[['dArousalMedian']] <- factor(stimDataBNum[['dArousalMedian']], levels=c(-4, -3.5, -3, -2.5, -2, -1.5, -1, -0.5, 0,
+                                                                                      0.5, 1, 1.5, 2, 2.5, 3, 3.5,  4), order=TRUE)
+stimDataBNum[['dAnnoyMedian']] <- factor(stimDataBNum[['dAnnoyMedian']], levels=c(-10, -9.5, -9, -8.5, -8, -7.5, -7, -6.5, -6, -5.5, -5,
+                                                                                  -4.5, -4, -3.5, -3, -2.5, -2, -1.5, -1, -0.5,
+                                                                                 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5,
+                                                                                 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10), order=TRUE)
+
+
+```
+
+
+## Annoyance
+
+### Absolute variables
+
+The random forest modelling is run on the aggregated data, including all the variables.
+
+#### Remove ambient only stimuli
+
+Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
+
+```{r}
+stimDataBNum <- stimDataBNum[complete.cases(stimDataBNum),]
+
+stimDataBNum$UASLAeq <- as.numeric(stimDataBNum$UASLAeq)
+stimDataBNum$SNRlevel <- as.numeric(stimDataBNum$SNRlevel)
+
+```
+
+```{r}
+resAnnoyMedFitB <- data.frame(RMSE = numeric(),
+                               Rsquared = numeric(),
+                               AEq0 = numeric(),
+                               AEq25 = numeric(),
+                               AEq50 = numeric(),
+                               AEq75 = numeric(),
+                               AEq100 = numeric())
+resAnnoyMedPermImpB <- list()
+
+```
+
+
+```{r}
+iVars <- names(stimDataBNum)[which(names(stimDataBNum) == 'UASEvents'):which(names(stimDataBNum) == 'UASImpulsHMS05ExMaxLR')]
+iVars <- iVars[! iVars %in% 'SNRlevel']
+resultsOutAbsB <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='AnnoyMedian', seeds=c(981, 687, 808, 4596, 2210), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutAbsB$OOB_RMSE
+resultsOutAbsB$OOB_abserror
+resultsOutAbsB$Rsquared
+```
+
+```{r}
+# store results
+resAnnoyMedFitB['Abs vars', 'RMSE'] <- resultsOutAbsB$OOB_RMSE
+resAnnoyMedFitB['Abs vars', 'Rsquared'] <- resultsOutAbsB$Rsquared
+resAnnoyMedFitB['Abs vars', which(colnames(resAnnoyMedFitB) == 'AEq0'):
+                                       which(colnames(resAnnoyMedFitB) == 'AEq100')] <- resultsOutAbsB$OOB_abserror
+resAnnoyMedPermImpB$AbsVars <- resultsOutAbsB$conditional_permimp
+```
+
+```{r, fig.width=10,fig.height=11.5}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutAbsB.conimp <- data.frame('Var_imp'=rev(resultsOutAbsB$conditional_permimp))
+
+pBar <- ggplot(resultsOutAbsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbsB.conimp), levels=rownames(resultsOutAbsB.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtBAnnoyAbsVarsConPermimp.svg", width=10, height=11.5, path=outFigPath)
+  unlink("PtBAnnoyAbsVarsConPermimp.svg")
+}
+
+```
+### SQM analysis
+
+#### Replace ambient only stimuli
+
+Here, the 'ambient only' stimuli are replaced, as the SQM analysis can incorporate 0 values (whereas dB metrics cannot be handled in this way).
+
+```{r}
+
+stimDataBNum <- rbind(stimDataBNum, stimDataB[stimDataB['Recording']
+                                              == "B2_CALBIN_Pa.wav",
+                                              colnames(stimDataBNum)])
+stimDataBNum <- arrange(stimDataBNum, Recording)
+
+```
+
+
+#### Individual SQMs
+
+Now a model is run omitting loudness and level variables, while retaining only (one of) the top importance loudness variables, and each category of SQM in turn.
+
+```{r}
+# Sharpness
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASSharpAuresISO3PowAvgMaxLR", "UASSharpAuresISO305ExMaxLR")
+resultsOutSharpB <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='AnnoyMedian', seeds=c(565, 9878, 21, 4546, 64), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutSharpB$OOB_RMSE
+resultsOutSharpB$OOB_abserror
+resultsOutSharpB$Rsquared
+```
+
+```{r}
+# store results
+resAnnoyMedFitB['Abs sharp', 'RMSE'] <- resultsOutSharpB$OOB_RMSE
+resAnnoyMedFitB['Abs sharp', 'Rsquared'] <- resultsOutSharpB$Rsquared
+resAnnoyMedFitB['Abs sharp', which(colnames(resAnnoyMedFitB) == 'AEq0'):
+                             which(colnames(resAnnoyMedFitB) == 'AEq100')] <- resultsOutSharpB$OOB_abserror
+resAnnoyMedPermImpB$AbsSharp <- resultsOutSharpB$conditional_permimp
+```
+
+```{r, fig.width=10,fig.height=1.7}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSharpB.conimp <- data.frame('Var_imp'=rev(resultsOutSharpB$conditional_permimp))
+
+pBar <- ggplot(resultsOutSharpB.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharpB.conimp), levels=rownames(resultsOutSharpB.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtBAnnoySharpConPermimp.svg", width=10, height=1.7, path=outFigPath)
+  unlink("PtBAnnoySharpConPermimp.svg")
+}
+
+```
+Tonality including tonal loudness
+
+```{r}
+# Tonality inc tonal loudness
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASTonalECMAHMSAvgMaxLR", "UASTonalECMAHMS05ExMaxLR", "UASTonalIntAvgMaxLR", "UASTonalInt05ExMaxLR", "UASTonLdECMAHMSPowAvgBin", "UASTonLdECMAHMS05ExBin", "UASTonalAuAvgMaxLR", "UASTonalAu05ExMaxLR", "UASTonalAu10ExMaxLR")
+resultsOutTonal1B <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='AnnoyMedian', seeds=c(5656, 118848, 5815, 4545, 12313), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutTonal1B$OOB_RMSE
+resultsOutTonal1B$OOB_abserror
+resultsOutTonal1B$Rsquared
+```
+
+```{r}
+# store results
+resAnnoyMedFitB['Abs inc tonal loud', 'RMSE'] <- resultsOutTonal1B$OOB_RMSE
+resAnnoyMedFitB['Abs inc tonal loud', 'Rsquared'] <- resultsOutTonal1B$Rsquared
+resAnnoyMedFitB['Abs inc tonal loud', which(colnames(resAnnoyMedFitB) == 'AEq0'):
+                                      which(colnames(resAnnoyMedFitB) == 'AEq100')] <- resultsOutTonal1B$OOB_abserror
+resAnnoyMedPermImpB$AbsTonal1 <- resultsOutTonal1B$conditional_permimp
+```
+
+```{r, fig.width=10,fig.height=3.8}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal1B.conimp <- data.frame('Var_imp'=rev(resultsOutTonal1B$conditional_permimp))
+
+pBar <- ggplot(resultsOutTonal1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1B.conimp), levels=rownames(resultsOutTonal1B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(0, 0.05))
+
+if (saveplots){
+  ggsave(filename="PtBAnnoyTonalLdConPermimp.svg", width=10, height=3.8, path=outFigPath)
+  unlink("PtBAnnoyTonalLdConPermimp.svg")
+}
+
+```
+Re-run tonality evaluation omitting tonal loudness 
+
+```{r}
+# Tonality
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASTonalECMAHMSAvgMaxLR", "UASTonalECMAHMS05ExMaxLR", "UASTonalIntAvgMaxLR", "UASTonalInt05ExMaxLR", "UASTonalAuAvgMaxLR", "UASTonalAu05ExMaxLR", "UASTonalAu10ExMaxLR")
+resultsOutTonal2B <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='AnnoyMedian', seeds=c(5656, 118848, 5815, 4545, 12313), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutTonal2B$OOB_RMSE
+resultsOutTonal2B$OOB_abserror
+resultsOutTonal2B$Rsquared
+```
+
+```{r}
+# store results
+resAnnoyMedFitB['Abs no tonal loud', 'RMSE'] <- resultsOutTonal2B$OOB_RMSE
+resAnnoyMedFitB['Abs no tonal loud', 'Rsquared'] <- resultsOutTonal2B$Rsquared
+resAnnoyMedFitB['Abs no tonal loud', which(colnames(resAnnoyMedFitB) == 'AEq0'):
+                                     which(colnames(resAnnoyMedFitB) == 'AEq100')] <- resultsOutTonal2B$OOB_abserror
+resAnnoyMedPermImpB$AbsTonal2 <- resultsOutTonal2B$conditional_permimp
+```
+
+```{r, fig.width=10,fig.height=3.2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal2B.conimp <- data.frame('Var_imp'=rev(resultsOutTonal2B$conditional_permimp))
+
+pBar <- ggplot(resultsOutTonal2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2B.conimp), levels=rownames(resultsOutTonal2B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(0, 0.05))
+
+if (saveplots){
+  ggsave(filename="PtBAnnoyTonalNoLdConPermimp.svg", width=10, height=3.2, path=outFigPath)
+  unlink("PtBAnnoyTonalNoLdConPermimp.svg")
+}
+
+```
+
+
+```{r}
+# Fluctuation strength
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASFluctHMS10ExBin", "UASFluctHMS05ExBin", "UASFluctFZ10ExMaxLR", "UASFluctFZ05ExMaxLR", "UASFluctOV10ExMaxLR", "UASFluctOV05ExMaxLR")
+resultsOutFluctB <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='AnnoyMedian', seeds=c(46446, 121, 54548, 3, 787), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutFluctB$OOB_RMSE
+resultsOutFluctB$OOB_abserror
+resultsOutFluctB$Rsquared
+```
+
+```{r}
+# store results
+resAnnoyMedFitB['Abs fluct', 'RMSE'] <- resultsOutFluctB$OOB_RMSE
+resAnnoyMedFitB['Abs fluct', 'Rsquared'] <- resultsOutFluctB$Rsquared
+resAnnoyMedFitB['Abs fluct', which(colnames(resAnnoyMedFitB) == 'AEq0'):
+                             which(colnames(resAnnoyMedFitB) == 'AEq100')] <- resultsOutFluctB$OOB_abserror
+resAnnoyMedPermImpB$AbsFluct <- resultsOutFluctB$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutFluctB.conimp <- data.frame('Var_imp'=rev(resultsOutFluctB$conditional_permimp))
+
+pBar <- ggplot(resultsOutFluctB.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluctB.conimp), levels=rownames(resultsOutFluctB.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtBAnnoyFluctConPermimp.svg", width=10, height=2.9, path=outFigPath)
+  unlink("PtBAnnoyFluctConPermimp.svg")
+}
+
+```
+
+```{r}
+# Roughness
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASRoughECMAHMS10ExBin", "UASRoughECMAHMS05ExBin", "UASRoughFZ10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASRoughDW10ExMaxLR", "UASRoughDW05ExMaxLR")
+resultsOutRoughB <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='AnnoyMedian', seeds=c(66, 78716, 8797, 87, 9421), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutRoughB$OOB_RMSE
+resultsOutRoughB$OOB_abserror
+resultsOutRoughB$Rsquared
+```
+
+```{r}
+# store results
+resAnnoyMedFitB['Abs rough', 'RMSE'] <- resultsOutRoughB$OOB_RMSE
+resAnnoyMedFitB['Abs rough', 'Rsquared'] <- resultsOutRoughB$Rsquared
+resAnnoyMedFitB['Abs rough', which(colnames(resAnnoyMedFitB) == 'AEq0'):
+                             which(colnames(resAnnoyMedFitB) == 'AEq100')] <- resultsOutRoughB$OOB_abserror
+resAnnoyMedPermImpB$AbsRough <- resultsOutRoughB$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutRoughB.conimp <- data.frame('Var_imp'=rev(resultsOutRoughB$conditional_permimp))
+
+pBar <- ggplot(resultsOutRoughB.conimp) + geom_col(aes(x=factor(rownames(resultsOutRoughB.conimp), levels=rownames(resultsOutRoughB.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtBAnnoyRoughConPermimp.svg", width=10, height=2.9, path=outFigPath)
+  unlink("PtBAnnoyRoughConPermimp.svg")
+}
+
+```
+
+```{r}
+# Impulsiveness
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASImpulsHMSAvgMaxLR", "UASImpulsHMS05ExMaxLR", "UASImpulsHMSPowAvgMaxLR")
+resultsOutImpulsB <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='AnnoyMedian', seeds=c(31, 45448, 8441, 546, 6451), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutImpulsB$OOB_RMSE
+resultsOutImpulsB$OOB_abserror
+resultsOutImpulsB$Rsquared
+```
+
+```{r}
+# store results
+resAnnoyMedFitB['Abs impuls', 'RMSE'] <- resultsOutImpulsB$OOB_RMSE
+resAnnoyMedFitB['Abs impuls', 'Rsquared'] <- resultsOutImpulsB$Rsquared
+resAnnoyMedFitB['Abs impuls', which(colnames(resAnnoyMedFitB) == 'AEq0'):
+                             which(colnames(resAnnoyMedFitB) == 'AEq100')] <- resultsOutImpulsB$OOB_abserror
+resAnnoyMedPermImpB$AbsImpuls <- resultsOutImpulsB$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutImpulsB.conimp <- data.frame('Var_imp'=rev(resultsOutImpulsB$conditional_permimp))
+
+pBar <- ggplot(resultsOutImpulsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpulsB.conimp), levels=rownames(resultsOutImpulsB.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtBAnnoyImpulsConPermimp.svg", width=10, height=2, path=outFigPath)
+  unlink("PtBAnnoyImpulsConPermimp.svg")
+}
+
+```
+#### SQM and loudness comparison
+
+Now the highest importance SQMs are ranked against each other, controlling for UAS loudness and ambient LAeq.
+
+```{r}
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASSharpAuresISO3PowAvgMaxLR", "UASTonLdECMAHMSPowAvgBin", "UASFluctOV10ExMaxLR", "UASRoughFZ10ExMaxLR", "UASImpulsHMSAvgMaxLR")
+resultsOutSQMs1B <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='AnnoyMedian', seeds=c(456, 41546, 7872, 5780, 45640), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutSQMs1B$OOB_RMSE
+resultsOutSQMs1B$OOB_abserror
+resultsOutSQMs1B$Rsquared
+```
+
+```{r}
+
+# store results
+resAnnoyMedFitB['Abs SQMs inc tonal loud', 'RMSE'] <- resultsOutSQMs1B$OOB_RMSE
+resAnnoyMedFitB['Abs SQMs inc tonal loud', 'Rsquared'] <- resultsOutSQMs1B$Rsquared
+resAnnoyMedFitB['Abs SQMs inc tonal loud', which(colnames(resAnnoyMedFitB) == 'AEq0'):
+                                          which(colnames(resAnnoyMedFitB) == 'AEq100')] <- resultsOutSQMs1B$OOB_abserror
+resAnnoyMedPermImpB$AbsSQMs1 <- resultsOutSQMs1B$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs1B.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs1B$conditional_permimp))
+
+pBar <- ggplot(resultsOutSQMs1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1B.conimp), levels=rownames(resultsOutSQMs1B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(0, 0.03))
+
+if (saveplots){
+  ggsave(filename="PtBAnnoyAbsSQMsTonLdConPermimp.svg", width=10, height=2.4, path=outFigPath)
+  unlink("PtBAnnoyAbsSQMsTonLdConPermimp.svg")
+}
+
+```
+
+Repeated without tonal loudness
+
+```{r}
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASSharpAuresISO3PowAvgMaxLR", "UASTonalAuAvgMaxLR", "UASFluctOV10ExMaxLR", "UASRoughFZ10ExMaxLR", "UASImpulsHMSAvgMaxLR")
+resultsOutSQMs2B <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='AnnoyMedian', seeds=c(456, 41546, 7872, 5780, 45640), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutSQMs2B$OOB_RMSE
+resultsOutSQMs2B$OOB_abserror
+resultsOutSQMs2B$Rsquared
+```
+
+```{r}
+
+# store results
+resAnnoyMedFitB['Abs SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2B$OOB_RMSE
+resAnnoyMedFitB['Abs SQMs no tonal loud', 'Rsquared'] <- resultsOutSQMs2B$Rsquared
+resAnnoyMedFitB['Abs SQMs no tonal loud', which(colnames(resAnnoyMedFitB) == 'AEq0'):
+                                          which(colnames(resAnnoyMedFitB) == 'AEq100')] <- resultsOutSQMs2B$OOB_abserror
+resAnnoyMedPermImpB$AbsSQMs2 <- resultsOutSQMs2B$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs2B.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs2B$conditional_permimp))
+
+pBar <- ggplot(resultsOutSQMs2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2B.conimp), levels=rownames(resultsOutSQMs2B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(0, 0.03))
+
+if (saveplots){
+  ggsave(filename="PtBAnnoyAbsSQMsNoTonLdConPermimp.svg", width=10, height=2.4, path=outFigPath)
+  unlink("PtBAnnoyAbsSQMsNoTonLdConPermimp.svg")
+}
+
+```
+
+### Difference variables
+
+Next, the difference metrics are analysed, 
+
+#### Remove ambient only stimuli
+
+Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
+
+```{r}
+stimDataBNum <- stimDataBNum[complete.cases(stimDataBNum),]
+stimDataBNum$UASLAeq <- as.numeric(stimDataBNum$UASLAeq)
+stimDataBNum$SNRlevel <- as.numeric(stimDataBNum$SNRlevel)
+```
+
+```{r}
+iVars <- c(names(stimDataBNum)[which(colnames(stimDataBNum)=="LAeqdiffLAF90"):
+                               which(colnames(stimDataBNum)=="dImpulsHMS05ExMaxLR")], "SNRlevel", "UASEvents")
+resultsOutDiffsB <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='AnnoyMedian', seeds=c(7005, 126, 4540, 5465, 840), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutDiffsB$OOB_RMSE
+resultsOutDiffsB$OOB_abserror
+resultsOutDiffsB$Rsquared
+```
+
+```{r}
+
+# store results
+resAnnoyMedFitB['Diff vars', 'RMSE'] <- resultsOutDiffsB$OOB_RMSE
+resAnnoyMedFitB['Diff vars', 'Rsquared'] <- resultsOutDiffsB$Rsquared
+resAnnoyMedFitB['Diff vars', which(colnames(resAnnoyMedFitB) == 'AEq0'):
+                            which(colnames(resAnnoyMedFitB) == 'AEq100')] <- resultsOutDiffsB$OOB_abserror
+resAnnoyMedPermImpB$DiffVars <- resultsOutDiffsB$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutDiffsB.conimp <- data.frame('Var_imp'=rev(resultsOutDiffsB$conditional_permimp))
+
+pBar <- ggplot(resultsOutDiffsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffsB.conimp), levels=rownames(resultsOutDiffsB.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtBAnnoyDiffVarsConPermimp.svg", width=10, height=9, path=outFigPath)
+  unlink("PtBAnnoyDiffVarsConPermimp.svg")
+}
+
+```
+Save the results outputs to file
+
+```{r}
+
+if (savedata){
+  utils::write.csv(resAnnoyMedFitB, paste(outDataPath, "\\ptBCRFAnnoyOOBFit.csv", sep=""))
+  ii <- 0
+  temp = list()
+  for (res in resAnnoyMedPermImpB){
+    ii <- ii + 1
+    temp[[ii]] <- as.data.frame(resAnnoyMedPermImpB[ii])
+    names(temp[[ii]]) <- names(resAnnoyMedPermImpB[ii])
+  }
+  openxlsx::write.xlsx(temp, paste(outDataPath, "\\ptBCRFAnnoyConPermimp.xlsx",
+                                   sep=""),
+                       rowNames=TRUE)
+}
+
+```
+
+## Change in annoyance
+
+### Absolute variables
+
+The random forest modelling is run on the aggregated data, including all the variables.
+
+#### Remove ambient only stimuli
+
+Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
+
+```{r}
+stimDataBNum <- stimDataBNum[complete.cases(stimDataBNum),]
+
+stimDataBNum$UASLAeq <- as.numeric(stimDataBNum$UASLAeq)
+stimDataBNum$SNRlevel <- as.numeric(stimDataBNum$SNRlevel)
+
+```
+
+```{r}
+resdAnnoyMedFitB <- data.frame(RMSE = numeric(),
+                               Rsquared = numeric(),
+                               AEq0 = numeric(),
+                               AEq25 = numeric(),
+                               AEq50 = numeric(),
+                               AEq75 = numeric(),
+                               AEq100 = numeric())
+resdAnnoyMedPermImpB <- list()
+
+```
+
+
+```{r}
+iVars <- names(stimDataBNum)[which(names(stimDataBNum) == 'UASEvents'):which(names(stimDataBNum) == 'UASImpulsHMS05ExMaxLR')]
+iVars <- iVars[! iVars %in% 'SNRlevel']
+resultsOutAbsB <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(54654, 15102, 8405, 10, 9174), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutAbsB$OOB_RMSE
+resultsOutAbsB$OOB_abserror
+resultsOutAbsB$Rsquared
+```
+
+```{r}
+# store results
+resdAnnoyMedFitB['Abs vars', 'RMSE'] <- resultsOutAbsB$OOB_RMSE
+resdAnnoyMedFitB['Abs vars', 'Rsquared'] <- resultsOutAbsB$Rsquared
+resdAnnoyMedFitB['Abs vars', which(colnames(resdAnnoyMedFitB) == 'AEq0'):
+                             which(colnames(resdAnnoyMedFitB) == 'AEq100')] <- resultsOutAbsB$OOB_abserror
+resdAnnoyMedPermImpB$AbsVars <- resultsOutAbsB$conditional_permimp
+```
+
+```{r, fig.width=10,fig.height=11.5}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutAbsB.conimp <- data.frame('Var_imp'=rev(resultsOutAbsB$conditional_permimp))
+
+pBar <- ggplot(resultsOutAbsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbsB.conimp), levels=rownames(resultsOutAbsB.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtBdAnnoyAbsVarsConPermimp.svg", width=10, height=11.5, path=outFigPath)
+  unlink("PtBdAnnoyAbsVarsConPermimp.svg")
+}
+
+```
+### SQM analysis
+
+#### Replace ambient only stimuli
+
+Here, the 'ambient only' stimuli are replaced, as the SQM analysis can incorporate 0 values (whereas dB metrics cannot be handled in this way).
+
+```{r}
+
+stimDataBNum <- rbind(stimDataBNum, stimDataB[stimDataB['Recording']
+                                              == "B2_CALBIN_Pa.wav",
+                                              colnames(stimDataBNum)])
+stimDataBNum <- arrange(stimDataBNum, Recording)
+
+```
+
+
+#### Individual SQMs
+
+Now a model is run omitting loudness and level variables, while retaining only (one of) the top importance loudness variables, and each category of SQM in turn.
+
+```{r}
+# Sharpness
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASSharpAuresISO3PowAvgMaxLR", "UASSharpAuresISO305ExMaxLR")
+resultsOutSharpB <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(8605, 322, 7460, 98, 1984), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutSharpB$OOB_RMSE
+resultsOutSharpB$OOB_abserror
+resultsOutSharpB$Rsquared
+```
+
+```{r}
+# store results
+resdAnnoyMedFitB['Abs sharp', 'RMSE'] <- resultsOutSharpB$OOB_RMSE
+resdAnnoyMedFitB['Abs sharp', 'Rsquared'] <- resultsOutSharpB$Rsquared
+resdAnnoyMedFitB['Abs sharp', which(colnames(resdAnnoyMedFitB) == 'AEq0'):
+                              which(colnames(resdAnnoyMedFitB) == 'AEq100')] <- resultsOutSharpB$OOB_abserror
+resdAnnoyMedPermImpB$AbsSharp <- resultsOutSharpB$conditional_permimp
+```
+
+```{r, fig.width=10,fig.height=1.7}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSharpB.conimp <- data.frame('Var_imp'=rev(resultsOutSharpB$conditional_permimp))
+
+pBar <- ggplot(resultsOutSharpB.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharpB.conimp), levels=rownames(resultsOutSharpB.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtBdAnnoySharpConPermimp.svg", width=10, height=1.7, path=outFigPath)
+  unlink("PtBdAnnoySharpConPermimp.svg")
+}
+
+```
+Tonality including tonal loudness
+
+```{r}
+# Tonality inc tonal loudness
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASTonalECMAHMSAvgMaxLR", "UASTonalECMAHMS05ExMaxLR", "UASTonalIntAvgMaxLR", "UASTonalInt05ExMaxLR", "UASTonLdECMAHMSPowAvgBin", "UASTonLdECMAHMS05ExBin", "UASTonalAuAvgMaxLR", "UASTonalAu05ExMaxLR", "UASTonalAu10ExMaxLR")
+resultsOutTonal1B <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(324505, 1324, 5078, 508, 780), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutTonal1B$OOB_RMSE
+resultsOutTonal1B$OOB_abserror
+resultsOutTonal1B$Rsquared
+```
+
+```{r}
+# store results
+resdAnnoyMedFitB['Abs inc tonal loud', 'RMSE'] <- resultsOutTonal1B$OOB_RMSE
+resdAnnoyMedFitB['Abs inc tonal loud', 'Rsquared'] <- resultsOutTonal1B$Rsquared
+resdAnnoyMedFitB['Abs inc tonal loud', which(colnames(resdAnnoyMedFitB) == 'AEq0'):
+                                       which(colnames(resdAnnoyMedFitB) == 'AEq100')] <- resultsOutTonal1B$OOB_abserror
+resdAnnoyMedPermImpB$AbsTonal1 <- resultsOutTonal1B$conditional_permimp
+```
+
+```{r, fig.width=10,fig.height=3.8}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal1B.conimp <- data.frame('Var_imp'=rev(resultsOutTonal1B$conditional_permimp))
+
+pBar <- ggplot(resultsOutTonal1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1B.conimp), levels=rownames(resultsOutTonal1B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(-0.005, 0.03))
+
+if (saveplots){
+  ggsave(filename="PtBdAnnoyTonalLdConPermimp.svg", width=10, height=3.8, path=outFigPath)
+  unlink("PtBdAnnoyTonalLdConPermimp.svg")
+}
+
+```
+Re-run tonality evaluation omitting tonal loudness 
+
+```{r}
+# Tonality
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASTonalECMAHMSAvgMaxLR", "UASTonalECMAHMS05ExMaxLR", "UASTonalIntAvgMaxLR", "UASTonalInt05ExMaxLR", "UASTonalAuAvgMaxLR", "UASTonalAu05ExMaxLR", "UASTonalAu10ExMaxLR")
+resultsOutTonal2B <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(324505, 1324, 5078, 508, 780), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutTonal2B$OOB_RMSE
+resultsOutTonal2B$OOB_abserror
+resultsOutTonal2B$Rsquared
+```
+
+```{r}
+# store results
+resdAnnoyMedFitB['Abs no tonal loud', 'RMSE'] <- resultsOutTonal2B$OOB_RMSE
+resdAnnoyMedFitB['Abs no tonal loud', 'Rsquared'] <- resultsOutTonal2B$Rsquared
+resdAnnoyMedFitB['Abs no tonal loud', which(colnames(resdAnnoyMedFitB) == 'AEq0'):
+                                     which(colnames(resdAnnoyMedFitB) == 'AEq100')] <- resultsOutTonal2B$OOB_abserror
+resdAnnoyMedPermImpB$AbsTonal2 <- resultsOutTonal2B$conditional_permimp
+```
+
+```{r, fig.width=10,fig.height=3.2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal2B.conimp <- data.frame('Var_imp'=rev(resultsOutTonal2B$conditional_permimp))
+
+pBar <- ggplot(resultsOutTonal2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2B.conimp), levels=rownames(resultsOutTonal2B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(-0.005, 0.03))
+
+if (saveplots){
+  ggsave(filename="PtBdAnnoyTonalNoLdConPermimp.svg", width=10, height=3.2, path=outFigPath)
+  unlink("PtBdAnnoyTonalNoLdConPermimp.svg")
+}
+
+```
+
+
+```{r}
+# Fluctuation strength
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASFluctHMS10ExBin", "UASFluctHMS05ExBin", "UASFluctFZ10ExMaxLR", "UASFluctFZ05ExMaxLR", "UASFluctOV10ExMaxLR", "UASFluctOV05ExMaxLR")
+resultsOutFluctB <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(724, 2298, 70460, 541, 7456), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutFluctB$OOB_RMSE
+resultsOutFluctB$OOB_abserror
+resultsOutFluctB$Rsquared
+```
+
+```{r}
+# store results
+resdAnnoyMedFitB['Abs fluct', 'RMSE'] <- resultsOutFluctB$OOB_RMSE
+resdAnnoyMedFitB['Abs fluct', 'Rsquared'] <- resultsOutFluctB$Rsquared
+resdAnnoyMedFitB['Abs fluct', which(colnames(resdAnnoyMedFitB) == 'AEq0'):
+                             which(colnames(resdAnnoyMedFitB) == 'AEq100')] <- resultsOutFluctB$OOB_abserror
+resdAnnoyMedPermImpB$AbsFluct <- resultsOutFluctB$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutFluctB.conimp <- data.frame('Var_imp'=rev(resultsOutFluctB$conditional_permimp))
+
+pBar <- ggplot(resultsOutFluctB.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluctB.conimp), levels=rownames(resultsOutFluctB.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtBdAnnoyFluctConPermimp.svg", width=10, height=2.9, path=outFigPath)
+  unlink("PtBdAnnoyFluctConPermimp.svg")
+}
+
+```
+
+```{r}
+# Roughness
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASRoughECMAHMS10ExBin", "UASRoughECMAHMS05ExBin", "UASRoughFZ10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASRoughDW10ExMaxLR", "UASRoughDW05ExMaxLR")
+resultsOutRoughB <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(1508, 850, 8, 7804, 38), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutRoughB$OOB_RMSE
+resultsOutRoughB$OOB_abserror
+resultsOutRoughB$Rsquared
+```
+
+```{r}
+# store results
+resdAnnoyMedFitB['Abs rough', 'RMSE'] <- resultsOutRoughB$OOB_RMSE
+resdAnnoyMedFitB['Abs rough', 'Rsquared'] <- resultsOutRoughB$Rsquared
+resdAnnoyMedFitB['Abs rough', which(colnames(resdAnnoyMedFitB) == 'AEq0'):
+                             which(colnames(resdAnnoyMedFitB) == 'AEq100')] <- resultsOutRoughB$OOB_abserror
+resdAnnoyMedPermImpB$AbsRough <- resultsOutRoughB$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutRoughB.conimp <- data.frame('Var_imp'=rev(resultsOutRoughB$conditional_permimp))
+
+pBar <- ggplot(resultsOutRoughB.conimp) + geom_col(aes(x=factor(rownames(resultsOutRoughB.conimp), levels=rownames(resultsOutRoughB.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtBdAnnoyRoughConPermimp.svg", width=10, height=2.9, path=outFigPath)
+  unlink("PtBdAnnoyRoughConPermimp.svg")
+}
+
+```
+
+```{r}
+# Impulsiveness
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASImpulsHMSAvgMaxLR", "UASImpulsHMS05ExMaxLR", "UASImpulsHMSPowAvgMaxLR")
+resultsOutImpulsB <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(50278, 30561, 65740, 21, 155), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutImpulsB$OOB_RMSE
+resultsOutImpulsB$OOB_abserror
+resultsOutImpulsB$Rsquared
+```
+
+```{r}
+# store results
+resdAnnoyMedFitB['Abs impuls', 'RMSE'] <- resultsOutImpulsB$OOB_RMSE
+resdAnnoyMedFitB['Abs impuls', 'Rsquared'] <- resultsOutImpulsB$Rsquared
+resdAnnoyMedFitB['Abs impuls', which(colnames(resdAnnoyMedFitB) == 'AEq0'):
+                             which(colnames(resdAnnoyMedFitB) == 'AEq100')] <- resultsOutImpulsB$OOB_abserror
+resdAnnoyMedPermImpB$AbsImpuls <- resultsOutImpulsB$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutImpulsB.conimp <- data.frame('Var_imp'=rev(resultsOutImpulsB$conditional_permimp))
+
+pBar <- ggplot(resultsOutImpulsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpulsB.conimp), levels=rownames(resultsOutImpulsB.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtBdAnnoyImpulsConPermimp.svg", width=10, height=2, path=outFigPath)
+  unlink("PtBdAnnoyImpulsConPermimp.svg")
+}
+
+```
+#### SQM and loudness comparison
+
+Now the highest importance SQMs are ranked against each other, controlling for UAS loudness and ambient LAeq.
+
+```{r}
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASSharpAuresISO3PowAvgMaxLR", "UASTonLdECMAHMSPowAvgBin", "UASFluctFZ10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASImpulsHMS05ExMaxLR")
+resultsOutSQMs1B <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(4888, 50881, 804, 5470, 257), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutSQMs1B$OOB_RMSE
+resultsOutSQMs1B$OOB_abserror
+resultsOutSQMs1B$Rsquared
+```
+
+```{r}
+
+# store results
+resdAnnoyMedFitB['Abs SQMs inc tonal loud', 'RMSE'] <- resultsOutSQMs1B$OOB_RMSE
+resdAnnoyMedFitB['Abs SQMs inc tonal loud', 'Rsquared'] <- resultsOutSQMs1B$Rsquared
+resdAnnoyMedFitB['Abs SQMs inc tonal loud', which(colnames(resdAnnoyMedFitB) == 'AEq0'):
+                                          which(colnames(resdAnnoyMedFitB) == 'AEq100')] <- resultsOutSQMs1B$OOB_abserror
+resdAnnoyMedPermImpB$AbsSQMs1 <- resultsOutSQMs1B$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs1B.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs1B$conditional_permimp))
+
+pBar <- ggplot(resultsOutSQMs1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1B.conimp), levels=rownames(resultsOutSQMs1B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(-0.01, 0.025))
+
+if (saveplots){
+  ggsave(filename="PtBdAnnoyAbsSQMsTonLdConPermimp.svg", width=10, height=2.4, path=outFigPath)
+  unlink("PtBdAnnoyAbsSQMsTonLdConPermimp.svg")
+}
+
+```
+
+Repeated without tonal loudness
+
+```{r}
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASSharpAuresISO3PowAvgMaxLR", "UASTonalECMAHMSAvgMaxLR", "UASFluctFZ10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASImpulsHMS05ExMaxLR")
+resultsOutSQMs2B <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(4888, 50881, 804, 5470, 257), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutSQMs2B$OOB_RMSE
+resultsOutSQMs2B$OOB_abserror
+resultsOutSQMs2B$Rsquared
+```
+
+```{r}
+
+# store results
+resdAnnoyMedFitB['Abs SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2B$OOB_RMSE
+resdAnnoyMedFitB['Abs SQMs no tonal loud', 'Rsquared'] <- resultsOutSQMs2B$Rsquared
+resdAnnoyMedFitB['Abs SQMs no tonal loud', which(colnames(resdAnnoyMedFitB) == 'AEq0'):
+                                          which(colnames(resdAnnoyMedFitB) == 'AEq100')] <- resultsOutSQMs2B$OOB_abserror
+resdAnnoyMedPermImpB$AbsSQMs2 <- resultsOutSQMs2B$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs2B.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs2B$conditional_permimp))
+
+pBar <- ggplot(resultsOutSQMs2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2B.conimp), levels=rownames(resultsOutSQMs2B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(-0.01, 0.025))
+
+if (saveplots){
+  ggsave(filename="PtBdAnnoyAbsSQMsNoTonLdConPermimp.svg", width=10, height=2.4, path=outFigPath)
+  unlink("PtBdAnnoyAbsSQMsNoTonLdConPermimp.svg")
+}
+
+```
+
+### Difference variables
+
+Next, the difference metrics are analysed, 
+
+#### Remove ambient only stimuli
+
+Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
+
+```{r}
+stimDataBNum <- stimDataBNum[complete.cases(stimDataBNum),]
+stimDataBNum$UASLAeq <- as.numeric(stimDataBNum$UASLAeq)
+stimDataBNum$SNRlevel <- as.numeric(stimDataBNum$SNRlevel)
+```
+
+```{r}
+iVars <- c(names(stimDataBNum)[which(colnames(stimDataBNum)=="LAeqdiffLAF90"):
+                               which(colnames(stimDataBNum)=="dImpulsHMS05ExMaxLR")], "SNRlevel", "UASEvents")
+resultsOutDiffsB <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='dAnnoyMedian', seeds=c(70765, 3277, 790150, 4308, 8888), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutDiffsB$OOB_RMSE
+resultsOutDiffsB$OOB_abserror
+resultsOutDiffsB$Rsquared
+```
+
+```{r}
+
+# store results
+resdAnnoyMedFitB['Diff vars', 'RMSE'] <- resultsOutDiffsB$OOB_RMSE
+resdAnnoyMedFitB['Diff vars', 'Rsquared'] <- resultsOutDiffsB$Rsquared
+resdAnnoyMedFitB['Diff vars', which(colnames(resdAnnoyMedFitB) == 'AEq0'):
+                            which(colnames(resdAnnoyMedFitB) == 'AEq100')] <- resultsOutDiffsB$OOB_abserror
+resdAnnoyMedPermImpB$DiffVars <- resultsOutDiffsB$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutDiffsB.conimp <- data.frame('Var_imp'=rev(resultsOutDiffsB$conditional_permimp))
+
+pBar <- ggplot(resultsOutDiffsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffsB.conimp), levels=rownames(resultsOutDiffsB.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtBdAnnoyDiffVarsConPermimp.svg", width=10, height=9, path=outFigPath)
+  unlink("PtBdAnnoyDiffVarsConPermimp.svg")
+}
+
+```
+Save the results outputs to file
+
+```{r}
+
+if (savedata){
+  utils::write.csv(resdAnnoyMedFitB, paste(outDataPath, "\\ptBCRFdAnnoyOOBFit.csv", sep=""))
+  ii <- 0
+  temp = list()
+  for (res in resdAnnoyMedPermImpB){
+    ii <- ii + 1
+    temp[[ii]] <- as.data.frame(resdAnnoyMedPermImpB[ii])
+    names(temp[[ii]]) <- names(resdAnnoyMedPermImpB[ii])
+  }
+  openxlsx::write.xlsx(temp, paste(outDataPath, "\\ptBCRFdAnnoyConPermimp.xlsx",
+                                   sep=""),
+                       rowNames=TRUE)
+}
+
+```
+
+## High annoyance
+
+### Absolute variables
+
+The random forest modelling is run on the aggregated data, including all the variables.
+
+#### Remove ambient only stimuli
+
+Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
+
+```{r}
+stimDataBNum <- stimDataBNum[complete.cases(stimDataBNum),]
+
+stimDataBNum$UASLAeq <- as.numeric(stimDataBNum$UASLAeq)
+stimDataBNum$SNRlevel <- as.numeric(stimDataBNum$SNRlevel)
+
+```
+
+```{r}
+resHiAnnoyMedFitB <- data.frame(RMSE = numeric(),
+                                Rsquared = numeric(),
+                                AEq0 = numeric(),
+                                AEq25 = numeric(),
+                                AEq50 = numeric(),
+                                AEq75 = numeric(),
+                                AEq100 = numeric())
+resHiAnnoyMedPermImpB <- list()
+
+```
+
+
+```{r}
+iVars <- names(stimDataBNum)[which(names(stimDataBNum) == 'UASEvents'):which(names(stimDataBNum) == 'UASImpulsHMS05ExMaxLR')]
+iVars <- iVars[! iVars %in% 'SNRlevel']
+resultsOutAbsB <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(42757, 31908, 37, 8005, 2), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutAbsB$OOB_RMSE
+resultsOutAbsB$OOB_abserror
+resultsOutAbsB$Rsquared
+```
+
+```{r}
+# store results
+resHiAnnoyMedFitB['Abs vars', 'RMSE'] <- resultsOutAbsB$OOB_RMSE
+resHiAnnoyMedFitB['Abs vars', 'Rsquared'] <- resultsOutAbsB$Rsquared
+resHiAnnoyMedFitB['Abs vars', which(colnames(resHiAnnoyMedFitB) == 'AEq0'):
+                              which(colnames(resHiAnnoyMedFitB) == 'AEq100')] <- resultsOutAbsB$OOB_abserror
+resHiAnnoyMedPermImpB$AbsVars <- resultsOutAbsB$conditional_permimp
+```
+
+```{r, fig.width=10,fig.height=11.5}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutAbsB.conimp <- data.frame('Var_imp'=rev(resultsOutAbsB$conditional_permimp))
+
+pBar <- ggplot(resultsOutAbsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbsB.conimp), levels=rownames(resultsOutAbsB.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtBHiAnnoyAbsVarsConPermimp.svg", width=10, height=11.5, path=outFigPath)
+  unlink("PtBHiAnnoyAbsVarsConPermimp.svg")
+}
+
+```
+### SQM analysis
+
+#### Replace ambient only stimuli
+
+Here, the 'ambient only' stimuli are replaced, as the SQM analysis can incorporate 0 values (whereas dB metrics cannot be handled in this way).
+
+```{r}
+
+stimDataBNum <- rbind(stimDataBNum, stimDataB[stimDataB['Recording']
+                                              == "B2_CALBIN_Pa.wav",
+                                              colnames(stimDataBNum)])
+stimDataBNum <- arrange(stimDataBNum, Recording)
+
+```
+
+
+#### Individual SQMs
+
+Now a model is run omitting loudness and level variables, while retaining only (one of) the top importance loudness variables, and each category of SQM in turn.
+
+```{r}
+# Sharpness
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASSharpAuresISO3PowAvgMaxLR", "UASSharpAuresISO305ExMaxLR")
+resultsOutSharpB <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(702, 8, 1415, 15771, 147), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutSharpB$OOB_RMSE
+resultsOutSharpB$OOB_abserror
+resultsOutSharpB$Rsquared
+```
+
+```{r}
+# store results
+resHiAnnoyMedFitB['Abs sharp', 'RMSE'] <- resultsOutSharpB$OOB_RMSE
+resHiAnnoyMedFitB['Abs sharp', 'Rsquared'] <- resultsOutSharpB$Rsquared
+resHiAnnoyMedFitB['Abs sharp', which(colnames(resHiAnnoyMedFitB) == 'AEq0'):
+                              which(colnames(resHiAnnoyMedFitB) == 'AEq100')] <- resultsOutSharpB$OOB_abserror
+resHiAnnoyMedPermImpB$AbsSharp <- resultsOutSharpB$conditional_permimp
+```
+
+```{r, fig.width=10,fig.height=1.7}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSharpB.conimp <- data.frame('Var_imp'=rev(resultsOutSharpB$conditional_permimp))
+
+pBar <- ggplot(resultsOutSharpB.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharpB.conimp), levels=rownames(resultsOutSharpB.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtBHiAnnoySharpConPermimp.svg", width=10, height=1.7, path=outFigPath)
+  unlink("PtBHiAnnoySharpConPermimp.svg")
+}
+
+```
+Tonality including tonal loudness
+
+```{r}
+# Tonality inc tonal loudness
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASTonalECMAHMSAvgMaxLR", "UASTonalECMAHMS05ExMaxLR", "UASTonalIntAvgMaxLR", "UASTonalInt05ExMaxLR", "UASTonLdECMAHMSPowAvgBin", "UASTonLdECMAHMS05ExBin", "UASTonalAuAvgMaxLR", "UASTonalAu05ExMaxLR", "UASTonalAu10ExMaxLR")
+resultsOutTonal1B <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(50434, 3057, 580, 451, 547), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutTonal1B$OOB_RMSE
+resultsOutTonal1B$OOB_abserror
+resultsOutTonal1B$Rsquared
+```
+
+```{r}
+# store results
+resHiAnnoyMedFitB['Abs inc tonal loud', 'RMSE'] <- resultsOutTonal1B$OOB_RMSE
+resHiAnnoyMedFitB['Abs inc tonal loud', 'Rsquared'] <- resultsOutTonal1B$Rsquared
+resHiAnnoyMedFitB['Abs inc tonal loud', which(colnames(resHiAnnoyMedFitB) == 'AEq0'):
+                                       which(colnames(resHiAnnoyMedFitB) == 'AEq100')] <- resultsOutTonal1B$OOB_abserror
+resHiAnnoyMedPermImpB$AbsTonal1 <- resultsOutTonal1B$conditional_permimp
+```
+
+```{r, fig.width=10,fig.height=3.8}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal1B.conimp <- data.frame('Var_imp'=rev(resultsOutTonal1B$conditional_permimp))
+
+pBar <- ggplot(resultsOutTonal1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1B.conimp), levels=rownames(resultsOutTonal1B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(-0.005, 0.03))
+
+if (saveplots){
+  ggsave(filename="PtBHiAnnoyTonalLdConPermimp.svg", width=10, height=3.8, path=outFigPath)
+  unlink("PtBHiAnnoyTonalLdConPermimp.svg")
+}
+
+```
+Re-run tonality evaluation omitting tonal loudness 
+
+```{r}
+# Tonality
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASTonalECMAHMSAvgMaxLR", "UASTonalECMAHMS05ExMaxLR", "UASTonalIntAvgMaxLR", "UASTonalInt05ExMaxLR", "UASTonalAuAvgMaxLR", "UASTonalAu05ExMaxLR", "UASTonalAu10ExMaxLR")
+resultsOutTonal2B <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(50434, 3057, 580, 451, 547), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutTonal2B$OOB_RMSE
+resultsOutTonal2B$OOB_abserror
+resultsOutTonal2B$Rsquared
+```
+
+```{r}
+# store results
+resHiAnnoyMedFitB['Abs no tonal loud', 'RMSE'] <- resultsOutTonal2B$OOB_RMSE
+resHiAnnoyMedFitB['Abs no tonal loud', 'Rsquared'] <- resultsOutTonal2B$Rsquared
+resHiAnnoyMedFitB['Abs no tonal loud', which(colnames(resHiAnnoyMedFitB) == 'AEq0'):
+                                     which(colnames(resHiAnnoyMedFitB) == 'AEq100')] <- resultsOutTonal2B$OOB_abserror
+resHiAnnoyMedPermImpB$AbsTonal2 <- resultsOutTonal2B$conditional_permimp
+```
+
+```{r, fig.width=10,fig.height=3.2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal2B.conimp <- data.frame('Var_imp'=rev(resultsOutTonal2B$conditional_permimp))
+
+pBar <- ggplot(resultsOutTonal2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2B.conimp), levels=rownames(resultsOutTonal2B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(-0.005, 0.03))
+
+if (saveplots){
+  ggsave(filename="PtBHiAnnoyTonalNoLdConPermimp.svg", width=10, height=3.2, path=outFigPath)
+  unlink("PtBHiAnnoyTonalNoLdConPermimp.svg")
+}
+
+```
+
+
+```{r}
+# Fluctuation strength
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASFluctHMS10ExBin", "UASFluctHMS05ExBin", "UASFluctFZ10ExMaxLR", "UASFluctFZ05ExMaxLR", "UASFluctOV10ExMaxLR", "UASFluctOV05ExMaxLR")
+resultsOutFluctB <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(82824, 5220, 4, 165, 95941), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutFluctB$OOB_RMSE
+resultsOutFluctB$OOB_abserror
+resultsOutFluctB$Rsquared
+```
+
+```{r}
+# store results
+resHiAnnoyMedFitB['Abs fluct', 'RMSE'] <- resultsOutFluctB$OOB_RMSE
+resHiAnnoyMedFitB['Abs fluct', 'Rsquared'] <- resultsOutFluctB$Rsquared
+resHiAnnoyMedFitB['Abs fluct', which(colnames(resHiAnnoyMedFitB) == 'AEq0'):
+                             which(colnames(resHiAnnoyMedFitB) == 'AEq100')] <- resultsOutFluctB$OOB_abserror
+resHiAnnoyMedPermImpB$AbsFluct <- resultsOutFluctB$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutFluctB.conimp <- data.frame('Var_imp'=rev(resultsOutFluctB$conditional_permimp))
+
+pBar <- ggplot(resultsOutFluctB.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluctB.conimp), levels=rownames(resultsOutFluctB.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtBHiAnnoyFluctConPermimp.svg", width=10, height=2.9, path=outFigPath)
+  unlink("PtBHiAnnoyFluctConPermimp.svg")
+}
+
+```
+
+```{r}
+# Roughness
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASRoughECMAHMS10ExBin", "UASRoughECMAHMS05ExBin", "UASRoughFZ10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASRoughDW10ExMaxLR", "UASRoughDW05ExMaxLR")
+resultsOutRoughB <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(954, 250, 56565, 480, 543), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutRoughB$OOB_RMSE
+resultsOutRoughB$OOB_abserror
+resultsOutRoughB$Rsquared
+```
+
+```{r}
+# store results
+resHiAnnoyMedFitB['Abs rough', 'RMSE'] <- resultsOutRoughB$OOB_RMSE
+resHiAnnoyMedFitB['Abs rough', 'Rsquared'] <- resultsOutRoughB$Rsquared
+resHiAnnoyMedFitB['Abs rough', which(colnames(resHiAnnoyMedFitB) == 'AEq0'):
+                             which(colnames(resHiAnnoyMedFitB) == 'AEq100')] <- resultsOutRoughB$OOB_abserror
+resHiAnnoyMedPermImpB$AbsRough <- resultsOutRoughB$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutRoughB.conimp <- data.frame('Var_imp'=rev(resultsOutRoughB$conditional_permimp))
+
+pBar <- ggplot(resultsOutRoughB.conimp) + geom_col(aes(x=factor(rownames(resultsOutRoughB.conimp), levels=rownames(resultsOutRoughB.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtBHiAnnoyRoughConPermimp.svg", width=10, height=2.9, path=outFigPath)
+  unlink("PtBHiAnnoyRoughConPermimp.svg")
+}
+
+```
+
+```{r}
+# Impulsiveness
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASImpulsHMSAvgMaxLR", "UASImpulsHMS05ExMaxLR", "UASImpulsHMSPowAvgMaxLR")
+resultsOutImpulsB <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(6525, 6541, 4581, 2216, 5656032), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutImpulsB$OOB_RMSE
+resultsOutImpulsB$OOB_abserror
+resultsOutImpulsB$Rsquared
+```
+
+```{r}
+# store results
+resHiAnnoyMedFitB['Abs impuls', 'RMSE'] <- resultsOutImpulsB$OOB_RMSE
+resHiAnnoyMedFitB['Abs impuls', 'Rsquared'] <- resultsOutImpulsB$Rsquared
+resHiAnnoyMedFitB['Abs impuls', which(colnames(resHiAnnoyMedFitB) == 'AEq0'):
+                             which(colnames(resHiAnnoyMedFitB) == 'AEq100')] <- resultsOutImpulsB$OOB_abserror
+resHiAnnoyMedPermImpB$AbsImpuls <- resultsOutImpulsB$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutImpulsB.conimp <- data.frame('Var_imp'=rev(resultsOutImpulsB$conditional_permimp))
+
+pBar <- ggplot(resultsOutImpulsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpulsB.conimp), levels=rownames(resultsOutImpulsB.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"))
+pBar + coord_flip()
+
+if (saveplots){
+  ggsave(filename="PtBHiAnnoyImpulsConPermimp.svg", width=10, height=2, path=outFigPath)
+  unlink("PtBHiAnnoyImpulsConPermimp.svg")
+}
+
+```
+#### SQM and loudness comparison
+
+Now the highest importance SQMs are ranked against each other, controlling for UAS loudness and ambient LAeq.
+
+```{r}
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASSharpAuresISO3PowAvgMaxLR", "UASTonLdECMAHMSPowAvgBin", "UASFluctOV10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASImpulsHMSAvgMaxLR")
+resultsOutSQMs1B <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(545, 944, 12120, 46484, 165), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutSQMs1B$OOB_RMSE
+resultsOutSQMs1B$OOB_abserror
+resultsOutSQMs1B$Rsquared
+```
+
+```{r}
+
+# store results
+resHiAnnoyMedFitB['Abs SQMs inc tonal loud', 'RMSE'] <- resultsOutSQMs1B$OOB_RMSE
+resHiAnnoyMedFitB['Abs SQMs inc tonal loud', 'Rsquared'] <- resultsOutSQMs1B$Rsquared
+resHiAnnoyMedFitB['Abs SQMs inc tonal loud', which(colnames(resHiAnnoyMedFitB) == 'AEq0'):
+                                          which(colnames(resHiAnnoyMedFitB) == 'AEq100')] <- resultsOutSQMs1B$OOB_abserror
+resHiAnnoyMedPermImpB$AbsSQMs1 <- resultsOutSQMs1B$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs1B.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs1B$conditional_permimp))
+
+pBar <- ggplot(resultsOutSQMs1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1B.conimp), levels=rownames(resultsOutSQMs1B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(-0.01, 0.025))
+
+if (saveplots){
+  ggsave(filename="PtBHiAnnoyAbsSQMsTonLdConPermimp.svg", width=10, height=2.4, path=outFigPath)
+  unlink("PtBHiAnnoyAbsSQMsTonLdConPermimp.svg")
+}
+
+```
+
+Repeated without tonal loudness
+
+```{r}
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASSharpAuresISO3PowAvgMaxLR", "UASTonalAuAvgMaxLR", "UASFluctOV10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASImpulsHMSAvgMaxLR")
+resultsOutSQMs2B <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(545, 944, 12120, 46484, 165), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutSQMs2B$OOB_RMSE
+resultsOutSQMs2B$OOB_abserror
+resultsOutSQMs2B$Rsquared
+```
+
+```{r}
+
+# store results
+resHiAnnoyMedFitB['Abs SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2B$OOB_RMSE
+resHiAnnoyMedFitB['Abs SQMs no tonal loud', 'Rsquared'] <- resultsOutSQMs2B$Rsquared
+resHiAnnoyMedFitB['Abs SQMs no tonal loud', which(colnames(resHiAnnoyMedFitB) == 'AEq0'):
+                                          which(colnames(resHiAnnoyMedFitB) == 'AEq100')] <- resultsOutSQMs2B$OOB_abserror
+resHiAnnoyMedPermImpB$AbsSQMs2 <- resultsOutSQMs2B$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs2B.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs2B$conditional_permimp))
+
+pBar <- ggplot(resultsOutSQMs2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2B.conimp), levels=rownames(resultsOutSQMs2B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"))
+pBar + coord_flip(ylim=c(-0.01, 0.025))
+
+if (saveplots){
+  ggsave(filename="PtBHiAnnoyAbsSQMsNoTonLdConPermimp.svg", width=10, height=2.4, path=outFigPath)
+  unlink("PtBHiAnnoyAbsSQMsNoTonLdConPermimp.svg")
+}
+
+```
+
+### Difference variables
+
+Next, the difference metrics are analysed, 
+
+#### Remove ambient only stimuli
+
+Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
+
+```{r}
+stimDataBNum <- stimDataBNum[complete.cases(stimDataBNum),]
+stimDataBNum$UASLAeq <- as.numeric(stimDataBNum$UASLAeq)
+stimDataBNum$SNRlevel <- as.numeric(stimDataBNum$SNRlevel)
+```
+
+```{r}
+iVars <- c(names(stimDataBNum)[which(colnames(stimDataBNum)=="LAeqdiffLAF90"):
+                               which(colnames(stimDataBNum)=="dImpulsHMS05ExMaxLR")], "SNRlevel", "UASEvents")
+resultsOutDiffsB <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='HighAnnoyProportion', seeds=c(42870, 1321, 2, 454, 15410), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
+
+# print model prediction results
+resultsOutDiffsB$OOB_RMSE
+resultsOutDiffsB$OOB_abserror
+resultsOutDiffsB$Rsquared
+```
+
+```{r}
+
+# store results
+resHiAnnoyMedFitB['Diff vars', 'RMSE'] <- resultsOutDiffsB$OOB_RMSE
+resHiAnnoyMedFitB['Diff vars', 'Rsquared'] <- resultsOutDiffsB$Rsquared
+resHiAnnoyMedFitB['Diff vars', which(colnames(resHiAnnoyMedFitB) == 'AEq0'):
+                            which(colnames(resHiAnnoyMedFitB) == 'AEq100')] <- resultsOutDiffsB$OOB_abserror
+resHiAnnoyMedPermImpB$DiffVars <- resultsOutDiffsB$conditional_permimp
+
+```
+
+```{r, fig.width=10,fig.height=9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutDiffsB.conimp <- data.frame('Var_imp'=rev(resultsOutDiffsB$conditional_permimp))
+
+pBar <- ggplot(resultsOutDiffsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffsB.conimp), levels=rownames(resultsOutDiffsB.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif")) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtBHiAnnoyDiffVarsConPermimp.svg", width=10, height=9, path=outFigPath)
+  unlink("PtBHiAnnoyDiffVarsConPermimp.svg")
+}
+
+```
+Save the results outputs to file
+
+```{r}
+
+if (savedata){
+  utils::write.csv(resHiAnnoyMedFitB, paste(outDataPath, "\\ptBCRFHiAnnoyOOBFit.csv", sep=""))
+  ii <- 0
+  temp = list()
+  for (res in resHiAnnoyMedPermImpB){
+    ii <- ii + 1
+    temp[[ii]] <- as.data.frame(resHiAnnoyMedPermImpB[ii])
+    names(temp[[ii]]) <- names(resHiAnnoyMedPermImpB[ii])
+  }
+  openxlsx::write.xlsx(temp, paste(outDataPath, "\\ptBCRFHiAnnoyConPermimp.xlsx",
+                                   sep=""),
+                       rowNames=TRUE)
+}
+
+```
+
+## Part B summary
+
+Summary of annoyance results for Part B
+
+```{r, fig.width=10, fig.height=7}
+# combine the annoyance perm importance results
+
+res = transform(merge(x=as.data.frame(resAnnoyMedPermImpB$AbsSQMs1/max(resAnnoyMedPermImpB$AbsSQMs1)),
+                      y=as.data.frame(resdAnnoyMedPermImpB$AbsSQMs1/max(resdAnnoyMedPermImpB$AbsSQMs1)),
+                      by.x='row.names',
+                      by.y='row.names',
+                      all=TRUE),
+                row.names=Row.names,
+                Row.names=NULL)
+
+res = transform(merge(x=res,
+                      y=as.data.frame(resHiAnnoyMedPermImpB$AbsSQMs1/max(resHiAnnoyMedPermImpB$AbsSQMs1)),
+                      by.x='row.names',
+                      by.y='row.names',
+                      all=TRUE),
+                row.names=Row.names,
+                Row.names=NULL)
+
+rownames(res) <- c("UAS events", "UAS fluct. str. F&Z ^10%", "UAS fluct. str. O-V ^10%", "UAS impuls. HMS ^5%", "UAS impuls. mean", "UAS loud. ECMA-412-8 pow. avg.", "UAS rough. F&Z ^5%", "UAS rough. F&Z ^10%", "UAS sharp. Aures+ISO 532-3 pow.avg.", "UAS ton. loud. HMS pow. avg.")
+colnames(res) <- c("Annoyance", "Change in annoyance", "Highly Annoyed %")
+res[is.na(res)] <- 0
+
+res <- tibble::rownames_to_column(res, var="Variable")
+
+res <- tidyr::pivot_longer(res, cols=-Variable, names_to="Outcome", values_to="Imp")
+
+res <- res[order(res$Imp),]
+
+pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text = element_text(family = "serif"), legend.position = "right") + coord_flip(ylim=c(-0.1, 2.5)) + scale_fill_manual(values=mycolours)
+pBar
+
+if (saveplots){
+  ggsave(filename="PtBcrfSQMsSummary.svg", width=10, height=7, path=outFigPath)
+  unlink("PtBcrfSQMsSummary.svg")
+}
+
+
+```
+
+```{r, fig.width=10, fig.height=7}
+# combine the annoyance perm importance results
+res = transform(merge(x=as.data.frame(resAnnoyMedPermImpB$AbsSQMs2/max(resAnnoyMedPermImpB$AbsSQMs2)),
+                      y=as.data.frame(resdAnnoyMedPermImpB$AbsSQMs2/max(resdAnnoyMedPermImpB$AbsSQMs2)),
+                      by.x='row.names',
+                      by.y='row.names',
+                      all=TRUE),
+                row.names=Row.names,
+                Row.names=NULL)
+
+res = transform(merge(x=res,
+                      y=as.data.frame(resHiAnnoyMedPermImpB$AbsSQMs2/max(resHiAnnoyMedPermImpB$AbsSQMs2)),
+                      by.x='row.names',
+                      by.y='row.names',
+                      all=TRUE),
+                row.names=Row.names,
+                Row.names=NULL)
+
+rownames(res) <- c("UAS events", "UAS fluct. str. F&Z ^10%", "UAS fluct. str. O-V ^10%", "UAS impuls. HMS ^5%", "UAS impuls. mean", "UAS loud. ECMA-412-8 pow. avg.", "UAS rough. F&Z ^5%", "UAS rough. F&Z ^10%", "UAS sharp. Aures+ISO 532-3 pow.avg.", "UAS tonality Aures mean", "UAS tonality HMS mean")
+
+colnames(res) <- c("Annoyance", "Change in annoyance", "Highly Annoyed %")
+res[is.na(res)] <- 0
+
+res <- tibble::rownames_to_column(res, var="Variable")
+
+res <- tidyr::pivot_longer(res, cols=-Variable, names_to="Outcome", values_to="Imp")
+
+res <- res[order(res$Imp),]
+
+pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text = element_text(family = "serif"), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours)
+pBar
+
+if (saveplots){
+  ggsave(filename="PtBcrfSQMsNoTonLdSummary.svg", width=10, height=7, path=outFigPath)
+  unlink("PtBcrfSQMsNoTonLdSummary.svg")
+}
+
+```

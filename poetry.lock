@@ -197,13 +197,13 @@ all = ["bokeh (>=1.4.0,<3.0)", "contourpy", "dask[distributed]", "netcdf4", "num
 
 [[package]]
 name = "astroid"
-version = "3.0.2"
+version = "3.2.2"
 description = "An abstract syntax tree for Python with inference support."
 optional = false
 python-versions = ">=3.8.0"
 files = [
-    {file = "astroid-3.0.2-py3-none-any.whl", hash = "sha256:d6e62862355f60e716164082d6b4b041d38e2a8cf1c7cd953ded5108bac8ff5c"},
-    {file = "astroid-3.0.2.tar.gz", hash = "sha256:4a61cf0a59097c7bb52689b0fd63717cd2a8a14dc9f1eee97b82d814881c8c91"},
+    {file = "astroid-3.2.2-py3-none-any.whl", hash = "sha256:e8a0083b4bb28fcffb6207a3bfc9e5d0a68be951dd7e336d5dcf639c682388c0"},
+    {file = "astroid-3.2.2.tar.gz", hash = "sha256:8ead48e31b92b2e217b6c9733a21afafe479d52d6e164dd25fb1a770c7c3cf94"},
 ]
 
 [[package]]
@@ -1059,19 +1059,19 @@ typing = ["typing-extensions (>=4.8)"]
 
 [[package]]
 name = "flake8"
-version = "6.1.0"
+version = "7.0.0"
 description = "the modular source code checker: pep8 pyflakes and co"
 optional = false
 python-versions = ">=3.8.1"
 files = [
-    {file = "flake8-6.1.0-py2.py3-none-any.whl", hash = "sha256:ffdfce58ea94c6580c77888a86506937f9a1a227dfcd15f245d694ae20a6b6e5"},
-    {file = "flake8-6.1.0.tar.gz", hash = "sha256:d5b3857f07c030bdb5bf41c7f53799571d75c4491748a3adcd47de929e34cd23"},
+    {file = "flake8-7.0.0-py2.py3-none-any.whl", hash = "sha256:a6dfbb75e03252917f2473ea9653f7cd799c3064e54d4c8140044c5c065f53c3"},
+    {file = "flake8-7.0.0.tar.gz", hash = "sha256:33f96621059e65eec474169085dc92bf26e7b2d47366b70be2f67ab80dc25132"},
 ]
 
 [package.dependencies]
 mccabe = ">=0.7.0,<0.8.0"
 pycodestyle = ">=2.11.0,<2.12.0"
-pyflakes = ">=3.1.0,<3.2.0"
+pyflakes = ">=3.2.0,<3.3.0"
 
 [[package]]
 name = "fonttools"
@@ -1364,13 +1364,13 @@ sortedcontainers = ">=2.0,<3.0"
 
 [[package]]
 name = "ipykernel"
-version = "6.28.0"
+version = "6.29.4"
 description = "IPython Kernel for Jupyter"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "ipykernel-6.28.0-py3-none-any.whl", hash = "sha256:c6e9a9c63a7f4095c0a22a79f765f079f9ec7be4f2430a898ddea889e8665661"},
-    {file = "ipykernel-6.28.0.tar.gz", hash = "sha256:69c11403d26de69df02225916f916b37ea4b9af417da0a8c827f84328d88e5f3"},
+    {file = "ipykernel-6.29.4-py3-none-any.whl", hash = "sha256:1181e653d95c6808039c509ef8e67c4126b3b3af7781496c7cbfb5ed938a27da"},
+    {file = "ipykernel-6.29.4.tar.gz", hash = "sha256:3d44070060f9475ac2092b760123fadf105d2e2493c24848b6691a7c4f42af5c"},
 ]
 
 [package.dependencies]
@@ -1393,7 +1393,7 @@ cov = ["coverage[toml]", "curio", "matplotlib", "pytest-cov", "trio"]
 docs = ["myst-parser", "pydata-sphinx-theme", "sphinx", "sphinx-autodoc-typehints", "sphinxcontrib-github-alt", "sphinxcontrib-spelling", "trio"]
 pyqt5 = ["pyqt5"]
 pyside6 = ["pyside6"]
-test = ["flaky", "ipyparallel", "pre-commit", "pytest (>=7.0)", "pytest-asyncio", "pytest-cov", "pytest-timeout"]
+test = ["flaky", "ipyparallel", "pre-commit", "pytest (>=7.0)", "pytest-asyncio (>=0.23.5)", "pytest-cov", "pytest-timeout"]
 
 [[package]]
 name = "ipython"
@@ -3426,13 +3426,13 @@ toml = ["tomli (>=1.2.3)"]
 
 [[package]]
 name = "pyflakes"
-version = "3.1.0"
+version = "3.2.0"
 description = "passive checker of Python programs"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pyflakes-3.1.0-py2.py3-none-any.whl", hash = "sha256:4132f6d49cb4dae6819e5379898f2b8cce3c5f23994194c24b77d5da2e36f774"},
-    {file = "pyflakes-3.1.0.tar.gz", hash = "sha256:a0aae034c444db0071aa077972ba4768d40c830d9539fd45bf4cd3f8f6992efc"},
+    {file = "pyflakes-3.2.0-py2.py3-none-any.whl", hash = "sha256:84b5be138a2dfbb40689ca07e2152deb896a65c3a3e24c251c5c62489568074a"},
+    {file = "pyflakes-3.2.0.tar.gz", hash = "sha256:1c61603ff154621fb2a9172037d84dca3500def8c8b630657d1701f026f8af3f"},
 ]
 
 [[package]]
@@ -3452,17 +3452,17 @@ windows-terminal = ["colorama (>=0.4.6)"]
 
 [[package]]
 name = "pylint"
-version = "3.0.3"
+version = "3.2.2"
 description = "python code static checker"
 optional = false
 python-versions = ">=3.8.0"
 files = [
-    {file = "pylint-3.0.3-py3-none-any.whl", hash = "sha256:7a1585285aefc5165db81083c3e06363a27448f6b467b3b0f30dbd0ac1f73810"},
-    {file = "pylint-3.0.3.tar.gz", hash = "sha256:58c2398b0301e049609a8429789ec6edf3aabe9b6c5fec916acd18639c16de8b"},
+    {file = "pylint-3.2.2-py3-none-any.whl", hash = "sha256:3f8788ab20bb8383e06dd2233e50f8e08949cfd9574804564803441a4946eab4"},
+    {file = "pylint-3.2.2.tar.gz", hash = "sha256:d068ca1dfd735fb92a07d33cb8f288adc0f6bc1287a139ca2425366f7cbe38f8"},
 ]
 
 [package.dependencies]
-astroid = ">=3.0.1,<=3.1.0-dev0"
+astroid = ">=3.2.2,<=3.3.0-dev0"
 colorama = {version = ">=0.4.5", markers = "sys_platform == \"win32\""}
 dill = [
     {version = ">=0.3.6", markers = "python_version >= \"3.11\" and python_version < \"3.12\""},
@@ -3855,43 +3855,43 @@ test = ["coverage", "pycodestyle", "pyflakes", "pylint", "pytest", "pytest-cov"]
 
 [[package]]
 name = "python-lsp-server"
-version = "1.9.0"
+version = "1.11.0"
 description = "Python Language Server for the Language Server Protocol"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "python-lsp-server-1.9.0.tar.gz", hash = "sha256:dc0c8298f0222fd66a52aa3170f3a5c8fe3021007a02098bb72f7fd8df353d13"},
-    {file = "python_lsp_server-1.9.0-py3-none-any.whl", hash = "sha256:6b947cf9dc33d7bed9abc936bb173140fcf606b6eb50cf02e27d4cb09f10d3fb"},
+    {file = "python-lsp-server-1.11.0.tar.gz", hash = "sha256:89edd6fb3f7852e4bf5a3d1d95ea41484d1a28fa94b6e3cbff12b9db123b8e86"},
+    {file = "python_lsp_server-1.11.0-py3-none-any.whl", hash = "sha256:278cb41ea69ca9f84ec99d4edc96ff5f2f9e795d240771dc46dc1653f56ddfe3"},
 ]
 
 [package.dependencies]
 autopep8 = {version = ">=2.0.4,<2.1.0", optional = true, markers = "extra == \"all\""}
 docstring-to-markdown = "*"
-flake8 = {version = ">=6.1.0,<7", optional = true, markers = "extra == \"all\""}
+flake8 = {version = ">=7,<8", optional = true, markers = "extra == \"all\""}
 jedi = ">=0.17.2,<0.20.0"
 mccabe = {version = ">=0.7.0,<0.8.0", optional = true, markers = "extra == \"all\""}
 pluggy = ">=1.0.0"
 pycodestyle = {version = ">=2.11.0,<2.12.0", optional = true, markers = "extra == \"all\""}
 pydocstyle = {version = ">=6.3.0,<6.4.0", optional = true, markers = "extra == \"all\""}
-pyflakes = {version = ">=3.1.0,<3.2.0", optional = true, markers = "extra == \"all\""}
-pylint = {version = ">=2.5.0,<3.1", optional = true, markers = "extra == \"all\""}
+pyflakes = {version = ">=3.2.0,<3.3.0", optional = true, markers = "extra == \"all\""}
+pylint = {version = ">=3.1,<4", optional = true, markers = "extra == \"all\""}
 python-lsp-jsonrpc = ">=1.1.0,<2.0.0"
-rope = {version = ">1.2.0", optional = true, markers = "extra == \"all\""}
+rope = {version = ">=1.11.0", optional = true, markers = "extra == \"all\""}
 ujson = ">=3.0.0"
 whatthepatch = {version = ">=1.0.2,<2.0.0", optional = true, markers = "extra == \"all\""}
 yapf = {version = ">=0.33.0", optional = true, markers = "extra == \"all\""}
 
 [package.extras]
-all = ["autopep8 (>=2.0.4,<2.1.0)", "flake8 (>=6.1.0,<7)", "mccabe (>=0.7.0,<0.8.0)", "pycodestyle (>=2.11.0,<2.12.0)", "pydocstyle (>=6.3.0,<6.4.0)", "pyflakes (>=3.1.0,<3.2.0)", "pylint (>=2.5.0,<3.1)", "rope (>1.2.0)", "whatthepatch (>=1.0.2,<2.0.0)", "yapf (>=0.33.0)"]
-autopep8 = ["autopep8 (>=1.6.0,<2.1.0)"]
-flake8 = ["flake8 (>=6.1.0,<7)"]
+all = ["autopep8 (>=2.0.4,<2.1.0)", "flake8 (>=7,<8)", "mccabe (>=0.7.0,<0.8.0)", "pycodestyle (>=2.11.0,<2.12.0)", "pydocstyle (>=6.3.0,<6.4.0)", "pyflakes (>=3.2.0,<3.3.0)", "pylint (>=3.1,<4)", "rope (>=1.11.0)", "whatthepatch (>=1.0.2,<2.0.0)", "yapf (>=0.33.0)"]
+autopep8 = ["autopep8 (>=2.0.4,<2.1.0)"]
+flake8 = ["flake8 (>=7,<8)"]
 mccabe = ["mccabe (>=0.7.0,<0.8.0)"]
 pycodestyle = ["pycodestyle (>=2.11.0,<2.12.0)"]
 pydocstyle = ["pydocstyle (>=6.3.0,<6.4.0)"]
-pyflakes = ["pyflakes (>=3.1.0,<3.2.0)"]
-pylint = ["pylint (>=2.5.0,<3.1)"]
-rope = ["rope (>1.2.0)"]
-test = ["coverage", "flaky", "matplotlib", "numpy", "pandas", "pylint (>=2.5.0,<3.1)", "pyqt5", "pytest", "pytest-cov"]
+pyflakes = ["pyflakes (>=3.2.0,<3.3.0)"]
+pylint = ["pylint (>=3.1,<4)"]
+rope = ["rope (>=1.11.0)"]
+test = ["coverage", "flaky", "matplotlib", "numpy", "pandas", "pylint (>=3.1,<4)", "pyqt5", "pytest", "pytest-cov"]
 websockets = ["websockets (>=10.3)"]
 yapf = ["whatthepatch (>=1.0.2,<2.0.0)", "yapf (>=0.33.0)"]
 
@@ -4208,13 +4208,13 @@ test27 = ["pytest (>=4,<5)", "pytest-catchlog (>=1,<2)", "pytest-mock (>=2,<3)"]
 
 [[package]]
 name = "qtawesome"
-version = "1.3.0"
+version = "1.3.1"
 description = "FontAwesome icons in PyQt and PySide applications"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "QtAwesome-1.3.0-py3-none-any.whl", hash = "sha256:f4da336c9a913627eef7f95ca94bcc72c99b918ade859de5b9f8070fdcd660c5"},
-    {file = "QtAwesome-1.3.0.tar.gz", hash = "sha256:104ed030e2c2237606898a621e8b2dc3f0a64c753a54d7bd6fa0015345fb1ad2"},
+    {file = "QtAwesome-1.3.1-py3-none-any.whl", hash = "sha256:6078449035cd5311bc461e99940a426c27cb919fb4211c8cfc64506cb71e2dd7"},
+    {file = "QtAwesome-1.3.1.tar.gz", hash = "sha256:075b2c9ee01cbaf5e3a4bebed0e5529ee8605981355f21dea051b15c1b869e1b"},
 ]
 
 [package.dependencies]
@@ -4903,13 +4903,13 @@ test = ["pytest"]
 
 [[package]]
 name = "spyder"
-version = "5.5.0"
+version = "5.5.4"
 description = "The Scientific Python Development Environment"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "spyder-5.5.0-py3-none-any.whl", hash = "sha256:b2795aebe0b8287035b483af506aa4087c1c08a7c770c39897a5715012c16755"},
-    {file = "spyder-5.5.0.tar.gz", hash = "sha256:ce342652692ac2d5cd9d92acb0da65db8a78150b1c64a1a28898f98b0625d943"},
+    {file = "spyder-5.5.4-py3-none-any.whl", hash = "sha256:a77272c1b707c97359fe5204e837197ae64f8883cde8e80202ff6e6433f89a36"},
+    {file = "spyder-5.5.4.tar.gz", hash = "sha256:522232a054447ddde0574ba14a067c4d515088fdf2a6bac16433a6dfef0381ed"},
 ]
 
 [package.dependencies]
@@ -4933,48 +4933,48 @@ pexpect = ">=4.4.0"
 pickleshare = ">=0.4"
 psutil = ">=5.3"
 pygments = ">=2.0"
-pylint = ">=2.5.0,<3.1"
+pylint = ">=3.1,<4"
 pylint-venv = ">=3.0.2"
 pyls-spyder = ">=0.4.0"
 pyqt5 = ">=5.10,<5.16"
 pyqtwebengine = ">=5.10,<5.16"
-python-lsp-black = ">=1.2.0,<3.0.0"
-python-lsp-server = {version = ">=1.9.0,<1.10.0", extras = ["all"]}
+python-lsp-black = ">=2.0.0,<3.0.0"
+python-lsp-server = {version = ">=1.11.0,<1.12.0", extras = ["all"]}
 pyxdg = {version = ">=0.26", markers = "platform_system == \"Linux\""}
-pyzmq = ">=22.1.0"
+pyzmq = ">=24.0.0"
 qdarkstyle = ">=3.2.0,<3.3.0"
 qstylizer = ">=0.2.2"
-qtawesome = ">=1.2.1"
-qtconsole = ">=5.5.0,<5.6.0"
+qtawesome = ">=1.3.1,<1.4.0"
+qtconsole = ">=5.5.1,<5.6.0"
 qtpy = ">=2.1.0"
 rtree = ">=0.9.7"
 setuptools = ">=49.6.0"
 sphinx = ">=0.6.6"
-spyder-kernels = ">=2.5.0,<2.6.0"
+spyder-kernels = ">=2.5.1,<2.6.0"
 textdistance = ">=4.2.0"
 three-merge = ">=0.1.1"
 watchdog = ">=0.10.3"
 
 [package.extras]
-test = ["coverage", "cython", "flaky", "matplotlib", "pandas", "pillow", "pytest (<7.0)", "pytest-cov", "pytest-lazy-fixture", "pytest-mock", "pytest-order", "pytest-qt", "pytest-timeout", "pywin32", "pyyaml", "scipy", "sympy"]
+test = ["coverage", "cython", "flaky", "matplotlib", "pandas", "pillow", "pytest (<8.0)", "pytest-cov", "pytest-lazy-fixture", "pytest-mock", "pytest-order", "pytest-qt", "pytest-timeout", "pywin32", "pyyaml", "scipy", "sympy"]
 
 [[package]]
 name = "spyder-kernels"
-version = "2.5.0"
+version = "2.5.1"
 description = "Jupyter kernels for Spyder's console"
 optional = false
 python-versions = "*"
 files = [
-    {file = "spyder-kernels-2.5.0.tar.gz", hash = "sha256:3368426c04457e0211884e9274fa47eb556252ba4c073df275e83c65df7ba2a1"},
-    {file = "spyder_kernels-2.5.0-py2.py3-none-any.whl", hash = "sha256:b2697b5accd6c237b85c2f6e3a0872abc3199bef36800271f461278de5f97caa"},
+    {file = "spyder-kernels-2.5.1.tar.gz", hash = "sha256:05042a3f97b25f17cdfa8d75011fd79aaf027523348a9dfff0f5a20bddb0b9b0"},
+    {file = "spyder_kernels-2.5.1-py2.py3-none-any.whl", hash = "sha256:69ac6937196337d2486e16b11601aaf080bb771927f53b47fe8899978d820968"},
 ]
 
 [package.dependencies]
 cloudpickle = "*"
-ipykernel = {version = ">=6.23.2,<7", markers = "python_version >= \"3.8\""}
+ipykernel = {version = ">=6.29.3,<7", markers = "python_version >= \"3.8\""}
 ipython = {version = ">=8.13.0,<8.17.1 || >8.17.1,<9", markers = "python_version > \"3.8\""}
 jupyter-client = {version = ">=7.4.9,<9", markers = "python_version >= \"3\""}
-pyzmq = {version = ">=22.1.0", markers = "python_version >= \"3\""}
+pyzmq = {version = ">=24.0.0", markers = "python_version >= \"3\""}
 wurlitzer = {version = ">=1.0.3", markers = "platform_system != \"Windows\""}
 
 [package.extras]

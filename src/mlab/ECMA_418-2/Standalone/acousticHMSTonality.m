@@ -87,7 +87,7 @@ function [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs,...
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 07/08/2023
-% Date last modified: 14/11/2023
+% Date last modified: 08/07/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -143,7 +143,7 @@ end
 
 sampleRate48k = 48e3;  % Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2022
 deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2022
-c = 0.1618;  % Half-bark band centre-frequency demoninator constant defined in Section 5.1.4.1 ECMA-418-2:2022
+c = 0.1618;  % Half-bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2022
 
 halfBark = 0.5:0.5:26.5;  % half-critical band rate scale
 bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2022

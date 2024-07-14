@@ -16,8 +16,8 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
  
 Date created: 26/10/2023
-Date last modified: 26/10/2023
-Python version: 3.10.11
+Date last modified: 12/07/2024
+Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
 the RefMap project (www.refmap.eu), and is subject to licence as detailed
@@ -29,14 +29,14 @@ Date last checked:
 
 """
 
-from scipy.fft import (fft, fftfreq, rfft, rfftfreq)
+from scipy.fft import (fft, fftfreq, fftshift, rfft, rfftfreq)
 from scipy.signal import (get_window)
 import numpy as np
 
 
-def fft_spec_Welch(x, fs, nfft, over=0.5, axis=0, win_type='hann'):
+def fft_spec_Welch(x, fs, nfft, over=0.5, axis=0, win_type='hann', twosided=False):
     '''
-    Return the one-sided FFT magnitude spectrum of x with associated
+    Return the one- or two-sided FFT magnitude spectrum of x with associated
     frequencies, using Welch's method of averaged periodograms - outputs can
     include any of the following spectrum types:
         Linear peak amplitude
@@ -44,8 +44,8 @@ def fft_spec_Welch(x, fs, nfft, over=0.5, axis=0, win_type='hann'):
         Power (auto) spectral density
         Autospectrum (mean-square amplitude, ie squared linear RMS amplitude)
 
-    Transform output will be nfft/2 in length if nfft is even, or nfft/2 + 1
-    if nfft is odd.
+    One-sided transform output will be nfft/2 in length if nfft is even,
+    or nfft/2 + 1 if nfft is odd. Two-sided spectrum will be nfft in length.
 
     Inputs
     ------
@@ -64,6 +64,8 @@ def fft_spec_Welch(x, fs, nfft, over=0.5, axis=0, win_type='hann'):
         the axis of the input array along which to apply the transform
     win_type : string or None
         indicates the type of window to apply to the block
+    twosided : Boolean
+               indicates the type of spectrum to output (one- or two-sided)
    
     Returns
     -------
@@ -109,11 +111,20 @@ def fft_spec_Welch(x, fs, nfft, over=0.5, axis=0, win_type='hann'):
     else:
         odd = 1
 
-    fftf = fftfreq(nfft, dt)[:int(nfft//2) + odd]  # one-sided range of positive frequencies for spectral lines
+    if twosided:
+        # two-sided range of positive frequencies for spectral lines
+        fftf = fftshift(fftfreq(nfft, dt))
+    else:
+        # one-sided range of positive frequencies for spectral lines
+        fftf = fftfreq(nfft, dt)[:int(nfft//2) + odd]
+
+    iiEnd = fftf.shape[0]  # index for the spectral size
 
     # transpose array of row vectors to array of column vectors
     if axis == 1:
         x = np.transpose(x)
+
+    axis2 = 0  # dummy axis variable
 
     if len(x.shape) == 1:
         Axx = np.zeros(fft(x[0:nfft]).shape)
@@ -123,13 +134,17 @@ def fft_spec_Welch(x, fs, nfft, over=0.5, axis=0, win_type='hann'):
     block = 0  # initialise block counter
     blstart = 0  # block start index
     blend = int(nfft)  # block end index
-    while blend <= x.shape[axis]:
-        
+
+    # loop over blocks and accumulate unscaled spectra
+    while blend <= x.shape[axis2]:
+
         if len(x.shape) == 1:
             xt = window*x[blstart:blend]
             XX = np.real(np.conj(fft(xt))*fft(xt))
         else:
-            win = np.moveaxis(np.broadcast_to(window, (x.shape[1], np.size(window))), -1, 0)
+            win = np.moveaxis(np.broadcast_to(window,
+                                              (x.shape[1],
+                                               np.size(window))), -1, 0)
             xt = win*x[blstart:blend, :]
             XX = np.real(np.conj(fft(xt, axis=0))*fft(xt, axis=0))
 
@@ -138,25 +153,30 @@ def fft_spec_Welch(x, fs, nfft, over=0.5, axis=0, win_type='hann'):
         blstart = int(block*nfft*(1 - over))
         blend = int(blstart + nfft)
 
-    nblocks = block + 1
-    Axx = Axx/nblocks  # average the autospectrum over blocks
+    Axx = Axx/block  # average the autospectrum over blocks
     Axx = (Awin/nfft)**2*Axx  # window amplitude and FFT correction
-    if len(x.shape) == 1:
-        Axx[1:] = 2*Axx[1:]  # compensate for single-sided autospectrum
+
+    if twosided is False:
+        Axx = Axx[:iiEnd]
+        if len(x.shape) == 1:
+            Axx[1:] = 2*Axx[1:]  # compensate for single-sided autospectrum
+        else:
+            Axx[1:, :] = 2*Axx[1:, :]  # compensate for single-sided autospectrum
     else:
-        Axx[1:, :] = 2*Axx[1:, :]  # compensate for single-sided autospectrum
+        Axx = fftshift(Axx)
 
     # transpose output array back to input row vector form
     if axis == 1:
         Axx = np.transpose(Axx)
-    
+
     LxRMS = np.sqrt(Axx)  # linear RMS spectrum
     Lx = LxRMS*np.sqrt(2)  # linear peak spectrum
     Gxx = Axx/Be  # corrects autospectrum for effective noise bandwidth to give PSD
 
-    if __name__ == '__main__' and nblocks > 1:
-        print("\nFFT processing completed using " + str(nblocks) +
-              " windowed averages and " + str(int(over*100)) + "% window overlap")
+    if __name__ == '__main__' and block > 1:
+        print("\nFFT processing completed using " + str(int(block)) +
+              " windowed averages and " + str(int(over*100)) +
+              "% window overlap")
 
     return fftf, Ben, Lx, LxRMS, Gxx, Axx
 
@@ -234,6 +254,8 @@ def rfft_spec_Welch(x, fs, nfft, over=0.5, axis=0, win_type='hann'):
     # transpose array of row vectors to array of column vectors
     if axis == 1:
         x = np.transpose(x)
+        
+    axis2 = 0  # dummy axis variable
 
     if len(x.shape) == 1:
         Axx = np.zeros(rfft(x[0:nfft]).shape)
@@ -243,7 +265,8 @@ def rfft_spec_Welch(x, fs, nfft, over=0.5, axis=0, win_type='hann'):
     block = 0  # initialise loop counter
     blstart = 0  # block start index
     blend = int(nfft)  # block end index
-    while blend <= x.shape[axis]:
+
+    while blend <= x.shape[axis2]:
 
         if len(x.shape) == 1:
             xt = window*x[blstart:blend]
@@ -257,9 +280,8 @@ def rfft_spec_Welch(x, fs, nfft, over=0.5, axis=0, win_type='hann'):
         block += 1
         blstart = int(block*nfft*(1 - over))
         blend = int(blstart + nfft)
-    
-    nblocks= block + 1
-    Axx = Axx/nblocks  # average the autospectrum over blocks
+
+    Axx = Axx/block  # average the autospectrum over blocks
     Axx = (Awin/nfft)**2*Axx  # window amplitude and FFT correction
     if len(x.shape) == 1:
         Axx[1:] = 2*Axx[1:]  # compensate for single-sided autospectrum
@@ -274,8 +296,8 @@ def rfft_spec_Welch(x, fs, nfft, over=0.5, axis=0, win_type='hann'):
     Lx = LxRMS*np.sqrt(2)  # linear peak spectrum
     Gxx = Axx/Be  # corrects autospectrum for effective noise bandwidth to give PSD
 
-    if __name__ == '__main__' and nblocks > 1:
-        print("\nFFT processing completed using " + str(nblocks) +
+    if __name__ == '__main__' and block > 1:
+        print("\nFFT processing completed using " + str(int(block)) +
               " windowed averages and " + str(int(over*100)) + "% window overlap")
 
     return fftf, Ben, Lx, LxRMS, Gxx, Axx

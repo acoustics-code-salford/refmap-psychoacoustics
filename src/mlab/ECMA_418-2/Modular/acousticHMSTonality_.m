@@ -1,8 +1,4 @@
-function [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs,...
-          specificTonality, specificTonalityFreqs, specificTonalityAvg,...
-          specificTonalityAvgFreqs, bandCentreFreqs,...
-          specificTonalLoudness, specificNoiseLoudness]...
-          = acousticHMSTonality_(p, sampleRatein, axisn, outplot, ecma)
+function tonalityHMS = acousticHMSTonality_(p, sampleRatein, axisn, outplot, ecma)
 % [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs, specificTonality,
 %  specificTonalityFreqs, specificTonalityAvg, specificTonalityAvgFreqs,
 %  bandCentreFreqs]
@@ -35,7 +31,9 @@ function [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs,...
 % 
 % Returns
 % -------
-% For each channel in the input signal:
+% tonalityHMS : structure
+%               contains the following variables for each channel in the input
+%               signal:
 %
 % tonalityAvg : number or vector
 %               average (overall) tonality value
@@ -98,7 +96,7 @@ function [tonalityAvg, tonalityTimeVar, tonalityTimeVarFreqs,...
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 07/08/2023
-% Date last modified: 15/03/2024
+% Date last modified: 10/07/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -153,7 +151,7 @@ end
 
 sampleRate48k = 48e3;  % Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2022
 deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2022
-c = 0.1618;  % Half-Bark band centre-frequency demoninator constant defined in Section 5.1.4.1 ECMA-418-2:2022
+c = 0.1618;  % Half-Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2022
 
 halfBark = 0.5:0.5:26.5;  % half-critical band rate scale
 bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2022
@@ -188,26 +186,27 @@ dsz_b = [0.36*ones(1, 3), 0.36*ones(1, 13), 0.71*ones(1, 9),...
 A = 35;
 B = 0.003;
 cal_T = 2.8785151;  % calibration factor in Section 6.2.8 Equation 51 ECMA-418-2:2022
-cal_Tx = 1/1.00186;  % Adjustment to calibration factor cal_T Footnote 22 ECMA-418-2:2022
+%cal_Tx = 1/1.00186;  % Adjustment to calibration factor cal_T Footnote 22 ECMA-418-2:2022
+cal_Tx = 1;
 
 %% Signal processing
 
 % Input pre-processing
 % --------------------
 if sampleRatein ~= sampleRate48k  % Resample signal
-    [p_re, ~] = acousticHMSResample_(p, sampleRatein);
+    [p_re, ~] = hmSResample(p, sampleRatein);
 else  % don't resample
     p_re = p;
 end
 
 % Section 5.1.2 ECMA-418-2:2022 Fade in weighting and zero-padding
-pn = acousticHMSPreProc_(p_re, max(blockSize), max(hopSize));
+pn = hmSPreProc(p_re, max(blockSize), max(hopSize));
 
 % Apply outer & middle ear filter
 % -------------------------------
 %
 % Section 5.1.3.2 ECMA-418-2:2022 Outer and middle/inner ear signal filtering
-pn_om = acousticHMSOutMidEarFilter_(pn);
+pn_om = hmSOutMidEarFilter(pn);
 
 n_steps = 115;  % approximate number of calculation steps
 
@@ -224,7 +223,7 @@ for chan = size(pn_om, 2):-1:1
 
     % Filter equalised signal using 53 1/2Bark ERB filters according to 
     % Section 5.1.4.2 ECMA-418-2:2022
-    pn_omz = acousticHMSAuditoryFiltBank_(pn_om(:, chan), false);
+    pn_omz = hmSAuditoryFiltBank(pn_om(:, chan), false);
 
     % Autocorrelation function analysis
     % ---------------------------------
@@ -262,7 +261,7 @@ for chan = size(pn_om, 2):-1:1
         % ----------------------------
         % Sections 5.1.6 to 5.1.9 ECMA-418-2:2022
         [pn_rlz, bandBasisLoudness, ~]...
-            = acousticHMSBasisLoudness_(pn_lz, bandCentreFreqsDupe(zBand));
+            = hmSBasisLoudness(pn_lz, bandCentreFreqsDupe(zBand));
         basisLoudness{zBand} = bandBasisLoudness;
 
         % Apply ACF
@@ -372,8 +371,8 @@ for chan = size(pn_om, 2):-1:1
         % Noise reduction Section 6.2.7 ECMA-418-2:2020
         % ---------------------------------------------
         SNRlz1 = bandTonalLoudness./((bandLoudness - bandTonalLoudness) + 1e-12);  % Equation 42 ECMA-418-2:2022 signal-noise-ratio first approximation (ratio of tonal component loudness to non-tonal component loudness in critical band)
-        bandTonalLoudness = acousticHMSNoiseRedLowPass_(bandTonalLoudness, sampleRate1875);  % Equation 43 ECMA-418-2:2022 low pass filtered specific loudness of non-tonal component in critical band
-        SNRlz = acousticHMSNoiseRedLowPass_(SNRlz1, sampleRate1875);  % Equation 44 ECMA-418-2:2022 lowpass filtered SNR (improved estimation)
+        bandTonalLoudness = hmSNoiseRedLowPass(bandTonalLoudness, sampleRate1875);  % Equation 43 ECMA-418-2:2022 low pass filtered specific loudness of non-tonal component in critical band
+        SNRlz = hmSNoiseRedLowPass(SNRlz1, sampleRate1875);  % Equation 44 ECMA-418-2:2022 lowpass filtered SNR (improved estimation)
         gz = csz_b(zBand)/(bandCentreFreqs(zBand)^dsz_b(zBand));  % Equation 46 ECMA-418-2:2022
         % Equation 45 ECMA-418-2:2022
         crit = exp(-alpha*((SNRlz/gz) - beta));
@@ -382,22 +381,22 @@ for chan = size(pn_om, 2):-1:1
         bandTonalLoudness = nrlz.*bandTonalLoudness;  % Equation 47 ECMA-418-2:2022
 
         % Section 6.2.8 Equation 48 ECMA-418-2:2022
-        bandNoiseLoudness = acousticHMSNoiseRedLowPass_(bandLoudness, sampleRate1875) - bandTonalLoudness;  % specific loudness of non-tonal component in critical band
+        bandNoiseLoudness = hmSNoiseRedLowPass(bandLoudness, sampleRate1875) - bandTonalLoudness;  % specific loudness of non-tonal component in critical band
     
         % Store critical band results
         % ---------------------------
-%         specificSNR(zBand, :, chan) = SNRlz1;  % specific time-dependent signal-noise-ratio in each critical band
-%         specificLoudness(zBand, :, chan) = bandLoudness;  % specific time-dependent loudness of signal in each critical band
-        specificTonalLoudness(zBand, :, chan) = bandTonalLoudness;  % specific time-dependent loudness of tonal component in each critical band
-        specificNoiseLoudness(zBand, :, chan) = bandNoiseLoudness;   % specific time-dependent loudness of non-tonal component in each critical band
-        specificTonalityFreqs(zBand, :, chan) = bandTonalFreqs;  % time-dependent frequency of tonal component in each critical band
-        
+%         specSNR(:, zBand, chan) = SNRlz1;  % specific time-dependent signal-noise-ratio in each critical band
+%         specLoudness(:, zBand, chan) = bandLoudness;  % specific time-dependent loudness of signal in each critical band
+        specTonalLoudness(:, zBand, chan) = bandTonalLoudness;  % specific time-dependent loudness of tonal component in each critical band
+        specNoiseLoudness(:, zBand, chan) = bandNoiseLoudness;   % specific time-dependent loudness of non-tonal component in each critical band
+        specTonalityFreqs(:, zBand, chan) = bandTonalFreqs;  % time-dependent frequency of tonal component in each critical band
+
     end
 
     % Calculation of specific tonality
     % --------------------------------
     % Section 6.2.8 Equation 49 ECMA-418-2:2022
-    overallSNR = max(specificTonalLoudness, [], 1)./(1e-12 + sum(specificNoiseLoudness, 1));  % loudness signal-noise-ratio
+    overallSNR = max(specTonalLoudness, [], 2)./(1e-12 + sum(specNoiseLoudness, 2));  % loudness signal-noise-ratio
     
     % Section 6.2.8 Equation 50 ECMA-418-2:2022
     crit = exp(-A*(overallSNR - B));
@@ -405,20 +404,20 @@ for chan = size(pn_om, 2):-1:1
     ql(crit >= 1) = 0;
     
     % Section 6.2.8 Equation 51 ECMA-418-2:2022#
-    specificTonality = cal_T*cal_Tx*ql.*specificTonalLoudness;  % time-dependent specific tonality
+    specTonality = cal_T*cal_Tx*ql.*specTonalLoudness;  % time-dependent specific tonality
     
     % Calculation of time-averaged specific tonality Section 6.2.9 ECMA-418-2:2022
     for zBand = 53:-1:1
-        mask = specificTonality(zBand, :, chan) > 0.02;  % criterion Section 6.2.9 point 2
+        mask = specTonality(:, zBand, chan) > 0.02;  % criterion Section 6.2.9 point 2
         mask(1:(58 - l_start)) = 0;  % criterion Section 6.2.9 point 1
         if l_start ~= 1
             mask(end + 1 - l_start:end) = 0;  % additional masking if 'ecma' is false
         end
         % Section 6.2.9 Equation 53 ECMA-418-2:2022
-        specificTonalityAvg(zBand, 1, chan)...
-            = sum(specificTonality(zBand, mask, chan), 2)./(nnz(mask) + 1e-12);
-        specificTonalityAvgFreqs(zBand, 1, chan)...
-            = sum(specificTonalityFreqs(zBand, mask, chan), 2)./(nnz(mask) + 1e-12);
+        specTonalityAvg(1, zBand, chan)...
+            = sum(specTonality(mask, zBand, chan), 1)./(nnz(mask) + 1e-12);
+        specTonalityAvgFreqs(1, zBand, chan)...
+            = sum(specTonalityFreqs(mask, zBand, chan), 1)./(nnz(mask) + 1e-12);
     end
 
     % Calculation of total (non-specific) tonality Section 6.2.10
@@ -428,19 +427,19 @@ for chan = size(pn_om, 2):-1:1
 
     % Section 6.2.8 Equation 52 ECMA-418-2:2022
     % time (s) corresponding with results output
-    t = (0:(size(specificTonality, 2) - 1))/sampleRate1875;
+    t = (0:(size(specTonality, 1) - 1))/sampleRate1875;
 
     % Section 6.2.10 Equation 61 ECMA-418-2:2022
     % Time-dependent total tonality
-    [tonalityTimeVar(:, chan), zmax] = max(specificTonality(:, :, chan),...
-                                           [], 1);
-    for ll = size(specificTonalityFreqs, 2):-1:1
-        tonalityTimeVarFreqs(ll, chan) = specificTonalityFreqs(zmax(ll), ll);
+    [tonalityTDep(:, chan), zmax] = max(specTonality(:, :, chan),...
+                                           [], 2);
+    for ll = size(specTonalityFreqs, 1):-1:1
+        tonalityTDepFreqs(ll, chan) = specTonalityFreqs(ll, zmax(ll));
     end
     
     % Calculation of representative values Section 6.2.11 ECMA-418-2:2022
     % Time-averaged total tonality
-    mask = tonalityTimeVar(:, chan) > 0.02;  % criterion Section 6.2.9 point 2
+    mask = tonalityTDep(:, chan) > 0.02;  % criterion Section 6.2.9 point 2
     mask(1:(58 - l_start)) = 0;    % criterion Section 6.2.9 point 1
     if l_start ~= 1
         mask(end + 1 - l_start:end) = 0;  % additional masking if 'ecma' is false
@@ -448,7 +447,7 @@ for chan = size(pn_om, 2):-1:1
 
     % Section 6.2.11 Equation 63 ECMA-418-2:2022
     % Time-averaged total tonality (note: epsilon is not applied here, according to the standard)
-    tonalityAvg(chan) = sum(tonalityTimeVar(mask, chan))/nnz(mask);
+    tonalityAvg(chan) = sum(tonalityTDep(mask, chan))/nnz(mask);
     
     close(w)  % close waitbar
 
@@ -464,12 +463,13 @@ for chan = size(pn_om, 2):-1:1
         tiledlayout(fig, 2, 1);
         movegui(fig, 'center');
         ax1 = nexttile(1);
-        surf(ax1, t, bandCentreFreqs, specificTonality(:, :, chan),...
+        surf(ax1, t, bandCentreFreqs, permute(specTonality(:, :, chan),...
+                                              [2, 1, 3]),...
              'EdgeColor', 'none', 'FaceColor', 'interp');
         view(2);
         ax1.XLim = [t(1), t(end) + (t(2) - t(1))];
         ax1.YLim = [bandCentreFreqs(1), bandCentreFreqs(end)];
-        ax1.CLim = [0, ceil(max(tonalityTimeVar(:, chan))*10)/10];
+        ax1.CLim = [0, ceil(max(tonalityTDep(:, chan))*10)/10];
         ax1.YTick = [63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3]; 
         ax1.YTickLabel = ["63", "125", "250", "500", "1k", "2k", "4k",...
                           "8k", "16k"]; 
@@ -493,14 +493,14 @@ for chan = size(pn_om, 2):-1:1
                      'FontWeight', 'normal', 'FontName', 'Arial');
         
         ax2 = nexttile(2);
-        plot(ax2, t, tonalityAvg(1, chan)*ones(size(t)), 'color', [0.5, 0.1, 0.9],...
+        plot(ax2, t, tonalityAvg(1, chan)*ones(size(t)), 'color', cmap_plasma(34, :),...
              'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "average");
         hold on
-        plot(ax2, t, tonalityTimeVar(:, chan), 'm', 'LineWidth', 0.75,...
-             'DisplayName', "Time-" + string(newline) + "varying");
+        plot(ax2, t, tonalityTDep(:, chan), 'color',  cmap_plasma(166, :),...
+             'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
         hold off
         ax2.XLim = [t(1), t(end) + (t(2) - t(1))];
-        ax2.YLim = [0, ceil(max(tonalityTimeVar(:, chan))*10)/10];
+        ax2.YLim = [0, ceil(max(tonalityTDep(:, chan))*10)/10];
         ax2.XLabel.String = "Time, s";
         ax2.YLabel.String = "Tonality, tu_{HMS}";
         ax2.XGrid = 'on';
@@ -512,5 +512,19 @@ for chan = size(pn_om, 2):-1:1
     end
 
 end
+
+%% Output assignment
+
+% Assign outputs to structure
+tonalityHMS.specTonality = specTonality;
+tonalityHMS.specTonalityAvg = specTonalityAvg;
+tonalityHMS.tonalityTDep = tonalityTDep;
+tonalityHMS.tonalityAvg = tonalityAvg;
+tonalityHMS.tonalityTDepFreqs = tonalityTDepFreqs;
+tonalityHMS.specTonalityFreqs = specTonalityFreqs;
+tonalityHMS.specTonalityAvgFreqs = specTonalityAvgFreqs;
+tonalityHMS.bandCentreFreqs = bandCentreFreqs;
+tonalityHMS.specTonalLoudness = specTonalLoudness;
+tonalityHMS.specNoiseLoudness = specNoiseLoudness;
 
 % end of function
