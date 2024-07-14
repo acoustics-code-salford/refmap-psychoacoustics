@@ -62,7 +62,7 @@ function [f, X, Ben] = fft_aspec(xn, fs, Nfft, axisn, over, win, X_scale, twosid
 % Institution: University of Salford
 %  
 % Date created: 03/01/2023
-% Date last modified: 12/07/2024
+% Date last modified: 14/07/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
