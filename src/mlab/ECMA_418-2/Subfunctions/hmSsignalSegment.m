@@ -1,6 +1,6 @@
-function [signalSegmented, iBlocks] = signalSegment_(signal, axisn, blockSize, overlap,...
+function [signalSegmented, iBlocks] = hmSsignalSegment(signal, axisn, blockSize, overlap,...
                                                      i_start, endShrink)
-% signalSegmented = acousticHMSSegment_(signal, axisn, blockSize, overlap, i_start)
+% signalSegmented = hmSsignalSegment(signal, axisn, blockSize, overlap, i_start)
 %
 % Returns input signal segmented into blocks for processing.
 %
@@ -55,7 +55,7 @@ function [signalSegmented, iBlocks] = signalSegment_(signal, axisn, blockSize, o
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 27/09/2023
-% Date last modified: 15/07/2024
+% Date last modified: 13/08/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within

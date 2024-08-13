@@ -178,7 +178,14 @@ for file in filelist:
     print(file.split('/')[-1])
     workbookdata = pd.read_excel(io=file, sheet_name=None)
     stimulus = workbookdata['Sheet1'].columns[5].split(sep='\'')[1]
-
+    
+    # fix problem filenames
+    if stimulus.find("YnTy") != -1:
+        stimulus = stimulus.replace("YnTy", "H520")
+    
+    if stimulus.find(".wav_Pa.wav") != -1:
+        stimulus = stimulus.replace(".wav_Pa.wav", "_Pa.wav")
+    
     # Calculate ECMA-418-2:2022 Sottek Hearing Model overall loudness from
     # 2-channel specific loudness
     # left channel

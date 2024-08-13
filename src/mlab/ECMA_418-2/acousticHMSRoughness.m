@@ -1,7 +1,5 @@
-function roughnessHMS = acousticHMSRoughness_(p, sampleRatein, axisn, outplot, binaural)
-% [roughnessAgg, roughnessTimeVar, roughnessFreqs,...
-%  specificRoughness, specificRoughnessFreqs, specificRoughnessAvg]
-%  = acousticHMSRoughness_(p, sampleRatein, axisn, outplot, binaural)
+function roughnessHMS = acousticHMSRoughness(p, sampleRatein, axisn, outplot, binaural)
+% roughnessHMS = acousticHMSRoughness(p, sampleRatein, axisn, outplot, binaural)
 %
 % Returns roughness values **and frequencies** according to ECMA-418-2:2022
 % (using the Hearing Model of Sottek) for an input calibrated single mono
@@ -24,55 +22,51 @@ function roughnessHMS = acousticHMSRoughness_(p, sampleRatein, axisn, outplot, b
 %
 % binaural : Boolean true/false (default: true)
 %            flag indicating whether to output binaural roughness for stereo
-%            input signal.% 
+%            input signal.
+% 
 % Returns
 % -------
-% For each channel in the input signal:
 %
-% roughnessAgg : number or vector
-%                aggregated (overall) roughness value (90th percentile of
-%                time varying roughness)
+% roughnessHMS : structure
+%                contains the output
+%
+% roughnessHMS contains the following outputs:
+%
+% specRoughness : matrix
+%                 time-dependent specific roughness for each (half)
+%                 critical band
+%                 arranged as [time, bands(, channels)]
+%
+% specRoughnessAvg : matrix
+%                    time-averaged specific roughness for each (half)
+%                    critical band
+%                    arranged as [bands(, channels)]
+%
+% roughnessTDep : vector or matrix
+%                 time-dependent overall roughness
+%                 arranged as [time(, channels)]
 % 
-% roughnessTimeVar : vector or 2D matrix
-%                    time-dependent overall roughness values
-%
-% roughnessFreqs : vector or 2D matrix
-%                  time-dependent frequencies of the dominant roughness
-%                  components corresponding with the time-dependent
-%                  overall roughness values
-%
-% specificRoughness : 2D or 3D matrix
-%                     time-dependent specific roughness values in each
-%                     half-critical band rate scale width
-%
-% specificTonalityFreqs : 2D or 3D matrix
-%                         time-dependent frequencies of the dominant tonal
-%                         components corresponding with each of the
-%                         time-dependent specific tonality values in each
-%                         half-critical band rate scale width
-%
-% specificTonalityAvg : vector or 2D matrix
-%                       time-averaged specific tonality values in each
-%                       half-critical band rate scale width
-%
-% specificTonalityAvgFreqs : vector or 2D matrix
-%                            time-averaged frequencies of the dominant
-%                            tonal components corresponding with each of
-%                            the half-critical band rate scale width
+% roughness90Pc : number or vector
+%                 time-aggregated (90th percentile) overall roughness
+%                 arranged as [roughness(, channels)]
 %
 % bandCentreFreqs : vector
-%                   centre frequencies corresponding with each half-Bark
+%                   centre frequencies corresponding with each (half)
 %                   critical band rate scale width
 %
-% specificTonalLoudness : 2D or 3D matrix
-%                         time-dependent specific loudness of the tonal
-%                         components in each half-critical band rate scale
-%                         width
+% timeOut : vector
+%           time (seconds) corresponding with time-dependent outputs
 %
-% specificNoiseLoudness : 2D or 3D matrix
-%                         time-dependent specific loudness of the noise
-%                         components in each half-critical band rate scale
-%                         width
+% If binaural=true, a corresponding set of outputs for the binaural
+% roughness is also contained in roughnessHMS
+%
+% If outplot=true, a set of plots is returned illustrating the energy
+% time-averaged A-weighted sound level, the time-dependent specific and
+% overall roughness, with the latter also indicating the time-aggregated
+% value. A set of plots is returned for each input channel, with another
+% set for the binaural roughness, if binaural=true. In that case, the
+% indicated sound level corresponds with the channel with the highest sound
+% level.
 %
 % Assumptions
 % -----------
@@ -90,7 +84,7 @@ function roughnessHMS = acousticHMSRoughness_(p, sampleRatein, axisn, outplot, b
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 14/07/2024
+% Date last modified: 13/08/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -139,6 +133,7 @@ end
 
 %% Define constants
 
+signalT = size(p, 1)/sampleRatein;  % duration of input signal
 sampleRate48k = 48e3;  % Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2022
 deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2022
 c = 0.1618;  % Half-Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2022
@@ -253,7 +248,8 @@ for chan = size(pn_om, 2):-1:1
 
         % Section 5.1.5 ECMA-418-2:2022
         i_start = 1;
-        pn_lz = signalSegment_(pn_omz(:, zBand), 1, blockSize, overlap, i_start);
+        [pn_lz, iBlocks] = hmSsignalSegment(pn_omz(:, zBand), 1, blockSize, overlap,...
+                                            i_start, true);
 
         % Transformation into Loudness
         % ----------------------------
@@ -267,15 +263,16 @@ for chan = size(pn_om, 2):-1:1
         i_step = i_step + 1;
         % Sections 7.1.2 ECMA-418-2:2022
         % magnitude of Hilbert transform with downsample - Equation 65
+        % [p(ntilde)_E,l,z]
         % Notefigure; imagesc: prefiltering is not needed because the output from the
         % Hilbert transform is a form of low-pass filtering
-        envelopes(:, :, zBand) = downsample(abs(hilbert(pn_lz)), 32, 0);
+        envelopes(:, :, zBand) = downsample(abs(hilbert(pn_lz)), downSample, 0);
 
     end  % end of for loop for obtaining low frequency signal envelopes
 
     % Note: With downsampled envelope signals, parallelised approach can continue
 
-    % Section 7.1.3 equation 66 ECMA-418-2:2022
+    % Section 7.1.3 equation 66 ECMA-418-2:2022 [Phi(k)_E,l,z]
     modSpectra = zeros(size(envelopes));
     envelopeWin = envelopes.*repmat(hann(blockSize1500, "periodic"), 1,...
                                  size(envelopes, 2), nBands)./sqrt(0.375);
@@ -294,7 +291,7 @@ for chan = size(pn_om, 2):-1:1
     % ------------------------
     % section 7.1.4 ECMA-418-2:2022
     modSpectraAvg = movmean(modSpectra, [1, 1], 3, 'Endpoints', 'shrink');
-    modSpectraAvgSum = sum(modSpectraAvg, 3);  % Equation 68
+    modSpectraAvgSum = sum(modSpectraAvg, 3);  % Equation 68 [s(l,k)]
 
     % Equation 71 ECMA-418-2:2022 [wtilde(l,k)]
     clipWeight = 0.0856.*modSpectraAvgSum(1:size(modSpectraAvg, 1)/2, :)...
@@ -309,12 +306,12 @@ for chan = size(pn_om, 2):-1:1
                        flipud(weightingFactor1)];
 
     % Calculate noise-reduced, scaled, weighted modulation power spectra
-    modWeightSpectraAvg = modSpectraAvg.*weightingFactor; % Equation 69
+    modWeightSpectraAvg = modSpectraAvg.*weightingFactor; % Equation 69 [Phihat(k)_E,l,z]
 
     % Spectral weighting
     % ------------------
     % Section 7.1.5 ECMA-418-2:2022
-    n_blocks = floor((n_samples + blockSize - overlap*blockSize)/hopSize);
+    n_blocks = size(modWeightSpectraAvg, 2);
     for zBand = nBands:-1:1
         waitbar(i_step/n_steps, w, "Calculating spectral weightings in 53 bands, ",...
                        num2str(zBand), " to go...");...
@@ -368,8 +365,8 @@ for chan = size(pn_om, 2):-1:1
                     % the calculation, MATLAB indexing needs to be
                     % accounted for
                     modIndexMat = [(kLocs(ii) - 2)^2, kLocs(ii) - 2, 1;
-                                (kLocs(ii) - 1)^2, kLocs(ii) - 1,     1;
-                                (kLocs(ii))^2, kLocs(ii), 1];
+                                   (kLocs(ii) - 1)^2, kLocs(ii) - 1,     1;
+                                   (kLocs(ii))^2, kLocs(ii), 1];
 
                     coeffVec = modIndexMat\modAmpMat;  % Equation 73 solution
 
@@ -377,17 +374,17 @@ for chan = size(pn_om, 2):-1:1
                     modRateEst = -(coeffVec(2)/(2*coeffVec(1)))*resDFT1500;
 
                     % Equation 79 ECMA-418-2:2022
-                    theta = 0:1:33;
-                    errorBeta = (floor(modRateEst/resDFT1500) + theta/32)*resDFT1500...
-                                - (modRateEst + errorCorrection(1:end));
+                    theta = (0:1:33) + 1;
+                    errorBeta = (floor(modRateEst/resDFT1500) + (theta - 1)/32)*resDFT1500...
+                                - (modRateEst + errorCorrection);
 
                     % Equation 80 ECMA-418-2:2022
                     [~, i_minError] = min(abs(errorBeta));
                     thetaMinError = theta(i_minError);
 
                     % Equation 81 ECMA-418-2:2022
-                    if  thetaMinError > 0 && (floor(modRateEst/resDFT1500) + thetaMinError/32)*resDFT1500...
-                                - (modRateEst + errorCorrection(i_minError)) < 0
+                    if  thetaMinError > 1 && (floor(modRateEst/resDFT1500) + (thetaMinError - 1)/32)*resDFT1500...
+                                - (modRateEst + errorCorrection(thetaMinError)) < 0
                         thetaCorr = thetaMinError;
                     else
                         thetaCorr = thetaMinError + 1;
@@ -430,7 +427,15 @@ for chan = size(pn_om, 2):-1:1
 
     % Section 7.1.5.3 ECMA-418-2:2022 - Estimation of fundamental modulation rate
 
-    % the loop approach
+    % the loop approach - this section is based on a translation of
+    % _estimate_fund_mod_rate.py from the Python MoSQITo package
+    % https://github.com/Eomys/MoSQITo/
+    % Adapted here as a derivative work under Apache License 2.0
+    % https://www.apache.org/licenses/LICENSE-2.0
+    
+    % TODO: replace the MoSQITo-based loop approach with a parallelised
+    % approach!
+
     modFundRate = zeros(n_blocks, length(halfBark));
     modMaxWeight = zeros(size(modHiWeight));
     for zBand = nBands:-1:1
@@ -442,7 +447,7 @@ for chan = size(pn_om, 2):-1:1
             if max(modRate(:, llBlock, zBand)) > 0
                 modRateForLoop = modRate(modRate(:, llBlock, zBand) > 0,...
                                          llBlock, zBand);
-                
+
                 NPeaks = length(modRateForLoop);
                 I_i0 = {};
                 E_i0 = double.empty(NPeaks, 0);
@@ -469,7 +474,7 @@ for chan = size(pn_om, 2):-1:1
                         end
                     end
 
-                    hComplex = abs(modRateForLoop(candidateInds)./(modRateRatio(candidateInds)*modRateForLoop(iiPeak) + 1e-20) - 1);
+                    hComplex = abs(modRateForLoop(candidateInds)./(modRateRatio(candidateInds)*modRateForLoop(iiPeak)) - 1);
                     I_i0{iiPeak}= candidateInds(hComplex < 0.04);
 
                     E_i0(iiPeak) = sum(modHiWeight(I_i0{iiPeak}, llBlock, zBand));
@@ -489,69 +494,7 @@ for chan = size(pn_om, 2):-1:1
         end
     end
 
-    % clear modRateRatio modRateRatioTest
-    % for zBand = nBands:-1:1
-    %     clear modRateRatio modRateRatioTest
-    %     for ii = 9:-1:0  % shift indexes to get integer ratios
-    %         % Equation 88
-    %         modRateRatio(:, :, ii + 1) = round(circshift(modRate(:, :, zBand),...
-    %                                            -ii, 1)./modRate(:, :, zBand));
-    %         % Equation 89 argument
-    %         modRateRatioTest(:, :, ii + 1) = abs(circshift(modRate(:, :, zBand),...
-    %                                              -ii, 1)./(modRateRatio(:, :, ii + 1).*modRate(:, :, zBand)) - 1);
-    %     end
-    % 
-    %     % bring shift dimension into columns
-    %     modRateRatio = permute(modRateRatio, [1, 3, 2]);
-    %     modRateRatioTest = permute(modRateRatioTest, [1, 3, 2]);
-    % 
-    %     % check for duplicate ratio indexes
-    %     for llBlock = n_blocks:-1:1
-    %         modRateForLoop = modRate(~isnan(modRate(:, llBlock, zBand)), llBlock, zBand);
-    %         if ~isempty(modRateForLoop)
-    %             for iiPeak = 10:-1:1
-    %                 [uniqVals, ~, IC] = unique(modRateRatio(iiPeak, :, llBlock));
-    %                 % count the number of occurrences of each element of uniqVals
-    %                 countDupes = accumarray(IC, 1);
-    %                 countDupes = countDupes(~isnan(uniqVals));
-    % 
-    %                 % if any ratio duplicates identified, pick using minimum
-    %                 % criterion
-    %                 if max(countDupes) > 1
-    %                     dupes = uniqVals(countDupes > 1);
-    %                     for jjDupe = length(unique(dupes)):-1:1
-    %                         dupeVal = dupes(jjDupe);
-    % 
-    %                         dupeIndexes = find(modRateRatio(iiPeak, :, llBlock) == dupeVal);
-    %                         minTestVal = min(modRateRatioTest(iiPeak,...
-    %                                                           modRateRatio(iiPeak, :, llBlock) == dupeVal,...
-    %                                                           llBlock));
-    %                         [~, minIndex] = min(abs(minTestVal - modRateRatioTest(iiPeak, :, llBlock)));
-    % 
-    %                         nonMinIndexes = dupeIndexes(dupeIndexes ~=  minIndex);
-    % 
-    %                         % set ratios of tested non-min duplicates to NaN
-    %                         modRateRatio(iiPeak, nonMinIndexes, llBlock) = nan;
-    %                         modRateRatioTest(iiPeak, nonMinIndexes, llBlock) = nan;
-    %                     end
-    %                 end
-    %             end
-    %         end
-    %     end
-    %     % logical indices of modulation rate ratio test
-    %     % Equations 89 & Equation 90
-    %     harmComplexIndices = modRateRatioTest < 0.04;
-    % 
-    %     harmComplexEnergy = zeros(size(ampMaxWeight));
-    %     for llBlock = n_blocks:-1:1
-    %         for iiPeak = 10:-1:1
-    %             % Equation 91
-    %             if ~isempty(ampMaxWeight(harmComplexIndices(iiPeak, :, llBlock), llBlock, zBand))
-    %                 harmComplexEnergy(iiPeak, llBlock) = sum(ampMaxWeight(harmComplexIndices(iiPeak, :, llBlock), llBlock, zBand), 1);
-    %             end
-    %         end
-    %     end
-    % end
+    % end of section attributable to MoSQITo
 
     % Equation 95
     roughLoWeight = hmSRoughWeight(modFundRate, modfreqMaxWeight, roughLoWeightParams);
@@ -567,16 +510,11 @@ for chan = size(pn_om, 2):-1:1
     % ---------------------------------
     % Section 7.1.7 ECMA-418-2:2022
 
-    % TODO
-    % THIS SECTION IS NOT YET WORKING CORRECTLY AND NEEDS WORK
-    % DO NOT USE!!!
-
     % interpolation to 50 Hz sampling rate
     % Section 7.1.7 Equation 103
     l_50 = ceil(n_samples/sampleRate48k*sampleRate50);
-    l_n = size(modAmpMax, 1);
-    x = linspace(1, l_n, l_n);
-    xq = linspace(1, l_50, l_50);
+    x = (iBlocks - 1)/sampleRatein;
+    xq = linspace(0, signalT, l_50);
     for zBand = nBands:-1:1
         specRoughEst(:, zBand) = pchip(x, modAmpMax(:, zBand), xq);
     end  % end of for loop for interpolation
@@ -594,7 +532,7 @@ for chan = size(pn_om, 2):-1:1
     Bl50(mask) = specRoughEstRMS(mask)./specRoughEstAvg(mask);
 
     % Section 7.1.7 Equation 105
-    El50 = (0.95555 - 0.58449)*tanh(1.6407*(Bl50 - 2.5804) + 1)*0.5 + 0.58449;
+    El50 = (0.95555 - 0.58449)*(tanh(1.6407*(Bl50 - 2.5804)) + 1)*0.5 + 0.58449;
 
     % Section 7.1.7 Equation 104
     specRoughEstTform = 0.0180685*c_Rx*(specRoughEst.^El50); %c_R*c_Rx*specRoughEst.^El50;
@@ -642,31 +580,33 @@ end
 % Overall roughness
 roughness90Pc = prctile(roughnessTDep(17:end, :, :), 90, 1);
 
+% time (s) corresponding with results output
+timeOut = (0:(size(specRoughness, 1) - 1))/sampleRate50;
+
 %% Output assignment
 
 % Assign outputs to structure
 if outchans == 3
     roughnessHMS.specRoughness = specRoughness(:, :, 1:2);
-    roughnessHMS.specRoughnessAvg = specRoughnessAvg(:, :, 1:2);
-    roughnessHMS.roughnessTDep = roughnessTDep(:, :, 1:2);
-    roughnessHMS.roughness90Pc = roughness90Pc(:, :, 1:2);
+    roughnessHMS.specRoughnessAvg = specRoughnessAvg(:, 1:2);
+    roughnessHMS.roughnessTDep = roughnessTDep(:, 1:2);
+    roughnessHMS.roughness90Pc = roughness90Pc(:, 1:2);
     roughnessHMS.specRoughnessBin = specRoughness(:, :, 3);
-    roughnessHMS.specRoughnessAvgBin = specRoughnessAvg(:, :, 3);
-    roughnessHMS.roughnessTDepBin = roughnessTDep(:, :, 3);
-    roughnessHMS.roughness90PcBin = roughness90Pc(:, :, 3);
+    roughnessHMS.specRoughnessAvgBin = specRoughnessAvg(:, 3);
+    roughnessHMS.roughnessTDepBin = roughnessTDep(:, 3);
+    roughnessHMS.roughness90PcBin = roughness90Pc(:, 3);
     roughnessHMS.bandCentreFreqs = bandCentreFreqs;
+    roughnessHMS.timeOut = timeOut;
 else
     roughnessHMS.specRoughness = specRoughness;
     roughnessHMS.specRoughnessAvg = specRoughnessAvg;
     roughnessHMS.roughnessTDep = roughnessTDep;
     roughnessHMS.roughness90Pc = roughness90Pc;
     roughnessHMS.bandCentreFreqs = bandCentreFreqs;
+    roughnessHMS.timeOut = timeOut;
 end
 
 %% Output plotting
-
-% time (s) corresponding with results output
-t = (0:(size(specRoughness, 1) - 1))/sampleRate50;
 
 if outplot
     % Plot figures
@@ -677,11 +617,11 @@ if outplot
         tiledlayout(fig, 2, 1);
         movegui(fig, 'center');
         ax1 = nexttile(1);
-        surf(ax1, t, bandCentreFreqs, permute(specRoughness(:, :, chan),...
+        surf(ax1, timeOut, bandCentreFreqs, permute(specRoughness(:, :, chan),...
                                               [2, 1, 3]),...
              'EdgeColor', 'none', 'FaceColor', 'interp');
         view(2);
-        ax1.XLim = [t(1), t(end) + (t(2) - t(1))];
+        ax1.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
         ax1.YLim = [bandCentreFreqs(1), bandCentreFreqs(end)];
         ax1.YTick = [63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3]; 
         ax1.YTickLabel = ["63", "125", "250", "500", "1k", "2k", "4k",...
@@ -726,14 +666,16 @@ if outplot
                      'FontWeight', 'normal', 'FontName', 'Arial');
 
         ax2 = nexttile(2);
-        plot(ax2, t, roughness90Pc(1, chan)*ones(size(t)), 'color',...
+        plot(ax2, timeOut, roughness90Pc(1, chan)*ones(size(timeOut)), 'color',...
              cmap_inferno(34, :), 'LineWidth', 0.75, 'DisplayName', "90th" + string(newline) + "percentile");
         hold on
-        plot(ax2, t, roughnessTDep(:, chan), 'color', cmap_inferno(166, :),...
+        plot(ax2, timeOut, roughnessTDep(:, chan), 'color', cmap_inferno(166, :),...
              'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
         hold off
-        ax2.XLim = [t(1), t(end) + (t(2) - t(1))];
-        ax2.YLim = [0, 1.01*ceil(max(roughnessTDep(:, chan))*10)/10];
+        ax2.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
+        if max(roughnessTDep(:, chan)) > 0
+            ax2.YLim = [0, 1.05*ceil(max(roughnessTDep(:, chan))*10)/10];
+        end
         ax2.XLabel.String = 'Time, s';
         ax2.YLabel.String = 'Roughness, asper_{HMS}';
         ax2.XGrid = 'on';

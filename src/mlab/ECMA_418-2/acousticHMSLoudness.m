@@ -1,36 +1,26 @@
-function loudnessHMS = acousticHMSLoudnessFromComponent_(specTonalLoudness,...
-                                                         specNoiseLoudness,...
-                                                         outplot, ecma, binaural)
-% [loudnessPowAvg, loudnessTimeVar, specificLoudness, 
-%  specificLoudnessPowAvg, bandCentreFreqs]
-%  = acousticHMSLoudnessFromComponent_(specificTonalLoudness,
-%                                     specificNoiseLoudness,
-%                                     outplot, ecma, binaural)
+function loudnessHMS = acousticHMSLoudness(p, sampleRatein, axisn, outplot, binaural)
+% loudnessHMS = acousticHMSLoudness(p, sampleRatein, axisn, outplot, binaural)
 %
 % Returns loudness values according to ECMA-418-2:2022 (using the Hearing
-% Model of Sottek) for input component specific tonal loudness and specific
-% noise loudness, obtained using acousticHMSTonality_().
+% Model of Sottek) for an input calibrated single mono or single stereo
+% audio (sound pressure) time-series signal, p. For stereo signals, the
+% binaural loudness can be calculated, or each channel can be analysed
+% separately.
 %
 % Inputs
 % ------
-% specTonalLoudness : 2D or 3D matrix
-%                     the specific tonal loudness values calculated for
-%                     a sound pressure signal (single mono or single
-%                     stereo audio)
+% p : vector or 2D matrix
+%     the input signal as single mono or stereo audio (sound
+%     pressure) signals
 %
-% specNoiseLoudness : 2D or 3D matrix
-%                     the specific noise loudness values calculated for
-%                     a sound pressure signal (single mono or single
-%                     stereo audio)
+% sampleRatein : integer
+%                the sample rate (frequency) of the input signal(s)
+%
+% axisn : integer (1 or 2, default: 1)
+%         the time axis along which to calculate the tonality
 %
 % outplot : Boolean true/false (default: false)
 %           flag indicating whether to generate a figure from the output
-%
-% ecma : Boolean true/false (default: true)
-%        flag indicating whether to maintain strict standard adherence to
-%        ECMA-418-2:2022 Equation 40, or otherwise to use an alternative
-%        that provides closer time-alignment of the time-dependent loudness
-%        with the original signal
 %
 % binaural : Boolean true/false (default: true)
 %            flag indicating whether to output binaural loudness for stereo
@@ -38,43 +28,65 @@ function loudnessHMS = acousticHMSLoudnessFromComponent_(specTonalLoudness,...
 % 
 % Returns
 % -------
-% For each 'channel' in the input matrices:
 %
-% loudnessPowAvg : number or vector
-%                  (power)-average (overall) loudness value
+% loudnessHMS : structure
+%               contains the output
+%
+% loudnessHMS contains the following outputs:
+%
+% specLoudness : matrix
+%                time-dependent specific loudness for each (half) critical
+%                band
+%                arranged as [time, bands(, channels)]
+%
+% specloudnessPowAvg : matrix
+%                      time-power-averaged specific loudness for each
+%                      (half) critical band
+%                      arranged as [bands(, channels)]
+%
+% loudnessTDep : vector or matrix
+%                 time-dependent overall loudness
+%                 arranged as [time(, channels)]
 % 
-% loudnessTimeVar : vector or 2D matrix
-%                   time-dependent overall loudness values
-%
-% specificLoudness : 2D or 3D matrix
-%                    time-dependent specific loudness values in each
-%                    half-critical band rate scale width
-%
-% specificLoudnessPowAvg : vector or 2D matrix
-%                          time-(power)-averaged specific loudness values
-%                          in each half-critical band rate scale width
+% loudnessPowAvg : number or vector
+%                  time-power-averaged overall loudness
+%                  arranged as [roughness(, channels)]
 %
 % bandCentreFreqs : vector
-%                   centre frequencies corresponding with each half-Bark
+%                   centre frequencies corresponding with each (half)
 %                   critical band rate scale width
+%
+% timeOut : vector
+%           time (seconds) corresponding with time-dependent outputs
+%
+% If binaural=true, a corresponding set of outputs for the binaural
+% roughness are also contained in roughnessHMS
+%
+% If outplot=true, a set of plots is returned illustrating the energy
+% time-averaged A-weighted sound level, the time-dependent specific and
+% overall loudness, with the latter also indicating the time-aggregated
+% value. A set of plots is returned for each input channel, with another
+% set for the binaural loudness, if binaural=true. In that case, the
+% indicated sound level corresponds with the channel with the highest sound
+% level.
 %
 % Assumptions
 % -----------
-% The input matrices are ECMA-418-2:2022 specific tonal and specific noise
-% loudness, with dimensions orientated as [half-Bark bands, time blocks,
-% signal channels]
+% The input signal is calibrated to units of acoustic pressure in Pascals
+% (Pa).
 %
 % Requirements
 % ------------
-% None
+% Signal Processing Toolbox
+% Audio Toolbox
 %
 % Ownership and Quality Assurance
 % -------------------------------
 % Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 % Institution: University of Salford
 %
-% Date created: 22/08/2023
-% Date last modified: 10/07/2024
+% Date created: 22/09/2023
+% Date last modified: 13/08/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -87,10 +99,10 @@ function loudnessHMS = acousticHMSLoudnessFromComponent_(specTonalLoudness,...
 %
 %% Arguments validation
     arguments (Input)
-        specTonalLoudness (:, :, :) double {mustBeReal}
-        specNoiseLoudness (:, :, :) double {mustBeReal}
+        p (:, :) double {mustBeReal}
+        sampleRatein (1, 1) double {mustBePositive, mustBeInteger}
+        axisn (1, 1) {mustBeInteger, mustBeInRange(axisn, 1, 2)} = 1
         outplot {mustBeNumericOrLogical} = false
-        ecma {mustBeNumericOrLogical} = true
         binaural {mustBeNumericOrLogical} = true
     end
 
@@ -98,16 +110,21 @@ function loudnessHMS = acousticHMSLoudnessFromComponent_(specTonalLoudness,...
 addpath(genpath(fullfile("refmap-psychoacoustics", "src", "mlab")))
 
 %% Input checks
-% Check the size of the input matrices (must match)
-if ~isequal(size(specTonalLoudness), size(specNoiseLoudness))
-    error('Error: Input loudness matrix sizes must match')
+% Orient input matrix
+if axisn == 2
+    p = p.';
+end
+
+% Check the length of the input data (must be longer than 300 ms)
+if size(p, 1) <  300/1000*sampleRatein
+    error('Error: Input signal is too short to calculate loudness (must be longer than 300 ms)')
 end
 
 % Check the channel number of the input data
-if size(specTonalLoudness, 3) > 2
-    error('Error: Input matrices comprise more than two channels')
+if size(p, 2) > 2
+    error('Error: Input signal comprises more than two channels')
 else
-    inchans = size(specTonalLoudness, 3);
+    inchans = size(p, 2);
     if inchans > 1
         chans = ["Stereo left";
                  "Stereo right"];
@@ -116,19 +133,13 @@ else
     end
 end
 
-if ecma == true
-    l_start = 1;  % Starting processed signal block for ECMA adherence
-else
-    l_start = floor(8192/48e3*187.5) + 1;  % Additional term to remove start zero-padding lag
-end
-
 %% Define constants
 
 deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2022
-c = 0.1618;  % Half-Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2022
+c = 0.1618;  % Half-Bark band centre-frequency demoninator constant defined in Section 5.1.4.1 ECMA-418-2:2022
 
 dz = 0.5;  % critical band resolution
-halfBark = dz:dz:26.5;  % half-critical band rate scale
+halfBark = 0.5:dz:26.5;  % half-critical band rate scale
 bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2022
 
 % Section 8.1.1 ECMA-418-2:2022
@@ -143,6 +154,15 @@ sampleRate1875 = 48e3/256;
 
 %% Signal processing
 
+% Calculate specific loudnesses for tonal and noise components
+% ------------------------------------------------------------
+
+% Obtain tonal and noise component specific loudnesses from Sections 5 & 6 ECMA-418-2:2022
+tonalityHMS = acousticHMSTonality(p, sampleRatein, 1, false);
+
+specTonalLoudness = tonalityHMS.specTonalLoudness;
+specNoiseLoudness = tonalityHMS.specNoiseLoudness;
+
 % Section 8.1.1 ECMA-418-2:2022
 % Weight and combine component specific loudnesses
 for chan = inchans:-1:1
@@ -151,7 +171,7 @@ for chan = inchans:-1:1
                                 + specNoiseLoudness(:, :, chan), [],...
                                 2, "omitnan") + 1e-12) + b;
     specLoudness(:, :, chan) = (specTonalLoudness(:, :, chan).^maxLoudnessFuncel...
-                                    + abs((weight_n.*specNoiseLoudness(:, :, chan)).^maxLoudnessFuncel)).^(1./maxLoudnessFuncel);
+                                + abs((weight_n.*specNoiseLoudness(:, :, chan)).^maxLoudnessFuncel)).^(1./maxLoudnessFuncel);
 end
 
 if inchans == 2 && binaural
@@ -167,7 +187,7 @@ end
 
 % Section 8.1.2 ECMA-418-2:2022
 % Time-averaged specific loudness Equation 115
-specLoudnessPowAvg = (sum(specLoudness((59 - l_start):(end + 1 - l_start), :, :).^(1/log10(2)), 1)./size(specLoudness((59 - l_start):(end + 1 - l_start), :, :), 1)).^log10(2);
+specLoudnessPowAvg = (sum(specLoudness((57 + 1):end, :, :).^(1/log10(2)), 1)./size(specLoudness((57 + 1):end, :, :), 1)).^log10(2);
 
 % Section 8.1.3 ECMA-418-2:2022
 % Time-dependent loudness Equation 116
@@ -181,7 +201,10 @@ end
 
 % Section 8.1.4 ECMA-418-2:2022
 % Overall loudness Equation 117
-loudnessPowAvg = (sum(loudnessTDep((59 - l_start):(end + 1 - l_start), :).^(1/log10(2)), 1)./size(loudnessTDep((59 - l_start):(end + 1 - l_start), :), 1)).^log10(2);
+loudnessPowAvg = (sum(loudnessTDep((57 + 1):end, :).^(1/log10(2)), 1)./size(loudnessTDep((57 + 1):end, :), 1)).^log10(2);
+
+% time (s) corresponding with results output
+timeOut = (0:(size(specLoudness, 1) - 1))/sampleRate1875;
 
 %% Output assignment
 
@@ -196,18 +219,18 @@ if outchans == 3
     loudnessHMS.loudnessTDepBin = loudnessTDep(:, 3);
     loudnessHMS.loudnessPowAvgBin = loudnessPowAvg(:, 3);
     loudnessHMS.bandCentreFreqs = bandCentreFreqs;
+    loudnessHMS.timeOut = timeOut;
 else
     loudnessHMS.specLoudness = specLoudness;
     loudnessHMS.specLoudnessPowAvg = specLoudnessPowAvg;
     loudnessHMS.loudnessTDep = loudnessTDep;
     loudnessHMS.loudnessPowAvg = loudnessPowAvg;
     loudnessHMS.bandCentreFreqs = bandCentreFreqs;
+    loudnessHMS.timeOut = timeOut;
 end
 
-%% Output plotting
 
-% time (s) corresponding with results output
-t = (0:(size(specLoudness, 1) - 1))/sampleRate1875;
+%% Output plotting
 
 if outplot
     % Plot figures
@@ -219,11 +242,11 @@ if outplot
         tiledlayout(fig, 2, 1);
         movegui(fig, 'center');
         ax1 = nexttile(1);
-        surf(ax1, t, bandCentreFreqs, permute(specLoudness(:, :, chan),...
+        surf(ax1, timeOut, bandCentreFreqs, permute(specLoudness(:, :, chan),...
                                               [2, 1, 3]),...
              'EdgeColor', 'none', 'FaceColor', 'interp');
         view(2);
-        ax1.XLim = [t(1), t(end) + (t(2) - t(1))];
+        ax1.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
         ax1.YLim = [bandCentreFreqs(1), bandCentreFreqs(end)];
         %ax1.CLim = [0, ceil(max(specificLoudness(:, :, chan), [], 'all')*10)/10];
         ax1.YTick = [63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3]; 
@@ -238,18 +261,46 @@ if outplot
         h = colorbar;
         set(get(h,'label'),'string', {'Specific Loudness,'; 'sone_{HMS}/Bark_{HMS}'});        
         chan_lab = chans(chan);
-        title(strcat(chan_lab, ' signal'),...
+
+        % Create A-weighting filter
+        weightFilt = weightingFilter('A-weighting', sampleRatein);
+        % Filter signal to determine A-weighted time-averaged level
+        if chan == 3
+            pA = weightFilt(p);
+            LAeq2 = 20*log10(rms(pA, 1)/2e-5);
+            % take the higher channel level as representative (PD ISO/TS
+            % 12913-3:2019 Annex D)
+            [LAeq, LR] = max(LAeq2);
+            % if branch to identify which channel is higher
+            if LR == 1
+                whichEar = ' left ear';
+            else
+                whichEar = ' right ear';
+            end  % end of if branch
+
+            chan_lab = chan_lab + whichEar;
+
+        else
+            pA = weightFilt(p(:, chan));
+            LAeq = 20*log10(rms(pA)/2e-5);
+        end
+        
+        title(strcat(chan_lab,...
+                     ' signal sound pressure level =', {' '},...
+                     num2str(round(LAeq,1)), "dB {\itL}_{Aeq}"),...
                      'FontWeight', 'normal', 'FontName', 'Arial');
 
         ax2 = nexttile(2);
-        plot(ax2, t, loudnessPowAvg(1, chan)*ones(size(t)), 'color',...
+        plot(ax2, timeOut, loudnessPowAvg(1, chan)*ones(size(timeOut)), 'color',...
              cmap_viridis(34, :), 'LineWidth', 0.75, 'DisplayName', "Power" + string(newline) + "time-avg");
         hold on
-        plot(ax2, t, loudnessTDep(:, chan), 'color', cmap_viridis(166, :),...
+        plot(ax2, timeOut, loudnessTDep(:, chan), 'color', cmap_viridis(166, :),...
              'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
         hold off
-        ax2.XLim = [t(1), t(end) + (t(2) - t(1))];
-        ax2.YLim = [0, 1.01*ceil(max(loudnessTDep(:, chan))*10)/10];
+        ax2.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
+        if max(loudnessTDep(:, chan)) > 0
+            ax2.YLim = [0, 1.01*ceil(max(loudnessTDep(:, chan))*10)/10];
+        end
         ax2.XLabel.String = 'Time, s';
         ax2.YLabel.String = 'Loudness, sone_{HMS}';
         ax2.XGrid = 'on';
@@ -261,4 +312,4 @@ if outplot
     end  % end of for loop for plotting over channels
 end  % end of if branch for plotting if outplot true
 
-% function end
+% end of function
