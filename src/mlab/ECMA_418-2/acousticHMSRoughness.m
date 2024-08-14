@@ -430,7 +430,7 @@ for chan = size(pn_om, 2):-1:1
     % the loop approach - this section is based on a translation of
     % _estimate_fund_mod_rate.py from the Python MoSQITo package
     % https://github.com/Eomys/MoSQITo/
-    % Adapted here as a derivative work under Apache License 2.0
+    % Adapted here as a section of derivative work under Apache License 2.0
     % https://www.apache.org/licenses/LICENSE-2.0
     
     % TODO: replace the MoSQITo-based loop approach with a parallelised
