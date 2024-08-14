@@ -84,7 +84,7 @@ function roughnessHMS = acousticHMSRoughness(p, sampleRatein, axisn, outplot, bi
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 13/08/2024
+% Date last modified: 14/08/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
