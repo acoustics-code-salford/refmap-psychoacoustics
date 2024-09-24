@@ -4,9 +4,11 @@ Validation of the MATLAB algorithms has been undertaken by comparison with outpu
 The audio signals used for the validation comprise:
 1. reference calibration signal for tonality and loudness: 1 kHz sinusoid at 40 dB sound pressure level (5 seconds, mono)
 1. reference calibration signal for roughness: 1 kHz sinusoid modulated at 70 Hz (modulation factor 1), at 60 dB sound pressure level (5 seconds, mono)
-1. binaural audio recording of a 'busy city street' environment, extracted from [EigenScape](https://zenodo.org/doi/10.5281/zenodo.1012808) database and reused under Creative Commons Attribution 4.0 licence (30 seconds, 2-channel binaural)
+1. binaural audio recording of a 'busy city street' environment (30 seconds, 2-channel binaural)
 
 The reference calibration signals 1 and 2 were generated using [acousticHMSGenerateRefSignals.m](mlab/acousticHMSGenerateRefSignals.m).
+
+The binaural audio recording was extracted from the [EigenScape](https://zenodo.org/doi/10.5281/zenodo.1012808) database (Green et al., [2017](https://doi.org/10.3390/app7111204),  licenced under [Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0)).
 
 The reference ArtemiS results are included in [reference folder](reference).
 
