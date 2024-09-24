@@ -84,13 +84,17 @@ function roughnessHMS = acousticHMSRoughness(p, sampleRatein, axisn, outplot, bi
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 14/08/2024
+% Date last modified: 24/09/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
 % the RefMap project (www.refmap.eu), and is subject to licence as detailed
 % in the code repository
 % (https://github.com/acoustics-code-salford/refmap-psychoacoustics)
+%
+% As per the licensing information, please be aware that this code is
+% WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 %
 % Checked by:
 % Date last checked:
@@ -134,29 +138,29 @@ end
 %% Define constants
 
 signalT = size(p, 1)/sampleRatein;  % duration of input signal
-sampleRate48k = 48e3;  % Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2022
-deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2022
-c = 0.1618;  % Half-Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2022
+sampleRate48k = 48e3;  % Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2022 [r_s]
+deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2022 [deltaf(f=0)]
+c = 0.1618;  % Half-Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2022 [c]
 
-dz = 0.5;  % critical band resolution
-halfBark = 0.5:dz:26.5;  % half-critical band rate scale
+dz = 0.5;  % critical band resolution [deltaz]
+halfBark = 0.5:dz:26.5;  % half-critical band rate scale [z]
 nBands = length(halfBark);  % number of bands
-bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2022
-dfz = sqrt(deltaFreq0^2 + (c*bandCentreFreqs).^2);  % Section 5.1.4.1 Equation 10 ECMA-418-2:2022
+bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2022 [F(z)]
 
 % Block and hop sizes Section 7.1.1 ECMA-418-2:2022
 overlap = 0.75;  % block overlap proportion
-blockSize = 16384;  % block size
-hopSize = (1 - overlap)*blockSize;  % hop size
+blockSize = 16384;  % block size [s_b]
+hopSize = (1 - overlap)*blockSize;  % hop size [s_h]
 
 % Downsampled block and hop sizes Section 7.1.2 ECMA-418-2:2022
 downSample = 32;  % downsampling factor
 sampleRate1500 = sampleRate48k/downSample;
 blockSize1500 = blockSize/downSample;
-hopSize1500 = (1 - overlap)*blockSize1500;
-resDFT1500 = sampleRate1500/blockSize1500;  % DFT resolution (section 7.1.5.1)
+% hopSize1500 = (1 - overlap)*blockSize1500;
+resDFT1500 = sampleRate1500/blockSize1500;  % DFT resolution (section 7.1.5.1) [deltaf]
 
-% Modulation rate error correction values Table 8, Section 7.1.5.1 ECMA-418-2:2022
+% Modulation rate error correction values Table 8, Section 7.1.5.1
+% ECMA-418-2:2022 [E(theta)]
 errorCorrection = [0.0000, 0.0457, 0.0907, 0.1346, 0.1765, 0.2157, 0.2515,...
                    0.2828, 0.3084, 0.3269, 0.3364, 0.3348, 0.3188, 0.2844,...
                    0.2259, 0.1351, 0.0000];
@@ -164,37 +168,44 @@ errorCorrection = [errorCorrection, flip(-errorCorrection(1:end-1)), 0];
 
 % High modulation rate roughness perceptual scaling function
 % (section 7.1.5.2 ECMA-418-2:2022)
-% Table 11 ECMA-418-2:2022
+% Table 11 ECMA-418-2:2022 [r_1; r_2]
 roughScaleParams = [0.3560, 0.8024;
                     0.8049, 0.9333];
 roughScaleParams = [roughScaleParams(:, 1).*ones([2, sum(bandCentreFreqs < 1e3)]),...
                     roughScaleParams(:, 2).*ones([2, sum(bandCentreFreqs >= 1e3)])];
-% Equation 84 ECMA-418-2:2022
+% Equation 84 ECMA-418-2:2022 [r_max(z)]
 roughScale = 1./(1 + roughScaleParams(1, :).*abs(log2(bandCentreFreqs/1000)).^roughScaleParams(2, :));
 roughScale = reshape(roughScale, [1, 1, nBands]);  % Note: this is to ease parallelised calculations
 
-% High modulation rate roughness perceptual weighting function parameters
+% High/low modulation rate roughness perceptual weighting function parameters
 % (section 7.1.5.2 ECMA-418-2:2022)
-% Equation 86 ECMA-418-2:2022
+% Equation 86 ECMA-418-2:2022 [f_max(z)]
 modfreqMaxWeight = 72.6937*(1 - 1.1739*exp(-5.4583*bandCentreFreqs/1000));
 
-% Equation 87 ECMA-418-2:2022
+% TODO for next update
+%bandCentreFreqsWeight = max(ones(size(bandCentreFreqs)).*bandCentreFreqs(3), bandCentreFreqs);
+%modfreqMaxWeight = 72.6937*(1 - 1.1739*exp(-5.4583*bandCentreFreqsWeight/1000));
+
+% Equation 87 ECMA-418-2:2022 [q_1; q_2(z)]
 roughHiWeightParams = [1.2822*ones(size(bandCentreFreqs));...
                        0.2471*ones(size(bandCentreFreqs))];
 mask = bandCentreFreqs/1000 >= 2^-3.4253;
 roughHiWeightParams(2, mask) = 0.2471 + 0.0129.*(log2(bandCentreFreqs(mask)/1000) + 3.4253).^2;
 roughHiWeightParams = reshape(roughHiWeightParams, [2, 1, nBands]);  % Note: this is to ease parallelised calculations
 
-% Equation 96 ECMA-418-2:2022
+% (section 7.1.5.4 ECMA-418-2:2022)
+% Equation 96 ECMA-418-2:2022 [q_1; q_2(z)]
 roughLoWeightParams = [0.7066*ones(size(bandCentreFreqs));...
                        1.0967 - 0.064.*log2(bandCentreFreqs/1000)];
 
-% Output sample rate (section 7.1.7 ECMA-418-2:2022)
+% Output sample rate (section 7.1.7 ECMA-418-2:2022) [r_s50]
 sampleRate50 = 50;
 
 % Calibration constant
-c_R = 0.0180685;
-c_Rx = 1;  % calibration adjustment factor
+cal_R = 0.0180909;   % calibration factor in Section 7.1.7 Equation 104 ECMA-418-2:2022 [c_R]
+%cal_Rx = 1/1.00123972659601;  % calibration adjustment factor
+%cal_R*cal_Rx = 0.0180685; adjusted calibration value
+cal_Rx = 1/1.0011565;  % calibration adjustment factor
 
 %% Signal processing
 
@@ -219,7 +230,7 @@ pn = hmSPreProc(p_re, max(blockSize), max(hopSize), true, false);
 % Section 5.1.3.2 ECMA-418-2:2022 Outer and middle/inner ear signal filtering
 pn_om = hmSOutMidEarFilter(pn);
 
-n_steps = 250;  % approximate number of calculation steps
+n_steps = 270;  % approximate number of calculation steps
 
 % Loop through channels in file
 % -----------------------------
@@ -242,8 +253,8 @@ for chan = size(pn_om, 2):-1:1
     for zBand = nBands:-1:1
         % Segmentation into blocks
         % ------------------------
-        waitbar(i_step/n_steps, w, "Calculating signal envelopes in 53 bands, ",...
-                       num2str(zBand), " to go...");...
+        waitbar(i_step/n_steps, w, strcat("Calculating signal envelopes in 53 bands, ",...
+                       num2str(zBand), " to go..."));...
         i_step = i_step + 1;
 
         % Section 5.1.5 ECMA-418-2:2022
@@ -275,7 +286,7 @@ for chan = size(pn_om, 2):-1:1
     % Section 7.1.3 equation 66 ECMA-418-2:2022 [Phi(k)_E,l,z]
     modSpectra = zeros(size(envelopes));
     envelopeWin = envelopes.*repmat(hann(blockSize1500, "periodic"), 1,...
-                                 size(envelopes, 2), nBands)./sqrt(0.375);
+                                    size(envelopes, 2), nBands)./sqrt(0.375);
     denom = max(basisLoudness, [], 3).*sum(envelopeWin.^2, 1);  % Equation 66 & 67
     mask = denom ~= 0;  % Equation 66 criteria for masking
     maskRep = repmat(mask, blockSize1500, 1 ,1);  % broadcast mask
@@ -290,20 +301,22 @@ for chan = size(pn_om, 2):-1:1
     % Envelope noise reduction
     % ------------------------
     % section 7.1.4 ECMA-418-2:2022
-    modSpectraAvg = movmean(modSpectra, [1, 1], 3, 'Endpoints', 'shrink');
+    modSpectraAvg = modSpectra;
+    modSpectraAvg(:, :, 2:end-1) = movmean(modSpectra, [1, 1], 3, 'Endpoints', 'discard');
+    
     modSpectraAvgSum = sum(modSpectraAvg, 3);  % Equation 68 [s(l,k)]
 
     % Equation 71 ECMA-418-2:2022 [wtilde(l,k)]
-    clipWeight = 0.0856.*modSpectraAvgSum(1:size(modSpectraAvg, 1)/2, :)...
+    clipWeight = 0.0856.*modSpectraAvgSum(1:size(modSpectraAvg, 1)/2 + 1, :)...
                  ./(median(modSpectraAvgSum(3:size(modSpectraAvg, 1)/2, :), 1) + 1e-10)...
-                 .*transpose(min(max(0.1891.*exp(0.012.*(0:size(modSpectraAvg, 1)/2 - 1)), 0), 1));
+                 .*transpose(min(max(0.1891.*exp(0.012.*(0:size(modSpectraAvg, 1)/2)), 0), 1));
 
-    % Equation 70 ECMA-418-2:2022
-    weightingFactor1 = zeros(size(modSpectraAvgSum(1:256, :, :)));
+    % Equation 70 ECMA-418-2:2022 [w(l,k)]
+    weightingFactor1 = zeros(size(modSpectraAvgSum(1:257, :, :)));
     mask = clipWeight >= 0.05*max(clipWeight(3:256, :), [], 1);
     weightingFactor1(mask) = min(max(clipWeight(mask) - 0.1407, 0), 1);
     weightingFactor = [weightingFactor1;
-                       flipud(weightingFactor1)];
+                       flipud(weightingFactor1(2:256, :))];
 
     % Calculate noise-reduced, scaled, weighted modulation power spectra
     modWeightSpectraAvg = modSpectraAvg.*weightingFactor; % Equation 69 [Phihat(k)_E,l,z]
@@ -311,24 +324,27 @@ for chan = size(pn_om, 2):-1:1
     % Spectral weighting
     % ------------------
     % Section 7.1.5 ECMA-418-2:2022
-    n_blocks = size(modWeightSpectraAvg, 2);
+    % theta used in equation 79, including additional index for
+    % errorCorrection terms from table 10
+    theta = 0:1:33;
+    mlabIndex = 1;  % term used to compensate for MATLAB 1-indexing
+    nBlocks = size(modWeightSpectraAvg, 2);
+    modAmp = zeros(10, nBlocks, nBands);
+    modRate = zeros(10, nBlocks, nBands);
     for zBand = nBands:-1:1
-        waitbar(i_step/n_steps, w, "Calculating spectral weightings in 53 bands, ",...
-                       num2str(zBand), " to go...");...
+        waitbar(i_step/n_steps, w, strcat("Calculating spectral weightings in 53 bands, ",...
+                       num2str(zBand), " to go..."));...
         i_step = i_step + 1;
 
         % Section 7.1.5.1 ECMA-418-2:2022
-        for ll = n_blocks:-1:1
-            % assign zero arrays for ten greatest spectral maxima amplitudes
-            % and modulation rates in each block
-            modAmpBlock = zeros(10, 1);
-            modRateBlock = zeros(10, 1);
+        for lBlock = nBlocks:-1:1
             % identify peaks in each block (for each band)
             [PhiPks, kLocs, ~, proms] = findpeaks(modWeightSpectraAvg(3:256,...
-                                                                      ll,...
+                                                                      lBlock,...
                                                                       zBand));
 
-            % reindex locs to match spectral start index used in findpeaks
+            % reindex kLocs to match spectral start index used in findpeaks
+            % for indexing into modulation spectra matrices
             kLocs = kLocs + 2;
 
             % consider 10 highest prominence peaks only
@@ -349,160 +365,184 @@ for chan = size(pn_om, 2):-1:1
             % consider peaks meeting criterion
             if ~isempty(PhiPks)
                 mask = PhiPks > 0.05*max(PhiPks);  % Equation 72 criterion
-                PhiPks = PhiPks(mask);
+                PhiPks = PhiPks(mask);  % [Phihat(k_p,i(l,z))]
                 kLocs = kLocs(mask);
                 % loop over peaks to obtain modulation rates
-                for ii = length(PhiPks):-1:1
+                for iPeak = length(PhiPks):-1:1
                     % Equation 74 ECMA-418-2:2022
-                    modAmpMat = [modWeightSpectraAvg(kLocs(ii) - 1, ll, zBand);
-                               modWeightSpectraAvg(kLocs(ii), ll, zBand);
-                               modWeightSpectraAvg(kLocs(ii) + 1, ll, zBand)];
+                    % Note: here, the kLoc values are used as indices for
+                    % the modulation spectral matrix, so MATLAB indexing
+                    % is correctly addressed (see Equation 75 below)
+                    % [Phihat_E,l,z]
+                    modAmpMat = [modWeightSpectraAvg(kLocs(iPeak) - 1, lBlock, zBand);
+                                 modWeightSpectraAvg(kLocs(iPeak), lBlock, zBand);
+                                 modWeightSpectraAvg(kLocs(iPeak) + 1, lBlock, zBand)];
                     
-                    modAmpBlock(ii) = sum(modAmpMat);
+                    % Equation 82 [A_i(l,z)]
+                    modAmp(iPeak, lBlock, zBand) = sum(modAmpMat);
 
                     % Equation 75 ECMA-418-2:2022
-                    % Note: because the kLoc values are used directly in
-                    % the calculation, MATLAB indexing needs to be
-                    % accounted for
-                    modIndexMat = [(kLocs(ii) - 2)^2, kLocs(ii) - 2, 1;
-                                   (kLocs(ii) - 1)^2, kLocs(ii) - 1,     1;
-                                   (kLocs(ii))^2, kLocs(ii), 1];
+                    % Note: because the kLoc index values are used directly
+                    % in the calculation, MATLAB indexing needs to be
+                    % compensated for by subtracting 1 from kLocs
+                    % [K]
+                    modIndexMat = [(kLocs(iPeak) - mlabIndex - 1)^2, kLocs(iPeak) - mlabIndex - 1, 1;
+                                   (kLocs(iPeak) - mlabIndex)^2, kLocs(iPeak) - mlabIndex, 1;
+                                   (kLocs(iPeak) - mlabIndex + 1)^2, kLocs(iPeak) - mlabIndex + 1, 1];
 
-                    coeffVec = modIndexMat\modAmpMat;  % Equation 73 solution
+                    coeffVec = modIndexMat\modAmpMat;  % Equation 73 solution [C]
 
-                    % Equation 76 ECMA-418-2:2022
+                    % Equation 76 ECMA-418-2:2022 [ftilde_p,i(l,z)]
                     modRateEst = -(coeffVec(2)/(2*coeffVec(1)))*resDFT1500;
 
-                    % Equation 79 ECMA-418-2:2022
-                    theta = (0:1:33) + 1;
-                    errorBeta = (floor(modRateEst/resDFT1500) + (theta - 1)/32)*resDFT1500...
-                                - (modRateEst + errorCorrection);
+                    % Equation 79 ECMA-418-2:2022 [beta(theta)]
+                    errorBeta = (floor(modRateEst/resDFT1500) + theta(1:33)/32)*resDFT1500...
+                                - (modRateEst + errorCorrection(theta(1:33) + mlabIndex)); % compensated theta value for MATLAB-indexing
 
-                    % Equation 80 ECMA-418-2:2022
+                    % Equation 80 ECMA-418-2:2022 [theta_min]
                     [~, i_minError] = min(abs(errorBeta));
-                    thetaMinError = theta(i_minError);
+                    thetaMinError = theta(i_minError);  % the result here is 0-indexed
 
-                    % Equation 81 ECMA-418-2:2022
-                    if  thetaMinError > 1 && (floor(modRateEst/resDFT1500) + (thetaMinError - 1)/32)*resDFT1500...
-                                - (modRateEst + errorCorrection(thetaMinError)) < 0
-                        thetaCorr = thetaMinError;
+                    % Equation 81 ECMA-418-2:2022 [theta_corr]
+                    if thetaMinError > 0 && errorBeta(i_minError)*errorBeta(i_minError - 1) < 0 % (0-indexed)
+                        thetaCorr = thetaMinError;  % 0-indexed
                     else
-                        thetaCorr = thetaMinError + 1;
-                    end  % end of eq 81 if branch
+                        thetaCorr = thetaMinError + 1;  % 0-indexed
+                    end  % end of eq 81 if-branch
 
                     % Equation 78 ECMA-418-2:2022
-                    biasAdjust = errorCorrection(thetaCorr)...
-                                 - (errorCorrection(thetaCorr - 1)...
-                                    - errorCorrection(thetaCorr - 1))...
-                                    *(errorBeta(thetaCorr - 1)/(errorBeta(thetaCorr) - errorBeta(thetaCorr - 1)));
+                    % thetaCorr is 0-indexed so needs adjusting when
+                    % indexing
+                    % [rho(ftilde_p,i(l,z))]
+                    biasAdjust = errorCorrection(thetaCorr + mlabIndex - 1)...
+                                 - (errorCorrection(thetaCorr + mlabIndex)...
+                                    - errorCorrection(thetaCorr + mlabIndex - 1))...
+                                    *errorBeta(thetaCorr + mlabIndex - 1)...
+                                    /(errorBeta(thetaCorr + mlabIndex)...
+                                      - errorBeta(thetaCorr + mlabIndex - 1));
 
-                    % Equation 77 ECMA-418-2:2022
-                    modRateBlock(ii) = modRateEst + biasAdjust;
+                    % Equation 77 ECMA-418-2:2022 [f_p,i(l,z)]
+                    modRate(iPeak, lBlock, zBand) = modRateEst + biasAdjust;
 
                 end  % end of for loop over peaks in block per band
             end  % end of if branch for detected peaks in modulation spectrum
-
-            % collect modulation peak amplitudes and frequencies for all
-            % blocks in each band
-            modAmpBand(:, ll) = modAmpBlock;
-            modRateBand(:, ll) = modRateBlock;
-        end  % end of for loop over blocks for peak detection
-        
-        % collect modulation peak amplitudes and frequencies for all bands
-        modAmp(:, :, zBand) = modAmpBand;
-        modRate(:, :, zBand) = modRateBand;
-        
+        end  % end of for loop over blocks for peak detection      
     end  % end of for loop over bands for modulation spectral weighting
 
     % Section 7.1.5.2 ECMA-418-2:2022 - Weighting for high modulation rates
-    % Equation 85
+    % Equation 85 [G_l,z,i(f_p,i(l,z))]
     roughHiWeight = hmSRoughWeight(modRate,...
                                    reshape(modfreqMaxWeight, [1, 1, nBands]),...
                                    roughHiWeightParams);
 
-    % Equation 83
-    modHiWeight = modAmp.*roughScale;
-    mask = modRate >= permute(repmat(modfreqMaxWeight, 1, 1, 10), [3, 1, 2]);
-    modHiWeight(mask) = modHiWeight(mask).*roughHiWeight(mask);
+    % Equation 83 [Atilde_i(l,z)]
+    modAmpHiWeight = modAmp.*roughScale;
+    mask = modRate <= resDFT1500;
+    modAmpHiWeight(mask) = 0;
+    mask = modRate > permute(repmat(modfreqMaxWeight, 1, 1, 10), [3, 1, 2]);
+    modAmpHiWeight(mask) = modAmpHiWeight(mask).*roughHiWeight(mask);
+
 
     % Section 7.1.5.3 ECMA-418-2:2022 - Estimation of fundamental modulation rate
-
-    % the loop approach - this section is based on a translation of
-    % _estimate_fund_mod_rate.py from the Python MoSQITo package
-    % https://github.com/Eomys/MoSQITo/
-    % Adapted here as a section of derivative work under Apache License 2.0
-    % https://www.apache.org/licenses/LICENSE-2.0
-    
-    % TODO: replace the MoSQITo-based loop approach with a parallelised
-    % approach!
-
-    modFundRate = zeros(n_blocks, length(halfBark));
-    modMaxWeight = zeros(size(modHiWeight));
+    % TODO: replace the loop approach with a parallelised approach!
+    % matrix initialisation to ensure zero rates do not cause missing bands in output
+    modFundRate = zeros([nBlocks, nBands]);
+    modMaxWeight = zeros([10, nBlocks, nBands]);
     for zBand = nBands:-1:1
-        waitbar(i_step/n_steps, w, "Calculating modulation rates in 53 bands, ",...
-                num2str(zBand), " to go...");...
+        waitbar(i_step/n_steps, w, strcat("Calculating modulation rates in 53 bands, ",...
+                num2str(zBand), " to go..."));...
         i_step = i_step + 1;
 
-        for llBlock = n_blocks:-1:1
-            if max(modRate(:, llBlock, zBand)) > 0
-                modRateForLoop = modRate(modRate(:, llBlock, zBand) > 0,...
-                                         llBlock, zBand);
+        for lBlock = nBlocks:-1:1
+            % Proceed with rate detection if non-zero modulation rates
+            if max(modRate(:, lBlock, zBand)) > 0
+                modRateForLoop = modRate(modRate(:, lBlock, zBand) > 0,...
+                                         lBlock, zBand);
 
-                NPeaks = length(modRateForLoop);
-                I_i0 = {};
-                E_i0 = double.empty(NPeaks, 0);
-                
-                for iiPeak = NPeaks:-1:1
-                    modRateRatio = round(modRateForLoop/modRateForLoop(iiPeak));
-                    [uniqVals, iiADupes, iiCDupes] = unique(modRateRatio);
-                    countDupes = accumarray(iiCDupes, 1);
+                nPeaks = length(modRateForLoop);
 
-                    candidateInds = iiADupes(countDupes==1);
+                % initialise empty cell array for equation 90
+                indSetiPeak = {};
+                % initialise empty matrix for equation 91
+                harmCompEnergy = double.empty(nPeaks, 0);
 
-                    if max(countDupes) > 1
-                        b = uniqVals(countDupes > 1);
-                        for jj = length(uniqVals(countDupes > 1)):-1:1
-                            c = b(jj);
-                            
-                            ic = find(modRateRatio == c);
-                            crit = abs(modRateForLoop(ic)./(modRateRatio(ic)*modRateForLoop(iiPeak)) - 1);
+                for iPeak = nPeaks:-1:1
+                    % Equation 88 [R_i_0(i)]
+                    modRateRatio = round(modRateForLoop/modRateForLoop(iPeak));
+                    [uniqRatios, startGroupInds, uniqGroupInds] = unique(modRateRatio);
+                    countDupes = accumarray(uniqGroupInds, 1);
 
-                            [~, argMin] = min(crit);
-                            candidateInds(end + 1) = ic(argMin);
-                            candidateInds = fliplr(candidateInds);
-
-                        end
+                    % add any non-duplicated ratio indices
+                    testIndices = zeros([10, 1]);
+                    if ~isempty(startGroupInds(countDupes==1))
+                        testIndices(1:length(startGroupInds(countDupes==1))) = startGroupInds(countDupes==1);
                     end
 
-                    hComplex = abs(modRateForLoop(candidateInds)./(modRateRatio(candidateInds)*modRateForLoop(iiPeak)) - 1);
-                    I_i0{iiPeak}= candidateInds(hComplex < 0.04);
+                    % loop over duplicated values to select single
+                    % index
+                    if max(countDupes) > 1
+                        dupeRatioVals = uniqRatios(countDupes > 1);
+                        for jDupe = length(dupeRatioVals):-1:1
 
-                    E_i0(iiPeak) = sum(modHiWeight(I_i0{iiPeak}, llBlock, zBand));
-        
+                            % Equation 89 [i]
+                            dupeGroupInds = find(modRateRatio == dupeRatioVals(jDupe));
+                            testDupe = abs(modRateForLoop(dupeGroupInds)...
+                                           ./(modRateRatio(dupeGroupInds)...
+                                            *modRateForLoop(iPeak)) - 1);
+
+                            % discard if all inf
+                            if ~all(isinf(testDupe))
+                                [~, testDupeMin] = min(testDupe);
+                                % append selected index
+                                testIndices(length(startGroupInds(countDupes==1)) + jDupe) = dupeGroupInds(testDupeMin);
+                            end  % end of if branch for all inf
+                        end  % end of for loop over duplicated ratios
+                    end  % end of if branch for duplicated ratios
+
+                    % discard zero indices
+                    testIndices = testIndices(testIndices > 0);
+
+                    % Equation 90 [I_i_0]
+                    harmComplexTest = abs(modRateForLoop(testIndices)./(modRateRatio(testIndices)*modRateForLoop(iPeak)) - 1);
+                    indSetiPeak{iPeak} = testIndices(harmComplexTest < 0.04);
+
+                    % Equation 91 [E_i_0]
+                    harmCompEnergy(iPeak) = sum(modAmpHiWeight(indSetiPeak{iPeak}, lBlock, zBand));
+
                 end
-            
-                [~, i_max] = max(E_i0);
-                I_max = I_i0{i_max};
-                modFundRate(llBlock, zBand) = modRateForLoop(i_max);
-                [~, i_peak] = max(modHiWeight(I_max, llBlock, zBand));
+
+                [~, iMaxEnergy] = max(harmCompEnergy);
+                indSetMax = indSetiPeak{iMaxEnergy};
+                modFundRate(lBlock, zBand) = modRateForLoop(iMaxEnergy);
+                % Equation 94 [i_peak]
+                [~, iPeakAmp] = max(modAmpHiWeight(indSetMax, lBlock, zBand));
+                iPeak = indSetMax(iPeakAmp);
     
-                gravityWeight = 1 + 0.1*abs(sum(modRateForLoop(I_max).*modHiWeight(I_max, llBlock, zBand))/sum(modHiWeight(I_max, llBlock, zBand))...
-                                            - modRateForLoop(i_peak)).^0.749;
-                modMaxWeight(I_max, llBlock, zBand) = modHiWeight(I_max, llBlock, zBand).*gravityWeight;
+                % Equation 93 [w_peak]
+                gravityWeight = max(0, 1 + 0.1*abs(sum(modRateForLoop(indSetMax)...
+                                                .*modAmpHiWeight(indSetMax, lBlock, zBand))...
+                                                /sum(modAmpHiWeight(indSetMax, lBlock, zBand) + eps)...
+                                            - modRateForLoop(iPeak)).^0.749);
+
+                % Equation 92 [Ahat(i)]
+                modMaxWeight(indSetMax,...
+                             lBlock,...
+                             zBand) = gravityWeight.*modAmpHiWeight(indSetMax,...
+                                                                    lBlock,...
+                                                                    zBand);
             
-            end
-        end
-    end
+            end  % end of if branch for non-zero modulation rates
+        end  % end of for loop over blocks
+    end  % end of for loop over bands
 
-    % end of section attributable to MoSQITo
-
-    % Equation 95
+    % Equation 95 [A(l,z)]
     roughLoWeight = hmSRoughWeight(modFundRate, modfreqMaxWeight, roughLoWeightParams);
-    modMaxLoWeight = sum(permute(repmat(roughLoWeight, 1, 1, 10), [3, 1, 2]).*modMaxWeight, 1);
-    modMaxWeightSum = sum(modMaxWeight, 1);
-    mask = modFundRate >= modfreqMaxWeight;
+    modMaxWeightSum = squeeze(sum(modMaxWeight, 1));
+    modMaxLoWeight = squeeze(sum(permute(repmat(roughLoWeight, 1, 1, 10), [3, 1, 2]).*modMaxWeight, 1));
+    mask = modFundRate <= resDFT1500;
+    modMaxLoWeight(mask) = 0;
+    mask = modFundRate > modfreqMaxWeight;
     modMaxLoWeight(mask) = modMaxWeightSum(mask);
-    modMaxLoWeight = squeeze(modMaxLoWeight);
     modAmpMax = modMaxLoWeight;
     modAmpMax(modAmpMax < 0.074376) = 0;
 
@@ -511,48 +551,44 @@ for chan = size(pn_om, 2):-1:1
     % Section 7.1.7 ECMA-418-2:2022
 
     % interpolation to 50 Hz sampling rate
-    % Section 7.1.7 Equation 103
+    % Section 7.1.7 Equation 103 [l_50,end]
     l_50 = ceil(n_samples/sampleRate48k*sampleRate50);
     x = (iBlocks - 1)/sampleRatein;
-    xq = linspace(0, signalT, l_50);
+    xq = linspace(0, signalT - 1/sampleRate50, l_50);
     for zBand = nBands:-1:1
         specRoughEst(:, zBand) = pchip(x, modAmpMax(:, zBand), xq);
     end  % end of for loop for interpolation
-    specRoughEst(specRoughEst < 0) = 0;
+    specRoughEst(specRoughEst < 0) = 0;  % [R'_est(l_50,z)]
 
-    % Section 7.1.7 Equation 107
+    % Section 7.1.7 Equation 107 [Rtilde'_est(l_50)]
     specRoughEstRMS = rms(specRoughEst, 2);
 
-    % Section 7.1.7 Equation 108
+    % Section 7.1.7 Equation 108 [Rbar'_est(l_50)]
     specRoughEstAvg = mean(specRoughEst, 2);
 
-    % Section 7.1.7 Equation 106
+    % Section 7.1.7 Equation 106 [B(l_50)]
     Bl50 = zeros(size(specRoughEstAvg));
     mask = specRoughEstAvg ~= 0;
     Bl50(mask) = specRoughEstRMS(mask)./specRoughEstAvg(mask);
 
-    % Section 7.1.7 Equation 105
+    % Section 7.1.7 Equation 105 [E(l_50)]
     El50 = (0.95555 - 0.58449)*(tanh(1.6407*(Bl50 - 2.5804)) + 1)*0.5 + 0.58449;
 
-    % Section 7.1.7 Equation 104
-    specRoughEstTform = 0.0180685*c_Rx*(specRoughEst.^El50); %c_R*c_Rx*specRoughEst.^El50;
+    % Section 7.1.7 Equation 104 [Rhat'(l_50,z)]
+    specRoughEstTform = cal_R*cal_Rx*(specRoughEst.^El50);
 
-    % Section 7.1.7 Equation 110
-    timeConstants = 0.5*ones(size(specRoughEstTform));
-    mask = diff(specRoughEstTform, 1, 1) >= 0;
-    timeConstants(mask) = 0.0625;
-
-    % Section 7.1.7 Equation 109
-    specRoughness(:, :, chan) = specRoughEstTform;
-    specRoughness(2:end, :, chan) = specRoughEstTform(2:end, :).*(1 - exp(-1./(sampleRate50*timeConstants(2:end, :))))...
-                                    + specRoughEstTform(1:end - 1, :).*exp(-1./(sampleRate50*timeConstants(2:end, :)));
+    % Section 7.1.7 Equation 109-110 [R'(l_50,z)]
+    riseTime = 0.0625;
+    fallTime = 0.5;
+    specRoughness(:, :, chan) = hmSRoughLowPass(specRoughEstTform, sampleRate50, ...
+                                                riseTime, fallTime);
 
     close(w)  % close waitbar
 
 end  % end of for loop over channels
 
 % Binaural roughness
-% Section 7.1.11 ECMA-418-2:2022
+% Section 7.1.11 ECMA-418-2:2022 [R'_B(l_50,z)]
 if inchans == 2 && binaural
     specRoughness(:, :, 3) = sqrt(sum(specRoughness.^2, 3)/2);  % Equation 112
     outchans = 3;  % set number of 'channels' to stereo plus single binaural
@@ -563,24 +599,25 @@ else
 end
 
 % Section 7.1.8 ECMA-418-2:2022
-% Time-averaged specific roughness
+% Time-averaged specific roughness [R'(z)]
 specRoughnessAvg = mean(specRoughness(17:end, :, :), 1);
 
 % Section 7.1.9 ECMA-418-2:2022
-% Time-dependent roughness Equation 111
+% Time-dependent roughness Equation 111 [R(l_50)]
 % Discard singleton dimensions
 if outchans == 1
     roughnessTDep = sum(specRoughness.*dz, 2);
+    specRoughnessAvg = transpose(specRoughnessAvg);
 else
     roughnessTDep = squeeze(sum(specRoughness.*dz, 2));
     specRoughnessAvg = squeeze(specRoughnessAvg);
 end
 
 % Section 7.1.10 ECMA-418-2:2022
-% Overall roughness
+% Overall roughness [R]
 roughness90Pc = prctile(roughnessTDep(17:end, :, :), 90, 1);
 
-% time (s) corresponding with results output
+% time (s) corresponding with results output [t]
 timeOut = (0:(size(specRoughness, 1) - 1))/sampleRate50;
 
 %% Output assignment
@@ -674,7 +711,7 @@ if outplot
         hold off
         ax2.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
         if max(roughnessTDep(:, chan)) > 0
-            ax2.YLim = [0, 1.05*ceil(max(roughnessTDep(:, chan))*10)/10];
+            ax2.YLim = [0, 1.1*ceil(max(roughnessTDep(:, chan))*10)/10];
         end
         ax2.XLabel.String = 'Time, s';
         ax2.YLabel.String = 'Roughness, asper_{HMS}';

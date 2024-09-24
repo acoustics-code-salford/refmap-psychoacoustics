@@ -47,13 +47,17 @@ function [signalRectSeg, basisLoudness, blockRMS]...
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 27/09/2023
-% Date last modified: 10/07/2024
+% Date last modified: 20/08/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
 % the RefMap project (www.refmap.eu), and is subject to licence as detailed
 % in the code repository
 % (https://github.com/acoustics-code-salford/refmap-psychoacoustics)
+%
+% As per the licensing information, please be aware that this code is
+% WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 %
 % This code was developed from an original file 'SottekTonality.m' authored
 % by Matt Torjussen (14/02/2022), based on implementing ECMA-418-2:2020.
@@ -88,10 +92,11 @@ c = 0.1618;  % Half-Bark band centre-frequency denominator constant defined in S
 halfBark = 0.5:0.5:26.5;  % half-critical band rate scale
 bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2022
 
-%cal_N = 0.0211668;  % Calibration factor from Section 5.1.8 Equation 23 ECMA-418-2:2022
-%cal_Nx = 1.0023565;  % Adjustment to calibration factor cal_N Footnote 9 ECMA-418-2:2022
-cal_N = 0.0211964;  % Calibration factor from Section 5.1.8 Equation 23 ECMA-418-2:2022
-cal_Nx = 1;
+cal_N = 0.0211668;  % Calibration factor from Section 5.1.8 Equation 23 ECMA-418-2:2022
+cal_Nx = 1.00132;  % Calibration multiplier (Footnote 8 ECMA-418-2:2022)
+%cal_N*cal_Nx = 0.021194740176;  % Adjusted calibration factor
+%cal_Nx = 1.001398416387928;  % Calibration multiplier (Footnote 8 ECMA-418-2:2022)
+%cal_N*cal_Nx = 0.0211964;  % Adjusted calibration factor
 
 a = 1.5;  % Constant (alpha) from Section 5.1.8 Equation 23 ECMA-418-2:2022
 

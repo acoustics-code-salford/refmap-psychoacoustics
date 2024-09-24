@@ -18,8 +18,7 @@ library(multgee)
 library(ggplot2)
 library(openxlsx)
 library(performance)
-library(rstanarm)
-
+library(conflicted)
 ```
 
 Set parameters
@@ -94,6 +93,8 @@ subjDataA$UASOperation <- factor(subjDataA$UASOperation, levels=UASOpCatsA)
 subjDataA$UASType <- factor(subjDataA$UASType, levels=UASTypeCatsA)
 subjDataA$AmbientEnv <- factor(subjDataA$AmbientEnv, levels=c("Park", "Street"))
 
+# reorder by trial number
+subjDataA <- subjDataA[with(subjDataA, order(ID., TrialNumber)), ]
 
 ```
 

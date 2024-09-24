@@ -38,13 +38,17 @@ function signalFiltered = hmSAuditoryFiltBank(signal, outplot)
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 27/09/2023
-% Date last modified: 10/07/2024
+% Date last modified: 19/08/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
 % the RefMap project (www.refmap.eu), and is subject to licence as detailed
 % in the code repository
 % (https://github.com/acoustics-code-salford/refmap-psychoacoustics)
+%
+% As per the licensing information, please be aware that this code is
+% WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 %
 % This code was developed from an original file 'SottekTonality.m' authored
 % by Matt Torjussen (14/02/2022), based on implementing ECMA-418-2:2020.

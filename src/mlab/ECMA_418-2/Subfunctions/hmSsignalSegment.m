@@ -1,5 +1,5 @@
 function [signalSegmented, iBlocks] = hmSsignalSegment(signal, axisn, blockSize, overlap,...
-                                                     i_start, endShrink)
+                                                       i_start, endShrink)
 % signalSegmented = hmSsignalSegment(signal, axisn, blockSize, overlap, i_start)
 %
 % Returns input signal segmented into blocks for processing.
@@ -38,7 +38,7 @@ function [signalSegmented, iBlocks] = hmSsignalSegment(signal, axisn, blockSize,
 % Also: 
 %
 % iBlocks : vector
-%           the indices corresponding with each block starting index, 
+%           the indices corresponding with each block starting index
 %
 % Assumptions
 % -----------
@@ -55,13 +55,17 @@ function [signalSegmented, iBlocks] = hmSsignalSegment(signal, axisn, blockSize,
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 27/09/2023
-% Date last modified: 13/08/2024
+% Date last modified: 20/08/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
 % the RefMap project (www.refmap.eu), and is subject to licence as detailed
 % in the code repository
 % (https://github.com/acoustics-code-salford/refmap-psychoacoustics)
+%
+% As per the licensing information, please be aware that this code is
+% WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 %
 % This code was developed from an original file 'SottekTonality.m' authored
 % by Matt Torjussen (14/02/2022), based on implementing ECMA-418-2:2020.
