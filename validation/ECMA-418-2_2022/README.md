@@ -19,7 +19,7 @@ Signal 1 is unmodulated, which yields 0 asper roughness, so time-dependent and s
 # Tonality
 ## Time-dependent tonality
 
-<img src='results/tonalHMSTDepSine1kHz40dB.png' width=500>
+<img src='results/tonalHMSTDepSine1kHz40dB.png' width=400>
 
 ![Signal 3 time-dependent tonality](results/tonalHMSTDepBusySt.png)
 
@@ -35,12 +35,12 @@ Signal 1 is unmodulated, which yields 0 asper roughness, so time-dependent and s
 
 ## Overall tonality
 
-<img src='results/tonalHMSsingles.png' width=500>
+<img src='results/tonalHMSsingles.png' width=400>
 
 # Loudness
 ## Time-dependent loudness
 
-<img src='results/loudHMSTDepSine1kHz40dB.png' width=500>
+<img src='results/loudHMSTDepSine1kHz40dB.png' width=400>
 
 ![Signal 3 time-dependent loudness](results/loudHMSTDepBusySt.png)
 
@@ -60,12 +60,12 @@ Signal 1 is unmodulated, which yields 0 asper roughness, so time-dependent and s
 
 ## Overall loudness
 
-<img src='results/loudHMSsingles.png' width=500>
+<img src='results/loudHMSsingles.png' width=400>
 
 # Roughness
 ## Time-dependent roughness
 
-<img src='results/roughHMSTDepSine1kHz70Hz60dB.png' width=500>
+<img src='results/roughHMSTDepSine1kHz70Hz60dB.png' width=400>
 
 ![Signal 3 time-dependent roughness](results/roughHMSTDepBusySt.png)
 
@@ -85,4 +85,4 @@ Signal 1 is unmodulated, which yields 0 asper roughness, so time-dependent and s
 
 ## Overall roughness
 
-<img src='results/roughHMSsingles.png' width=500>
+<img src='results/roughHMSsingles.png' width=400>
