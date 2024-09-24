@@ -165,13 +165,18 @@ roughSinglesAll = vertcat(roughSingles, horzcat([roughnessHMS1.roughness90Pc,...
 % path for saving figures
 figpath = fullfile("validation", "ECMA-418-2_2022", "results");
 
+% figure format
+figformat = 'png';
+
 % Tonality
 % --------
 
 % sine_1kHz_40dB.wav
 % Time-dependent
-TDepPlot(sine_1kHz_40dB, tonalityHMS1, 'tonality', "sine\_1kHz\_40dB.wav", false, figpath, "tonalHMSTDepSine1kHz40dB");
-SpecTDepPlot(sine_1kHz_40dB, tonalityHMS1, 'tonality', "sine\_1kHz\_40dB.wav", false, figpath, "tonalHMSSpecTDepSine1kHz40dB");
+TDepPlot(sine_1kHz_40dB, tonalityHMS1, 'tonality', "sine\_1kHz\_40dB.wav",...
+         false, figpath, "tonalHMSTDepSine1kHz40dB", figformat);
+SpecTDepPlot(sine_1kHz_40dB, tonalityHMS1, 'tonality', "sine\_1kHz\_40dB.wav",...
+         false, figpath, "tonalHMSSpecTDepSine1kHz40dB");
 
 % Time-aggregated
 SpecTAggPlot(sine_1kHz_40dB, tonalityHMS1, 'tonality', "sine\_1kHz\_40dB.wav", false, NaN, NaN);
@@ -186,14 +191,17 @@ SpecTAggPlot(sine_1kHz_70Hz_60dB, tonalityHMS2, 'tonality', "sine\_1kHz\_70Hz\_6
 
 % BusyStreet1_0530-0600.wav
 % Time-dependent
-TDepPlot(BusyStreet1_0530_0600, tonalityHMS3, 'tonality', "BusyStreet1\_0530-0600.wav", false, figpath, "tonalHMSTDepBusySt");
-SpecTDepPlot(BusyStreet1_0530_0600, tonalityHMS3, 'tonality', "BusyStreet1\_0530-0600.wav", false, figpath, "tonalHMSSpecTDepBusySt");
+TDepPlot(BusyStreet1_0530_0600, tonalityHMS3, 'tonality', "BusyStreet1\_0530-0600.wav",...
+         false, figpath, "tonalHMSTDepBusySt", figformat);
+SpecTDepPlot(BusyStreet1_0530_0600, tonalityHMS3, 'tonality', "BusyStreet1\_0530-0600.wav",...
+             false, figpath, "tonalHMSSpecTDepBusySt");
 
 % Time-aggregated
-SpecTAggPlot(BusyStreet1_0530_0600, tonalityHMS3, 'tonality', "BusyStreet1\_0530-0600.wav", false, figpath, "tonalHMSSpecTAggBusySt");
+SpecTAggPlot(BusyStreet1_0530_0600, tonalityHMS3, 'tonality', "BusyStreet1\_0530-0600.wav",...
+             false, figpath, "tonalHMSSpecTAggBusySt", figformat);
 
 % Single values
-fg = figure('Position', [200, 200, 450, 400]);
+fg = figure('Position', [200, 200, 450, 300]);
 movegui(fg, 'center');
 br = bar(strrep(signalLabs(1:end - 1), "_", " "), tonalSinglesAll);
 colororder('dye')
@@ -206,50 +214,66 @@ for bb = 1:length(br)
         'VerticalAlignment','bottom', 'FontSize', 8)
 end
 exportgraphics(fg, fullfile(figpath, "tonalHMSsingles.pdf"), 'ContentType', 'vector')
+exportgraphics(fg, fullfile(figpath, "tonalHMSsingles.png"), 'Resolution', 300)
 
 % Loudness
 % --------
 
 % sine_1kHz_40dB.wav
 % Time-dependent (from component)
-TDepPlot(sine_1kHz_40dB, loudnessHMS1, 'loudness', "sine\_1kHz\_40dB.wav (from component)", false, figpath, "loudHMSTDepSine1kHz40dB");
-SpecTDepPlot(sine_1kHz_40dB, loudnessHMS1, 'loudness', "sine\_1kHz\_40dB.wa (from component)", false, figpath, "loudHMSSpecTDepSine1kHz40dB");
+TDepPlot(sine_1kHz_40dB, loudnessHMS1, 'loudness', "sine\_1kHz\_40dB.wav (from component)",...
+         false, figpath, "loudHMSTDepSine1kHz40dB", figformat);
+SpecTDepPlot(sine_1kHz_40dB, loudnessHMS1, 'loudness', "sine\_1kHz\_40dB.wav (from component)",...
+             false, figpath, "loudHMSSpecTDepSine1kHz40dB");
 
 % Time-aggregated (from component)
-SpecTAggPlot(sine_1kHz_40dB, loudnessHMS1, 'loudness', "sine\_1kHz\_40dB.wav (from component)", false, NaN, NaN);
+SpecTAggPlot(sine_1kHz_40dB, loudnessHMS1, 'loudness',...
+             "sine\_1kHz\_40dB.wav (from component)", false, NaN, NaN);
 
 % Time-dependent (full function)
-TDepPlot(sine_1kHz_40dB, loudnessHMS1full, 'loudness', "sine\_1kHz\_40dB.wav (full function)", false, NaN, NaN);
-SpecTDepPlot(sine_1kHz_40dB, loudnessHMS1full, 'loudness', "sine\_1kHz\_40dB.wav (full function)", false, NaN, NaN);
+TDepPlot(sine_1kHz_40dB, loudnessHMS1full, 'loudness',...
+         "sine\_1kHz\_40dB.wav (full function)", false, NaN, NaN);
+SpecTDepPlot(sine_1kHz_40dB, loudnessHMS1full, 'loudness',...
+             "sine\_1kHz\_40dB.wav (full function)", false, NaN, NaN);
 
 % Time-aggregated (full function)
-SpecTAggPlot(sine_1kHz_40dB, loudnessHMS1full, 'loudness', "sine\_1kHz\_40dB.wav (full function)", false, NaN, NaN);
+SpecTAggPlot(sine_1kHz_40dB, loudnessHMS1full, 'loudness',...
+             "sine\_1kHz\_40dB.wav (full function)", false, NaN, NaN);
 
 % sine_1kHz_70Hz_60dB.wav
 % Time-dependent
-TDepPlot(sine_1kHz_70Hz_60dB, loudnessHMS2, 'loudness', "sine\_1kHz\_70Hz\_60dB.wav", false, NaN, NaN);
-SpecTDepPlot(sine_1kHz_70Hz_60dB, loudnessHMS2, 'loudness', "sine\_1kHz\_70Hz\_60dB.wav", false, NaN, NaN);
+TDepPlot(sine_1kHz_70Hz_60dB, loudnessHMS2, 'loudness',...
+         "sine\_1kHz\_70Hz\_60dB.wav", false, NaN, NaN);
+SpecTDepPlot(sine_1kHz_70Hz_60dB, loudnessHMS2, 'loudness',...
+             "sine\_1kHz\_70Hz\_60dB.wav", false, NaN, NaN);
 
 % Time-aggregated
-SpecTAggPlot(sine_1kHz_70Hz_60dB, loudnessHMS2, 'loudness', "sine\_1kHz\_70Hz\_60dB.wav", false, NaN, NaN);
+SpecTAggPlot(sine_1kHz_70Hz_60dB, loudnessHMS2, 'loudness',...
+             "sine\_1kHz\_70Hz\_60dB.wav", false, NaN, NaN);
 
 % BusyStreet1_0530-0600.wav
 % Time-dependent (separate)
-TDepPlot(BusyStreet1_0530_0600, loudnessHMS3, 'loudness', "BusyStreet1\_0530-0600.wav", false, figpath, "loudHMSTDepBusySt");
-SpecTDepPlot(BusyStreet1_0530_0600, loudnessHMS3, 'loudness', "BusyStreet1\_0530-0600.wav", false, figpath, "loudHMSSpecTDepBusySt");
+TDepPlot(BusyStreet1_0530_0600, loudnessHMS3, 'loudness', "BusyStreet1\_0530-0600.wav",...
+         false, figpath, "loudHMSTDepBusySt", figformat);
+SpecTDepPlot(BusyStreet1_0530_0600, loudnessHMS3, 'loudness', "BusyStreet1\_0530-0600.wav",...
+             false, figpath, "loudHMSSpecTDepBusySt");
 
 % Time-aggregated (separate)
-SpecTAggPlot(BusyStreet1_0530_0600, loudnessHMS3, 'loudness', "BusyStreet1\_0530-0600.wav", false, figpath, "loudHMSSpecTAggBusySt");
+SpecTAggPlot(BusyStreet1_0530_0600, loudnessHMS3, 'loudness', "BusyStreet1\_0530-0600.wav",...
+             false, figpath, "loudHMSSpecTAggBusySt", figformat);
 
 % Time-dependent (binaural)
-TDepPlot(BusyStreet1_0530_0600, loudnessHMS3, 'loudness', "BusyStreet1\_0530-0600.wav", true, NaN, NaN);
-SpecTDepPlot(BusyStreet1_0530_0600, loudnessHMS3, 'loudness', "BusyStreet1\_0530-0600.wav", true, figpath, "loudHMSSpecTDepBinBusySt");
+TDepPlot(BusyStreet1_0530_0600, loudnessHMS3, 'loudness',...
+         "BusyStreet1\_0530-0600.wav", true, NaN, NaN);
+SpecTDepPlot(BusyStreet1_0530_0600, loudnessHMS3, 'loudness',...
+             "BusyStreet1\_0530-0600.wav", true, figpath, "loudHMSSpecTDepBinBusySt");
 
 % Time-aggregated (binaural)
-SpecTAggPlot(BusyStreet1_0530_0600, loudnessHMS3, 'loudness', "BusyStreet1\_0530-0600.wav", true, NaN, NaN);
+SpecTAggPlot(BusyStreet1_0530_0600, loudnessHMS3, 'loudness',...
+             "BusyStreet1\_0530-0600.wav", true, NaN, NaN);
 
 % Single values
-fg = figure('Position', [200, 200, 500, 400]);
+fg = figure('Position', [200, 200, 500, 300]);
 movegui(fg, 'center');
 br = bar(strrep(signalLabs, "_", " "), loudSinglesAll);
 colororder('earth')
@@ -262,35 +286,45 @@ for bb = 1:length(br)
         'VerticalAlignment','bottom', 'FontSize', 7)
 end
 exportgraphics(fg, fullfile(figpath, "loudHMSsingles.pdf"), 'ContentType', 'vector')
+exportgraphics(fg, fullfile(figpath, "loudHMSsingles.png"), 'Resolution', 300)
 
 % Roughness
 % ---------
 
 % sine_1kHz_70Hz_60dB.wav
 % Time-dependent
-TDepPlot(sine_1kHz_70Hz_60dB, roughnessHMS2, 'roughness', "sine\_1kHz\_70Hz\_60dB.wav", false, figpath, "roughHMSTDepSine1kHz70Hz60dB");
-SpecTDepPlot(sine_1kHz_70Hz_60dB, roughnessHMS2, 'roughness', "sine\_1kHz\_70Hz\_60dB.wav", false, figpath, "roughHMSSpecTDepSine1kHz70Hz60dB");
+TDepPlot(sine_1kHz_70Hz_60dB, roughnessHMS2, 'roughness', "sine\_1kHz\_70Hz\_60dB.wav",...
+         false, figpath, "roughHMSTDepSine1kHz70Hz60dB", figformat);
+SpecTDepPlot(sine_1kHz_70Hz_60dB, roughnessHMS2, 'roughness', "sine\_1kHz\_70Hz\_60dB.wav",...
+             false, figpath, "roughHMSSpecTDepSine1kHz70Hz60dB");
 
 % Time-aggregated
-SpecTAggPlot(sine_1kHz_70Hz_60dB, roughnessHMS2, 'roughness', "sine\_1kHz\_70Hz\_60dB.wav", false, NaN, NaN);
+SpecTAggPlot(sine_1kHz_70Hz_60dB, roughnessHMS2, 'roughness',...
+             "sine\_1kHz\_70Hz\_60dB.wav", false, NaN, NaN);
 
 % BusyStreet1_0530-0600.wav
 % Time-dependent (separate)
-TDepPlot(BusyStreet1_0530_0600, roughnessHMS3, 'roughness', "BusyStreet1\_0530-0600.wav", false, figpath, "roughHMSTDepBusySt");
-SpecTDepPlot(BusyStreet1_0530_0600, roughnessHMS3, 'roughness', "BusyStreet1\_0530-0600.wav", false, figpath, "roughHMSSpecTDepBusySt");
+TDepPlot(BusyStreet1_0530_0600, roughnessHMS3, 'roughness', "BusyStreet1\_0530-0600.wav",...
+         false, figpath, "roughHMSTDepBusySt", figformat);
+SpecTDepPlot(BusyStreet1_0530_0600, roughnessHMS3, 'roughness', "BusyStreet1\_0530-0600.wav",...
+             false, figpath, "roughHMSSpecTDepBusySt");
 
 % Time-aggregated (separate)
-SpecTAggPlot(BusyStreet1_0530_0600, roughnessHMS3, 'roughness', "BusyStreet1\_0530-0600.wav", false, figpath, "roughHMSSpecTAggBusySt");
+SpecTAggPlot(BusyStreet1_0530_0600, roughnessHMS3, 'roughness', "BusyStreet1\_0530-0600.wav",...
+             false, figpath, "roughHMSSpecTAggBusySt", figformat);
 
 % Time-dependent (binaural)
-TDepPlot(BusyStreet1_0530_0600, roughnessHMS3, 'roughness', "BusyStreet1\_0530-0600.wav", true, NaN, NaN);
-SpecTDepPlot(BusyStreet1_0530_0600, roughnessHMS3, 'roughness', "BusyStreet1\_0530-0600.wav", true, figpath, "roughHMSSpecTDepBinBusySt");
+TDepPlot(BusyStreet1_0530_0600, roughnessHMS3, 'roughness',...
+         "BusyStreet1\_0530-0600.wav", true, NaN, NaN);
+SpecTDepPlot(BusyStreet1_0530_0600, roughnessHMS3, 'roughness', "BusyStreet1\_0530-0600.wav",...
+             true, figpath, "roughHMSSpecTDepBinBusySt");
 
 % Time-aggregated (binaural)
-SpecTAggPlot(BusyStreet1_0530_0600, roughnessHMS3, 'roughness', "BusyStreet1\_0530-0600.wav", true, NaN, NaN);
+SpecTAggPlot(BusyStreet1_0530_0600, roughnessHMS3, 'roughness',...
+             "BusyStreet1\_0530-0600.wav", true, NaN, NaN);
 
 % Single values
-fg = figure('Position', [200, 200, 500, 400]);
+fg = figure('Position', [200, 200, 500, 300]);
 movegui(fg, 'center');
 br = bar(strrep(signalLabs, "_", " "), roughSinglesAll);
 colororder('gem')
@@ -303,10 +337,12 @@ for bb = 1:length(br)
         'VerticalAlignment','bottom', 'FontSize', 7)
 end
 exportgraphics(fg, fullfile(figpath, "roughHMSsingles.pdf"), 'ContentType', 'vector')
+exportgraphics(fg, fullfile(figpath, "roughHMSsingles.png"), 'Resolution', '300')
 
 %% Plotting functions
 
-function TDepPlot(struct1, struct2, metricType, titleStr, binaural, figPath, figName)
+function TDepPlot(struct1, struct2, metricType, titleStr, binaural,...
+                  figPath, figName, figFormat)
     % Plot the time-dependent overall sound quality comparison
     
     switch metricType
@@ -388,12 +424,17 @@ function TDepPlot(struct1, struct2, metricType, titleStr, binaural, figPath, fig
     end
 
     if isstring(figPath)
-        exportgraphics(fig, fullfile(figPath, figName + ".pdf"), 'ContentType', 'vector')
+        if strcmpi(figFormat, "pdf")
+            exportgraphics(fig, fullfile(figPath, figName + ".pdf"), 'ContentType', 'vector')
+        elseif strcmpi(figFormat, "png")
+            exportgraphics(fig, fullfile(figPath, figName + ".png"), 'Resolution', 300)
+        end
     end
 end
 
 
-function SpecTAggPlot(struct1, struct2, metricType, titleStr, binaural, figPath, figName)
+function SpecTAggPlot(struct1, struct2, metricType, titleStr, binaural,...
+                      figPath, figName, figFormat)
     % Plot the time-aggregated specific sound quality comparison
     
     switch metricType
@@ -477,11 +518,16 @@ function SpecTAggPlot(struct1, struct2, metricType, titleStr, binaural, figPath,
     end
 
     if isstring(figPath)
-        exportgraphics(fig, fullfile(figPath, figName + ".pdf"), 'ContentType', 'vector')
+        if strcmpi(figFormat, "pdf")
+            exportgraphics(fig, fullfile(figPath, figName + ".pdf"), 'ContentType', 'vector')
+        elseif strcmpi(figFormat, "png")
+            exportgraphics(fig, fullfile(figPath, figName + ".png"), 'Resolution', 300)
+        end
     end
 end
 
-function SpecTDepPlot(struct1, struct2, metricType, titleStr, binaural, figPath, figName)
+function SpecTDepPlot(struct1, struct2, metricType, titleStr, binaural,...
+                      figPath, figName)
     % Plot the time-dependent specific sound quality comparison
 
     switch metricType

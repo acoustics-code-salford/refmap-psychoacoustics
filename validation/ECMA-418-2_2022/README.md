@@ -4,7 +4,7 @@ Validation of the MATLAB algorithms has been undertaken by comparison with outpu
 The audio signals used for the validation comprise:
 1. reference calibration signal for tonality and loudness: 1 kHz sinusoid at 40 dB sound pressure level (5 seconds, mono)
 1. reference calibration signal for roughness: 1 kHz sinusoid modulated at 70 Hz (modulation factor 1), at 60 dB sound pressure level (5 seconds, mono)
-1. binaural audio recording of a 'busy city street' environment, extracted from [EigenScape](https://zenodo.org/doi/10.5281/zenodo.1012808) database and reused under Creative Commons Attribution 4.0 licence
+1. binaural audio recording of a 'busy city street' environment, extracted from [EigenScape](https://zenodo.org/doi/10.5281/zenodo.1012808) database and reused under Creative Commons Attribution 4.0 licence (30 seconds, 2-channel binaural)
 
 The reference calibration signals 1 and 2 were generated using [acousticHMSGenerateRefSignals.m](mlab/acousticHMSGenerateRefSignals.m).
 
@@ -17,9 +17,9 @@ Signal 1 is unmodulated, which yields 0 asper roughness, so time-dependent and s
 # Tonality
 ## Time-dependent tonality
 
-[![Signal 1 time-dependent tonality](results/tonalHMSTDepSine1kHz40dB.pdf)]
+[![Signal 1 time-dependent tonality](results/tonalHMSTDepSine1kHz40dB.png)]
 
-[![Signal 3 time-dependent tonality](results/tonalHMSTDepBusySt.pdf)]
+[![Signal 3 time-dependent tonality](results/tonalHMSTDepBusySt.png)]
 
 ## Time-dependent specific tonality
 
@@ -29,18 +29,18 @@ Signal 1 is unmodulated, which yields 0 asper roughness, so time-dependent and s
 
 ## Time-aggregated specific tonality
 
-[![Signal 3 time-aggregated specific tonality](results/tonalHMSSpecTAggBusySt.pdf)]
+[![Signal 3 time-aggregated specific tonality](results/tonalHMSSpecTAggBusySt.png)]
 
 ## Overall tonality
 
-[![All signals overall tonality](results/tonalHMSsingles.pdf)]
+[![All signals overall tonality](results/tonalHMSsingles.png)]
 
 # Loudness
 ## Time-dependent loudness
 
-[![Signal 1 time-dependent loudness](results/loudHMSTDepSine1kHz40dB.pdf)]
+[![Signal 1 time-dependent loudness](results/loudHMSTDepSine1kHz40dB.png)]
 
-[![Signal 3 time-dependent loudness](results/loudHMSTDepBusySt.pdf)]
+[![Signal 3 time-dependent loudness](results/loudHMSTDepBusySt.png)]
 
 ## Time-dependent specific loudness
 
@@ -50,18 +50,22 @@ Signal 1 is unmodulated, which yields 0 asper roughness, so time-dependent and s
 
 ## Time-aggregated specific loudness
 
-[![Signal 3 time-aggregated specific loudness](results/loudHMSSpecTAggBusySt.pdf)]
+[![Signal 3 time-aggregated specific loudness](results/loudHMSSpecTAggBusySt.png)]
 
 ## Time-dependent specific binaural loudness
 
 [![Signal 3 time-dependent specific binaural loudness](results/loudHMSSpecTDepBinBusySt.png)]
 
+## Overall loudness
+
+[![All signals overall loudness](results/loudHMSsingles.png)]
+
 # Roughness
 ## Time-dependent roughness
 
-[![Signal 2 time-dependent roughness](results/roughHMSTDepSine1kHz70Hz60dB.pdf)]
+[![Signal 2 time-dependent roughness](results/roughHMSTDepSine1kHz70Hz60dB.png)]
 
-[![Signal 3 time-dependent roughness](results/roughHMSTDepBusySt.pdf)]
+[![Signal 3 time-dependent roughness](results/roughHMSTDepBusySt.png)]
 
 ## Time-dependent specific roughness
 
@@ -71,8 +75,12 @@ Signal 1 is unmodulated, which yields 0 asper roughness, so time-dependent and s
 
 ## Time-aggregated specific roughness
 
-[![Signal 3 time-aggregated specific roughness](results/roughHMSSpecTAggBusySt.pdf)]
+[![Signal 3 time-aggregated specific roughness](results/roughHMSSpecTAggBusySt.png)]
 
 ## Time-dependent specific binaural roughness
 
 [![Signal 3 time-dependent specific binaural roughness](results/roughHMSSpecTDepBinBusySt.png)]
+
+## Overall roughness
+
+[![All signals overall roughness](results/roughHMSsingles.png)]
