@@ -17,7 +17,7 @@ Signal 1 is unmodulated, which yields 0 asper roughness, so time-dependent and s
 # Tonality
 ## Time-dependent tonality
 
-<img src='results/tonalHMSTDepSine1kHz40dB.png' width=150>
+<img src='results/tonalHMSTDepSine1kHz40dB.png' width=300>
 
 ![Signal 3 time-dependent tonality](results/tonalHMSTDepBusySt.png)
 
