@@ -212,6 +212,8 @@ cMap = load('cmap_plasma.txt');
 colororder([cMap(166, :); cMap(34, :)])
 ylabel("Tonality, tu_{HMS}")
 set(gca, 'YGrid', 'on', 'GridLineStyle', '--', 'GridAlpha', 0.15);
+hax = gca;
+hax.Toolbar.Visible = 'off';
 legend(["ArtemiS", "refmap"], 'Location', 'northeast')
 for bb = 1:length(br)
     text(br(bb).XEndPoints, br(bb).YEndPoints, string(round(br(bb).YData, 2)),...
@@ -286,6 +288,8 @@ cMap = load('cmap_viridis.txt');
 colororder([cMap(166, :); cMap(34, :)])
 ylabel("Loudness, sone_{HMS}")
 set(gca, 'YGrid', 'on', 'GridLineStyle', '--', 'GridAlpha', 0.15);
+hax = gca;
+hax.Toolbar.Visible = 'off';
 legend(["ArtemiS", "refmap"], 'Location', 'northwest')
 for bb = 1:length(br)
     text(br(bb).XEndPoints, br(bb).YEndPoints, string(round(br(bb).YData, 2)),...
@@ -338,6 +342,8 @@ cMap = load('cmap_inferno.txt');
 colororder([cMap(166, :); cMap(34, :)])
 ylabel("Roughness, asper_{HMS}")
 set(gca, 'YGrid', 'on', 'GridLineStyle', '--', 'GridAlpha', 0.15);
+hax = gca;
+hax.Toolbar.Visible = 'off';
 legend(["ArtemiS", "refmap"], 'Location', 'northeast')
 for bb = 1:length(br)
     text(br(bb).XEndPoints, br(bb).YEndPoints, string(round(br(bb).YData, 2)),...
@@ -427,6 +433,7 @@ function TDepPlot(struct1, struct2, metricType, titleStr, binaural,...
         ax.Title.String = titleStr(ii);
         ax.Title.FontWeight = 'normal';
         ax.Title.FontSize = 11;
+        ax.Toolbar.Visible = 'off';
         lgd = legend('Location', 'best', 'FontSize', 8);
         lgd.FontSize = 10;
     end
@@ -521,6 +528,7 @@ function SpecTAggPlot(struct1, struct2, metricType, titleStr, binaural,...
         ax.Title.String = titleStr(ii);
         ax.Title.FontWeight = 'normal';
         ax.Title.FontSize = 11;
+        ax.Toolbar.Visible = 'off';
         lgd = legend('Location', 'best', 'FontSize', 8);
         lgd.FontSize = 10;
     end
@@ -632,6 +640,7 @@ function SpecTDepPlot(struct1, struct2, metricType, titleStr, binaural,...
         ax.Title.String = axTitleStr(ii);
         ax.Title.FontWeight = 'normal';
         ax.Title.FontSize = 10;
+        ax.Toolbar.Visible = 'off';
         colormap(cmap);
         h = colorbar;
         set(get(h,'label'),'string', unit);
