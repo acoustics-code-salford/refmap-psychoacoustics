@@ -12,7 +12,7 @@ The binaural audio recording was extracted from the [EigenScape](https://zenodo.
 
 The reference ArtemiS results are included in [reference folder](reference).
 
-Calculated sound quality values and reference comparison figures were generated using the [validation script](mlab/acousticHMSValidation.m), which calls the algorithms from the [ECMA-418-2](src/mlab/ECMA_418-2) folder. The full set of comparison plots can be displayed by running the validation script; the selection presented below is sufficient to validate all capabilities of the algorithms.
+Calculated sound quality values and reference comparison figures were generated using the [validation script](mlab/acousticHMSValidation.m), which calls the algorithms from the [ECMA-418-2](../src/mlab/ECMA_418-2) folder. The full set of comparison plots can be displayed by running the validation script; the selection presented below is sufficient to validate all capabilities of the algorithms.
 
 Signal 1 is unmodulated, which yields 0 asper roughness, so time-dependent and specific roughnesses are not displayed.
 
