@@ -10,7 +10,7 @@ The reference calibration signals 1 and 2 were generated using [acousticHMSGener
 
 The binaural audio recording was extracted from the [EigenScape](https://zenodo.org/doi/10.5281/zenodo.1012808) database (Green et al., [2017](https://doi.org/10.3390/app7111204),  licenced under [Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0)).
 
-The reference ArtemiS results are included in [reference folder](reference).
+The reference ArtemiS results are included in the [reference folder](reference).
 
 Calculated sound quality values and reference comparison figures were generated using the [validation script](mlab/acousticHMSValidation.m), which calls the algorithms from the [ECMA-418-2](../../src/mlab/ECMA_418-2) folder. The full set of comparison plots can be displayed by running the validation script; the selection presented below is sufficient to validate all capabilities of the algorithms.
 
