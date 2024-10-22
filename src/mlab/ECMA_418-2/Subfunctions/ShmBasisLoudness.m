@@ -34,7 +34,7 @@ function [signalRectSeg, basisLoudness, blockRMS]...
 % -----------
 % The input signal is a segmented signal (either band-limited, or arranged
 % with half-Bark critical bands over the third dimension) obtained using
-% acousticHMSAuditoryFiltBank.m and signalSegment.m
+% acousticSHMAuditoryFiltBank.m and ShmSignalSegment.m
 %
 % Requirements
 % ------------

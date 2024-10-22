@@ -1,6 +1,6 @@
 function roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn,...
                                              fieldtype, outplot, binaural)
-% roughnessHMS = acousticHMSRoughness(p, sampleRatein, axisn, outplot, binaural)
+% roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn, outplot, binaural)
 %
 % Returns roughness values **and frequencies** according to ECMA-418-2:2024
 % (using the Sottek Hearing Model) for an input calibrated single mono
@@ -32,10 +32,10 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn,...
 % Returns
 % -------
 %
-% roughnessHMS : structure
+% roughnessSHM : structure
 %                contains the output
 %
-% roughnessHMS contains the following outputs:
+% roughnessSHM contains the following outputs:
 %
 % specRoughness : matrix
 %                 time-dependent specific roughness for each (half)
@@ -67,7 +67,7 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn,...
 %              fieldtype)
 %
 % If binaural=true, a corresponding set of outputs for the binaural
-% roughness is also contained in roughnessHMS
+% roughness is also contained in roughnessSHM
 %
 % If outplot=true, a set of plots is returned illustrating the energy
 % time-averaged A-weighted sound level, the time-dependent specific and
@@ -93,7 +93,7 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn,...
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 21/10/2024
+% Date last modified: 22/10/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -685,7 +685,7 @@ if outplot
         cmap_inferno = load('cmap_inferno.txt');
         colormap(cmap_inferno);
         h = colorbar;
-        set(get(h,'label'),'string', {'Specific roughness,'; 'asper_{HMS}/Bark_{HMS}'});        
+        set(get(h,'label'),'string', {'Specific roughness,'; 'asper_{SHM}/Bark_{SHM}'});        
         chan_lab = chans(chan);
 
         % Create A-weighting filter
@@ -728,7 +728,7 @@ if outplot
             ax2.YLim = [0, 1.1*ceil(max(roughnessTDep(:, chan))*10)/10];
         end
         ax2.XLabel.String = 'Time, s';
-        ax2.YLabel.String = 'Roughness, asper_{HMS}';
+        ax2.YLabel.String = 'Roughness, asper_{SHM}';
         ax2.XGrid = 'on';
         ax2.YGrid = 'on';
         ax2.FontName = 'Arial';
