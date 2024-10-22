@@ -57,25 +57,26 @@ for ii, file in enumerate(filelist):
     signal, sampleRatein = librosa.load(file, sr=None, mono=False)
     signal = np.transpose(signal)
 
+    # skip samples
+    start_skips = int(start_skipT*sampleRatein)
+    end_skips = int(end_skipT*sampleRatein)
+
+    # get time vector
+    dT = 1/sampleRatein
+    endT = len(signal)/sampleRatein
+    timeVector = np.arange(0, endT, dT)
+    timeVectorSkip = timeVector[start_skips:-end_skips]
+
     # apply weighting filters
     signalA = dsp.filterFuncs.A_weight_T(signal, sampleRatein)
     signalmagAF = dsp.filterFuncs.time_weight(signalA, sampleRatein, tau=0.125)
     signalmagAS = dsp.filterFuncs.time_weight(signalA, sampleRatein, tau=1)
 
-    # skip samples
-    start_skips = int(start_skipT*sampleRatein)
-    end_skips = int(end_skipT*sampleRatein)
-
-    # calculate energy metrics
-    signalLAeq = 20*np.log10(np.sqrt((signalA[start_skips:
-                                              -end_skips]**2).mean(axis=0))/2e-5)
-    signalLAE = (signalLAeq
-                 + 10*np.log10(len(signalA[start_skips:
-                                           -end_skips])/sampleRatein))
-
-    # calculate percentile metrics
+    # calculate weighted dB time series
     signaldBAF = 20*np.log10(signalmagAF[start_skips:-end_skips]/2e-5)
     signaldBAS = 20*np.log10(signalmagAS[start_skips:-end_skips]/2e-5)
+
+    # calculate percentile metrics
     signalLAFmax = signaldBAF.max(axis=0)
     signalLAF5 = np.percentile(signaldBAF, q=95, axis=0)
     signalLAF10 = np.percentile(signaldBAF, q=90, axis=0)
@@ -85,6 +86,60 @@ for ii, file in enumerate(filelist):
     signalLAF90 = np.percentile(signaldBAF, q=10, axis=0)
     signalLAF95 = np.percentile(signaldBAF, q=5, axis=0)
     signalLASmax = signaldBAS.max(axis=0)
+
+    # calculate energy metrics
+    signalLAeq = 20*np.log10(np.sqrt((signalA[start_skips:
+                                              -end_skips]**2).mean(axis=0))/2e-5)
+    signalLAE = (signalLAeq
+                 + 10*np.log10(len(signalA[start_skips:
+                                           -end_skips])/sampleRatein))
+
+    # ICAO LAE metrics
+    signalLAFmaxLoc = signaldBAF.argmax(axis=0)
+    signalLASmaxLoc = signaldBAS.argmax(axis=0)
+    SlowLAEThresh = signalLASmax - 10
+    FastLAEThresh = signalLAFmax - 10
+    
+    SlowIntStartL = timeVectorSkip[signaldBAS[:, 0] >= SlowLAEThresh[0]].min()
+    SlowIntEndL = timeVectorSkip[signaldBAS[:, 0] >= SlowLAEThresh[0]].max()
+    SlowIntStartR = timeVectorSkip[signaldBAS[:, 1] >= SlowLAEThresh[1]].min()
+    SlowIntEndR = timeVectorSkip[signaldBAS[:, 1] >= SlowLAEThresh[1]].max()
+    
+    SlowIntTime = np.array([SlowIntEndL - SlowIntStartL,
+                            SlowIntEndR - SlowIntStartR])
+    
+    # note that the indices here refer to the full signal without truncation (start_skips is not omitted from the sample index)
+    SlowIntIndices = np.array([[int(SlowIntStartL*sampleRatein),
+                                int(SlowIntStartR*sampleRatein)],
+                               [int(SlowIntEndL*sampleRatein), 
+                                int(SlowIntEndR*sampleRatein)]])
+    
+    signalICAOLAES = np.array([20*np.log10(np.sqrt(SlowIntTime[0]*(signalA[SlowIntIndices[0, 0]:
+                                                                           SlowIntIndices[1, 0], 0]**2).mean(axis=0))/2e-5),
+                                20*np.log10(np.sqrt(SlowIntTime[1]*(signalA[SlowIntIndices[0, 1]:
+                                                                            SlowIntIndices[1, 1], 1]**2).mean(axis=0))/2e-5)])
+    
+    FastIntStartL = timeVectorSkip[signaldBAF[:, 0] >= FastLAEThresh[0]].min()
+    FastIntEndL = timeVectorSkip[signaldBAF[:, 0] >= FastLAEThresh[0]].max()
+    FastIntStartR = timeVectorSkip[signaldBAF[:, 1] >= FastLAEThresh[1]].min()
+    FastIntEndR = timeVectorSkip[signaldBAF[:, 1] >= FastLAEThresh[1]].max()
+    
+    FastIntTime = np.array([FastIntEndL - FastIntStartL,
+                            FastIntEndR - FastIntStartR])
+    
+    # note that the indices here refer to the full signal without truncation (start_skips is not omitted from the sample index)
+    FastIntIndices = np.array([[int(FastIntStartL*sampleRatein),
+                                int(FastIntStartR*sampleRatein)],
+                               [int(FastIntEndL*sampleRatein), 
+                                int(FastIntEndR*sampleRatein)]])
+    
+    signalTradLAEF = np.array([20*np.log10(np.sqrt(FastIntTime[0]*(signalA[FastIntIndices[0, 0]:
+                                                                           FastIntIndices[1, 0], 0]**2).mean(axis=0))/2e-5),
+                                20*np.log10(np.sqrt(FastIntTime[1]*(signalA[FastIntIndices[0, 1]:
+                                                                            FastIntIndices[1, 1], 1]**2).mean(axis=0))/2e-5)])
+
+    dataByStim.loc[filenames[ii], 'LAESICAOMaxLR'] = signalICAOLAES.max()
+    dataByStim.loc[filenames[ii], 'LAEFTradMaxLR'] = signalTradLAEF.max()
 
     # take max L/R ear only
     dataByStim.loc[filenames[ii], 'LAeqMaxLR'] = signalLAeq.max()
@@ -98,6 +153,26 @@ for ii, file in enumerate(filelist):
     dataByStim.loc[filenames[ii], 'LAF90ExMaxLR'] = signalLAF90.max()
     dataByStim.loc[filenames[ii], 'LAF95ExMaxLR'] = signalLAF95.max()
     dataByStim.loc[filenames[ii], 'LASmaxMaxLR'] = signalLASmax.max()
+
+
+    # calculate intermittency ratio for test sounds
+    if (filenames[ii].find("A1") != -1 or filenames[ii].find("A2") != -1
+        or filenames[ii].find("B2") != -1):
+        # 1-second LAeq
+        signalLAeq1s = 20*np.log10(np.sqrt(pd.DataFrame((signalA[start_skips:-end_skips]**2)).rolling(window=sampleRatein, step=sampleRatein).mean())/2e-5)
+        intermitRatioK = signalLAeq + 3  # IR threshold
+        mask = signalLAeq1s > intermitRatioK
+        # calculate average intensity for events exceeding threshold
+        IAeqEvents = np.nansum(10**(signalLAeq1s[mask]/10), axis=0)/(len(signalA[start_skips:-end_skips])/sampleRatein)
+        # convert to sound pressure while avoiding log(0)
+        LAeqEvents = 10*np.log10(IAeqEvents, out=np.zeros_like(IAeqEvents, dtype=np.float64),
+                                 where=(IAeqEvents!=0))
+        intermitRatio = 100*10**((LAeqEvents - signalLAeq)/10)
+        intermitRatio[IAeqEvents == 0] = 0  # replace tiny decimal with 0
+        dataByStim.loc[filenames[ii], 'IntermitRatioMaxLR'] = intermitRatio.max()
+    else:
+        dataByStim.loc[filenames[ii], 'IntermitRatioMaxLR'] = np.nan
+
 
 # end of for loop over signal wav files
 

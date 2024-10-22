@@ -13,12 +13,16 @@ knitr::opts_chunk$set(echo = TRUE)
 Load packages
 
 ```{r}
-library(flexplot)
-library(multgee)
-library(ggplot2)
-library(openxlsx)
-library(performance)
 library(conflicted)
+library(flexplot)
+library(geepack)
+library(tidyverse)
+library(openxlsx)
+
+
+# set package parameters
+theme_set(theme_bw())
+
 ```
 
 Set parameters
@@ -59,9 +63,9 @@ if (savedata){
 
 ```
 
-# Part A analysis
+# Import data and wrangle
 
-## Import data and wrangle
+## Part A
 
 ```{r}
 
@@ -73,12 +77,6 @@ subjDataA <- read.csv(subjDataApath, header=TRUE)
 ```
 
 ```{r}
-# function to encode categorical to ordinal numeric variables
-encode_ordinal <- function(x, order=unique(x)) {
-  x <- as.numeric(factor(x, levels=order, exclude=NULL, order=TRUE))
-  x
-}
-
 # definition of ordinal variable levels
 UASLAeqCatsA <- c("No UAS", "42", "48", "54", "60")
 SNRCatsA <- c("No UAS", "-16", "-10", "-4", "2", "8")
@@ -91,148 +89,185 @@ subjDataA$UASLAeq <- factor(subjDataA$UASLAeq, levels=UASLAeqCatsA, order=TRUE)
 subjDataA$SNRlevel <- factor(subjDataA$SNRlevel, levels=SNRCatsA, order=TRUE)
 subjDataA$UASOperation <- factor(subjDataA$UASOperation, levels=UASOpCatsA)
 subjDataA$UASType <- factor(subjDataA$UASType, levels=UASTypeCatsA)
-subjDataA$AmbientEnv <- factor(subjDataA$AmbientEnv, levels=c("Park", "Street"))
+subjDataA$AmbientEnv <- factor(subjDataA$AmbientEnv, levels=c("Street", "Park"))
+subjDataA$AAM_attitude <- factor(subjDataA$AAM_attitude)
+subjDataA$Home_Area <- factor(subjDataA$Home_Area)
+subjDataA$Area_soundscape <- factor(subjDataA$Area_soundscape)
+subjDataA$NationGeo <- factor(subjDataA$NationGeo)
+
+# recode AAM_attitude to 3 groups
+subjDataA <- subjDataA |> dplyr::mutate(AAM_attitude3 = case_match(AAM_attitude,
+                                                                    "Supportive" ~ "Supportive",
+                                                                    c("Ambivalent",
+                                                                      "Concerned") ~ "Ambiv_Concern",
+                                                                      "Neutral" ~ "Neutral"))
+subjDataA$AAM_attitude3 <- factor(subjDataA$AAM_attitude3)
+
+# recode AAM_attitude to 2 groups
+subjDataA <- subjDataA |> dplyr::mutate(AAM_attitude2 = case_match(AAM_attitude,
+                                                                    "Supportive" ~ "Supportive",
+                                                                    c("Ambivalent",
+                                                                      "Concerned",
+                                                                      "Neutral") ~ "Ambiv_Concern_Neutral"))
+subjDataA$AAM_attitude2 <- factor(subjDataA$AAM_attitude2)
+
+# recode NationGeo to 4 groups
+subjDataA <- subjDataA |> dplyr::mutate(NationGeo4 = case_match(NationGeo,
+                                                               "UK" ~ "UK",
+                                                               c("Africa",
+                                                                 "SouthAsia") ~ "Africa_SAsia",
+                                                               c("Australasia",
+                                                                 "EastAsia",
+                                                                 "Europe",
+                                                                 "MidEast",
+                                                                 "SouthAmerica") ~ "Other",
+                                                               "" ~ "Unspecified"))
+subjDataA$NationGeo4 <- factor(subjDataA$NationGeo4)
+
+# recode NationGeo to 3 groups
+subjDataA <- subjDataA |> dplyr::mutate(NationGeo3 = case_match(NationGeo,
+                                                                 "UK" ~ "UK",
+                                                                 c("Africa",
+                                                                   "SouthAsia") ~ "Africa_SAsia",
+                                                                 c("Australasia",
+                                                                   "EastAsia",
+                                                                   "Europe",
+                                                                   "MidEast",
+                                                                   "SouthAmerica",
+                                                                   "") ~ "Other"))
+subjDataA$NationGeo3 <- factor(subjDataA$NationGeo3)
+
+# recode Area of residence to 2 groups
+subjDataA <- subjDataA |> dplyr::mutate(Home_Area2 = case_match(Home_Area,
+                                                         "Urban" ~ "Urban",
+                                                         c("Suburban",
+                                                           "Rural") ~ "Suburban_Rural"))
+subjDataA$Home_Area2 <- factor(subjDataA$Home_Area2)
+
+
+# recode Area soundscape to 2 groups
+subjDataA <- subjDataA |> dplyr::mutate(Area_soundscape2 = case_match(Area_soundscape,
+                                                                       c("Calm",
+                                                                         "Monotonous") ~ "Uneventful",
+                                                                       c("Chaotic",
+                                                                         "Vibrant") ~ "Eventful"))
+
+subjDataA$Area_soundscape2 <- factor(subjDataA$Area_soundscape2)
+
 
 # reorder by trial number
 subjDataA <- subjDataA[with(subjDataA, order(ID., TrialNumber)), ]
 
-```
-
-## Fit a baseline model
-
-```{r}
-control <- lme4::lmerControl(optimizer = 'bobyqa')
-data(math)
-# baseline model (no predictors, only clustered intercept)
-baselineA <- lme4::lmer(Annoyance ~ 1 + (1 | ID.), data=subjDataA,
-                        control=control, REML=FALSE)
-
-baselineA_B <- rstanarm::stan_glmer(Annoyance ~ 1 + (1 | ID.), data = subjDataA, cores = 12)
-
-# check the intraclass correlation coefficient and pseudo-Rsquared
-performance::icc(baselineA)
-performance::r2(baselineA)
-
-performance::icc(baselineA_B)
-performance::r2(baselineA_B)
-
-
-```
-
-Now fit a frequentist model which includes the ambient environment category as a fixed effect predictor, and compare with the baseline
-
-```{r}
-AmbEnv <- lme4::lmer(Annoyance ~ 1 + AmbientEnv + (1 | ID.), data=subjDataA,
-                     control=control, REML=FALSE)
-AmbEnv.ID <- lme4::lmer(Annoyance ~ 1 + AmbientEnv + (1 + AmbientEnv | ID.), data=subjDataA,
-                     control=control, REML=FALSE)
-
-flexplot::compare.fits(Annoyance ~ AmbientEnv | ID., data=subjDataA,
-                       model1=baselineA, model2=AmbEnv)
-
-flexplot::compare.fits(Annoyance ~ AmbientEnv | ID., data=subjDataA,
-                       model1=baselineA, model2=AmbEnv.ID)
-
-flexplot::model.comparison(model1=AmbEnv.ID, model2=AmbEnv)
-```
-
-```{r}
-LAeq <- lme4::lmer(Annoyance ~ UASLAeq + (1 | ID.),
-                   data=subjDataA, control=control, REML=FALSE)
-LoudGMS <- lme4::lmer(Annoyance ~ UASLoudISO3PowAvgBin + (1 | ID.),
-                      data=subjDataA, control=control, REML=FALSE)
-LoudGMS.ID <- lme4::lmer(Annoyance ~ UASLoudISO3PowAvgBin + (1  | ID.) + (UASLoudISO3PowAvgBin - 1 | ID.),
-                         data=subjDataA, control=control, REML=FALSE)
-
-LoudGMS.AmbEnv <- lme4::lmer(Annoyance ~ UASLoudISO3PowAvgBin + AmbientEnv + (1 + AmbientEnv | ID.),
-                             data=subjDataA, control=control, REML=FALSE)
-
-LoudGMS.ID_AmbEnv <- lme4::lmer(Annoyance ~ UASLoudISO3PowAvgBin + AmbientEnv + (1 + AmbientEnv | ID.) + (UASLoudISO3PowAvgBin - 1 | ID.),
-                                data=subjDataA, control=control, REML=FALSE)
-
-LoudGMSAmbEnv.ID_AmbEnv <- lme4::lmer(Annoyance ~ UASLoudISO3PowAvgBin + AmbientEnv + UASLoudISO3PowAvgBin:AmbientEnv + (1 +  UASLoudISO3PowAvgBin + UASLoudISO3PowAvgBin:AmbientEnv + AmbientEnv | ID.),
-                                data=subjDataA, control=control, REML=FALSE)
-
-
-flexplot::compare.fits(Annoyance ~ UASLAeq | ID., data=subjDataA, model1=baselineA, model2=LAeq)
-
-# flexplot::model.comparison(model1=baselineA, model2=LAeq)
-
-flexplot::compare.fits(Annoyance ~ UASLoudISO3PowAvgBin | ID., data=subjDataA, model1=LoudGMS.AmbEnv, model2=AmbEnv.ID)
-
-flexplot::compare.fits(Annoyance ~ UASLoudISO3PowAvgBin | ID., data=subjDataA, model1=LoudGMS.AmbEnv, model2=LoudGMS)
-
-flexplot::compare.fits(Annoyance ~ UASLoudISO3PowAvgBin | ID., data=subjDataA, model1=LoudGMS.ID, model2=LoudGMS)
-
-flexplot::compare.fits(Annoyance ~ UASLoudISO3PowAvgBin | ID., data=subjDataA, model1=LoudGMS.ID_AmbEnv, model2=LoudGMS)
-
-
-# flexplot::model.comparison(model1=LAeq, model2=LoudGMS)
-# 
-# flexplot::model.comparison(model1=LoudGMS, model2=LoudGMS.ID)
-
-performance::compare_performance(baselineA, AmbEnv.ID, LAeq, LoudGMS, LoudGMS.ID, LoudGMS.ID_AmbEnv, LoudGMSAmbEnv.ID_AmbEnv,
-                                 rank=FALSE, verbose=FALSE)
-
-flexplot::model.comparison(model1=LoudGMS.ID_AmbEnv, model2=LoudGMS)
-flexplot::model.comparison(model1=LoudGMS.ID_AmbEnv, model2=LoudGMS.ID)
+# rescale trial number variable
+subjDataA <- subjDataA |> dplyr::mutate(TrialNumberScl = scale(TrialNumber))
 
 ```
 
 
-```{r}
-flexplot::model.comparison(baseline, ses)
+## Part B
 
-flexplot::icc(baseline)
-
-flexplot::visualize(baseline, plot='model')
-
-```
 ```{r}
 
-#fixed_slopes = lme4::lmer(Annoyance ~ UASLAeqMaxLR + (1|ID.), data=subjDataA, control=control)
-#random_slopes = lme4::lmer(Annoyance ~ UASLAeqMaxLR + (UASLAeqMaxLR|ID.), data=subjDataA, control=control)
+subjDataBpath <- utils::choose.files(caption=r"(Select refmap_listest1_testdataB_BySubj.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
+                                     filters=matrix(data=c("refmap_listest1_testdataB_BySubj.csv", "refmap_listest1_testdataB_BySubj.csv"), ncol=2))
 
-fixed_slopes <- lme4::lmer(MathAch ~ SES + (1 | School), data=math, control=control)
-random_slopes <- lme4::lmer(MathAch ~ SES + (SES | School), data=math, control=control)
-
-flexplot::visualize(random_slopes, plot='model')
+subjDataB <- read.csv(subjDataBpath, header=TRUE)
 
 ```
 
 ```{r}
+# definition of ordinal variable levels
+UASLAeqCatsB <- c("No UAS", "54", "60")
+SNRCatsB <- c("No UAS", "2", "8")
+UASOpCatsB <- c("No UAS", "Flyby")
+UASTypeCatsB <- c("No UAS", "H520", "T150")
 
-flexplot::compare.fits(MathAch ~ SES | School, data =math,
-                       model1=fixed_slopes, model2=random_slopes, clusters = 5)
+# encode factors
+subjDataB$ID. <- factor(subjDataB$ID.)
+subjDataB$UASLAeq <- factor(subjDataB$UASLAeq, levels=UASLAeqCatsB, order=TRUE)
+subjDataB$SNRlevel <- factor(subjDataB$SNRlevel, levels=SNRCatsB, order=TRUE)
+subjDataB$UASOperation <- factor(subjDataB$UASOperation, levels=UASOpCatsB)
+subjDataB$UASType <- factor(subjDataB$UASType, levels=UASTypeCatsB)
+subjDataB$AmbientEnv <- factor(subjDataB$AmbientEnv)
+subjDataB$AAM_attitude <- factor(subjDataB$AAM_attitude)
+subjDataB$Home_Area <- factor(subjDataB$Home_Area)
+subjDataB$Area_soundscape <- factor(subjDataB$Area_soundscape)
+subjDataB$NationGeo <- factor(subjDataB$NationGeo)
+
+# recode AAM_attitude to 3 groups
+subjDataB <- subjDataB |> dplyr::mutate(AAM_attitude3 = case_match(AAM_attitude,
+                                                                    "Supportive" ~ "Supportive",
+                                                                    c("Ambivalent",
+                                                                      "Concerned") ~ "Ambiv_Concern",
+                                                                      "Neutral" ~ "Neutral"))
+subjDataB$AAM_attitude3 <- factor(subjDataB$AAM_attitude3)
+
+# recode AAM_attitude to 2 groups
+subjDataB <- subjDataB |> dplyr::mutate(AAM_attitude2 = case_match(AAM_attitude,
+                                                                    "Supportive" ~ "Supportive",
+                                                                    c("Ambivalent",
+                                                                      "Concerned",
+                                                                      "Neutral") ~ "Ambiv_Concern_Neutral"))
+subjDataB$AAM_attitude2 <- factor(subjDataB$AAM_attitude2)
+
+# recode NationGeo to 4 groups
+subjDataB <- subjDataB |> dplyr::mutate(NationGeo4 = case_match(NationGeo,
+                                                                 "UK" ~ "UK",
+                                                                 c("Africa",
+                                                                   "SouthAsia") ~ "Africa_SAsia",
+                                                                 c("Australasia",
+                                                                   "EastAsia",
+                                                                   "Europe",
+                                                                   "MidEast",
+                                                                   "SouthAmerica") ~ "Other",
+                                                                 "" ~ "Unspecified"))
+subjDataB$NationGeo4 <- factor(subjDataB$NationGeo4)
+
+# recode NationGeo to 3 groups
+subjDataB <- subjDataB |> dplyr::mutate(NationGeo3 = case_match(NationGeo,
+                                                                 "UK" ~ "UK",
+                                                                 c("Africa",
+                                                                   "SouthAsia") ~ "Africa_SAsia",
+                                                                 c("Australasia",
+                                                                   "EastAsia",
+                                                                   "Europe",
+                                                                   "MidEast",
+                                                                   "SouthAmerica",
+                                                                   "") ~ "Other"))
+subjDataB$NationGeo3 <- factor(subjDataB$NationGeo3)
+
+# recode Area of residence to 2 groups
+subjDataB <- subjDataB |> dplyr::mutate(Home_Area2 = case_match(Home_Area,
+                                                                 "Urban" ~ "Urban",
+                                                                 c("Suburban",
+                                                                   "Rural") ~ "Suburban_Rural"))
+subjDataB$Home_Area2 <- factor(subjDataB$Home_Area2)
 
 
+# recode Area soundscape to 2 groups
+subjDataB <- subjDataB |> dplyr::mutate(Area_soundscape2 = case_match(Area_soundscape,
+                                                                       c("Calm",
+                                                                         "Monotonous") ~ "Uneventful",
+                                                                       c("Chaotic",
+                                                                         "Vibrant") ~ "Eventful"))
+subjDataB$Area_soundscape2 <- factor(subjDataB$Area_soundscape2)
+
+
+# reorder by trial number
+subjDataB <- subjDataB[with(subjDataB, order(ID., TrialNumber)), ]
+
+# rescale trial number variable
+subjDataB <- subjDataB |> dplyr::mutate(TrialNumberScl = scale(TrialNumber))
 
 ```
+
+# Part A analysis
+
+## Fit the best performing models from the lmer analysis
+
 ```{r}
 
-flexplot::model.comparison(fixed_slopes, baseline)
-flexplot::model.comparison(random_slopes, baseline)
-flexplot::model.comparison(fixed_slopes, random_slopes)
 
-```
-```{r}
-
-summary(fixed_slopes)
-
-```
-```{r}
-minority <- lme4::lmer(MathAch ~ SES + Minority + (SES | School), data=flexplot::math)
-
-flexplot::compare.fits(MathAch ~ SES | Minority + School, data=flexplot::math,
-                       model1=fixed_slopes, model2=minority)
-
-```
-```{r}
-
-flexplot::model.comparison(fixed_slopes, minority)
-
-
-summary(minority)
 
 
 ```
