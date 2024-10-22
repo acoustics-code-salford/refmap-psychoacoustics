@@ -1,8 +1,9 @@
-function acousticHMSGenerateRefSignals
-% acousticHMSGenerateRefSignals
+function acousticSHMGenerateRefSignals
+% acousticSHMGenerateRefSignals
 %
 % Generates reference signals as wav format mono audio files for
-% calibrating and testing the validity of ECMA-418-2:2022 implementation.
+% calibrating and testing the validity of ECMA-418-2 implementation (Sottek
+% Hearing Model)
 %
 % Ownership and Quality Assurance
 % -------------------------------
@@ -10,7 +11,7 @@ function acousticHMSGenerateRefSignals
 % Institution: University of Salford
 %
 % Date created: 19/08/2024
-% Date last modified: 19/08/2024
+% Date last modified: 22/10/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -36,7 +37,7 @@ f_tone = 1000;
 f_mod = 70;
 A_tone = sqrt(2)*2e-5*10^(40/20);
 outpath = fullfile("validation",...
-                   "ECMA-418-2_2022", "audio");
+                   "ECMA-418-2", "audio");
 
 % reference sinusoid for loudness and tonality
 

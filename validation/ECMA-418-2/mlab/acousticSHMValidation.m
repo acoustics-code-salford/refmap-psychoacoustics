@@ -1,8 +1,8 @@
-function acousticHMSValidation
-% acousticHMSValidation
+function acousticSHMValidation
+% acousticSHMValidation
 %
-% Compares ECMA-418-2:2022 implementation with values obtained using
-% commercially-available software with reference signals.
+% Compares ECMA-418-2 (Sottek Hearing Model) implementation with values
+% obtained using commercially-available software for reference signals.
 %
 % Ownership and Quality Assurance
 % -------------------------------
@@ -10,7 +10,7 @@ function acousticHMSValidation
 % Institution: University of Salford
 %
 % Date created: 19/08/2024
-% Date last modified: 24/09/2024
+% Date last modified: 22/10/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -31,7 +31,7 @@ function acousticHMSValidation
 addpath(genpath(fullfile("refmap-psychoacoustics", "src", "mlab")))
 
 %% Import reference data
-refpath = fullfile("validation", "ECMA-418-2_2022", "reference");
+refpath = fullfile("validation", "ECMA-418-2", "reference");
 
 % Loudness
 
@@ -126,24 +126,24 @@ roughSingles = horzcat([sine_1kHz_40dB.Roughness, sine_1kHz_70Hz_60dB.Roughness]
 
 %% Calculate sound qualities
 
-tonalityHMS1 = acousticHMSTonality(signal1, fs1, 1, false);
-tonalityHMS2 = acousticHMSTonality(signal2, fs2, 1, false);
-tonalityHMS3 = acousticHMSTonality(signal3, fs3, 1, false);
+tonalityHMS1 = acousticSHMTonality(signal1, fs1, 1, 'free-frontal', false);
+tonalityHMS2 = acousticSHMTonality(signal2, fs2, 1, 'free-frontal', false);
+tonalityHMS3 = acousticSHMTonality(signal3, fs3, 1, 'free-frontal', false);
 
-loudnessHMS1 = acousticHMSLoudnessFromComponent(tonalityHMS1.specTonalLoudness,...
+loudnessHMS1 = acousticSHMLoudnessFromComponent(tonalityHMS1.specTonalLoudness,...
                                                 tonalityHMS1.specNoiseLoudness,...
                                                 false, false);
-loudnessHMS1full = acousticHMSLoudness(signal1, fs1, 1, false, false);
-loudnessHMS2 = acousticHMSLoudnessFromComponent(tonalityHMS2.specTonalLoudness,...
+loudnessHMS1full = acousticSHMLoudness(signal1, fs1, 1, 'free-frontal', false, false);
+loudnessHMS2 = acousticSHMLoudnessFromComponent(tonalityHMS2.specTonalLoudness,...
                                                 tonalityHMS2.specNoiseLoudness,...
                                                 false, false);
-loudnessHMS3 = acousticHMSLoudnessFromComponent(tonalityHMS3.specTonalLoudness,...
+loudnessHMS3 = acousticSHMLoudnessFromComponent(tonalityHMS3.specTonalLoudness,...
                                                 tonalityHMS3.specNoiseLoudness,...
                                                 false, true);
 
-roughnessHMS1 = acousticHMSRoughness(signal1, fs1, 1, false, false);
-roughnessHMS2 = acousticHMSRoughness(signal2, fs2, 1, false, false);
-roughnessHMS3 = acousticHMSRoughness(signal3, fs3, 1, false, true);
+roughnessHMS1 = acousticSHMRoughness(signal1, fs1, 1, 'free-frontal', false, false);
+roughnessHMS2 = acousticSHMRoughness(signal2, fs2, 1, 'free-frontal', false, false);
+roughnessHMS3 = acousticSHMRoughness(signal3, fs3, 1, 'free-frontal', false, true);
 
 loudSinglesAll = vertcat(loudSingles, horzcat([loudnessHMS1.loudnessPowAvg,...
                                                loudnessHMS2.loudnessPowAvg],...
@@ -163,7 +163,7 @@ roughSinglesAll = vertcat(roughSingles, horzcat([roughnessHMS1.roughness90Pc,...
 %% Results comparison plots
 
 % path for saving figures
-figpath = fullfile("validation", "ECMA-418-2_2022", "results");
+figpath = fullfile("validation", "ECMA-418-2", "results");
 
 % figure format
 figformat = 'png';
@@ -174,9 +174,9 @@ figformat = 'png';
 % sine_1kHz_40dB.wav
 % Time-dependent
 TDepPlot(sine_1kHz_40dB, tonalityHMS1, 'tonality', "sine\_1kHz\_40dB.wav",...
-         false, figpath, "tonalHMSTDepSine1kHz40dB", figformat);
+         false, figpath, "tonalSHMTDepSine1kHz40dB", figformat);
 SpecTDepPlot(sine_1kHz_40dB, tonalityHMS1, 'tonality', "sine\_1kHz\_40dB.wav",...
-         false, figpath, "tonalHMSSpecTDepSine1kHz40dB");
+         false, figpath, "tonalSHMSpecTDepSine1kHz40dB");
 
 % Time-aggregated
 SpecTAggPlot(sine_1kHz_40dB, tonalityHMS1, 'tonality', "sine\_1kHz\_40dB.wav",...
@@ -196,13 +196,13 @@ SpecTAggPlot(sine_1kHz_70Hz_60dB, tonalityHMS2, 'tonality',...
 % BusyStreet1_0530-0600.wav
 % Time-dependent
 TDepPlot(BusyStreet1_0530_0600, tonalityHMS3, 'tonality', "BusyStreet1\_0530-0600.wav",...
-         false, figpath, "tonalHMSTDepBusySt", figformat);
+         false, figpath, "tonalSHMTDepBusySt", figformat);
 SpecTDepPlot(BusyStreet1_0530_0600, tonalityHMS3, 'tonality', "BusyStreet1\_0530-0600.wav",...
-             false, figpath, "tonalHMSSpecTDepBusySt");
+             false, figpath, "tonalSHMSpecTDepBusySt");
 
 % Time-aggregated
 SpecTAggPlot(BusyStreet1_0530_0600, tonalityHMS3, 'tonality', "BusyStreet1\_0530-0600.wav",...
-             false, figpath, "tonalHMSSpecTAggBusySt", figformat);
+             false, figpath, "tonalSHMSpecTAggBusySt", figformat);
 
 % Single values
 fg = figure('Position', [200, 200, 450, 350]);
@@ -220,8 +220,8 @@ for bb = 1:length(br)
         'HorizontalAlignment','center',...
         'VerticalAlignment','bottom', 'FontSize', 8)
 end
-exportgraphics(fg, fullfile(figpath, "tonalHMSsingles.pdf"), 'ContentType', 'vector')
-exportgraphics(fg, fullfile(figpath, "tonalHMSsingles.png"), 'Resolution', 300)
+exportgraphics(fg, fullfile(figpath, "tonalSHMsingles.pdf"), 'ContentType', 'vector')
+exportgraphics(fg, fullfile(figpath, "tonalSHMsingles.png"), 'Resolution', 300)
 
 % Loudness
 % --------
@@ -229,9 +229,9 @@ exportgraphics(fg, fullfile(figpath, "tonalHMSsingles.png"), 'Resolution', 300)
 % sine_1kHz_40dB.wav
 % Time-dependent (from component)
 TDepPlot(sine_1kHz_40dB, loudnessHMS1, 'loudness', "sine\_1kHz\_40dB.wav",...
-         false, figpath, "loudHMSTDepSine1kHz40dB", figformat);
+         false, figpath, "loudSHMTDepSine1kHz40dB", figformat);
 SpecTDepPlot(sine_1kHz_40dB, loudnessHMS1, 'loudness', "sine\_1kHz\_40dB.wav",...
-             false, figpath, "loudHMSSpecTDepSine1kHz40dB");
+             false, figpath, "loudSHMSpecTDepSine1kHz40dB");
 
 % Time-aggregated (from component)
 SpecTAggPlot(sine_1kHz_40dB, loudnessHMS1, 'loudness',...
@@ -242,7 +242,7 @@ TDepPlot(sine_1kHz_40dB, loudnessHMS1full, 'loudness',...
          "sine\_1kHz\_40dB.wav (full function)", false, NaN, NaN, NaN);
 SpecTDepPlot(sine_1kHz_40dB, loudnessHMS1full, 'loudness',...
              "sine\_1kHz\_40dB.wav (full function)", false, figpath,...
-             "loudHMSSpecTDepSine1kHz40dBFull");
+             "loudSHMSpecTDepSine1kHz40dBFull");
 
 % Time-aggregated (full function)
 SpecTAggPlot(sine_1kHz_40dB, loudnessHMS1full, 'loudness',...
@@ -262,19 +262,19 @@ SpecTAggPlot(sine_1kHz_70Hz_60dB, loudnessHMS2, 'loudness',...
 % BusyStreet1_0530-0600.wav
 % Time-dependent (separate)
 TDepPlot(BusyStreet1_0530_0600, loudnessHMS3, 'loudness', "BusyStreet1\_0530-0600.wav",...
-         false, figpath, "loudHMSTDepBusySt", figformat);
+         false, figpath, "loudSHMTDepBusySt", figformat);
 SpecTDepPlot(BusyStreet1_0530_0600, loudnessHMS3, 'loudness', "BusyStreet1\_0530-0600.wav",...
-             false, figpath, "loudHMSSpecTDepBusySt");
+             false, figpath, "loudSHMSpecTDepBusySt");
 
 % Time-aggregated (separate)
 SpecTAggPlot(BusyStreet1_0530_0600, loudnessHMS3, 'loudness', "BusyStreet1\_0530-0600.wav",...
-             false, figpath, "loudHMSSpecTAggBusySt", figformat);
+             false, figpath, "loudSHMSpecTAggBusySt", figformat);
 
 % Time-dependent (binaural)
 TDepPlot(BusyStreet1_0530_0600, loudnessHMS3, 'loudness',...
          "BusyStreet1\_0530-0600.wav", true, NaN, NaN, NaN);
 SpecTDepPlot(BusyStreet1_0530_0600, loudnessHMS3, 'loudness',...
-             "BusyStreet1\_0530-0600.wav", true, figpath, "loudHMSSpecTDepBinBusySt");
+             "BusyStreet1\_0530-0600.wav", true, figpath, "loudSHMSpecTDepBinBusySt");
 
 % Time-aggregated (binaural)
 SpecTAggPlot(BusyStreet1_0530_0600, loudnessHMS3, 'loudness',...
@@ -296,8 +296,8 @@ for bb = 1:length(br)
         'HorizontalAlignment','center',...
         'VerticalAlignment','bottom', 'FontSize', 7)
 end
-exportgraphics(fg, fullfile(figpath, "loudHMSsingles.pdf"), 'ContentType', 'vector')
-exportgraphics(fg, fullfile(figpath, "loudHMSsingles.png"), 'Resolution', 300)
+exportgraphics(fg, fullfile(figpath, "loudSHMsingles.pdf"), 'ContentType', 'vector')
+exportgraphics(fg, fullfile(figpath, "loudSHMsingles.png"), 'Resolution', 300)
 
 % Roughness
 % ---------
@@ -305,9 +305,9 @@ exportgraphics(fg, fullfile(figpath, "loudHMSsingles.png"), 'Resolution', 300)
 % sine_1kHz_70Hz_60dB.wav
 % Time-dependent
 TDepPlot(sine_1kHz_70Hz_60dB, roughnessHMS2, 'roughness', "sine\_1kHz\_70Hz\_60dB.wav",...
-         false, figpath, "roughHMSTDepSine1kHz70Hz60dB", figformat);
+         false, figpath, "roughSHMTDepSine1kHz70Hz60dB", figformat);
 SpecTDepPlot(sine_1kHz_70Hz_60dB, roughnessHMS2, 'roughness', "sine\_1kHz\_70Hz\_60dB.wav",...
-             false, figpath, "roughHMSSpecTDepSine1kHz70Hz60dB");
+             false, figpath, "roughSHMSpecTDepSine1kHz70Hz60dB");
 
 % Time-aggregated
 SpecTAggPlot(sine_1kHz_70Hz_60dB, roughnessHMS2, 'roughness',...
@@ -316,19 +316,19 @@ SpecTAggPlot(sine_1kHz_70Hz_60dB, roughnessHMS2, 'roughness',...
 % BusyStreet1_0530-0600.wav
 % Time-dependent (separate)
 TDepPlot(BusyStreet1_0530_0600, roughnessHMS3, 'roughness', "BusyStreet1\_0530-0600.wav",...
-         false, figpath, "roughHMSTDepBusySt", figformat);
+         false, figpath, "roughSHMTDepBusySt", figformat);
 SpecTDepPlot(BusyStreet1_0530_0600, roughnessHMS3, 'roughness', "BusyStreet1\_0530-0600.wav",...
-             false, figpath, "roughHMSSpecTDepBusySt");
+             false, figpath, "roughSHMSpecTDepBusySt");
 
 % Time-aggregated (separate)
 SpecTAggPlot(BusyStreet1_0530_0600, roughnessHMS3, 'roughness', "BusyStreet1\_0530-0600.wav",...
-             false, figpath, "roughHMSSpecTAggBusySt", figformat);
+             false, figpath, "roughSHMSpecTAggBusySt", figformat);
 
 % Time-dependent (binaural)
 TDepPlot(BusyStreet1_0530_0600, roughnessHMS3, 'roughness',...
          "BusyStreet1\_0530-0600.wav", true, NaN, NaN, NaN);
 SpecTDepPlot(BusyStreet1_0530_0600, roughnessHMS3, 'roughness', "BusyStreet1\_0530-0600.wav",...
-             true, figpath, "roughHMSSpecTDepBinBusySt");
+             true, figpath, "roughSHMSpecTDepBinBusySt");
 
 % Time-aggregated (binaural)
 SpecTAggPlot(BusyStreet1_0530_0600, roughnessHMS3, 'roughness',...
@@ -350,8 +350,8 @@ for bb = 1:length(br)
         'HorizontalAlignment','center',...
         'VerticalAlignment','bottom', 'FontSize', 7)
 end
-exportgraphics(fg, fullfile(figpath, "roughHMSsingles.pdf"), 'ContentType', 'vector')
-exportgraphics(fg, fullfile(figpath, "roughHMSsingles.png"), 'Resolution', '300')
+exportgraphics(fg, fullfile(figpath, "roughSHMsingles.pdf"), 'ContentType', 'vector')
+exportgraphics(fg, fullfile(figpath, "roughSHMsingles.png"), 'Resolution', '300')
 
 %% Plotting functions
 
