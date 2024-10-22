@@ -210,7 +210,7 @@ movegui(fg, 'center');
 br = bar(strrep(signalLabs(1:end - 1), "_", " "), tonalSinglesAll);
 cMap = load('cmap_plasma.txt');
 colororder([cMap(166, :); cMap(34, :)])
-ylabel("Tonality, tu_{HMS}")
+ylabel("Tonality, tu_{SHM}")
 set(gca, 'YGrid', 'on', 'GridLineStyle', '--', 'GridAlpha', 0.15);
 hax = gca;
 hax.Toolbar.Visible = 'off';
@@ -286,7 +286,7 @@ movegui(fg, 'center');
 br = bar(strrep(signalLabs, "_", " "), loudSinglesAll);
 cMap = load('cmap_viridis.txt');
 colororder([cMap(166, :); cMap(34, :)])
-ylabel("Loudness, sone_{HMS}")
+ylabel("Loudness, sone_{SHM}")
 set(gca, 'YGrid', 'on', 'GridLineStyle', '--', 'GridAlpha', 0.15);
 hax = gca;
 hax.Toolbar.Visible = 'off';
@@ -340,7 +340,7 @@ movegui(fg, 'center');
 br = bar(strrep(signalLabs, "_", " "), roughSinglesAll);
 cMap = load('cmap_inferno.txt');
 colororder([cMap(166, :); cMap(34, :)])
-ylabel("Roughness, asper_{HMS}")
+ylabel("Roughness, asper_{SHM}")
 set(gca, 'YGrid', 'on', 'GridLineStyle', '--', 'GridAlpha', 0.15);
 hax = gca;
 hax.Toolbar.Visible = 'off';
@@ -362,12 +362,12 @@ function TDepPlot(struct1, struct2, metricType, titleStr, binaural,...
     switch metricType
         case 'tonality'
             cmap = load('cmap_plasma.txt');
-            unit = "Tonality, tu_{HMS}";
+            unit = "Tonality, tu_{SHM}";
             metric1 = struct1.TonalTDep;
             metric2 = struct2.tonalityTDep;
         case 'loudness'
             cmap = load('cmap_viridis.txt');
-            unit = "Loudness, sone_{HMS}";
+            unit = "Loudness, sone_{SHM}";
             if binaural
                 metric1 = struct1.LoudTDepBin;
                 metric2 = struct2.loudnessTDepBin;
@@ -377,7 +377,7 @@ function TDepPlot(struct1, struct2, metricType, titleStr, binaural,...
             end
         case 'roughness'
             cmap = load('cmap_inferno.txt');
-            unit = "Roughness, asper_{HMS}";
+            unit = "Roughness, asper_{SHM}";
             if binaural
                 metric1 = struct1.RoughTDepBin;
                 metric2 = struct2.roughnessTDepBin;
@@ -455,12 +455,12 @@ function SpecTAggPlot(struct1, struct2, metricType, titleStr, binaural,...
     switch metricType
         case 'tonality'
             cmap = load('cmap_plasma.txt');
-            unit = "Specific tonality, tu_{HMS}/Bark_{HMS}";
+            unit = "Specific tonality, tu_{SHM}/Bark_{SHM}";
             metric1 = struct1.TonalSpec;
             metric2 = struct2.specTonalityAvg;
         case 'loudness'
             cmap = load('cmap_viridis.txt');
-            unit = "Specific loudness, sone_{HMS}/Bark_{HMS}";
+            unit = "Specific loudness, sone_{SHM}/Bark_{SHM}";
             if binaural
                 metric1 = struct1.LoudSpecBin;
                 metric2 = struct2.specLoudnessPowAvgBin;
@@ -470,7 +470,7 @@ function SpecTAggPlot(struct1, struct2, metricType, titleStr, binaural,...
             end
         case 'roughness'
             cmap = load('cmap_inferno.txt');
-            unit = "Specific roughness, asper_{HMS}/Bark_{HMS}";
+            unit = "Specific roughness, asper_{SHM}/Bark_{SHM}";
             if binaural
                 metric1 = struct1.RoughSpecBin;
                 metric2 = struct2.specRoughnessAvgBin;
@@ -517,7 +517,7 @@ function SpecTAggPlot(struct1, struct2, metricType, titleStr, binaural,...
             'DisplayName', "refmap");
         hold off
         ax.XTick = linspace(0.5, 26.5, 27);
-        ax.XLabel.String = "Critical band rate, Bark_{HMS}";
+        ax.XLabel.String = "Critical band rate, Bark_{SHM}";
         ax.YLim = [0, 1.1*ceil(max(metric2(:, ii))*10)/10];
         ax.YLabel.String = unit;
         ax.YGrid = 'on';
@@ -549,12 +549,12 @@ function SpecTDepPlot(struct1, struct2, metricType, titleStr, binaural,...
     switch metricType
         case 'tonality'
             cmap = load('cmap_plasma.txt');
-            unit = {"Specific tonality,"; "tu_{HMS}/Bark_{HMS}"};
+            unit = {"Specific tonality,"; "tu_{SHM}/Bark_{SHM}"};
             metric1 = struct1.TonalSpecTDep;
             metric2 = struct2.specTonality;
         case 'loudness'
             cmap = load('cmap_viridis.txt');
-            unit = {"Specific loudness,"; "sone_{HMS}/Bark_{HMS}"};
+            unit = {"Specific loudness,"; "sone_{SHM}/Bark_{SHM}"};
             if binaural
                 metric1 = struct1.LoudSpecTDepBin;
                 metric2 = struct2.specLoudnessBin;
@@ -564,7 +564,7 @@ function SpecTDepPlot(struct1, struct2, metricType, titleStr, binaural,...
             end
         case 'roughness'
             cmap = load('cmap_inferno.txt');
-            unit = {"Specific roughness,"; "asper_{HMS}/Bark_{HMS}"};
+            unit = {"Specific roughness,"; "asper_{SHM}/Bark_{SHM}"};
             if binaural
                 metric1 = struct1.RoughSpecTDepBin;
                 metric2 = struct2.specRoughnessBin;
