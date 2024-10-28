@@ -38,7 +38,7 @@ function roughWeight = ShmRoughWeight(modRate, modfreqMaxWeight, roughWeightPara
 % Institution: University of Salford
 %
 % Date created: 10/07/2024
-% Date last modified: 21/10/2024
+% Date last modified: 25/10/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -53,7 +53,7 @@ function roughWeight = ShmRoughWeight(modRate, modfreqMaxWeight, roughWeightPara
 % Checked by:
 % Date last checked:
 %
-% Equation 85
+% Equation 85 [G_l,z,i(f_p,i(l,z))]
 roughWeight = 1./...
                 (1 +...
                  ((modRate./modfreqMaxWeight...
