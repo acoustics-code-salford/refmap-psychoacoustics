@@ -1,0 +1,82 @@
+---
+title: "REFMAP listening test 1 analysis: Inter-rater reliability"
+output: html_document
+date: "2024-10-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup
+
+Load packages
+
+```{r}
+library(tidyverse)
+library(irr)
+
+```
+
+## Import data and wrangle
+
+### Part A
+
+```{r}
+
+annoyDataApath <- utils::choose.files(caption=r"(Select refmap_listest1_AnnoyDataABySubjWide.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
+                                     filters=matrix(data=c("refmap_listest1_AnnoyDataABySubjWide.csv", "refmap_listest1_AnnoyDataABySubjWide.csv"), ncol=2))
+
+annoyDataA <- read.csv(annoyDataApath, header=TRUE)
+
+# transpose the data
+annoyDataA <- setNames(data.frame(t(annoyDataA[,-1])), annoyDataA[,1])
+# get rid of the unwanted rows
+annoyDataA <- annoyDataA[1:80,]
+# convert to numeric
+annoyDataA <- dplyr::mutate_all(annoyDataA, function(x) as.numeric(as.character(x)))
+
+```
+
+
+### Part B
+
+```{r}
+
+annoyDataBpath <- utils::choose.files(caption=r"(Select refmap_listest1_AnnoyDataBBySubjWide.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
+                                     filters=matrix(data=c("refmap_listest1_AnnoyDataBBySubjWide.csv", "refmap_listest1_AnnoyDataBBySubjWide.csv"), ncol=2))
+
+annoyDataB <- read.csv(annoyDataBpath, header=TRUE)
+
+# transpose the data
+annoyDataB <- setNames(data.frame(t(annoyDataB[,-1])), annoyDataB[,1])
+# get rid of the unwanted rows
+annoyDataB <- annoyDataB[1:17,]
+# convert to numeric
+annoyDataB <- dplyr::mutate_all(annoyDataB, function(x) as.numeric(as.character(x)))
+
+
+```
+
+## Calculate ICC
+
+### Part A
+
+```{r}
+
+irr::icc(annoyDataA, model = 'twoway', 
+         type = 'agreement', unit = 'average')
+
+```
+
+
+### Part B
+
+```{r}
+
+
+irr::icc(annoyDataB, model = 'twoway', 
+         type = 'agreement', unit = 'average')
+
+
+```
