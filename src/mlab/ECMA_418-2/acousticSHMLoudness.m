@@ -6,7 +6,7 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRatein, axisn,...
 % Returns loudness values according to ECMA-418-2:2024 (using the Sottek
 % Hearing Model) for an input calibrated single mono or single stereo
 % audio (sound pressure) time-series signal, p. For stereo signals, the
-% binaural loudness can be calculated, or each channel can be analysed
+% binaural loudness can be calculated, and each channel is also analysed
 % separately.
 %
 % Inputs
@@ -56,7 +56,7 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRatein, axisn,...
 % 
 % loudnessPowAvg : number or vector
 %                  time-power-averaged overall loudness
-%                  arranged as [roughness(, channels)]
+%                  arranged as [loudness(, channels)]
 %
 % bandCentreFreqs : vector
 %                   centre frequencies corresponding with each (half)
@@ -96,7 +96,7 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRatein, axisn,...
 % Institution: University of Salford
 %
 % Date created: 22/09/2023
-% Date last modified: 24/09/2024
+% Date last modified: 01/11/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -116,7 +116,7 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRatein, axisn,...
         p (:, :) double {mustBeReal}
         sampleRatein (1, 1) double {mustBePositive, mustBeInteger}
         axisn (1, 1) {mustBeInteger, mustBeInRange(axisn, 1, 2)} = 1
-        fieldtype (1,:) string {mustBeMember(fieldtype,...
+        fieldtype (1, :) string {mustBeMember(fieldtype,...
                                                        {'free-frontal',...
                                                         'diffuse'})} = 'free-frontal'
         outplot {mustBeNumericOrLogical} = false
@@ -134,7 +134,7 @@ end
 
 % Check the length of the input data (must be longer than 300 ms)
 if size(p, 1) <  300/1000*sampleRatein
-    error('Error: Input signal is too short along the specificed to calculate loudness (must be longer than 300 ms)')
+    error('Error: Input signal is too short along the specified axis to calculate loudness (must be longer than 300 ms)')
 end
 
 % Check the channel number of the input data
@@ -313,7 +313,7 @@ if outplot
 
         ax2 = nexttile(2);
         plot(ax2, timeOut, loudnessPowAvg(1, chan)*ones(size(timeOut)), 'color',...
-             cmap_viridis(34, :), 'LineWidth', 0.75, 'DisplayName', "Power" + string(newline) + "time-avg");
+             cmap_viridis(34, :), 'LineWidth', 1, 'DisplayName', "Power" + string(newline) + "time-avg");
         hold on
         plot(ax2, timeOut, loudnessTDep(:, chan), 'color', cmap_viridis(166, :),...
              'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
@@ -326,6 +326,9 @@ if outplot
         ax2.YLabel.String = 'Loudness, sone_{SHM}';
         ax2.XGrid = 'on';
         ax2.YGrid = 'on';
+        ax2.GridAlpha = 0.075;
+        ax2.GridLineStyle = '--';
+        ax2.GridLineWidth = 0.25;
         ax2.FontName = 'Arial';
         ax2.FontSize = 12;
         lgd = legend('Location', 'eastoutside', 'FontSize', 8);

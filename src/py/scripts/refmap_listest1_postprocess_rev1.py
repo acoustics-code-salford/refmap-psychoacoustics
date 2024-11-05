@@ -17,6 +17,7 @@ import librosa
 import dsp.filterFuncs
 import dsp.noct
 from scipy import stats, optimize
+from parallel_pandas import ParallelPandas
 
 # enable copy-on-write mode for Pandas (will be default from Pandas 3.0)
 pd.options.mode.copy_on_write = True
@@ -93,53 +94,6 @@ for ii, file in enumerate(filelist):
     signalLAE = (signalLAeq
                  + 10*np.log10(len(signalA[start_skips:
                                            -end_skips])/sampleRatein))
-
-    # ICAO LAE metrics
-    signalLAFmaxLoc = signaldBAF.argmax(axis=0)
-    signalLASmaxLoc = signaldBAS.argmax(axis=0)
-    SlowLAEThresh = signalLASmax - 10
-    FastLAEThresh = signalLAFmax - 10
-    
-    SlowIntStartL = timeVectorSkip[signaldBAS[:, 0] >= SlowLAEThresh[0]].min()
-    SlowIntEndL = timeVectorSkip[signaldBAS[:, 0] >= SlowLAEThresh[0]].max()
-    SlowIntStartR = timeVectorSkip[signaldBAS[:, 1] >= SlowLAEThresh[1]].min()
-    SlowIntEndR = timeVectorSkip[signaldBAS[:, 1] >= SlowLAEThresh[1]].max()
-    
-    SlowIntTime = np.array([SlowIntEndL - SlowIntStartL,
-                            SlowIntEndR - SlowIntStartR])
-    
-    # note that the indices here refer to the full signal without truncation (start_skips is not omitted from the sample index)
-    SlowIntIndices = np.array([[int(SlowIntStartL*sampleRatein),
-                                int(SlowIntStartR*sampleRatein)],
-                               [int(SlowIntEndL*sampleRatein), 
-                                int(SlowIntEndR*sampleRatein)]])
-    
-    signalICAOLAES = np.array([20*np.log10(np.sqrt(SlowIntTime[0]*(signalA[SlowIntIndices[0, 0]:
-                                                                           SlowIntIndices[1, 0], 0]**2).mean(axis=0))/2e-5),
-                                20*np.log10(np.sqrt(SlowIntTime[1]*(signalA[SlowIntIndices[0, 1]:
-                                                                            SlowIntIndices[1, 1], 1]**2).mean(axis=0))/2e-5)])
-    
-    FastIntStartL = timeVectorSkip[signaldBAF[:, 0] >= FastLAEThresh[0]].min()
-    FastIntEndL = timeVectorSkip[signaldBAF[:, 0] >= FastLAEThresh[0]].max()
-    FastIntStartR = timeVectorSkip[signaldBAF[:, 1] >= FastLAEThresh[1]].min()
-    FastIntEndR = timeVectorSkip[signaldBAF[:, 1] >= FastLAEThresh[1]].max()
-    
-    FastIntTime = np.array([FastIntEndL - FastIntStartL,
-                            FastIntEndR - FastIntStartR])
-    
-    # note that the indices here refer to the full signal without truncation (start_skips is not omitted from the sample index)
-    FastIntIndices = np.array([[int(FastIntStartL*sampleRatein),
-                                int(FastIntStartR*sampleRatein)],
-                               [int(FastIntEndL*sampleRatein), 
-                                int(FastIntEndR*sampleRatein)]])
-    
-    signalTradLAEF = np.array([20*np.log10(np.sqrt(FastIntTime[0]*(signalA[FastIntIndices[0, 0]:
-                                                                           FastIntIndices[1, 0], 0]**2).mean(axis=0))/2e-5),
-                                20*np.log10(np.sqrt(FastIntTime[1]*(signalA[FastIntIndices[0, 1]:
-                                                                            FastIntIndices[1, 1], 1]**2).mean(axis=0))/2e-5)])
-
-    dataByStim.loc[filenames[ii], 'LAESICAOMaxLR'] = signalICAOLAES.max()
-    dataByStim.loc[filenames[ii], 'LAEFTradMaxLR'] = signalTradLAEF.max()
 
     # take max L/R ear only
     dataByStim.loc[filenames[ii], 'LAeqMaxLR'] = signalLAeq.max()
@@ -223,11 +177,15 @@ dataByStim = pd.concat([dataByStim, pd.DataFrame(index=dataByStim.index,
 
 # output SQM sample rates
 sampleRateLoudECMA = 187.5
-sampleRateTonalECMA = 187.5
 sampleRateLoudISO1 = 500
 sampleRateLoudISO3 = 1e3
+sampleRateTonalECMA = 187.5
+sampleRateTonalAures = 12.5
 sampleRateRoughECMA = 50
+sampleRateRoughFZ = 2000
+sampleRateRoughDW = 10
 sampleRateFluctHMS = 229390681/4e6
+sampleRateFluctOV = 5
 sampleRateImpulsHMS = 60000/55
 
 # time value for moving averaging of SQMs for difference calculations
