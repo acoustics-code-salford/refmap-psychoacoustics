@@ -1,4 +1,4 @@
-# ECMA-418-2:2024 - Sottek Hearing Model tonality, loudness and roughness sound quality metrics: Validation of MATLAB implementation
+# ECMA-418-2:2022 - Sottek Hearing Model tonality, loudness and roughness sound quality metrics: Validation of MATLAB implementation
 Validation of the MATLAB algorithms has been undertaken by comparison with outputs calculated using HEAD Acoustics ArtemiS v15.6 software.
 
 The audio signals used for the validation comprise:
