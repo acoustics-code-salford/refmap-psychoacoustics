@@ -109,6 +109,7 @@ stimDataANum <- data.frame()
 stimDataANum <- cbind(stimDataA[, 'Recording'],
                       stimDataA[, which(colnames(stimDataA)=="UASLAeq"):
                                   which(colnames(stimDataA)=="SNRlevel")],
+                      stimDataA[, "intermitRatioMaxLR", drop=F],
                       stimDataA[, which(colnames(stimDataA)=="UASLAeqMaxLR"):
                                   which(colnames(stimDataA)=="UASImpulsHMS05ExMaxLR")],
                       stimDataA[, which(colnames(stimDataA)=="LAeqdiffLAF90"):
@@ -144,6 +145,7 @@ stimNoticeDataANum <- data.frame()
 stimNoticeDataANum <- cbind(stimNoticeDataA[, 'Recording'],
                             stimNoticeDataA[, which(colnames(stimNoticeDataA)=="UASLAeq"):
                                               which(colnames(stimNoticeDataA)=="SNRlevel")],
+                            stimNoticeDataA[, "intermitRatioMaxLR", drop=F],
                             stimNoticeDataA[, which(colnames(stimNoticeDataA)=="UASLAeqMaxLR"):
                                               which(colnames(stimNoticeDataA)=="UASImpulsHMS05ExMaxLR")],
                             stimNoticeDataA[, which(colnames(stimNoticeDataA)=="LAeqdiffLAF90"):
@@ -191,6 +193,7 @@ stimDataBNum <- cbind(stimDataB[, 'Recording'],
                                 which(colnames(stimDataB)=="UASEventDensity")],
                       stimDataB[, which(colnames(stimDataB)=="UASLAeq"):
                                 which(colnames(stimDataB)=="SNRlevel")],
+                      stimDataB[, "intermitRatioMaxLR", drop=F],
                       stimDataB[, which(colnames(stimDataB)=="UASLAeqMaxLR"):
                                 which(colnames(stimDataB)=="UASImpulsHMS05ExMaxLR")],
                       stimDataB[, which(colnames(stimDataB)=="LAeqdiffLAF90"):
@@ -373,7 +376,7 @@ pBar <- ggplot(resultsOutAbs.conimp) +
                  fill=mycolours[1], width=0.5) + labs(x="Variable",
                                                       y="Conditional variable importance (median annoyance)") +
         theme(text = element_text(family = "serif"),
-              panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+              panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 
 pBar + coord_flip()
 
@@ -435,7 +438,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSharp.conimp <- data.frame('Var_imp'=rev(resultsOutSharp$conditional_permimp))
 
-pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -475,7 +478,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal1.conimp <- data.frame('Var_imp'=rev(resultsOutTonal1$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.175))
 
 if (saveplots){
@@ -515,7 +518,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal2.conimp <- data.frame('Var_imp'=rev(resultsOutTonal2$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.175))
 
 if (saveplots){
@@ -556,7 +559,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutFluct.conimp <- data.frame('Var_imp'=rev(resultsOutFluct$conditional_permimp))
 
-pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -596,7 +599,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutRough.conimp <- data.frame('Var_imp'=rev(resultsOutRough$conditional_permimp))
 
-pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -636,7 +639,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutImpuls.conimp <- data.frame('Var_imp'=rev(resultsOutImpuls$conditional_permimp))
 
-pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -679,7 +682,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs1.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs1$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.125))
 
 if (saveplots){
@@ -721,7 +724,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs2.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs2$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -777,7 +780,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutDiffs.conimp <- data.frame('Var_imp'=rev(resultsOutDiffs$conditional_permimp))
 
-pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp), levels=rownames(resultsOutDiffs.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp), levels=rownames(resultsOutDiffs.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -879,7 +882,7 @@ pBar <- ggplot(resultsOutAbs.conimp) +
                  fill=mycolours[1], width=0.5) + labs(x="Variable",
                                                       y="Conditional variable importance (mean annoyance)") +
         theme(text = element_text(family = "serif"),
-              panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+              panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 
 pBar + coord_flip()
 
@@ -941,7 +944,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSharp.conimp <- data.frame('Var_imp'=rev(resultsOutSharp$conditional_permimp))
 
-pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -981,7 +984,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal1.conimp <- data.frame('Var_imp'=rev(resultsOutTonal1$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.6))
 
 if (saveplots){
@@ -1021,7 +1024,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal2.conimp <- data.frame('Var_imp'=rev(resultsOutTonal2$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.8))
 
 if (saveplots){
@@ -1062,7 +1065,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutFluct.conimp <- data.frame('Var_imp'=rev(resultsOutFluct$conditional_permimp))
 
-pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -1102,7 +1105,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutRough.conimp <- data.frame('Var_imp'=rev(resultsOutRough$conditional_permimp))
 
-pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -1142,7 +1145,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutImpuls.conimp <- data.frame('Var_imp'=rev(resultsOutImpuls$conditional_permimp))
 
-pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -1185,7 +1188,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs1.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs1$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.5))
 
 if (saveplots){
@@ -1227,7 +1230,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs2.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs2$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.5))
 
 if (saveplots){
@@ -1283,7 +1286,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutDiffs.conimp <- data.frame('Var_imp'=rev(resultsOutDiffs$conditional_permimp))
 
-pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp), levels=rownames(resultsOutDiffs.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp), levels=rownames(resultsOutDiffs.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -1370,7 +1373,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutAbs.conimp <- data.frame('Var_imp'=rev(resultsOutAbs$conditional_permimp))
 
-pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimp), levels=rownames(resultsOutAbs.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimp), levels=rownames(resultsOutAbs.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -1432,7 +1435,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSharp.conimp <- data.frame('Var_imp'=rev(resultsOutSharp$conditional_permimp))
 
-pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -1473,7 +1476,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal1.conimp <- data.frame('Var_imp'=rev(resultsOutTonal1$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.18))
 
 if (saveplots){
@@ -1516,7 +1519,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal2.conimp <- data.frame('Var_imp'=rev(resultsOutTonal2$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.18))
 
 
@@ -1560,7 +1563,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutFluct.conimp <- data.frame('Var_imp'=rev(resultsOutFluct$conditional_permimp))
 
-pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -1600,7 +1603,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutRough.conimp <- data.frame('Var_imp'=rev(resultsOutRough$conditional_permimp))
 
-pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -1643,7 +1646,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutImpuls.conimp <- data.frame('Var_imp'=rev(resultsOutImpuls$conditional_permimp))
 
-pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -1687,7 +1690,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs1.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs1$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -1730,7 +1733,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs2.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs2$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -1787,7 +1790,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutDiffs.conimp <- data.frame('Var_imp'=rev(resultsOutDiffs$conditional_permimp))
 
-pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp), levels=rownames(resultsOutDiffs.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp), levels=rownames(resultsOutDiffs.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -1876,7 +1879,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutAbs.conimp <- data.frame('Var_imp'=rev(resultsOutAbs$conditional_permimp))
 
-pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimp), levels=rownames(resultsOutAbs.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimp), levels=rownames(resultsOutAbs.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -1938,7 +1941,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSharp.conimp <- data.frame('Var_imp'=rev(resultsOutSharp$conditional_permimp))
 
-pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -1979,7 +1982,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal1.conimp <- data.frame('Var_imp'=rev(resultsOutTonal1$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.9))
 
 if (saveplots){
@@ -2022,7 +2025,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal2.conimp <- data.frame('Var_imp'=rev(resultsOutTonal2$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 1))
 
 
@@ -2066,7 +2069,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutFluct.conimp <- data.frame('Var_imp'=rev(resultsOutFluct$conditional_permimp))
 
-pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -2106,7 +2109,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutRough.conimp <- data.frame('Var_imp'=rev(resultsOutRough$conditional_permimp))
 
-pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -2149,7 +2152,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutImpuls.conimp <- data.frame('Var_imp'=rev(resultsOutImpuls$conditional_permimp))
 
-pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -2193,7 +2196,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs1.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs1$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 1))
 
 if (saveplots){
@@ -2236,7 +2239,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs2.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs2$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 1))
 
 if (saveplots){
@@ -2293,7 +2296,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutDiffs.conimp <- data.frame('Var_imp'=rev(resultsOutDiffs$conditional_permimp))
 
-pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp), levels=rownames(resultsOutDiffs.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp), levels=rownames(resultsOutDiffs.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -2387,7 +2390,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutAbs.conimp <- data.frame('Var_imp'=rev(resultsOutAbs$conditional_permimp))
 
-pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimp), levels=rownames(resultsOutAbs.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimp), levels=rownames(resultsOutAbs.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -2447,7 +2450,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSharp.conimp <- data.frame('Var_imp'=rev(resultsOutSharp$conditional_permimp))
 
-pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -2488,7 +2491,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal1.conimp <- data.frame('Var_imp'=rev(resultsOutTonal1$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.008))
 
 if (saveplots){
@@ -2530,7 +2533,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal2.conimp <- data.frame('Var_imp'=rev(resultsOutTonal2$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.008))
 
 if (saveplots){
@@ -2571,7 +2574,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutFluct.conimp <- data.frame('Var_imp'=rev(resultsOutFluct$conditional_permimp))
 
-pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -2611,7 +2614,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutRough.conimp <- data.frame('Var_imp'=rev(resultsOutRough$conditional_permimp))
 
-pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -2654,7 +2657,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutImpuls.conimp <- data.frame('Var_imp'=rev(resultsOutImpuls$conditional_permimp))
 
-pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -2698,7 +2701,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs1.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs1$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.006))
 
 if (saveplots){
@@ -2740,7 +2743,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs2.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs2$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.006))
 
 if (saveplots){
@@ -2797,7 +2800,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutDiffs.conimp <- data.frame('Var_imp'=rev(resultsOutDiffs$conditional_permimp))
 
-pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp), levels=rownames(resultsOutDiffs.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp), levels=rownames(resultsOutDiffs.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -2885,7 +2888,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutAbs.conimp <- data.frame('Var_imp'=rev(resultsOutAbs$conditional_permimp))
 
-pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimp), levels=rownames(resultsOutAbs.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimp), levels=rownames(resultsOutAbs.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -2947,7 +2950,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSharp.conimp <- data.frame('Var_imp'=rev(resultsOutSharp$conditional_permimp))
 
-pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -2989,7 +2992,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal1.conimp <- data.frame('Var_imp'=rev(resultsOutTonal1$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.1))
 
 if (saveplots){
@@ -3030,7 +3033,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal2.conimp <- data.frame('Var_imp'=rev(resultsOutTonal2$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.1))
 
 if (saveplots){
@@ -3072,7 +3075,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutFluct.conimp <- data.frame('Var_imp'=rev(resultsOutFluct$conditional_permimp))
 
-pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -3112,7 +3115,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutRough.conimp <- data.frame('Var_imp'=rev(resultsOutRough$conditional_permimp))
 
-pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -3155,7 +3158,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutImpuls.conimp <- data.frame('Var_imp'=rev(resultsOutImpuls$conditional_permimp))
 
-pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -3199,7 +3202,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs1.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs1$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -3241,7 +3244,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs2.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs2$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -3297,7 +3300,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutDiffs.conimp <- data.frame('Var_imp'=rev(resultsOutDiffs$conditional_permimp))
 
-pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp), levels=rownames(resultsOutDiffs.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp), levels=rownames(resultsOutDiffs.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion UAS noticed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -3367,7 +3370,7 @@ res <- tidyr::pivot_longer(res, cols=-Variable, names_to="Outcome", values_to="I
 
 res <- res[order(res$Imp),]
 
-pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours)
+pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours)
 pBar
 
 if (saveplots){
@@ -3409,7 +3412,7 @@ res <- tidyr::pivot_longer(res, cols=-Variable, names_to="Outcome", values_to="I
 
 res <- res[order(res$Imp),]
 
-pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text=element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours)
+pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text=element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours)
 pBar
 
 if (saveplots){
@@ -3454,7 +3457,7 @@ res <- tidyr::pivot_longer(res, cols=-Variable, names_to="Outcome", values_to="I
 
 res <- res[order(res$Imp),]
 
-pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours)
+pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours)
 pBar
 
 if (saveplots){
@@ -3496,7 +3499,7 @@ res <- tidyr::pivot_longer(res, cols=-Variable, names_to="Outcome", values_to="I
 
 res <- res[order(res$Imp),]
 
-pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text=element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours)
+pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text=element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours)
 pBar
 
 if (saveplots){
@@ -3567,7 +3570,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutAbsB.conimp <- data.frame('Var_imp'=rev(resultsOutAbsB$conditional_permimp))
 
-pBar <- ggplot(resultsOutAbsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbsB.conimp), levels=rownames(resultsOutAbsB.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutAbsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbsB.conimp), levels=rownames(resultsOutAbsB.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -3625,7 +3628,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSharpB.conimp <- data.frame('Var_imp'=rev(resultsOutSharpB$conditional_permimp))
 
-pBar <- ggplot(resultsOutSharpB.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharpB.conimp), levels=rownames(resultsOutSharpB.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSharpB.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharpB.conimp), levels=rownames(resultsOutSharpB.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -3665,7 +3668,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal1B.conimp <- data.frame('Var_imp'=rev(resultsOutTonal1B$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1B.conimp), levels=rownames(resultsOutTonal1B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutTonal1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1B.conimp), levels=rownames(resultsOutTonal1B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.05))
 
 if (saveplots){
@@ -3705,7 +3708,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal2B.conimp <- data.frame('Var_imp'=rev(resultsOutTonal2B$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2B.conimp), levels=rownames(resultsOutTonal2B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutTonal2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2B.conimp), levels=rownames(resultsOutTonal2B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.05))
 
 if (saveplots){
@@ -3746,7 +3749,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutFluctB.conimp <- data.frame('Var_imp'=rev(resultsOutFluctB$conditional_permimp))
 
-pBar <- ggplot(resultsOutFluctB.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluctB.conimp), levels=rownames(resultsOutFluctB.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutFluctB.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluctB.conimp), levels=rownames(resultsOutFluctB.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -3786,7 +3789,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutRoughB.conimp <- data.frame('Var_imp'=rev(resultsOutRoughB$conditional_permimp))
 
-pBar <- ggplot(resultsOutRoughB.conimp) + geom_col(aes(x=factor(rownames(resultsOutRoughB.conimp), levels=rownames(resultsOutRoughB.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutRoughB.conimp) + geom_col(aes(x=factor(rownames(resultsOutRoughB.conimp), levels=rownames(resultsOutRoughB.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -3826,7 +3829,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutImpulsB.conimp <- data.frame('Var_imp'=rev(resultsOutImpulsB$conditional_permimp))
 
-pBar <- ggplot(resultsOutImpulsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpulsB.conimp), levels=rownames(resultsOutImpulsB.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutImpulsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpulsB.conimp), levels=rownames(resultsOutImpulsB.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -3869,7 +3872,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs1B.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs1B$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1B.conimp), levels=rownames(resultsOutSQMs1B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSQMs1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1B.conimp), levels=rownames(resultsOutSQMs1B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.03))
 
 if (saveplots){
@@ -3911,7 +3914,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs2B.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs2B$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2B.conimp), levels=rownames(resultsOutSQMs2B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSQMs2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2B.conimp), levels=rownames(resultsOutSQMs2B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(0, 0.03))
 
 if (saveplots){
@@ -3967,7 +3970,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutDiffsB.conimp <- data.frame('Var_imp'=rev(resultsOutDiffsB$conditional_permimp))
 
-pBar <- ggplot(resultsOutDiffsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffsB.conimp), levels=rownames(resultsOutDiffsB.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutDiffsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffsB.conimp), levels=rownames(resultsOutDiffsB.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (median annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -4055,7 +4058,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutAbsB.conimp <- data.frame('Var_imp'=rev(resultsOutAbsB$conditional_permimp))
 
-pBar <- ggplot(resultsOutAbsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbsB.conimp), levels=rownames(resultsOutAbsB.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutAbsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbsB.conimp), levels=rownames(resultsOutAbsB.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -4113,7 +4116,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSharpB.conimp <- data.frame('Var_imp'=rev(resultsOutSharpB$conditional_permimp))
 
-pBar <- ggplot(resultsOutSharpB.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharpB.conimp), levels=rownames(resultsOutSharpB.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSharpB.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharpB.conimp), levels=rownames(resultsOutSharpB.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -4154,8 +4157,8 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal1B.conimp <- data.frame('Var_imp'=rev(resultsOutTonal1B$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1B.conimp), levels=rownames(resultsOutTonal1B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
-pBar + coord_flip(ylim=c(0, 0.05))
+pBar <- ggplot(resultsOutTonal1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1B.conimp), levels=rownames(resultsOutTonal1B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
+pBar + coord_flip(ylim=c(0, 0.6))
 
 if (saveplots){
   ggsave(filename="PtBAnnoyMnTonalLdConPermimp.svg", width=8, height=3.8, path=file.path(outFigPath, "svg"))
@@ -4194,8 +4197,8 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal2B.conimp <- data.frame('Var_imp'=rev(resultsOutTonal2B$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2B.conimp), levels=rownames(resultsOutTonal2B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
-pBar + coord_flip(ylim=c(0, 0.05))
+pBar <- ggplot(resultsOutTonal2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2B.conimp), levels=rownames(resultsOutTonal2B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
+pBar + coord_flip(ylim=c(0, 0.7))
 
 if (saveplots){
   ggsave(filename="PtBAnnoyMnTonalNoLdConPermimp.svg", width=8, height=3.2, path=file.path(outFigPath, "svg"))
@@ -4235,7 +4238,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutFluctB.conimp <- data.frame('Var_imp'=rev(resultsOutFluctB$conditional_permimp))
 
-pBar <- ggplot(resultsOutFluctB.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluctB.conimp), levels=rownames(resultsOutFluctB.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutFluctB.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluctB.conimp), levels=rownames(resultsOutFluctB.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -4275,7 +4278,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutRoughB.conimp <- data.frame('Var_imp'=rev(resultsOutRoughB$conditional_permimp))
 
-pBar <- ggplot(resultsOutRoughB.conimp) + geom_col(aes(x=factor(rownames(resultsOutRoughB.conimp), levels=rownames(resultsOutRoughB.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutRoughB.conimp) + geom_col(aes(x=factor(rownames(resultsOutRoughB.conimp), levels=rownames(resultsOutRoughB.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -4315,7 +4318,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutImpulsB.conimp <- data.frame('Var_imp'=rev(resultsOutImpulsB$conditional_permimp))
 
-pBar <- ggplot(resultsOutImpulsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpulsB.conimp), levels=rownames(resultsOutImpulsB.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutImpulsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpulsB.conimp), levels=rownames(resultsOutImpulsB.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -4358,8 +4361,8 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs1B.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs1B$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1B.conimp), levels=rownames(resultsOutSQMs1B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
-pBar + coord_flip(ylim=c(0, 0.03))
+pBar <- ggplot(resultsOutSQMs1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1B.conimp), levels=rownames(resultsOutSQMs1B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
+pBar + coord_flip(ylim=c(0, 0.7))
 
 if (saveplots){
   ggsave(filename="PtBAnnoyMnAbsSQMsTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
@@ -4374,7 +4377,7 @@ if (saveplots){
 Repeated without tonal loudness
 
 ```{r}
-iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASSharpAuresISO3PowAvgMaxLR", "UASTonalAuAvgMaxLR", "UASFluctOV10ExMaxLR", "UASRoughFZ10ExMaxLR", "UASImpulsHMSAvgMaxLR")
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASSharpAuresISO3PowAvgMaxLR", "UASTonalAu10ExMaxLR", "UASFluctOV10ExMaxLR", "UASRoughFZ10ExMaxLR", "UASImpulsHMSAvgMaxLR")
 resultsOutSQMs2B <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='AnnoyMean', seeds=c(179854, 98481, 5374, 56, 18049), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
 
 # print model prediction results
@@ -4400,8 +4403,8 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs2B.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs2B$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2B.conimp), levels=rownames(resultsOutSQMs2B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
-pBar + coord_flip(ylim=c(0, 0.03))
+pBar <- ggplot(resultsOutSQMs2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2B.conimp), levels=rownames(resultsOutSQMs2B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
+pBar + coord_flip(ylim=c(0, 0.7))
 
 if (saveplots){
   ggsave(filename="PtBAnnoyMnAbsSQMsNoTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
@@ -4456,7 +4459,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutDiffsB.conimp <- data.frame('Var_imp'=rev(resultsOutDiffsB$conditional_permimp))
 
-pBar <- ggplot(resultsOutDiffsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffsB.conimp), levels=rownames(resultsOutDiffsB.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutDiffsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffsB.conimp), levels=rownames(resultsOutDiffsB.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -4545,7 +4548,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutAbsB.conimp <- data.frame('Var_imp'=rev(resultsOutAbsB$conditional_permimp))
 
-pBar <- ggplot(resultsOutAbsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbsB.conimp), levels=rownames(resultsOutAbsB.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutAbsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbsB.conimp), levels=rownames(resultsOutAbsB.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -4603,7 +4606,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSharpB.conimp <- data.frame('Var_imp'=rev(resultsOutSharpB$conditional_permimp))
 
-pBar <- ggplot(resultsOutSharpB.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharpB.conimp), levels=rownames(resultsOutSharpB.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSharpB.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharpB.conimp), levels=rownames(resultsOutSharpB.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -4643,7 +4646,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal1B.conimp <- data.frame('Var_imp'=rev(resultsOutTonal1B$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1B.conimp), levels=rownames(resultsOutTonal1B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutTonal1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1B.conimp), levels=rownames(resultsOutTonal1B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(-0.005, 0.03))
 
 if (saveplots){
@@ -4683,7 +4686,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal2B.conimp <- data.frame('Var_imp'=rev(resultsOutTonal2B$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2B.conimp), levels=rownames(resultsOutTonal2B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutTonal2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2B.conimp), levels=rownames(resultsOutTonal2B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(-0.005, 0.03))
 
 if (saveplots){
@@ -4724,7 +4727,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutFluctB.conimp <- data.frame('Var_imp'=rev(resultsOutFluctB$conditional_permimp))
 
-pBar <- ggplot(resultsOutFluctB.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluctB.conimp), levels=rownames(resultsOutFluctB.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutFluctB.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluctB.conimp), levels=rownames(resultsOutFluctB.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -4764,7 +4767,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutRoughB.conimp <- data.frame('Var_imp'=rev(resultsOutRoughB$conditional_permimp))
 
-pBar <- ggplot(resultsOutRoughB.conimp) + geom_col(aes(x=factor(rownames(resultsOutRoughB.conimp), levels=rownames(resultsOutRoughB.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutRoughB.conimp) + geom_col(aes(x=factor(rownames(resultsOutRoughB.conimp), levels=rownames(resultsOutRoughB.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -4804,7 +4807,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutImpulsB.conimp <- data.frame('Var_imp'=rev(resultsOutImpulsB$conditional_permimp))
 
-pBar <- ggplot(resultsOutImpulsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpulsB.conimp), levels=rownames(resultsOutImpulsB.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutImpulsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpulsB.conimp), levels=rownames(resultsOutImpulsB.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -4847,7 +4850,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs1B.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs1B$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1B.conimp), levels=rownames(resultsOutSQMs1B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSQMs1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1B.conimp), levels=rownames(resultsOutSQMs1B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(-0.01, 0.025))
 
 if (saveplots){
@@ -4889,7 +4892,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs2B.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs2B$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2B.conimp), levels=rownames(resultsOutSQMs2B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSQMs2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2B.conimp), levels=rownames(resultsOutSQMs2B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip(ylim=c(-0.01, 0.025))
 
 if (saveplots){
@@ -4944,7 +4947,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutDiffsB.conimp <- data.frame('Var_imp'=rev(resultsOutDiffsB$conditional_permimp))
 
-pBar <- ggplot(resultsOutDiffsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffsB.conimp), levels=rownames(resultsOutDiffsB.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutDiffsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffsB.conimp), levels=rownames(resultsOutDiffsB.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (median change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -5033,7 +5036,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutAbsB.conimp <- data.frame('Var_imp'=rev(resultsOutAbsB$conditional_permimp))
 
-pBar <- ggplot(resultsOutAbsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbsB.conimp), levels=rownames(resultsOutAbsB.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutAbsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbsB.conimp), levels=rownames(resultsOutAbsB.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -5091,7 +5094,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSharpB.conimp <- data.frame('Var_imp'=rev(resultsOutSharpB$conditional_permimp))
 
-pBar <- ggplot(resultsOutSharpB.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharpB.conimp), levels=rownames(resultsOutSharpB.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSharpB.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharpB.conimp), levels=rownames(resultsOutSharpB.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -5131,8 +5134,8 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal1B.conimp <- data.frame('Var_imp'=rev(resultsOutTonal1B$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1B.conimp), levels=rownames(resultsOutTonal1B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
-pBar + coord_flip(ylim=c(-0.005, 0.03))
+pBar <- ggplot(resultsOutTonal1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1B.conimp), levels=rownames(resultsOutTonal1B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
+pBar + coord_flip(ylim=c(-0.0005, 0.7))
 
 if (saveplots){
   ggsave(filename="PtBdAnnoyMnTonalLdConPermimp.svg", width=8, height=3.8, path=file.path(outFigPath, "svg"))
@@ -5171,8 +5174,8 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal2B.conimp <- data.frame('Var_imp'=rev(resultsOutTonal2B$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2B.conimp), levels=rownames(resultsOutTonal2B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
-pBar + coord_flip(ylim=c(-0.005, 0.03))
+pBar <- ggplot(resultsOutTonal2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2B.conimp), levels=rownames(resultsOutTonal2B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
+pBar + coord_flip(ylim=c(-0.005, 0.7))
 
 if (saveplots){
   ggsave(filename="PtBdAnnoyMnTonalNoLdConPermimp.svg", width=8, height=3.2, path=file.path(outFigPath, "svg"))
@@ -5212,7 +5215,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutFluctB.conimp <- data.frame('Var_imp'=rev(resultsOutFluctB$conditional_permimp))
 
-pBar <- ggplot(resultsOutFluctB.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluctB.conimp), levels=rownames(resultsOutFluctB.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutFluctB.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluctB.conimp), levels=rownames(resultsOutFluctB.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -5252,7 +5255,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutRoughB.conimp <- data.frame('Var_imp'=rev(resultsOutRoughB$conditional_permimp))
 
-pBar <- ggplot(resultsOutRoughB.conimp) + geom_col(aes(x=factor(rownames(resultsOutRoughB.conimp), levels=rownames(resultsOutRoughB.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutRoughB.conimp) + geom_col(aes(x=factor(rownames(resultsOutRoughB.conimp), levels=rownames(resultsOutRoughB.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -5292,7 +5295,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutImpulsB.conimp <- data.frame('Var_imp'=rev(resultsOutImpulsB$conditional_permimp))
 
-pBar <- ggplot(resultsOutImpulsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpulsB.conimp), levels=rownames(resultsOutImpulsB.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutImpulsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpulsB.conimp), levels=rownames(resultsOutImpulsB.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -5309,7 +5312,7 @@ if (saveplots){
 Now the highest importance SQMs are ranked against each other, controlling for UAS loudness and ambient LAeq.
 
 ```{r}
-iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASSharpAuresISO3PowAvgMaxLR", "UASTonLdECMAHMSPowAvgBin", "UASFluctFZ10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASImpulsHMS05ExMaxLR")
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASSharpAuresISO3PowAvgMaxLR", "UASTonLdECMAHMSPowAvgBin", "UASFluctOV10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASImpulsHMSPowAvgMaxLR")
 resultsOutSQMs1B <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='dAnnoyMean', seeds=c(659180, 88426, 26084, 25, 605), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
 
 # print model prediction results
@@ -5335,8 +5338,8 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs1B.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs1B$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1B.conimp), levels=rownames(resultsOutSQMs1B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
-pBar + coord_flip(ylim=c(-0.01, 0.025))
+pBar <- ggplot(resultsOutSQMs1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1B.conimp), levels=rownames(resultsOutSQMs1B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
+pBar + coord_flip(ylim=c(0, 0.7))
 
 if (saveplots){
   ggsave(filename="PtBdAnnoyMnAbsSQMsTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
@@ -5351,7 +5354,7 @@ if (saveplots){
 Repeated without tonal loudness
 
 ```{r}
-iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASSharpAuresISO3PowAvgMaxLR", "UASTonalECMAHMSAvgMaxLR", "UASFluctFZ10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASImpulsHMS05ExMaxLR")
+iVars <- c("UASLoudECMAHMSPowAvgBin", "UASEvents", "UASSharpAuresISO3PowAvgMaxLR", "UASTonalAu10ExMaxLR", "UASFluctOV10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASImpulsHMSPowAvgMaxLR")
 resultsOutSQMs2B <- multi_crfReg(dataIn=stimDataBNum, iVars=iVars, dVar='dAnnoyMean', seeds=c(4888, 50881, 804, 5470, 257), ntree=1000, mtry=as.integer(length(iVars)/1.25), minsplit=10, minbucket=5, nperm=5)
 
 # print model prediction results
@@ -5377,8 +5380,8 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs2B.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs2B$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2B.conimp), levels=rownames(resultsOutSQMs2B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
-pBar + coord_flip(ylim=c(-0.01, 0.025))
+pBar <- ggplot(resultsOutSQMs2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2B.conimp), levels=rownames(resultsOutSQMs2B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
+pBar + coord_flip(ylim=c(0, 0.7))
 
 if (saveplots){
   ggsave(filename="PtBdAnnoyMnAbsSQMsNoTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
@@ -5432,7 +5435,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutDiffsB.conimp <- data.frame('Var_imp'=rev(resultsOutDiffsB$conditional_permimp))
 
-pBar <- ggplot(resultsOutDiffsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffsB.conimp), levels=rownames(resultsOutDiffsB.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutDiffsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffsB.conimp), levels=rownames(resultsOutDiffsB.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -5521,7 +5524,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutAbsB.conimp <- data.frame('Var_imp'=rev(resultsOutAbsB$conditional_permimp))
 
-pBar <- ggplot(resultsOutAbsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbsB.conimp), levels=rownames(resultsOutAbsB.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutAbsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbsB.conimp), levels=rownames(resultsOutAbsB.conimp)), y=Var_imp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -5579,7 +5582,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSharpB.conimp <- data.frame('Var_imp'=rev(resultsOutSharpB$conditional_permimp))
 
-pBar <- ggplot(resultsOutSharpB.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharpB.conimp), levels=rownames(resultsOutSharpB.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutSharpB.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharpB.conimp), levels=rownames(resultsOutSharpB.conimp)), y=Var_imp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -5619,8 +5622,8 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal1B.conimp <- data.frame('Var_imp'=rev(resultsOutTonal1B$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1B.conimp), levels=rownames(resultsOutTonal1B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
-pBar + coord_flip(ylim=c(-0.005, 0.03))
+pBar <- ggplot(resultsOutTonal1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1B.conimp), levels=rownames(resultsOutTonal1B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
+pBar + coord_flip(ylim=c(0, 0.005))
 
 if (saveplots){
   ggsave(filename="PtBHiAnnoyTonalLdConPermimp.svg", width=8, height=3.8, path=file.path(outFigPath, "svg"))
@@ -5659,8 +5662,8 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal2B.conimp <- data.frame('Var_imp'=rev(resultsOutTonal2B$conditional_permimp))
 
-pBar <- ggplot(resultsOutTonal2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2B.conimp), levels=rownames(resultsOutTonal2B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
-pBar + coord_flip(ylim=c(-0.005, 0.03))
+pBar <- ggplot(resultsOutTonal2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2B.conimp), levels=rownames(resultsOutTonal2B.conimp)), y=Var_imp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
+pBar + coord_flip(ylim=c(0, 0.005))
 
 if (saveplots){
   ggsave(filename="PtBHiAnnoyTonalNoLdConPermimp.svg", width=8, height=3.2, path=file.path(outFigPath, "svg"))
@@ -5700,7 +5703,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutFluctB.conimp <- data.frame('Var_imp'=rev(resultsOutFluctB$conditional_permimp))
 
-pBar <- ggplot(resultsOutFluctB.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluctB.conimp), levels=rownames(resultsOutFluctB.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutFluctB.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluctB.conimp), levels=rownames(resultsOutFluctB.conimp)), y=Var_imp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -5740,7 +5743,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutRoughB.conimp <- data.frame('Var_imp'=rev(resultsOutRoughB$conditional_permimp))
 
-pBar <- ggplot(resultsOutRoughB.conimp) + geom_col(aes(x=factor(rownames(resultsOutRoughB.conimp), levels=rownames(resultsOutRoughB.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutRoughB.conimp) + geom_col(aes(x=factor(rownames(resultsOutRoughB.conimp), levels=rownames(resultsOutRoughB.conimp)), y=Var_imp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -5780,7 +5783,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutImpulsB.conimp <- data.frame('Var_imp'=rev(resultsOutImpulsB$conditional_permimp))
 
-pBar <- ggplot(resultsOutImpulsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpulsB.conimp), levels=rownames(resultsOutImpulsB.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
+pBar <- ggplot(resultsOutImpulsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpulsB.conimp), levels=rownames(resultsOutImpulsB.conimp)), y=Var_imp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
 pBar + coord_flip()
 
 if (saveplots){
@@ -5823,8 +5826,8 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs1B.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs1B$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1B.conimp), levels=rownames(resultsOutSQMs1B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
-pBar + coord_flip(ylim=c(-0.01, 0.025))
+pBar <- ggplot(resultsOutSQMs1B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1B.conimp), levels=rownames(resultsOutSQMs1B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
+pBar + coord_flip(ylim=c(0, 0.005))
 
 if (saveplots){
   ggsave(filename="PtBHiAnnoyAbsSQMsTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
@@ -5865,8 +5868,8 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs2B.conimp <- data.frame('Var_imp'=rev(resultsOutSQMs2B$conditional_permimp))
 
-pBar <- ggplot(resultsOutSQMs2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2B.conimp), levels=rownames(resultsOutSQMs2B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2))
-pBar + coord_flip(ylim=c(-0.01, 0.025))
+pBar <- ggplot(resultsOutSQMs2B.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2B.conimp), levels=rownames(resultsOutSQMs2B.conimp)), y=Var_imp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2))
+pBar + coord_flip(ylim=c(0, 0.005))
 
 if (saveplots){
   ggsave(filename="PtBHiAnnoyAbsSQMsNoTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
@@ -5920,7 +5923,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutDiffsB.conimp <- data.frame('Var_imp'=rev(resultsOutDiffsB$conditional_permimp))
 
-pBar <- ggplot(resultsOutDiffsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffsB.conimp), levels=rownames(resultsOutDiffsB.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2)) + coord_flip()
+pBar <- ggplot(resultsOutDiffsB.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffsB.conimp), levels=rownames(resultsOutDiffsB.conimp)), y=Var_imp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable importance (proportion high annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
 if (saveplots){
@@ -5977,7 +5980,7 @@ res = transform(merge(x=res,
                 row.names=Row.names,
                 Row.names=NULL)
 
-rownames(res) <- c("UAS events", "UAS fluct. str. F&Z ^10%", "UAS fluct. str. O-V ^10%", "UAS impuls. HMS ^5%", "UAS impuls. mean", "UAS loud. ECMA-412-8 pow. avg.", "UAS rough. F&Z ^5%", "UAS rough. F&Z ^10%", "UAS sharp. Aures+ISO 532-3 pow.avg.", "UAS ton. loud. HMS pow. avg.")
+rownames(res) <- c("UAS events", "UAS fluct. str. F&Z ^10%", "UAS fluct. str. O-V ^10%", "UAS impuls. HMS ^5%", "UAS impuls. HMS mean", "UAS loud. ECMA-412-8 pow. avg.", "UAS rough. F&Z ^5%", "UAS rough. F&Z ^10%", "UAS sharp. Aures+ISO 532-3 pow.avg.", "UAS ton. loud. HMS pow. avg.")
 colnames(res) <- c("Median annoyance", "Med. change in annoyance", "Highly Annoyed %")
 res[is.na(res)] <- 0
 
@@ -5987,7 +5990,7 @@ res <- tidyr::pivot_longer(res, cols=-Variable, names_to="Outcome", values_to="I
 
 res <- res[order(res$Imp),]
 
-pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2.5)) + scale_fill_manual(values=mycolours)
+pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2.5)) + scale_fill_manual(values=mycolours)
 pBar
 
 if (saveplots){
@@ -6019,7 +6022,7 @@ res = transform(merge(x=res,
                 row.names=Row.names,
                 Row.names=NULL)
 
-rownames(res) <- c("UAS events", "UAS fluct. str. F&Z ^10%", "UAS fluct. str. O-V ^10%", "UAS impuls. HMS ^5%", "UAS impuls. mean", "UAS loud. ECMA-412-8 pow. avg.", "UAS rough. F&Z ^5%", "UAS rough. F&Z ^10%", "UAS sharp. Aures+ISO 532-3 pow.avg.", "UAS tonality Aures mean", "UAS tonality HMS mean")
+rownames(res) <- c("UAS events", "UAS fluct. str. F&Z ^10%", "UAS fluct. str. O-V ^10%", "UAS impuls. HMS ^5%", "UAS impuls. HMS mean", "UAS loud. ECMA-412-8 pow. avg.", "UAS rough. F&Z ^5%", "UAS rough. F&Z ^10%", "UAS sharp. Aures+ISO 532-3 pow.avg.", "UAS tonality Aures mean", "UAS tonality HMS mean")
 
 colnames(res) <- c("Median annoyance", "Med. change in annoyance", "Highly Annoyed %")
 res[is.na(res)] <- 0
@@ -6030,7 +6033,7 @@ res <- tidyr::pivot_longer(res, cols=-Variable, names_to="Outcome", values_to="I
 
 res <- res[order(res$Imp),]
 
-pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours)
+pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours)
 pBar
 
 if (saveplots){
@@ -6063,7 +6066,7 @@ res = transform(merge(x=res,
                 row.names=Row.names,
                 Row.names=NULL)
 
-rownames(res) <- c("UAS events", "UAS fluct. str. F&Z ^10%", "UAS fluct. str. O-V ^10%", "UAS impuls. HMS ^5%", "UAS impuls. mean", "UAS loud. ECMA-412-8 pow. avg.", "UAS rough. F&Z ^5%", "UAS rough. F&Z ^10%", "UAS sharp. Aures+ISO 532-3 pow.avg.", "UAS ton. loud. HMS pow. avg.")
+rownames(res) <- c("UAS events", "UAS fluct. str. O-V ^10%", "UAS impuls. HMS mean", "UAS impuls. HMS pow. avg.", "UAS loud. ECMA-412-8 pow. avg.", "UAS rough. F&Z ^5%", "UAS rough. F&Z ^10%", "UAS sharp. Aures+ISO 532-3 pow. avg.", "UAS ton. loud. HMS pow. avg.")
 colnames(res) <- c("Mean annoyance", "Mean change in annoyance", "Highly Annoyed %")
 res[is.na(res)] <- 0
 
@@ -6073,7 +6076,7 @@ res <- tidyr::pivot_longer(res, cols=-Variable, names_to="Outcome", values_to="I
 
 res <- res[order(res$Imp),]
 
-pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2.5)) + scale_fill_manual(values=mycolours)
+pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2.5)) + scale_fill_manual(values=mycolours)
 pBar
 
 if (saveplots){
@@ -6105,7 +6108,7 @@ res = transform(merge(x=res,
                 row.names=Row.names,
                 Row.names=NULL)
 
-rownames(res) <- c("UAS events", "UAS fluct. str. F&Z ^10%", "UAS fluct. str. O-V ^10%", "UAS impuls. HMS ^5%", "UAS impuls. mean", "UAS loud. ECMA-412-8 pow. avg.", "UAS rough. F&Z ^5%", "UAS rough. F&Z ^10%", "UAS sharp. Aures+ISO 532-3 pow.avg.", "UAS tonality Aures mean", "UAS tonality HMS mean")
+rownames(res) <- c("UAS events", "UAS fluct. str. O-V ^10%", "UAS impuls. mean", "UAS impuls. pow. avg.", "UAS loud. ECMA-412-8 pow. avg.", "UAS rough. F&Z ^5%", "UAS rough. F&Z ^10%", "UAS sharp. Aures+ISO 532-3 pow. avg.", "UAS tonality Aures ^10%", "UAS tonality Aures mean")
 
 colnames(res) <- c("Mean annoyance", "Mean change in annoyance", "Highly Annoyed %")
 res[is.na(res)] <- 0
@@ -6116,7 +6119,7 @@ res <- tidyr::pivot_longer(res, cols=-Variable, names_to="Outcome", values_to="I
 
 res <- res[order(res$Imp),]
 
-pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), size = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2.5)) + scale_fill_manual(values=mycolours)
+pBar <- ggplot(res[order(res$Imp), ]) + geom_col(aes(fill=Outcome, y=Imp, x=Variable), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2.5)) + scale_fill_manual(values=mycolours)
 pBar
 
 if (saveplots){
