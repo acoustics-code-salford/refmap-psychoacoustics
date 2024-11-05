@@ -168,7 +168,7 @@ end
 
 % Check the length of the input data (must be longer than 300 ms)
 if size(p, 1) <  300/1000*sampleRatein
-    error('Error: Input signal is too short along the specificed to calculate loudness (must be longer than 300 ms)')
+    error('Error: Input signal is too short along the specified axis to calculate sharpness (must be longer than 300 ms)')
 end
 
 % Check the channel number of the input data
@@ -263,20 +263,16 @@ switch method
         % loudness
         weightSharp(1:57, :, :) = repmat(weightSharp(58, :, :), 57, 1, 1);
 
+        % time-dependent sharpness
+        % Note: no multiplication by z (otherwise weighting would need /z term)
+        sharpnessTDep = calS*0.11.*sum(specSHMLoudness.*weightSharp*dz, 2);
+
     case {'vonbismarck', 'widmann'}
         % von Bismarck or Widmann weightings
         weightSharp = ones(1, length(z));
         weightSharp(z>=q1) = q2*exp(q3*(z(z>=q1) - q1) ) + q4;
 
-end
-
-% time-dependent sharpness
-switch method
-    case 'aures'
-        % Note: no multiplication by z (otherwise weighting would need /z term)
-        sharpnessTDep = calS*0.11.*sum(specSHMLoudness.*weightSharp*dz, 2);
-
-    case {'vonbismarck', 'widmann'}
+        % time-dependent sharpness
         sharpnessTDep = calS*0.11.*squeeze(sum(specSHMLoudness.*weightSharp.*z*dz, 2))./(loudnessTDep + eps);
         % Adjustment to the first part (1-57 time steps) to avoid visualisation of
         % nonsense values generated from first redundant 0.3s of time-dependent

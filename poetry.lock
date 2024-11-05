@@ -3057,6 +3057,27 @@ files = [
 ]
 
 [[package]]
+name = "parallel-pandas"
+version = "0.6.4"
+description = "Parallel processing on pandas with progress bars"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "parallel_pandas-0.6.4-py3-none-any.whl", hash = "sha256:a96016c4756db3257c4c27718659dfcc6faff2a3a5382ed28ba3cefd00ba77e9"},
+    {file = "parallel_pandas-0.6.4.tar.gz", hash = "sha256:2a9a83f161adeb612483c7d68b555aa075d6327a2ab89fd5d06ff2965918b4fb"},
+]
+
+[package.dependencies]
+dill = "*"
+pandas = ">=1.4.0"
+psutil = "*"
+scipy = "*"
+tqdm = "*"
+
+[package.extras]
+numba = ["numba"]
+
+[[package]]
 name = "paramiko"
 version = "3.4.0"
 description = "SSH2 protocol library"
@@ -5379,6 +5400,26 @@ files = [
 ]
 
 [[package]]
+name = "tqdm"
+version = "4.66.6"
+description = "Fast, Extensible Progress Meter"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "tqdm-4.66.6-py3-none-any.whl", hash = "sha256:223e8b5359c2efc4b30555531f09e9f2f3589bcd7fdd389271191031b49b7a63"},
+    {file = "tqdm-4.66.6.tar.gz", hash = "sha256:4bdd694238bef1485ce839d67967ab50af8f9272aab687c0d7702a01da0be090"},
+]
+
+[package.dependencies]
+colorama = {version = "*", markers = "platform_system == \"Windows\""}
+
+[package.extras]
+dev = ["pytest (>=6)", "pytest-cov", "pytest-timeout", "pytest-xdist"]
+notebook = ["ipywidgets (>=6)"]
+slack = ["slack-sdk"]
+telegram = ["requests"]
+
+[[package]]
 name = "traitlets"
 version = "5.14.1"
 description = "Traitlets Python configuration system"
@@ -5770,4 +5811,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "0275abde570fea1b7ae98ae8b1f28841b288a0bbc88270cac39e7d092b9da5d1"
+content-hash = "bd5b54ad83c53e96610c587aba657e169d7ec587d04180c1e4fce3fe6fc35d58"

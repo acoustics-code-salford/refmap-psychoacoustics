@@ -61,7 +61,7 @@ function loudnessSHM = acousticSHMLoudnessFromComponent(specTonalLoudness,...
 % 
 % loudnessPowAvg : number or vector
 %                  time-power-averaged overall loudness
-%                  arranged as [roughness(, channels)]
+%                  arranged as [loudness(, channels)]
 %
 % bandCentreFreqs : vector
 %                   centre frequencies corresponding with each (half)
@@ -73,13 +73,11 @@ function loudnessSHM = acousticSHMLoudnessFromComponent(specTonalLoudness,...
 % If binaural=true, a corresponding set of outputs for the binaural
 % loudness are also contained in loudnessSHM
 %
-% If outplot=true, a set of plots is returned illustrating the energy
-% time-averaged A-weighted sound level, the time-dependent specific and
-% overall loudness, with the latter also indicating the time-aggregated
-% value. A set of plots is returned for each input channel, with another
-% set for the binaural loudness, if binaural=true. In that case, the
-% indicated sound level corresponds with the channel with the highest sound
-% level.
+% If outplot=true, a set of plots is returned illustrating the
+% time-dependent specific and overall loudness, with the latter also
+% indicating the time-aggregated value. A set of plots is returned for each
+% input channel, with another set for the binaural loudness, if
+% binaural=true.
 %
 % Assumptions
 % -----------
@@ -97,7 +95,7 @@ function loudnessSHM = acousticSHMLoudnessFromComponent(specTonalLoudness,...
 % Institution: University of Salford
 %
 % Date created: 22/08/2023
-% Date last modified: 21/10/2024
+% Date last modified: 01/11/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -267,7 +265,7 @@ if outplot
 
         ax2 = nexttile(2);
         plot(ax2, timeOut, loudnessPowAvg(1, chan)*ones(size(timeOut)), 'color',...
-             cmap_viridis(34, :), 'LineWidth', 0.75, 'DisplayName', "Power" + string(newline) + "time-avg");
+             cmap_viridis(34, :), 'LineWidth', 1, 'DisplayName', "Power" + string(newline) + "time-avg");
         hold on
         plot(ax2, timeOut, loudnessTDep(:, chan), 'color', cmap_viridis(166, :),...
              'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
@@ -280,6 +278,9 @@ if outplot
         ax2.YLabel.String = 'Loudness, sone_{SHM}';
         ax2.XGrid = 'on';
         ax2.YGrid = 'on';
+        ax2.GridAlpha = 0.075;
+        ax2.GridLineStyle = '--';
+        ax2.GridLineWidth = 0.25;
         ax2.FontName = 'Arial';
         ax2.FontSize = 12;
         lgd = legend('Location', 'eastoutside', 'FontSize', 8);

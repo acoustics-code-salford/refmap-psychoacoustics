@@ -1,10 +1,13 @@
 function roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn,...
-                                             fieldtype, outplot, binaural)
-% roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn, outplot, binaural)
+                                             fieldtype, waitBar, outplot,...
+                                             binaural)
+% roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn, fieldtype, waitBar, outplot, binaural)
 %
 % Returns roughness values **and frequencies** according to ECMA-418-2:2024
 % (using the Sottek Hearing Model) for an input calibrated single mono
-% or single stereo audio (sound pressure) time-series signal, p.
+% or single stereo audio (sound pressure) time-series signal, p. For stereo
+% signals, the binaural roughness can be calculated, and each channel is
+% also analysed separately.
 %
 % Inputs
 % ------
@@ -21,6 +24,10 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn,...
 % fieldtype : keyword string (default: 'free-frontal')
 %             determines whether the 'free-frontal' or 'diffuse' field stages
 %             are applied in the outer-middle ear filter
+%
+% waitBar : keyword string (default: true)
+%           determines whether a progress bar displays during processing
+%           (set waitBar to false for doing multi-file parallel calculations)
 %
 % outplot : Boolean true/false (default: false)
 %           flag indicating whether to generate a figure from the output
@@ -93,7 +100,7 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn,...
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 22/10/2024
+% Date last modified: 03/11/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -113,9 +120,10 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn,...
         p (:, :) double {mustBeReal}
         sampleRatein (1, 1) double {mustBePositive, mustBeInteger}
         axisn (1, 1) {mustBeInteger, mustBeInRange(axisn, 1, 2)} = 1
-        fieldtype (1,:) string {mustBeMember(fieldtype,...
+        fieldtype (1, :) string {mustBeMember(fieldtype,...
                                                        {'free-frontal',...
                                                         'diffuse'})} = 'free-frontal'
+        waitBar {mustBeNumericOrLogical} = true
         outplot {mustBeNumericOrLogical} = false
         binaural {mustBeNumericOrLogical} = true
     end
@@ -131,7 +139,7 @@ end
 
 % Check the length of the input data (must be longer than 300 ms)
 if size(p, 1) <=  300/1000*sampleRatein
-    error("Error: Input signal is too short to calculate roughness (must be longer than 300 ms)")
+    error("Error: Input signal is too short along the specified axis to calculate roughness (must be longer than 300 ms)")
 end
 
 % Check the channel number of the input data
@@ -247,13 +255,17 @@ n_steps = 270;  % approximate number of calculation steps
 % Loop through channels in file
 % -----------------------------
 for chan = size(pn_om, 2):-1:1
-    w = waitbar(0, "Initialising...");
-    i_step = 1;
 
     % Apply auditory filter bank
     % --------------------------
-    waitbar(i_step/n_steps, w, 'Applying auditory filters...');
-    i_step = i_step + 1;
+    
+    if waitBar
+        w = waitbar(0, "Initialising...");
+        i_step = 1;
+    
+        waitbar(i_step/n_steps, w, 'Applying auditory filters...');
+        i_step = i_step + 1;
+    end % end of if branch for waitBar
 
     % Filter equalised signal using 53 1/2Bark ERB filters according to 
     % Section 5.1.4.2 ECMA-418-2:2024
@@ -265,9 +277,11 @@ for chan = size(pn_om, 2):-1:1
     for zBand = nBands:-1:1
         % Segmentation into blocks
         % ------------------------
-        waitbar(i_step/n_steps, w, strcat("Calculating signal envelopes in 53 bands, ",...
-                       num2str(zBand), " to go..."));...
-        i_step = i_step + 1;
+        if waitBar
+            waitbar(i_step/n_steps, w, strcat("Calculating signal envelopes in 53 bands, ",...
+                           num2str(zBand), " to go..."));...
+            i_step = i_step + 1;
+        end % end of if branch for waitBar
 
         % Section 5.1.5 ECMA-418-2:2024
         i_start = 1;
@@ -276,14 +290,18 @@ for chan = size(pn_om, 2):-1:1
 
         % Transformation into Loudness
         % ----------------------------
-        i_step = i_step + 1;
+        if waitBar
+            i_step = i_step + 1;
+        end
         % Sections 5.1.6 to 5.1.9 ECMA-418-2:2024
         [~, bandBasisLoudness, ~] = ShmBasisLoudness(pn_lz, bandCentreFreqs(zBand));
         basisLoudness(:, :, zBand) = bandBasisLoudness;
     
         % Envelope power spectral analysis
         % --------------------------------
-        i_step = i_step + 1;
+        if waitBar
+            i_step = i_step + 1;
+        end
         % Sections 7.1.2 ECMA-418-2:2024
         % magnitude of Hilbert transform with downsample - Equation 65
         % [p(ntilde)_E,l,z]
@@ -344,9 +362,11 @@ for chan = size(pn_om, 2):-1:1
     modAmp = zeros(10, nBlocks, nBands);
     modRate = zeros(10, nBlocks, nBands);
     for zBand = nBands:-1:1
-        waitbar(i_step/n_steps, w, strcat("Calculating spectral weightings in 53 bands, ",...
-                       num2str(zBand), " to go..."));...
-        i_step = i_step + 1;
+        if waitBar
+            waitbar(i_step/n_steps, w, strcat("Calculating spectral weightings in 53 bands, ",...
+                           num2str(zBand), " to go..."));...
+            i_step = i_step + 1;
+        end % end of if branch for waitBar
 
         % Section 7.1.5.1 ECMA-418-2:2024
         for lBlock = nBlocks:-1:1
@@ -461,9 +481,11 @@ for chan = size(pn_om, 2):-1:1
     modFundRate = zeros([nBlocks, nBands]);
     modMaxWeight = zeros([10, nBlocks, nBands]);
     for zBand = nBands:-1:1
-        waitbar(i_step/n_steps, w, strcat("Calculating modulation rates in 53 bands, ",...
-                num2str(zBand), " to go..."));...
-        i_step = i_step + 1;
+        if waitBar
+            waitbar(i_step/n_steps, w, strcat("Calculating modulation rates in 53 bands, ",...
+                    num2str(zBand), " to go..."));...
+            i_step = i_step + 1;
+        end % end of if branch for waitBar
 
         for lBlock = nBlocks:-1:1
             % Proceed with rate detection if non-zero modulation rates
@@ -595,7 +617,9 @@ for chan = size(pn_om, 2):-1:1
     specRoughness(:, :, chan) = ShmRoughLowPass(specRoughEstTform, sampleRate50, ...
                                                 riseTime, fallTime);
 
-    close(w)  % close waitbar
+    if waitBar
+        close(w)  % close waitbar
+    end
 
 end  % end of for loop over channels
 
@@ -718,7 +742,7 @@ if outplot
 
         ax2 = nexttile(2);
         plot(ax2, timeOut, roughness90Pc(1, chan)*ones(size(timeOut)), 'color',...
-             cmap_inferno(34, :), 'LineWidth', 0.75, 'DisplayName', "90th" + string(newline) + "percentile");
+             cmap_inferno(34, :), 'LineWidth', 1, 'DisplayName', "90th" + string(newline) + "percentile");
         hold on
         plot(ax2, timeOut, roughnessTDep(:, chan), 'color', cmap_inferno(166, :),...
              'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
@@ -731,6 +755,9 @@ if outplot
         ax2.YLabel.String = 'Roughness, asper_{SHM}';
         ax2.XGrid = 'on';
         ax2.YGrid = 'on';
+        ax2.GridAlpha = 0.075;
+        ax2.GridLineStyle = '--';
+        ax2.GridLineWidth = 0.25;
         ax2.FontName = 'Arial';
         ax2.FontSize = 12;
         lgd = legend('Location', 'eastoutside', 'FontSize', 8);

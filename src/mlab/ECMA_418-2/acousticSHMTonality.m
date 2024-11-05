@@ -1,5 +1,5 @@
 function tonalitySHM = acousticSHMTonality(p, sampleRatein, axisn,...
-                                           fieldtype, outplot)
+                                           fieldtype, waitBar, outplot)
 % tonalitySHM = acousticSHMTonality(p, sampleRatein, axisn, outplot)
 %
 % Returns tonality values and frequencies according to ECMA-418-2:2024
@@ -22,8 +22,13 @@ function tonalitySHM = acousticSHMTonality(p, sampleRatein, axisn,...
 %             determines whether the 'free-frontal' or 'diffuse' field stages
 %             are applied in the outer-middle ear filter
 %
+% waitBar : keyword string (default: true)
+%           determines whether a progress bar displays during processing
+%           (set waitBar to false for doing multi-file parallel calculations)
+%
 % outplot : Boolean true/false (default: false)
 %           flag indicating whether to generate a figure from the output
+%           (set outplot to false for doing multi-file parallel calculations)
 % 
 % Returns
 % -------
@@ -115,7 +120,7 @@ function tonalitySHM = acousticSHMTonality(p, sampleRatein, axisn,...
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 07/08/2023
-% Date last modified: 21/10/2024
+% Date last modified: 03/11/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -142,6 +147,7 @@ function tonalitySHM = acousticSHMTonality(p, sampleRatein, axisn,...
         fieldtype (1,:) string {mustBeMember(fieldtype,...
                                                        {'free-frontal',...
                                                         'diffuse'})} = 'free-frontal'
+        waitBar {mustBeNumericOrLogical} = true
         outplot {mustBeNumericOrLogical} = false
     end
 
@@ -156,7 +162,7 @@ end
 
 % Check the length of the input data (must be longer than 300 ms)
 if size(p, 1) <=  300/1000*sampleRatein
-    error('Error: Input signal is too short to calculate tonality (must be longer than 300 ms)')
+    error('Error: Input signal is too short along the specified axis to calculate tonality (must be longer than 300 ms)')
 end
 
 % Check the channel number of the input data
@@ -245,13 +251,18 @@ n_steps = 115;  % approximate number of calculation steps
 % Loop through channels in file
 % -----------------------------
 for chan = size(pn_om, 2):-1:1
-    w = waitbar(0, "Initialising...");
-    i_step = 1;
 
     % Apply auditory filter bank
     % --------------------------
-    waitbar(i_step/n_steps, w, 'Applying auditory filters...');
-    i_step = i_step + 1;
+    
+    if waitBar
+        w = waitbar(0, "Initialising...");
+        i_step = 1;
+
+        waitbar(i_step/n_steps, w, 'Applying auditory filters...');
+        i_step = i_step + 1;
+    
+    end % end of if branch for waitBar
 
     % Filter equalised signal using 53 1/2Bark ERB filters according to 
     % Section 5.1.4.2 ECMA-418-2:2024
@@ -278,10 +289,11 @@ for chan = size(pn_om, 2):-1:1
                        2, 3, 5, 10:22, 25:33, 34:61];
     
     for zBand = 61:-1:1
-    
-        waitbar(((62 - zBand) + i_step)/n_steps, w, strcat("Applying ACF in 61 bands, ",...
-            num2str(zBand), " to go..."));
-        
+        if waitBar
+            waitbar(((62 - zBand) + i_step)/n_steps, w, strcat("Applying ACF in 61 bands, ",...
+                num2str(zBand), " to go..."));
+        end % end of if branch for waitBar
+
         % Segmentation into blocks
         % ------------------------
         % Section 5.1.5 ECMA-418-2:2024
@@ -317,13 +329,17 @@ for chan = size(pn_om, 2):-1:1
 
     end
     
-    i_step = i_step + 62;  % increment calculation step for waitbar
+    if waitBar
+        i_step = i_step + 62;  % increment calculation step for waitbar
+    end
 
     % Average the ACF over nB bands - Section 6.2.3 ECMA-418-2:2024        
     for zBand = 53:-1:1  % Loop through 53 critical band filtered signals
-        waitbar(((54 - zBand) + i_step)/n_steps, w,...
-                strcat("Calculating sound quality in 53 bands, ",...
-                       num2str(zBand), " to go..."));
+        if waitBar
+            waitbar(((54 - zBand) + i_step)/n_steps, w,...
+                    strcat("Calculating sound quality in 53 bands, ",...
+                           num2str(zBand), " to go..."));
+        end % end of if branch for waitBar
         
         NBZ = NBandsAvg(1, zBand) + NBandsAvg(2, zBand) + 1; % Total number of bands to average over
         
@@ -495,7 +511,9 @@ for chan = size(pn_om, 2):-1:1
     % (note: epsilon is not applied here, according to the standard)
     tonalityAvg(chan) = sum(tonalityTDep(mask, chan))/nnz(mask);
 
-    close(w)  % close waitbar
+    if waitBar
+        close(w)  % close waitbar
+    end
 
 %% Output plotting
 
@@ -540,7 +558,7 @@ for chan = size(pn_om, 2):-1:1
         
         ax2 = nexttile(2);
         plot(ax2, timeOut, tonalityAvg(1, chan)*ones(size(timeOut)), 'color', cmap_plasma(34, :),...
-             'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "average");
+             'LineWidth', 1, 'DisplayName', "Time-" + string(newline) + "average");
         hold on
         plot(ax2, timeOut, tonalityTDep(:, chan), 'color',  cmap_plasma(166, :),...
              'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
@@ -551,6 +569,9 @@ for chan = size(pn_om, 2):-1:1
         ax2.YLabel.String = "Tonality, tu_{SHM}";
         ax2.XGrid = 'on';
         ax2.YGrid = 'on';
+        ax2.GridAlpha = 0.075;
+        ax2.GridLineStyle = '--';
+        ax2.GridLineWidth = 0.25;
         ax2.FontName = 'Arial';
         ax2.FontSize = 12;
         lgd = legend('Location', 'eastoutside', 'FontSize', 8);
