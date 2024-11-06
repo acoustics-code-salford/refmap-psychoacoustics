@@ -16,8 +16,11 @@ from PyQt5.QtWidgets import QFileDialog, QApplication
 import librosa
 import dsp.filterFuncs
 import dsp.noct
-from scipy import stats, optimize
+from scipy import stats, optimize, io
 from parallel_pandas import ParallelPandas
+
+#initialize parallel-pandas
+ParallelPandas.initialize(disable_pr_bar=True)
 
 # enable copy-on-write mode for Pandas (will be default from Pandas 3.0)
 pd.options.mode.copy_on_write = True
@@ -46,11 +49,17 @@ else:
     app = QApplication.instance() 
 
 fileExts = "*.wav"
-filelist = list(QFileDialog.getOpenFileNames(filter=fileExts))[0]
+filelist = list(QFileDialog.getOpenFileNames(caption="Open recording files in \03 Experiment\Experiment 1\Calibration\Post_calib_recs\Pa_calib",
+                                             filter=fileExts))[0]
 filelist.sort()
 filenames = [filepath.split('/')[-1] for filepath in filelist]
+stemNames = [filename.replace("_CALBIN_Pa.wav", "") for filename in filenames]
+sqmNames = [filename.replace("CALBIN", "CALHEQ") for filename in filenames if filename.find("G57") == -1]
+sqmNames = sqmNames + [""]
 
-dataByStim = pd.DataFrame(index=filenames, columns=indicesAcoustic, dtype=float)
+dataByStim = pd.DataFrame(index=stemNames, columns=[["dBRecordings", "SQMRecordings"] + indicesAcoustic], dtype=float)
+dataByStim['dBRecordings'] = filenames
+dataByStim['SQMRecordings'] = sqmNames
 
 # loop over files to analyse
 for ii, file in enumerate(filelist):
@@ -96,22 +105,22 @@ for ii, file in enumerate(filelist):
                                            -end_skips])/sampleRatein))
 
     # take max L/R ear only
-    dataByStim.loc[filenames[ii], 'LAeqMaxLR'] = signalLAeq.max()
-    dataByStim.loc[filenames[ii], 'LAEMaxLR'] = signalLAE.max()
-    dataByStim.loc[filenames[ii], 'LAFmaxMaxLR'] = signalLAFmax.max()
-    dataByStim.loc[filenames[ii], 'LAF5ExMaxLR'] = signalLAF5.max()
-    dataByStim.loc[filenames[ii], 'LAF10ExMaxLR'] = signalLAF10.max()
-    dataByStim.loc[filenames[ii], 'LAF25ExMaxLR'] = signalLAF25.max()
-    dataByStim.loc[filenames[ii], 'LAF50ExMaxLR'] = signalLAF50.max()
-    dataByStim.loc[filenames[ii], 'LAF75ExMaxLR'] = signalLAF75.max()
-    dataByStim.loc[filenames[ii], 'LAF90ExMaxLR'] = signalLAF90.max()
-    dataByStim.loc[filenames[ii], 'LAF95ExMaxLR'] = signalLAF95.max()
-    dataByStim.loc[filenames[ii], 'LASmaxMaxLR'] = signalLASmax.max()
+    dataByStim.loc[stemNames[ii], 'LAeqMaxLR'] = signalLAeq.max()
+    dataByStim.loc[stemNames[ii], 'LAEMaxLR'] = signalLAE.max()
+    dataByStim.loc[stemNames[ii], 'LAFmaxMaxLR'] = signalLAFmax.max()
+    dataByStim.loc[stemNames[ii], 'LAF5ExMaxLR'] = signalLAF5.max()
+    dataByStim.loc[stemNames[ii], 'LAF10ExMaxLR'] = signalLAF10.max()
+    dataByStim.loc[stemNames[ii], 'LAF25ExMaxLR'] = signalLAF25.max()
+    dataByStim.loc[stemNames[ii], 'LAF50ExMaxLR'] = signalLAF50.max()
+    dataByStim.loc[stemNames[ii], 'LAF75ExMaxLR'] = signalLAF75.max()
+    dataByStim.loc[stemNames[ii], 'LAF90ExMaxLR'] = signalLAF90.max()
+    dataByStim.loc[stemNames[ii], 'LAF95ExMaxLR'] = signalLAF95.max()
+    dataByStim.loc[stemNames[ii], 'LASmaxMaxLR'] = signalLASmax.max()
 
 
     # calculate intermittency ratio for test sounds
-    if (filenames[ii].find("A1") != -1 or filenames[ii].find("A2") != -1
-        or filenames[ii].find("B2") != -1):
+    if (stemNames[ii].find("A1") != -1 or stemNames[ii].find("A2") != -1
+        or stemNames[ii].find("B2") != -1):
         # 1-second LAeq
         signalLAeq1s = 20*np.log10(np.sqrt(pd.DataFrame((signalA[start_skips:-end_skips]**2)).rolling(window=sampleRatein, step=sampleRatein).mean())/2e-5)
         intermitRatioK = signalLAeq + 3  # IR threshold
@@ -123,9 +132,9 @@ for ii, file in enumerate(filelist):
                                  where=(IAeqEvents!=0))
         intermitRatio = 100*10**((LAeqEvents - signalLAeq)/10)
         intermitRatio[IAeqEvents == 0] = 0  # replace tiny decimal with 0
-        dataByStim.loc[filenames[ii], 'IntermitRatioMaxLR'] = intermitRatio.max()
+        dataByStim.loc[stemNames[ii], 'IntermitRatioMaxLR'] = intermitRatio.max()
     else:
-        dataByStim.loc[filenames[ii], 'IntermitRatioMaxLR'] = np.nan
+        dataByStim.loc[stemNames[ii], 'IntermitRatioMaxLR'] = np.nan
 
 
 # end of for loop over signal wav files
@@ -135,41 +144,67 @@ for ii, file in enumerate(filelist):
 # Psychoacoustic metrics single values calculation
 # ------------------------------------------------
 
+# From ArtemiS calculations
+# -------------------------
+
 # output variables
-indicesPsycho = ["LoudECMAHMSPowAvgBin",
+indicesPsycho = ["LoudECMAPowAvgBin",
                  "LoudISO105ExMaxLR",
                  "LoudISO1PowAvgMaxLR",
                  "LoudISO3PowAvgBin",
-                 "TonalECMAHMSAvgMaxLR",
-                 "TonalECMAHMS05ExMaxLR",
-                 "TonalIntAvgMaxLR",
-                 "TonalInt05ExMaxLR",
-                 "TonLdECMAHMSPowAvgBin",
-                 "TonLdECMAHMS05ExBin",
-                 "RoughECMAHMS10ExBin",
-                 "RoughECMAHMS05ExBin",
-                 "FluctHMS10ExBin",
-                 "FluctHMS05ExBin",
-                 "SharpAuresISO3PowAvgMaxLR",
-                 "SharpAuresISO305ExMaxLR",
-                 "ImpulsHMSPowAvgMaxLR",
-                 "ImpulsHMSAvgMaxLR",
+                 "TonalECMAAvgMaxLR",
+                 "TonalECMA05ExMaxLR",
+                 "TonalSHMIntAvgMaxLR",
+                 "TonalSHMInt05ExMaxLR",
+                 "TonLdECMAPowAvgBin",
+                 "TonLdECMA05ExBin",
+                 "TonalAurISO1AvgMaxLR"
+                 "TonalAurISO110ExMaxLR"
+                 "TonalAurISO105ExMaxLR"
+                 "RoughECMA10ExBin",
+                 "RoughECMA05ExBin",
+                 "RoughFZ10ExMaxLR",
+                 "RoughFZ05ExMaxLR",
+                 "RoughDW10ExMaxLR",
+                 "RoughDW05ExMaxLR",
+                 "FluctSHM10ExBin",
+                 "FluctSHM05ExBin",
+                 "FluctFZ10ExMaxLR",
+                 "FluctFZ05ExMaxLR",
+                 "FluctOV10ExMaxLR",
+                 "FluctOV05ExMaxLR",
+                 "SharpAurSHMPowAvgMaxLR",
+                 "SharpAurSHM05ExMaxLR",
+                 "SharpAurISO3PowAvgMaxLR",
+                 "SharpAurISO305ExMaxLR",
+                 "SharpAurISO1PowAvgMaxLR",
+                 "SharpAurISO105ExMaxLR",
+                 "SharpDINPowAvgMaxLR",
+                 "SharpDIN05ExMaxLR",
+                 "SharpvBISO1PowAvgMaxLR",
+                 "SharpvBISO105ExMaxLR",
+                 "ImpulsSHMPowAvgMaxLR",
+                 "ImpulsSHMAvgMaxLR",
                  "ImpulsHMS05ExMaxLR",
-                 "dTonalECMAHMSAvgMaxLR",
-                 "dTonalECMAHMS05ExMaxLR",
-                 "dTonalIntAvgMaxLR",
-                 "dTonalInt05ExMaxLR",
-                 "dTonLdECMAHMSPowAvgBin",
-                 "dTonLdECMAHMS05ExBin",
-                 "dRoughECMAHMS10ExBin",
-                 "dRoughECMAHMS05ExBin",
-                 "dFluctHMS10ExBin",
-                 "dFluctHMS05ExBin",
-                 "dSharpAuresISO3PowAvgMaxLR",
-                 "dSharpAuresISO305ExMaxLR",
-                 "dImpulsHMSPowAvgMaxLR",
-                 "dImpulsHMSAvgMaxLR",
-                 "dImpulsHMS05ExMaxLR"]
+                 "dTonalECMAAvgMaxLR",
+                 "dTonalECMA05ExMaxLR",
+                 "dTonalSHMIntAvgMaxLR",
+                 "dTonalSHMInt05ExMaxLR",
+                 "dTonLdECMAPowAvgBin",
+                 "dTonLdECMA05ExBin",
+                 "dRoughECMA10ExBin",
+                 "dRoughECMA05ExBin",
+                 "dFluctSHM10ExBin",
+                 "dFluctSHM05ExBin",
+                 "dFluctOV10ExMaxLR",
+                 "dFluctOV05ExMaxLR",
+                 "dSharpAurSHMPowAvgMaxLR",
+                 "dSharpAurSHM05ExMaxLR",
+                 "dSharpAurISO3PowAvgMaxLR",
+                 "dSharpAurISO305ExMaxLR",
+                 "dImpulsSHMPowAvgMaxLR",
+                 "dImpulsSHMAvgMaxLR",
+                 "dImpulsSHM05ExMaxLR"]
 
 dataByStim = pd.concat([dataByStim, pd.DataFrame(index=dataByStim.index,
                                                  columns=indicesPsycho,
@@ -759,7 +794,7 @@ for file in filelist:
         dataByStim.loc[stimulus, 'dImpulsHMSAvgMaxLR'] = dImpulsHMSMeanMaxLR
         dataByStim.loc[stimulus, 'dImpulsHMS05ExMaxLR'] = dImpulsHMS05ExMaxLR
 
-# end of for loop over psychoacoustic metrics xlsx files
+# end of for loop over psychoacoustic metrics files
 
 
 # --------------------------

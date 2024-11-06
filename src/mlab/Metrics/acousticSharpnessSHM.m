@@ -19,34 +19,6 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRatein, axisn,...
 % information is not known to the function, so cannot be included in the
 % output.
 %
-% Aures model is described in:
-%
-% Aures, W., 1985. Berechnungsverfahren für den sensorischen Wohlklang
-% beliebiger Schallsignale, Acta Acustica united with Acustica, 59(2),
-% 130-141.
-% https://www.ingentaconnect.com/content/dav/aaua/1985/00000059/00000002/art00008
-%
-% von Bismarck model is described in:
-% 
-% von Bismarck, G., 1974. Sharpness as an attribute of the timbre of
-% steady sounds, Acta Acustica united with Acustica, 30(3) 159-172.
-% https://www.ingentaconnect.com/content/dav/aaua/1974/00000030/00000003/art00006
-%
-% Widmann model is described in DIN 45692:2009
-%
-% The implementation here incorporates the basic approach to modifying the
-% model for different loudness inputs according to:
-%
-% Swift, S.H. & Gee, K.L., 2017. Extending sharpness calculation for an alternative
-% loudness metric input, Journal of the Acoustical Society of America, 142(6), EL549–EL554.
-% https://doi.org/10.1121/1.5016193
-%
-% The modification is undertaken using an expression for deriving the Bark
-% critical band rate from frequency according to:
-%
-% Fastl, H. & Zwicker, E., 2007. Psychoacoustics: Facts and models. 3rd
-% edition. Berlin: Springer-Verlag.
-%
 % Inputs
 % ------
 % p : vector or 2D matrix
@@ -114,6 +86,36 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRatein, axisn,...
 % -----------
 % The input signal is calibrated to units of acoustic pressure in Pascals
 % (Pa).
+%
+% References
+% ----------
+% Aures model is described in:
+%
+% Aures, W., 1985. Berechnungsverfahren für den sensorischen Wohlklang
+% beliebiger Schallsignale, Acta Acustica united with Acustica, 59(2),
+% 130-141.
+% https://www.ingentaconnect.com/content/dav/aaua/1985/00000059/00000002/art00008
+%
+% von Bismarck model is described in:
+% 
+% von Bismarck, G., 1974. Sharpness as an attribute of the timbre of
+% steady sounds, Acta Acustica united with Acustica, 30(3) 159-172.
+% https://www.ingentaconnect.com/content/dav/aaua/1974/00000030/00000003/art00006
+%
+% Widmann model is described in DIN 45692:2009
+%
+% The implementation here incorporates the basic approach to modifying the
+% model for different loudness inputs according to:
+%
+% Swift, S.H. & Gee, K.L., 2017. Extending sharpness calculation for an alternative
+% loudness metric input, Journal of the Acoustical Society of America, 142(6), EL549–EL554.
+% https://doi.org/10.1121/1.5016193
+%
+% The modification is undertaken using an expression for deriving the Bark
+% critical band rate from frequency according to:
+%
+% Fastl, H. & Zwicker, E., 2007. Psychoacoustics: Facts and models. 3rd
+% edition. Berlin: Springer-Verlag.
 %
 % Requirements
 % ------------

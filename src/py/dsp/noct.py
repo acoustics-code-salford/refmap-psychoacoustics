@@ -17,7 +17,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
  
 Date created: 29/10/2023
-Date last modified: 14/07/2024
+Date last modified: 05/11/2024
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -169,7 +169,7 @@ def noctf_fbw(f, fbw_order, fs, btype):
         the design target order of the fowards-backwards filter, ie 2x the
         value of the order input to the Butterworth filter function
     fs : integer
-        the sampling frequency
+         the sampling frequency
     btype : string
         the type of filter; choose from 'lowpass', 'highpass' or 'bandpass'
         
@@ -278,6 +278,35 @@ def noctfiltc(n, fm, fs, order=4, fwd_bwd=False, down_fact=1, plot=False):
     """
     Return second-order-sections (sos) for a 1/n fractional-octave-band filter
     according to BS EN IEC 61260:2014
+        
+    Parameters
+    ----------
+    n : integer
+        A number defining the octave fraction 1/n
+    fm : sequence of floats
+         Mid-frequencies of 1/n octave filters. Float, or list or numpy array
+         (1D or singleton-2D) of floats
+    fs : integer
+         the sampling frequency
+    order : integer
+            the filter order
+    fwd_bwd : Boolean (default: False)
+              determines whether the filter is designed as one-way or two-way
+              (forwards-backwards)
+    down_fact : integer
+                downsampling factor to apply to filter design
+                (TODO: currently unused)
+    plot : Boolean
+           determines whether a plot of the filter frequency response is
+           displayed
+
+    Returns
+    -------
+    sos : array
+          the filter coefficients in second-order section form
+    zi : float
+         the initial condition for the filter
+
     """
     N = [1, 2, 3, 6, 12, 24, 48]
     if n not in N:
@@ -353,8 +382,6 @@ def noct_filter(x, n, fm, fs, order=4, axis=0, fwd_bwd=False, check=True):
     Return 1/n fractional-octave-band-filtered signals for a single passband
     using second-order-sections.
 
-    Signal is automatically downsampled for low frequency band filters.
-
     Parameters
     ----------
     x : numpy array
@@ -383,12 +410,6 @@ def noct_filter(x, n, fm, fs, order=4, axis=0, fwd_bwd=False, check=True):
     -------
     y : numpy array
       An array of the filtered output signals with shape: x.shape
-
-    Requirements
-    ------------
-    numpy (as np)
-    noct.noctf(), noct.noctfilt(), noct.noctlimits()
-    scipy.signal.lfilter(), scipy.signal.freqz()
 
     Assumptions
     -----------

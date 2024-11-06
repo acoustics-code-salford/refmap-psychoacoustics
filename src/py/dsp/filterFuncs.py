@@ -19,7 +19,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 22/01/2024
-Date last modified: 22/01/2024
+Date last modified: 05/11/2024
 Python version: 3.11.5
 
 Copyright statements: This file and code is part of work undertaken within
@@ -377,7 +377,8 @@ def time_weight(x, fs, tau=0.125, axis=0):
 
     Returns
     -------
-    None.
+    y : 1D or 2D array
+        contains the filtered output signal/s
 
     """
 
