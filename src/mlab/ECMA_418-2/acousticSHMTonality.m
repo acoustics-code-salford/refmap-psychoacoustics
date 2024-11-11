@@ -508,8 +508,7 @@ for chan = size(pn_om, 2):-1:1
 
     % Section 6.2.11 Equation 63 ECMA-418-2:2024
     % Time-averaged total tonality [T]
-    % (note: epsilon is not applied here, according to the standard)
-    tonalityAvg(chan) = sum(tonalityTDep(mask, chan))/nnz(mask);
+    tonalityAvg(chan) = sum(tonalityTDep(mask, chan))/(nnz(mask) + eps);
 
     if waitBar
         close(w)  % close waitbar
