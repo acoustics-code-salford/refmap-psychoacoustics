@@ -1,5 +1,5 @@
 function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget, signalMasker,...
-                                                 sampleRateMasker, axisTarget, axisMasker,...
+                                                 sampleRateMasker, timeSkip, axisTarget, axisMasker,...
                                                  timeStep, freqBandRange, outPlot)
 % detectDiscount = acousticDetection(signalTarget, sampleRateTarget, axisTarget,
 %                                    signalMasker, sampleRateMasker, axisMasker)
@@ -35,6 +35,11 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 %
 % sampleRateTarget : integer
 %                    the sample rate (frequency) of the input target signal(s)
+%
+% timeSkip : vector (default: [0, 0])
+%            time (seconds) to skip from input signals for calculating
+%            time-aggregated outputs. [startSkip, EndSkip] ignores
+%            starkSkip seconds of the start, and endSkip seconds of the end
 %
 % axisTarget : integer (1 or 2, default: 1)
 %              the time axis for the target signal(s) along which to determine
@@ -108,6 +113,7 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
         sampleRateTarget (1, 1) double {mustBePositive, mustBeInteger}
         signalMasker (:, :) double {mustBeReal}
         sampleRateMasker (1, 1) double {mustBePositive, mustBeInteger}
+        timeSkip (1, 2) double {mustBePositive} = [0, 0]
         axisTarget (1, 1) {mustBeInteger, mustBeInRange(axisTarget, 1, 2)} = 1
         axisMasker (1, 1) {mustBeInteger, mustBeInRange(axisMasker, 1, 2)} = 1
         timeStep (1, 1) double {mustBePositive} = 0.5
@@ -117,11 +123,52 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 
 %% Input checks and resampling
 
+% orient axes
+if axisTarget == 2
+    signalTarget = signalTarget.';
+end
+
+if axisMasker == 2
+    signalMasker = signalMasker.';
+end
+
+% check input signal sampling frequencies are equal, otherwise resample to
+% match higher rate
+if sampleRateMasker > sampleRateTarget
+    sampleRate = sampleRateMasker;
+    up = sampleRate/gcd(sampleRate, sampleRateTarget);
+    down = sampleRateTarget/gcd(sampleRate, sampleRateTarget);
+    signalTarget = resample(signalTarget, up, down);
+elseif sampleRateTarget > sampleRateMasker
+    sampleRate = sampleRateTarget;
+    up = sampleRate/gcd(sampleRate, sampleRateMasker);
+    down = sampleRateMasker/gcd(sampleRate, sampleRateMasker);
+    signalMasker = resample(signalMasker, up, down);
+else
+    sampleRate = sampleRateTarget;
+end
+
+% Check time skip
+% Overall time (s)
+T = size(signalTarget, 1)/sampleRate;
+
+if sum(timeSkip) > T
+    error("Error: total 'timeSkip' argument is larger than signal duration. Check inputs.")
+end
+
+% check frequency range
+fl = min(freqBandRange);
+fh = max(freqBandRange);
+
+% ensure frequency range is suitable for signal sampling frequency
+if fh > sampleRate/2.4
+    fh = min(sampleRate/2.4, 20e3);
+end
 
 %% Define constants
 b = 3;  % denominator for 1/b-octave definition
 
-timeSteps = timeStep*sampleRate;
+timeSteps = timeStep*sampleRate;  % timeStep in signal samples
 
 efficiencyFactor= 0.3;  % \eta
 targetDetect = 2;  % target d'
@@ -129,23 +176,20 @@ discountHalfPower = 3;  % \alpha, dB
 detectKnee = 14;  % \delta, d' value at which 3 dB knee occurs
 discountRate = 1;  % \rho, rate at which discount function dimishes with reducing detectability
 
-fl = min(freqBandRange);
-fh = max(freqBandRange);
-
 % free-field frontal tone hearing thresholds for 18-25 year-olds with
 % normal hearing from ISO 226:2023 (20 Hz - 12.5 kHz)
-hearThresholds226 = [78.1; 68.7; 59.5; 51.1; 44.0; 37.5; 31.5; 26.5; 22.1;...
-                     17.9; 14.4; 11.4; 8.6; 6.2; 4.4; 3.0; 2.2; 2.4; 3.5;...
-                     1.7; -1.3; -4.2; -6.0; -5.4; -1.5; 6.0; 12.6; 13.9; 12.3];
+% hearThresholds226 = [78.1; 68.7; 59.5; 51.1; 44.0; 37.5; 31.5; 26.5; 22.1;...
+%                      17.9; 14.4; 11.4; 8.6; 6.2; 4.4; 3.0; 2.2; 2.4; 3.5;...
+%                      1.7; -1.3; -4.2; -6.0; -5.4; -1.5; 6.0; 12.6; 13.9; 12.3];
 
 % free-field frontal tone hearing thresholds for 18-25 year-olds with
 % normal hearing from ISO 389-7:2019 (14 - 18 kHz)
-hearThresholds3897 = [18.4; 40.2; 70.4];
+% hearThresholds3897 = [18.4; 40.2; 70.4];
 
 % free-field frontal tone hearing thresholds for 18-25 year-olds with
 % normal hearing from ISO 226:2023 | ISO 389-7:2019 (20 - 18 kHz), with 20
 % kHz band estimated from figure 1 in ISO 389-7:2019
-hearThresholds = [hearThresholds226; hearThresholds3897; 100];
+% hearThresholds = [hearThresholds226; hearThresholds3897; 100];
 
 % diffuse field narrowband noise hearing thresholds for 18-25 year-olds with
 % normal hearing from ISO 389-7:2019 (20 Hz - 16 kHz)
@@ -166,6 +210,9 @@ Aweight = [-50.5; -44.7; -39.4; -34.6; -30.2; -26.2; -22.5; -19.1; -16.1;...
 
 
 %% Signal processing
+
+% convert timeSkip to timeStep indices
+itimeSkip = timeSkip/timeStep;
 
 % Calculate 1/3-octave power spectrograms
 
@@ -210,17 +257,26 @@ eqAuditoryNoise = detectEfficiency.*(2e-5.*10.^(hearThresholdsDF(il:ih)/20)).^2/
 
 % Calculate detectability and discount
 detectability = detectEfficiency.*spectroTarget./(spectroMasker + eqAuditoryNoise);
+detectabilitydB = 10*log10(detectability);
 discountdB = discountHalfPower./(detectability./detectKnee).^discountRate;
 
-% Calculate discounted levels
+% Calculate aggregated detectability
+detectTDepMax = squeeze(max(detectability, [], 1));
+detectTDepSum = squeeze(sqrt(sum(detectability.^2, 1)));
+detectTDepMaxdB = 10*log10(detectTDepMax);
+detectTDepSumdB = 10*log10(detectTDepSum);
+detectMaxdB = 10*log10(max(detectTDepMax(1 + itimeSkip(1):end - itimeSkip(2), :), [], 1));
+detectIntdB = 10*log10(timeStep*sum(detectTDepSum(1 + itimeSkip(1):end - itimeSkip(2), :), 1));
+
+% Calculate time-dependent spectra
 dBSpecTarget = 20*log10(sqrt(spectroTarget)/2e-5);
 dBSpecMasker = 20*log10(sqrt(spectroMasker)/2e-5);
 dBSpecDiscTarget = dBSpecTarget - discountdB;
 
 % A-weight time-dependent spectra
-dBASpecTarget = dBSpecTarget + Aweight;
-dBASpecMasker = dBSpecMasker + Aweight;
-dBASpecDiscTarget = dBSpecDiscTarget + Aweight;
+dBASpecTarget = dBSpecTarget + Aweight(il:ih);
+dBASpecMasker = dBSpecMasker + Aweight(il:ih);
+dBASpecDiscTarget = dBSpecDiscTarget + Aweight(il:ih);
 
 % A-weighted time-dependent spectral power
 powATarget = (2e-5*10.^(dBASpecTarget/20)).^2;
@@ -233,24 +289,44 @@ dBATDepMasker = squeeze(20*log10(sqrt(sum(powAMasker, 1))/2e-5));
 dBATDepDiscTarget = squeeze(20*log10(sqrt(sum(powADiscTarget, 1))/2e-5));
 
 % Aggregate time-dependent levels
-LAETarget = squeeze(20*log10(sqrt(sum(sum(powATarget, 1), 2))/2e-5));
-LAEMasker = squeeze(20*log10(sqrt(sum(sum(powAMasker, 1), 2))/2e-5));
-LAEDiscTarget = squeeze(20*log10(sqrt(sum(sum(powADiscTarget, 1), 2))/2e-5));
+LAETarget = squeeze(20*log10(sqrt(timeStep*sum(sum(powATarget(1 + itimeSkip(1):end - itimeSkip(2), :, :), 1), 2))/2e-5));
+LAEMasker = squeeze(20*log10(sqrt(timeStep*sum(sum(powAMasker(1 + itimeSkip(1):end - itimeSkip(2), :, :), 1), 2))/2e-5));
+LAEDiscTarget = squeeze(20*log10(sqrt(timeStep*sum(sum(powADiscTarget(1 + itimeSkip(1):end - itimeSkip(2), :, :), 1), 2))/2e-5));
+LAeqTarget = LAETarget - 10*log10(T);
+LAeqMasker = LAEMasker - 10*log10(T);
+LAeqDiscTarget = LAEDiscTarget - 10*log10(T);
+
+% Time-dependent and overall dBA discounts
+dBATDepDiscount = dBATDepTarget - dBATDepDiscTarget;
+dBADiscount = LAETarget - LAEDiscTarget;
 
 %% Assign outputs
 detectDiscount.dBSpecTarget = dBSpecTarget;
 detectDiscount.dBSpecMasker = dBSpecMasker;
 detectDiscount.dBSpecDiscTarget = dBSpecDiscTarget;
-detectDiscount.dBTDepTarget = dBATDepTarget;
-detectDiscount.dBTDepMasker = dBATDepMasker;
-detectDiscount.dBTDepDiscTarget = dBATDepDiscTarget;
+detectDiscount.dBATDepTarget = dBATDepTarget;
+detectDiscount.dBATDepMasker = dBATDepMasker;
+detectDiscount.dBATDepDiscTarget = dBATDepDiscTarget;
+detectDiscount.dBATDepDiscount = dBATDepDiscount;
 detectDiscount.LAETarget = LAETarget;
 detectDiscount.LAEMasker = LAEMasker;
 detectDiscount.LAEDiscTarget = LAEDiscTarget;
-detectDiscount.detectability = detectability;
+detectDiscount.LAeqTarget = LAeqTarget;
+detectDiscount.LAeqMasker = LAeqMasker;
+detectDiscount.LAeqDiscTarget = LAeqDiscTarget;
+detectDiscount.dBADiscount = dBADiscount;
+detectDiscount.detectabilitydB = detectabilitydB;
+detectDiscount.detectTDepMaxdB = detectTDepMaxdB;
+detectDiscount.detectTDepSumdB = detectTDepSumdB;
+detectDiscount.detectMaxdB = detectMaxdB;
+detectDiscount.detectIntdB = detectIntdB;
 detectDiscount.freqBands = f;
-detectDiscount.timeOut = t;
+detectDiscount.timeOut = t.';
 
 %% Plotting
+
+if outPlot
+% TODO
+end % end of if branch for plotting outputs
 
 % end of function
