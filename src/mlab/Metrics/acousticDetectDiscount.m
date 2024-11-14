@@ -38,7 +38,7 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 %
 % timeSkip : vector (default: [0, 0])
 %            time (seconds) to skip from input signals for calculating
-%            time-aggregated outputs. [startSkip, EndSkip] ignores
+%            time-aggregated outputs. [startSkip, endSkip] ignores
 %            starkSkip seconds of the start, and endSkip seconds of the end
 %
 % axisTarget : integer (1 or 2, default: 1)
@@ -92,7 +92,7 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 % Institution: University of Salford
 %
 % Date created: 05/11/2024
-% Date last modified: 05/11/2024
+% Date last modified: 14/11/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
