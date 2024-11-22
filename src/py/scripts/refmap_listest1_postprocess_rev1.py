@@ -70,7 +70,7 @@ dataByStim.loc[(dataByStim.index.str.find("A1") == 0)
                | (dataByStim.index.str.find("A2") == 0)
                | (dataByStim.index.str.find("A_") == 0),
                'SessionPart'] = "A"
-dataByStim.loc[(dataByStim.index.str.find('B2_') == 0)
+dataByStim.loc[(dataByStim.index.str.find('B2') == 0)
                | (dataByStim.index.str.find("B_") == 0),
                'SessionPart'] = "B"
 
@@ -459,6 +459,9 @@ for ii, file in enumerate(filelist):
             fluctFZ10Ex = fluctFZTDepMask.quantile(q=0.90)
             # max of l/r channel overall 10% exceeded fluctuation strength
             fluctFZ10ExMaxLR = fluctFZ10Ex.max()
+            
+            dataByStim.loc[renderNames[ii], 'FluctFZ10ExMaxLR'] = fluctFZ10ExMaxLR
+            dataByStim.loc[renderNames[ii], 'FluctFZ05ExMaxLR'] = fluctFZ05ExMaxLR
 
         elif filenames[ii].find("Rough") != -1:
             try:
@@ -499,67 +502,65 @@ for ii, file in enumerate(filelist):
             roughFZ10ExMaxLR = roughFZ10Ex.max()
 
             # add results to output DataFrame
-            dataByStim.loc[renderNames[ii], 'RoughFZ10ExMaxLR'] = roughFZ10ExMaxLR
-            dataByStim.loc[renderNames[ii], 'RoughFZ05ExMaxLR'] = roughFZ05ExMaxLR
-            dataByStim.loc[renderNames[ii], 'FluctFZ10ExMaxLR'] = fluctFZ10ExMaxLR
-            dataByStim.loc[renderNames[ii], 'FluctFZ05ExMaxLR'] = fluctFZ05ExMaxLR
-
-        # calculation section for SQM differences
-        # NOTE: THIS SECTION RELIES ON THE ALPHABETIC ORDER OF THE STIMULI FILES AS
-        # ORIGINALLY NAMED: EACH AMBIENT SOUND FILE PRECEDING THE CORRESPONDING
-        # COMBINED STIMULI FILES. IF THE ORDERING OR FILE NAMING IS CHANGED, THIS
-        # CALCULATION WILL BE INVALIDATED AND *MAY ALSO* CAUSE AN ERROR.
-        # a rolling 50 ms window is applied to average the SQM values over time -
-        # this is to reduce uncertainty due to imperfect time-alignment between the
-        # ambient vs combined stimuli files (all are from recordings, so there will
-        # be some slippage due to imperfect editing)
-        if renderNames[ii] in ["A1", "A2", "B2"]:
-            # NOTE: we could dropna() the first <windowT values, but these will be
-            # ignored anyway in the statistical analysis, assuming start_skipT >
-            # windowT
+            # dataByStim.loc[renderNames[ii], 'RoughFZ10ExMaxLR'] = roughFZ10ExMaxLR
+            # dataByStim.loc[renderNames[ii], 'RoughFZ05ExMaxLR'] = roughFZ05ExMaxLR
     
-            # calculate moving average values for ambient stimulus
-            ambSpecRoughFZLMovAvg = specRoughFZL.rolling(window=int(np.ceil(sampleRateRoughFZ*windowT))).mean().T
-            ambSpecRoughFZRMovAvg = specRoughFZR.rolling(window=int(np.ceil(sampleRateRoughFZ*windowT))).mean().T
+            # calculation section for SQM differences
+            # NOTE: THIS SECTION RELIES ON THE ALPHABETIC ORDER OF THE STIMULI FILES AS
+            # ORIGINALLY NAMED: EACH AMBIENT SOUND FILE PRECEDING THE CORRESPONDING
+            # COMBINED STIMULI FILES. IF THE ORDERING OR FILE NAMING IS CHANGED, THIS
+            # CALCULATION WILL BE INVALIDATED AND *MAY ALSO* CAUSE AN ERROR.
+            # a rolling 50 ms window is applied to average the SQM values over time -
+            # this is to reduce uncertainty due to imperfect time-alignment between the
+            # ambient vs combined stimuli files (all are from recordings, so there will
+            # be some slippage due to imperfect editing)
+            if renderNames[ii] in ["A1", "A2", "B2"]:
+                # NOTE: we could dropna() the first <windowT values, but these will be
+                # ignored anyway in the statistical analysis, assuming start_skipT >
+                # windowT
+        
+                # calculate moving average values for ambient stimulus
+                ambSpecRoughFZLMovAvg = specRoughFZL.rolling(window=int(np.ceil(sampleRateRoughFZ*windowT))).mean().T
+                ambSpecRoughFZRMovAvg = specRoughFZR.rolling(window=int(np.ceil(sampleRateRoughFZ*windowT))).mean().T
+        
+            elif renderNames[ii][0:3] in ["A1_", "A2_", "B2_"]:
+                # calculate moving average values for combined stimulus
+                specRoughFZLMovAvg = specRoughFZL.rolling(window=int(np.ceil(sampleRateRoughFZ*windowT))).mean().T
+                specRoughFZRMovAvg = specRoughFZR.rolling(window=int(np.ceil(sampleRateRoughFZ*windowT))).mean().T
     
-        elif renderNames[ii][0:3] in ["A1_", "A2_", "B2_"]:
-            # calculate moving average values for combined stimulus
-            specRoughFZLMovAvg = specRoughFZL.rolling(window=int(np.ceil(sampleRateRoughFZ*windowT))).mean().T
-            specRoughFZRMovAvg = specRoughFZR.rolling(window=int(np.ceil(sampleRateRoughFZ*windowT))).mean().T
-
-            # calculate differences and make negative values 0
-            dSpecRoughFZL = np.maximum(specRoughFZLMovAvg
-                                         - ambSpecRoughFZLMovAvg, 0)
-            dSpecRoughFZR = np.maximum(specRoughFZRMovAvg
-                                         - ambSpecRoughFZRMovAvg, 0)
-
-            # calculate aggregated difference values
-
-            # 2-channel time-dependent roughness
-            dRoughFZTDep = pd.concat([bandDiff0p5*dSpecRoughFZL.sum(axis=0),
-                                      bandDiff0p5*dSpecRoughFZR.sum(axis=0)],
-                                      axis=1)
-
-            # mask for start/end skip
-            dRoughFZTDepMask = roughFZTDep.loc[(dRoughFZTDep.index.values
-                                                > start_skipT)
-                                               & (dRoughFZTDep.index.values
-                                                  < dRoughFZTDep.index.values.max()
-                                                  - end_skipT)]
-
-            # overall (90th percentile = 10% exceeded) roughness
-            dRoughFZ10Ex = dRoughFZTDepMask.quantile(q=0.90)
-            # max of l/r channel overall 10% exceeded roughness
-            dRoughFZ10ExMaxLR = dRoughFZ10Ex.max()
-            # overall (95th percentile = 5% exceeded) roughness
-            dRoughFZ05Ex = dRoughFZTDepMask.quantile(q=0.95)
-            # max of l/r channel overall 5% exceeded roughness
-            dRoughFZ05ExMaxLR = dRoughFZ05Ex.max()
-            
-            # add results to output DataFrame
-            dataByStim.loc[renderNames[ii], 'dRoughFZ10ExMaxLR'] = dRoughFZ10ExMaxLR
-            dataByStim.loc[renderNames[ii], 'dRoughFZ05ExMaxLR'] = dRoughFZ05ExMaxLR
-            
+                # calculate differences and make negative values 0
+                dSpecRoughFZL = np.maximum(specRoughFZLMovAvg
+                                             - ambSpecRoughFZLMovAvg, 0)
+                dSpecRoughFZR = np.maximum(specRoughFZRMovAvg
+                                             - ambSpecRoughFZRMovAvg, 0)
+    
+                # calculate aggregated difference values
+    
+                # 2-channel time-dependent roughness
+                dRoughFZTDep = pd.concat([bandDiff0p5*dSpecRoughFZL.sum(axis=0),
+                                          bandDiff0p5*dSpecRoughFZR.sum(axis=0)],
+                                          axis=1)
+    
+                # mask for start/end skip
+                dRoughFZTDepMask = roughFZTDep.loc[(dRoughFZTDep.index.values
+                                                    > start_skipT)
+                                                   & (dRoughFZTDep.index.values
+                                                      < dRoughFZTDep.index.values.max()
+                                                      - end_skipT)]
+    
+                # overall (90th percentile = 10% exceeded) roughness
+                dRoughFZ10Ex = dRoughFZTDepMask.quantile(q=0.90)
+                # max of l/r channel overall 10% exceeded roughness
+                dRoughFZ10ExMaxLR = dRoughFZ10Ex.max()
+                # overall (95th percentile = 5% exceeded) roughness
+                dRoughFZ05Ex = dRoughFZTDepMask.quantile(q=0.95)
+                # max of l/r channel overall 5% exceeded roughness
+                dRoughFZ05ExMaxLR = dRoughFZ05Ex.max()
+                
+                # add results to output DataFrame
+                dataByStim.loc[renderNames[ii], 'dRoughFZ10ExMaxLR'] = dRoughFZ10ExMaxLR
+                dataByStim.loc[renderNames[ii], 'dRoughFZ05ExMaxLR'] = dRoughFZ05ExMaxLR
+                
 
     # end of if branch for .mat files
 
@@ -1522,8 +1523,8 @@ indicesDiffPsycho = ["dTonalECMAAvgMaxLR",
                      "dTonLdECMA05ExBin",
                      "dRoughECMA10ExBin",
                      "dRoughECMA05ExBin",
-                     "dRoughFZ10ExBin",
-                     "dRoughFZ05ExBin",
+                     "dRoughFZ10ExMaxLR",
+                     "dRoughFZ05ExMaxLR",
                      "dFluctSHM10ExBin",
                      "dFluctSHM05ExBin",
                      "dFluctOV10ExMaxLR",
@@ -1715,19 +1716,20 @@ dataByStim = dataByStim.merge(partLoudness.astype(float), how='outer',
 dataByStim.loc[NoUASStims, ['PartLoudMGSTPowAvg', 'PartLoudMGST05Ex',
                             'PartLoudMGLTPowAvg', 'PartLoudMGLT05Ex'] ] = 0
 
-# move SQM difference metrics to after level difference metrics
-indicesDiffPsycho.reverse()
-for col in indicesDiffPsycho:
-    popcol = dataByStim.pop(col)
-    dataByStim.insert(loc=(dataByStim.columns.get_loc(partLoudness.columns[-1])
-                           + 1),
-                      column=col, value=popcol)
-indicesDiffPsycho.reverse()  # revert list for use later   
-
-
 # --------------------------------------------------
 # Detection-discounted UAS sound levels LAeq and LAE
 # --------------------------------------------------
+
+dataByStim['UASDisc0p5LAeqMaxLR'] = dataByStim['UASLAeqMaxLR'] - dataByStim['Detect0p5dBADiscMaxLR']
+dataByStim['UASDisc0p5LAEMaxLR'] = dataByStim['UASLAEMaxLR'] - dataByStim['Detect0p5dBADiscMaxLR']
+dataByStim['UASDisc0p1LAeqMaxLR'] = dataByStim['UASLAeqMaxLR'] - dataByStim['Detect0p1dBADiscMaxLR']
+dataByStim['UASDisc0p1LAEMaxLR'] = dataByStim['UASLAEMaxLR'] - dataByStim['Detect0p1dBADiscMaxLR']
+
+indicesDetect = indicesDetect + ['UASDisc0p5LAeqMaxLR', 'UASDisc0p5LAEMaxLR',
+                                 'UASDisc0p1LAeqMaxLR', 'UASDisc0p1LAEMaxLR']
+
+
+# reorganise column order
 
 # move detectability metrics to after partial loudness metrics
 indicesDetect.reverse()
@@ -1738,10 +1740,17 @@ for col in indicesDetect:
                       column=col, value=popcol)
 indicesDetect.reverse()  # revert list for use later   
 
-dataByStim['UASDisc0p5LAeqMaxLR'] = dataByStim['UASLAeqMaxLR'] - dataByStim['Detect0p5dBADiscMaxLR']
-dataByStim['UASDisc0p5LAEMaxLR'] = dataByStim['UASLAEMaxLR'] - dataByStim['Detect0p5dBADiscMaxLR']
-dataByStim['UASDisc0p1LAeqMaxLR'] = dataByStim['UASLAeqMaxLR'] - dataByStim['Detect0p1dBADiscMaxLR']
-dataByStim['UASDisc0p1LAEMaxLR'] = dataByStim['UASLAEMaxLR'] - dataByStim['Detect0p1dBADiscMaxLR']
+
+# move SQM difference metrics to after detectability metrics
+indicesDiffPsycho.reverse()
+for col in indicesDiffPsycho:
+    popcol = dataByStim.pop(col)
+    dataByStim.insert(loc=(dataByStim.columns.get_loc(indicesDetect[-1])
+                           + 1),
+                      column=col, value=popcol)
+indicesDiffPsycho.reverse()  # revert list for use later   
+
+
 
 # -------------
 # Response data
@@ -2320,6 +2329,10 @@ else:
 
 outFilePath = QFileDialog.getExistingDirectory(caption="Choose output folder to save processed files in '03 Experiment\Experiment 1\Analysis\PostProcess'")
 
+
+dataByStim.to_csv(os.path.join(outFilePath,
+                               "refmap_listest1_alldata_ByStim.csv"))
+
 dataByStimTest.to_csv(os.path.join(outFilePath,
                                    "refmap_listest1_testdata_ByStim.csv"))
 
@@ -2331,9 +2344,6 @@ dataByStimTestB.to_csv(os.path.join(outFilePath,
 
 dataByStimAux.to_csv(os.path.join(outFilePath,
                                   "refmap_listest1_auxdata.csv"))
-
-dataByStim.to_csv(os.path.join(outFilePath,
-                               "refmap_listest1_alldata_ByStim.csv"))
 
 # save statistical tests
 # check/open QApplication instance

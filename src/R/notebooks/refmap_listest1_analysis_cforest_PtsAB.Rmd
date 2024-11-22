@@ -1,0 +1,4956 @@
+---
+title: "REFMAP Listening test 1 Part A analysis: Random forest variable importance identification (median responses)"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This notebook analyses the Part A data in terms of variable importance using a random forest model based on conditional inference trees and a conditional permutation variable importance algorithm.
+
+# Setup
+
+## Load packages
+
+```{r}
+# load packages
+library(tidyr)
+library(ggplot2)
+library(party)
+library(conflicted)
+library(tidyverse)
+library(openxlsx)
+library(caret)
+library(viridis)
+library(cowplot)
+# set package parameters
+theme_set(theme_bw())
+
+```
+
+```{r}
+
+# plot colour scheme
+
+mycolourlist = list(c(0, 102, 255), c(0, 204, 153), c(255, 0, 102), c(74, 111, 152), c(251, 164, 49), c(204, 153, 255), c(90, 192, 255), c(80, 245, 233), c(255, 90, 192), c(164, 201, 242), c(255, 254, 139), c(255, 243, 255))
+mycolours = matrix()
+
+for (ii in 1:length(mycolourlist)){
+  mycolours[ii] = rgb(mycolourlist[[ii]][1]/255,
+                      mycolourlist[[ii]][2]/255,
+                      mycolourlist[[ii]][3]/255)
+}
+
+# toggle to save plots
+saveplots = TRUE
+
+if (saveplots){
+  # set output plot directory
+  choose.files(caption="Just cancel this", filters=matrix(data=c(" ", " "), ncol=2))  # workaround for bug in RTerm choose.dir
+  outFigPath <- utils::choose.dir(caption="Select output folder to save plots '03 Experiment\\Experiment 1\\Analysis\\Plots'")
+  
+  if (!dir.exists(file.path(outFigPath, "svg"))){dir.create(file.path(outFigPath, "svg"))}
+  if (!dir.exists(file.path(outFigPath, "pdf"))){dir.create(file.path(outFigPath, "pdf"))}
+  
+}
+
+# toggle to save data
+savedata = TRUE
+
+if (savedata){
+  # set output plot directory
+  if (saveplots==FALSE){
+    choose.files(caption="Just cancel this", filters=matrix(data=c(" ", " "), ncol=2))  # workaround for bug in RTerm choose.dir
+  }
+  outDataPath <- utils::choose.dir(caption="Select output folder to save data '03 Experiment\\Experiment 1\\Analysis\\R'")
+}
+ 
+
+```
+
+# Import data and wrangle
+
+```{r}
+
+stimDatapath <- utils::choose.files(caption=r"(Select refmap_listest1_testdata_ByStim.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
+                                     filters=matrix(data=c("refmap_listest1_testdata_ByStim.csv", "refmap_listest1_testdata_ByStim.csv"), ncol=2))
+
+stimData <- utils::read.csv(stimDatapath, header=TRUE)
+
+colnames(stimData)[1] <- "Stimulus"
+
+# make response proportions into percentages
+stimData[['HighAnnoyPc']] <- stimData[['HighAnnoyProp']]*100
+stimData[['dHighAnnoyPc']] <- stimData[['dHighAnnoyProp']]*100
+
+```
+
+```{r}
+# function to encode categorical to ordinal numeric variables
+encode_ordinal <- function(x, order=unique(x)) {
+  x <- as.numeric(factor(x, levels=order, exclude=NULL, order=TRUE))
+  x
+}
+
+# definition of ordinal variable levels
+SNRCats <- c("No UAS", "-16", "-10", "-4", "2", "8")
+UASLAeqCats <- c("No UAS", "42", "48", "54", "60")
+
+```
+
+The aggregated data by stimulus are assigned to a dataframe, relevant categorical variables are converted to ordinal, and then the variable subset of interest is selected, NA rows dropped (ie, the 'no UAS' stimuli, as the conditional variable importance algorithm cannot currently handle NA values, which are present in all the UAS dB metrics), and a formula assigned.
+
+```{r}
+
+stimDataNum <- data.frame()
+
+stimDataNum <- cbind(stimData[, 'Stimulus'],
+                      stimData[, which(colnames(stimData)=="UASEvents"):
+                                  which(colnames(stimData)=="UASEventPerMin")],
+                      stimData[, which(colnames(stimData)=="UASLAeq"):
+                                  which(colnames(stimData)=="SNRlevel")],
+                      stimData[, "IntermitRatioMaxLR", drop=F],
+                      stimData[, which(colnames(stimData)=="UASLAeqMaxLR"):
+                                  which(colnames(stimData)=="UASImpulsSHM05ExMaxLR")],
+                      stimData[, which(colnames(stimData)=="LAeqLAF90diff"):
+                                  which(colnames(stimData)=="dImpulsSHM05ExMaxLR")],
+                      stimData[, which(colnames(stimData)=="ValenceMedian"):
+                                 which(colnames(stimData)=="dHighAnnoyProp")],
+                      stimData[, which(colnames(stimData)=="HighAnnoyPc"):
+                                  which(colnames(stimData)=="dHighAnnoyPc")])
+
+# remove duplicated variables
+stimDataNum <- subset(stimDataNum, select = -c(UASLAeqMaxLR, UASLAEMaxLR))
+
+colnames(stimDataNum)[1] <- "Stimulus"
+
+# make the categorical outcome variables numerical dummy factors
+# stimDataNum[['SNRlevel']] <- encode_ordinal(stimData[['SNRlevel']], order=SNRCats)
+# stimDataNum[['UASLAeq']] <- encode_ordinal(stimData[['UASLAeq']], order=UASLAeqCats)
+
+# make the discrete ordinal outcome variables factors
+stimDataNum[['UASEvents']] <- factor(stimDataNum[['UASEvents']], levels=c(0, 1, 3, 5, 9), order=TRUE)
+stimDataNum[['ValenceMedian']] <- factor(stimDataNum[['ValenceMedian']], levels=c(1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5), order=TRUE)
+stimDataNum[['ArousalMedian']] <- factor(stimDataNum[['ArousalMedian']], levels=c(1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5), order=TRUE)
+stimDataNum[['AnnoyMedian']] <- factor(stimDataNum[['AnnoyMedian']], levels=c(0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5,
+                                                                                5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10), order=TRUE)
+stimDataNum[['dValenceMedian']] <- factor(stimDataNum[['dValenceMedian']], levels=c(-4, -3.5, -3, -2.5, -2, -1.5, -1, -0.5, 0,
+                                                                                      0.5, 1, 1.5, 2, 2.5, 3, 3.5,  4), order=TRUE)
+stimDataNum[['dArousalMedian']] <- factor(stimDataNum[['dArousalMedian']], levels=c(-4, -3.5, -3, -2.5, -2, -1.5, -1, -0.5, 0,
+                                                                                      0.5, 1, 1.5, 2, 2.5, 3, 3.5,  4), order=TRUE)
+stimDataNum[['dAnnoyMedian']] <- factor(stimDataNum[['dAnnoyMedian']], levels=c(-10, -9.5, -9, -8.5, -8, -7.5, -7, -6.5, -6, -5.5, -5,
+                                                                                  -4.5, -4, -3.5, -3, -2.5, -2, -1.5, -1, -0.5,
+                                                                                 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5,
+                                                                                 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10), order=TRUE)
+
+```
+
+# Random forest functions
+
+Write a function to train a conditional-inference random forest (crf) model on input data according to input formula, iterate over input random seeds, average error and variable importance metrics, and output metrics with plotted
+
+## Averaging over multiple random seeds
+
+```{r}
+
+multi_crfReg <- function(dataIn, iVars, dVar, seeds, ntree, mtry, permImpCondThres=0.95, minsplit=20, minbucket=7, nperm=1){
+  # initialise variables
+  crfOOBErrAll <- 0
+  crfOOBRMSE <- 0
+  crfOOBMAE <- 0
+  crfOOBErrR2 <- 0
+  crfMarPermImpVals <- 0
+  crfConPermImpVals <- 0
+  crfMarPermImpValsPerTree <- data.frame()
+  crfConPermImpValsPerTree <- data.frame()
+  
+  for (iters in 1:length(seeds)){
+    
+    # formula for regression
+    formVars <- reformulate(iVars, dVar)
+    
+    # set random seed
+    set.seed(seeds[iters])
+    # train crf model
+    crfModel <- party::cforest(formVars, data=dataIn,
+                               controls=party::cforest_unbiased(ntree=ntree,
+                                                                mtry=mtry,
+                                                                minsplit=minsplit,
+                                                                minbucket=minbucket))
+    
+    # get OOB predictions
+    crfModelOOB <- predict(crfModel, OOB=TRUE, type='response')
+    
+    # get OOB error
+    crfModelOOBErr <- as.numeric(as.matrix(as.numeric(as.matrix(crfModelOOB))
+                                            - as.numeric(as.matrix(crfModel@data@env$response[[names(crfModel@data@env$response)]]))))
+
+    # OOB RMSE, error quartiles and Rsquared
+    crfOOBRMSE <- crfOOBRMSE + sqrt(mean(crfModelOOBErr^2))
+    crfOOBMAE <- crfOOBMAE + mean(abs(crfModelOOBErr))
+    crfOOBErrR2 <- crfOOBErrR2 + cor(as.numeric(as.matrix(crfModelOOB)),
+                                     as.numeric(as.matrix(crfModel@data@env$response[[names(crfModel@data@env$response)]])))^2
+
+    # set random seed
+    set.seed(seeds[iters])
+
+    # set random seed
+    set.seed(seeds[iters])
+    # conditional variable permutation importance
+    crfConPermImp <- permimp::permimp(crfModel, nperm=nperm, conditional=TRUE, threshold=permImpCondThres, progressBar=FALSE)
+    
+    crfConPermImpVals <- crfConPermImpVals + crfConPermImp$values
+    crfConPermImpValsPerTree <- rbind(crfConPermImpValsPerTree, crfConPermImp$perTree)
+  }
+  
+  # average metrics
+  crfOOBErrAll <- crfOOBErrAll/length(seeds)
+  crfOOBRMSE <- crfOOBRMSE/length(seeds)
+  crfOOBMAE <- crfOOBMAE/length(seeds)
+  crfOOBErrR2 <- crfOOBErrR2/length(seeds)
+  crfConPermImpVals <- data.frame(CondPermImp=sort(crfConPermImpVals/length(seeds), decreasing=TRUE))
+  #crfConPermImpValsMn <- sort(colMeans(crfConPermImpValsPerTree), decreasing=TRUE)  # mean of conditional variable importance values per tree (same as crfConPermImpVals)
+  crfConPermImpValsQtl <- data.frame(apply(crfConPermImpValsPerTree, 2, quantile, probs=c(0.25, 0.50, 0.75)))
+  
+  resultsOut <- list('OOB_RMSE'=crfOOBRMSE, 'OOB_MAE'=crfOOBMAE, 'Rsquared'=crfOOBErrR2, 'conditional_permimp'=crfConPermImpVals,                      'conditional_permimp_perTree'=crfConPermImpValsPerTree, 'conditional_permimp_qtl'=crfConPermImpValsQtl)
+  return(resultsOut)
+}
+
+```
+
+## Comparing rankings from two seeds 
+
+```{r}
+
+crfReg <- function(dataIn, iVars, dVar, seeds, ntree, mtry, permImpCondThres=0.95, minsplit=20, minbucket=7, nperm=1){
+  # initialise variables
+  crfOOBErrAll <- 0
+  crfOOBRMSE <- 0
+  crfOOBMAE <- 0
+  crfOOBErrR2 <- 0
+  crfMarPermImpVals <- 0
+  crfConPermImpVals <- 0
+  crfMarPermImpValsPerTree <- data.frame()
+  crfConPermImpValsPerTree <- data.frame()
+
+  # formula for regression
+  formVars <- reformulate(iVars, dVar)
+  
+  for (iters in 1:length(seeds)){
+  
+    # set random seed
+    set.seed(seeds[iters])
+    # train crf model
+    crfModel <- party::cforest(formVars, data=dataIn,
+                               controls=party::cforest_unbiased(ntree=ntree,
+                                                                mtry=mtry,
+                                                                minsplit=minsplit,
+                                                                minbucket=minbucket))
+    
+    # conditional variable permutation importance
+    crfConPermImp <- permimp::permimp(crfModel, nperm=nperm, conditional=TRUE, threshold=permImpCondThres, progressBar=FALSE)
+    
+    crfConPermImpVals <- crfConPermImp$values
+    
+    if (iters == 1){
+      crfConPermImpVals1 <- data.frame(CondPermImp=sort(crfConPermImpVals, decreasing=TRUE))
+      crfConPermImpValsPerTree1 <- crfConPermImp$perTree
+      crfConPermImpValsQtl1 <- data.frame(apply(crfConPermImpValsPerTree1, 2, quantile, probs=c(0.25, 0.50, 0.75)))
+      
+      # get OOB predictions
+      crfModelOOB <- predict(crfModel, OOB=TRUE, type='response')
+      
+      # get OOB error
+      crfModelOOBErr <- as.numeric(as.matrix(as.numeric(as.matrix(crfModelOOB))
+                                              - as.numeric(as.matrix(crfModel@data@env$response[[names(crfModel@data@env$response)]]))))
+      
+      # OOB RMSE, error quartiles and Rsquared
+      crfOOBRMSE <- sqrt(mean(crfModelOOBErr^2))
+      crfOOBMAE <- crfOOBMAE + mean(abs(crfModelOOBErr))
+      crfOOBErrR2 <- cor(as.numeric(as.matrix(crfModelOOB)),
+                                    as.numeric(as.matrix(crfModel@data@env$response[[names(crfModel@data@env$response)]])))^2
+
+      }
+    
+    else{
+      crfConPermImpValsN <- data.frame(CondPermImp=sort(crfConPermImpVals, decreasing=TRUE))
+      
+      nVarImpChecks <- min(max(sum(crfConPermImpVals1 >= crfConPermImpVals1$CondPermImp[1]*0.1),
+                               sum(crfConPermImpValsN >= crfConPermImpValsN$CondPermImp[1]*0.1)), 4)  # number of variable importance values with a value at least 10% of the highest importance
+      if (sum(rownames(crfConPermImpVals1)[1:nVarImpChecks] != rownames(crfConPermImpValsN)[1:nVarImpChecks]) > 0){
+        warning("Permutation importance rank order within 10% of max differs between seeds: increase number of trees ('ntree') or number of permutations ('nperm'), or subsample of features ('mtry')")
+      }
+      else{
+        resultsOut <- list('OOB_errors'=crfModelOOBErr, 'OOB_RMSE'=crfOOBRMSE, 'OOB_MAE'=crfOOBMAE, 'Rsquared'=crfOOBErrR2, 'conditional_permimp'=crfConPermImpVals1, 'conditional_permimp_perTree'=crfConPermImpValsPerTree1, 'conditional_permpimp_qtl'=crfConPermImpValsQtl1)
+        return(resultsOut)
+      }
+      
+    }
+    
+  }
+
+}
+
+```
+
+## Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+mtryTune <- function(dataIn, iVars, dVar, seed, ntrees, minsplit=20, minbucket=7){
+  
+  formVars <- reformulate(iVars, dVar)
+  
+  # set mtry values and corresponding iVars/mtry ratios
+  iVars_mtrys <- c(10.5, 5.25, 3.5, 2.75, 2.25, 1.75, 1.5, 1.25)
+  mtrys <- as.integer(length(iVars)/iVars_mtrys)
+  iVars_mtrys <- iVars_mtrys[mtrys >= 2]  # remove 0 or 1 values
+  mtrys <- mtrys[mtrys >= 2]  # remove 0 or 1 values
+  
+  # remove any duplicated values
+  iVars_mtrys <- iVars_mtrys[!(duplicated(mtrys) | duplicated(mtrys, fromLast = TRUE))]
+  mtrys <- mtrys[!(duplicated(mtrys) | duplicated(mtrys, fromLast = TRUE))]
+
+  # ensure mtrys is less than length(iVars)
+  iVars_mtrys <- iVars_mtrys[mtrys < length(iVars)]
+  mtrys <- mtrys[mtrys < length(iVars)]
+
+  resRMSEMap = matrix(data=NA, nrow=length(mtrys), ncol=length(ntrees))
+  resRsquaredMap = matrix(data=NA, nrow=length(mtrys), ncol=length(ntrees))
+  resMAEMap = matrix(data=NA, nrow=length(mtrys), ncol=length(ntrees))
+  
+  for (ii in seq(1, length(ntrees))){
+    set.seed(seed)
+    ntree = ntrees[ii]
+    tuneMod <- caret::train(formVars,
+                            data=dataIn,
+                            method='cforest',
+                            controls=party::cforest_unbiased(ntree=ntree,
+                                                             minsplit=minsplit,
+                                                             minbucket=minbucket),
+                            tuneGrid=data.frame(.mtry=mtrys),
+                            trControl = trainControl(method = "oob"))
+    
+    tuneMod$results <- cbind(tuneMod$results, data.frame(iVars_mtrys=iVars_mtrys))
+    
+    print(tuneMod$results)
+    print(tuneMod$bestTune)
+    
+    resRMSEMap[, ii] = tuneMod$results$RMSE
+    resRsquaredMap[, ii] = tuneMod$results$Rsquared
+    resMAEMap[, ii] = tuneMod$results$MAE
+    
+  }
+  
+  
+  # convert to data frames with mtry as row names and ntree as column names, and convert to long format using tidyverse
+  resdfRMSEMap <- as.data.frame(resRMSEMap)
+  rownames(resdfRMSEMap) <- mtrys
+  colnames(resdfRMSEMap) <- ntrees
+  resdfRsquaredMap <- as.data.frame(resRsquaredMap)
+  rownames(resdfRsquaredMap) <- mtrys
+  colnames(resdfRsquaredMap) <- ntrees
+  resdfMAEMap <- as.data.frame(resMAEMap)
+  rownames(resdfMAEMap) <- mtrys
+  colnames(resdfMAEMap) <- ntrees
+  
+  
+  # convert dataframes to long format using tidyverse
+  resdfRMSEMap <- resdfRMSEMap |>
+                      rownames_to_column('mtry') |>
+                          gather(key='ntree', value='RMSE', -mtry)
+  
+  resdfRsquaredMap <- resdfRsquaredMap |>
+                          rownames_to_column('mtry') |>
+                              gather(key='ntree', value='Rsquared', -mtry)
+  
+  resdfMAEMap <- resdfMAEMap |>
+                    rownames_to_column('mtry') |>
+                        gather(key='ntree', value='MAE', -mtry)
+  
+  # ensure ntree and mtry columns are ordered factors
+  resdfRMSEMap$ntree <- factor(resdfRMSEMap$ntree, levels=as.character(ntrees))
+  resdfRMSEMap$mtry <- factor(resdfRMSEMap$mtry, levels=as.character(mtrys))
+  
+  resdfRsquaredMap$ntree <- factor(resdfRsquaredMap$ntree, levels=as.character(ntrees))
+  resdfRsquaredMap$mtry <- factor(resdfRsquaredMap$mtry, levels=as.character(mtrys))
+  
+  resdfMAEMap$ntree <- factor(resdfMAEMap$ntree, levels=as.character(ntrees))
+  resdfMAEMap$mtry <- factor(resdfMAEMap$mtry, levels=as.character(mtrys))
+  
+  # plot heatmaps using ggplot, with extreme (min or max) value plotted as overlaid point using annotate and colourbar scale reversed
+  pHeatmapRMSE <- ggplot(resdfRMSEMap) +
+                    geom_tile(aes(x=ntree, y=mtry, fill=RMSE)) +
+                        scale_fill_viridis(option="viridis", direction=-1) +
+                          geom_point(data=resdfRMSEMap[which(resdfRMSEMap$RMSE
+                                                             == min(resdfRMSEMap$RMSE),
+                                                             arr.ind = TRUE),],
+                                     aes(x=ntree, y=mtry), colour="red", size=2) +
+                            guides(colour = guide_colourbar(reverse=TRUE)) +
+                              labs(x="ntree", y="mtry", fill="RMSE") +
+                                theme(text = element_text(family = "serif"))
+  
+  pHeatmapRsquared <- ggplot(resdfRsquaredMap) +
+                        geom_tile(aes(x=ntree, y=mtry, fill=Rsquared)) +
+                            scale_fill_viridis(option="viridis", direction=1) +
+                              geom_point(data=resdfRsquaredMap[which(resdfRsquaredMap$Rsquared
+                                                                     == max(resdfRsquaredMap$Rsquared),
+                                                                     arr.ind = TRUE),],
+                                         aes(x=ntree, y=mtry), colour="red", size=2) +
+                                guides(colour = guide_colourbar(reverse=TRUE)) +
+                                  labs(x="ntree", y="mtry", fill="Rsquared") +
+                                    theme(text = element_text(family = "serif"))
+  
+  pHeatmapMAE <- ggplot(resdfMAEMap) +
+                    geom_tile(aes(x=ntree, y=mtry, fill=MAE)) +
+                        scale_fill_viridis(option="viridis", direction=-1) +
+                          geom_point(data=resdfMAEMap[which(resdfMAEMap$MAE
+                                                            == min(resdfMAEMap$MAE),
+                                                            arr.ind = TRUE),],
+                                     aes(x=ntree, y=mtry), colour="red", size=2) +
+                            guides(colour = guide_colourbar(reverse=TRUE)) +
+                              labs(x="ntree", y="mtry", fill="MAE") +
+                                theme(text = element_text(family = "serif"))
+  
+  p <-  cowplot::plot_grid(pHeatmapRMSE,
+                           pHeatmapRsquared,
+                           pHeatmapMAE,
+                           ncol=3, nrow=1)
+  
+  return(p)
+  
+}  # end of function
+
+```
+
+
+# Parts A & B analysis
+
+
+## Set global parameters
+
+```{r}
+
+permImpCondThres <- 0.95
+minsplit <- 20
+minbucket <- 7
+ntrees <- c(251, 501, 1001, 1501, 2501, 4001, 5501)
+
+```
+
+## Mean change in annoyance
+
+Initialise results output variables
+
+```{r}
+resdAnnoyMnFitAB <- data.frame(RMSE = numeric(),
+                             MAE = numeric(),
+                             Rsquared = numeric())
+resdAnnoyMnPermImpAB <- list()
+
+```
+
+
+### All variables (absolute and difference)
+
+#### Remove ambient only stimuli
+
+Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
+
+```{r}
+stimDataNum <- stimDataNum[complete.cases(stimDataNum),]
+stimDataNum$UASLAeq <- as.numeric(stimDataNum$UASLAeq)
+stimDataNum$SNRlevel <- as.numeric(stimDataNum$SNRlevel)
+```
+
+#### Set variables
+
+```{r}
+
+iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEventPerMin'):which(names(stimDataNum) == 'UASImpulsSHM05ExMaxLR')]
+iVars <- c(iVars,
+           names(stimDataNum)[which(colnames(stimDataNum)=="LAeqLAF90diff"):
+                               which(colnames(stimDataNum)=="dImpulsSHM05ExMaxLR")], "SNRlevel")
+dVar <- "dAnnoyMean"
+
+seeds <- c(14569, 98651, 54654498, 454948, 41321)
+
+```
+
+#### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnAllVarsHyperTune.svg", width=12, height=4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnAllVarsHyperTune.svg")
+
+  ggsave(filename="PtsABdAnnoyMnAllVarsHyperTune.pdf", width=12, height=4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnAllVarsHyperTune.pdf")
+}
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 1001
+mtry <- as.integer(length(iVars)/1.25)
+
+```
+
+#### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutAbsDiffs <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutAbsDiffs$OOB_RMSE
+resultsOutAbsDiffs$OOB_MAE
+resultsOutAbsDiffs$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutAbsDiffs <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutAbsDiffs$OOB_RMSE
+resultsOutAbsDiffs$OOB_MAE
+resultsOutAbsDiffs$Rsquared
+```
+
+```{r}
+# store results
+resdAnnoyMnFitAB['All vars', 'RMSE'] <- resultsOutAbsDiffs$OOB_RMSE
+resdAnnoyMnFitAB['All vars', 'MAE'] <- resultsOutAbsDiffs$OOB_MAE
+resdAnnoyMnFitAB['All vars', 'Rsquared'] <- resultsOutAbsDiffs$Rsquared
+resdAnnoyMnPermImpAB$AllVars <- resultsOutAbsDiffs$conditional_permimp
+
+```
+
+#### Plot results
+
+```{r, fig.width=8,fig.height=20}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutAbsDiffs.conimp <- arrange(resultsOutAbsDiffs$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutAbsDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbsDiffs.conimp), levels=rownames(resultsOutAbsDiffs.conimp)), y=CondPermImp), fill=mycolours[9], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp.svg", width=8, height=20, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnAllVarsConPermimp.svg")
+
+  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp.pdf", width=8, height=20, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnAllVarsConPermimp.pdf")
+}
+
+```
+
+```{r, fig.width=8,fig.height=8}
+
+# Plot only positive values
+
+resultsOutAbsDiffs.conimpPtv <- resultsOutAbsDiffs.conimp |>
+                                          rownames_to_column('Metric') |>
+                                                filter_if(is.numeric, all_vars(. > 0)) |>
+                                                      column_to_rownames('Metric')
+
+pBar <- ggplot(resultsOutAbsDiffs.conimpPtv) + geom_col(aes(x=factor(rownames(resultsOutAbsDiffs.conimpPtv), levels=rownames(resultsOutAbsDiffs.conimpPtv)), y=CondPermImp), fill=mycolours[9], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimpPtv.svg", width=8, height=8, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnAllVarsConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimpPtv.pdf", width=8, height=8, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnAllVarsConPermimp.pdf")
+}
+
+```
+```{r, fig.width=8,fig.height=4}
+
+# Plot only values within 1% of the maximum
+
+resultsOutAbsDiffs.conimp1pc <- resultsOutAbsDiffs.conimp |>
+                                          rownames_to_column('Metric') |>
+                                                filter_if(is.numeric, all_vars(. > max(resultsOutAbsDiffs.conimp)/100)) |>
+                                                      column_to_rownames('Metric')
+
+pBar <- ggplot(resultsOutAbsDiffs.conimp1pc) + geom_col(aes(x=factor(rownames(resultsOutAbsDiffs.conimp1pc), levels=rownames(resultsOutAbsDiffs.conimp1pc)), y=CondPermImp), fill=mycolours[9], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp1pc.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnAllVarsConPermimp1pc.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp1pc.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnAllVarsConPermimp1pc.pdf")
+}
+
+```
+
+
+### Absolute variables
+
+#### Set variables
+
+```{r}
+
+iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEventPerMin'):which(names(stimDataNum) == 'UASImpulsSHM05ExMaxLR')]
+iVars <- iVars[! iVars %in% c('SNRlevel')]
+dVar <- "dAnnoyMean"
+
+seeds <- c(578312, 544, 84894, 54654, 153157)
+
+```
+
+#### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnAbsVarsHyperTune.svg", width=12, height=4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnAbsVarsHyperTune.svg")
+
+  ggsave(filename="PtsABdAnnoyMnAbsVarsHyperTune.pdf", width=12, height=4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnAbsVarsHyperTune.pdf")
+}
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 251
+mtry <- as.integer(length(iVars)/1.25)
+
+```
+
+#### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutAbs <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutAbs$OOB_RMSE
+resultsOutAbs$OOB_MAE
+resultsOutAbs$Rsquared
+
+```
+Train multiple seeds model
+
+```{r}
+
+resultsOutAbs <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutAbs$OOB_RMSE
+resultsOutAbs$OOB_MAE
+resultsOutAbs$Rsquared
+
+```
+
+
+```{r}
+
+# store results
+resdAnnoyMnFitAB['Abs vars', 'RMSE'] <- resultsOutAbs$OOB_RMSE
+resdAnnoyMnFitAB['Abs vars', 'MAE'] <- resultsOutAbs$OOB_MAE
+resdAnnoyMnFitAB['Abs vars', 'Rsquared'] <- resultsOutAbs$Rsquared
+resdAnnoyMnPermImpAB$AbsVars <- resultsOutAbs$conditional_permimp
+
+```
+
+#### Plot results
+
+```{r, fig.width=8,fig.height=11.5}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutAbs.conimp <- arrange(resultsOutAbs$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimp), levels=rownames(resultsOutAbs.conimp)), y=CondPermImp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) +
+  coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp.svg", width=8, height=11.5, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnAbsVarsConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp.pdf", width=8, height=11.5, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnAbsVarsConPermimp.pdf")
+}
+```
+
+
+```{r, fig.width=8,fig.height=7}
+
+# Plot only positive values
+
+resultsOutAbs.conimpPtv <- resultsOutAbs.conimp |>
+                                          rownames_to_column('Metric') |>
+                                                filter_if(is.numeric, all_vars(. > 0)) |>
+                                                      column_to_rownames('Metric')
+
+pBar <- ggplot(resultsOutAbs.conimpPtv) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimpPtv), levels=rownames(resultsOutAbs.conimpPtv)), y=CondPermImp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimpPtv.svg", width=8, height=7, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnAbsVarsConPermimpPtv.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimpPtv.pdf", width=8, height=7, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnAbsVarsConPermimpPtv.pdf")
+}
+
+```
+
+```{r, fig.width=8,fig.height=11.5}
+
+# Plot values disregarding ambient LAeq
+
+pBar <- ggplot(slice(resultsOutAbs.conimp, 1:n()-1)) + geom_col(aes(x=factor(rownames(slice(resultsOutAbs.conimp, 1:n()-1)), levels=rownames(slice(resultsOutAbs.conimp, 1:n()-1))), y=CondPermImp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnAbsVarsSkipAmbConPermimp.svg", width=8, height=11.5, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnAbsVarsSkipAmbConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnAbsVarsSkipAmbConPermimp.pdf", width=8, height=11.5, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnAbsVarsSkipAmbConPermimp.pdf")
+}
+
+```
+
+```{r, fig.width=8,fig.height=7}
+
+# Plot only positive values disregarding ambient LAeq
+
+resultsOutAbs.conimpPtv <- resultsOutAbs.conimp |>
+                                          rownames_to_column('Metric') |>
+                                                filter_if(is.numeric, all_vars(. > 0)) |>
+                                                      column_to_rownames('Metric')
+
+pBar <- ggplot(slice(resultsOutAbs.conimpPtv, 1:n()-1)) + geom_col(aes(x=factor(rownames(slice(resultsOutAbs.conimpPtv, 1:n()-1)), levels=rownames(slice(resultsOutAbs.conimpPtv, 1:n()-1))), y=CondPermImp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnAbsVarsSkipAmbConPermimpPtv.svg", width=8, height=7, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnAbsVarsSkipAmbConPermimpPtv.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnAbsVarsSkipAmbConPermimpPtv.pdf", width=8, height=7, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnAbsVarsSkipAmbConPermimpPtv.pdf")
+}
+
+```
+```{r, fig.width=8,fig.height=3}
+
+# Plot only values within 1% of the maximum, disregarding ambient LAeq
+
+resultsOutAbs.conimp1pc <- resultsOutAbs.conimp |>
+                                          rownames_to_column('Metric') |>
+                                                filter_if(is.numeric, all_vars(. > max(slice(resultsOutAbs.conimp, 1:n()-1))/100)) |>
+                                                      column_to_rownames('Metric')
+
+pBar <- ggplot(slice(resultsOutAbs.conimp1pc, 1:n()-1)) + geom_col(aes(x=factor(rownames(slice(resultsOutAbs.conimp1pc, 1:n()-1)), levels=rownames(slice(resultsOutAbs.conimp1pc, 1:n()-1))), y=CondPermImp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnAbsVarsSkipAmbConPermimp1pc.svg", width=8, height=3, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnAbsVarsSkipAmbConPermimp1pc.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnAbsVarsSkipAmbConPermimp1pc.pdf", width=8, height=3, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnAbsVarsSkipAmbConPermimp1pc.pdf")
+}
+
+```
+
+Selected metric
+
+```{r}
+
+absVar <- "UASEPNLMaxLR"
+
+```
+
+
+### SQM analysis
+
+#### Replace ambient only stimuli
+
+The ambient-only stimuli are NOT replaced here, as the analysis cannot handle missing values for dB metrics.
+
+#### Individual SQMs
+
+##### Sharpness
+
+###### Set variables
+
+```{r}
+
+iVars <- c(absVar, "UASEventPerMin", "AmbientLAeq", "UASSharpAurISO3PowAvgMaxLR", "UASSharpAurISO305ExMaxLR", "UASSharpAurSHMPowAvgMaxLR", "UASSharpAurSHM05ExMaxLR", "UASSharpAurISO1PowAvgMaxLR", "UASSharpAurISO105ExMaxLR", "UASSharpvBISO1PowAvgMaxLR", "UASSharpvBISO105ExMaxLR", "UASSharpDINPowAvgMaxLR", "UASSharpDIN05ExMaxLR")
+dVar <- "dAnnoyMean"
+
+seeds <- c(7041, 905, 4984651, 6513213, 120651)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 501
+mtry <- as.integer(length(iVars)/1.25)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutSharp <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSharp$OOB_RMSE
+resultsOutSharp$OOB_MAE
+resultsOutSharp$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutSharp <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSharp$OOB_RMSE
+resultsOutSharp$OOB_MAE
+resultsOutSharp$Rsquared
+
+```
+
+
+```{r}
+# store results
+resdAnnoyMnFitAB['Abs sharp', 'RMSE'] <- resultsOutSharp$OOB_RMSE
+resdAnnoyMnFitAB['Abs sharp', 'MAE'] <- resultsOutSharp$OOB_MAE
+resdAnnoyMnFitAB['Abs sharp', 'Rsquared'] <- resultsOutSharp$Rsquared
+resdAnnoyMnPermImpAB$AbsSharp <- resultsOutSharp$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=4.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSharp.conimp <- arrange(resultsOutSharp$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=CondPermImp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnSharpConPermimp.svg", width=8, height=4.9, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnSharpConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnSharpConPermimp.pdf", width=8, height=4.9, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnSharpConPermimp.pdf")
+}
+
+
+```
+
+Selected metric
+
+```{r}
+
+sharpVar <- "UASSharpAurISO305ExMaxLR"
+
+```
+
+##### Tonal loudness and tonality
+
+###### Set variables
+
+```{r}
+
+iVars <- c(absVar, "UASEventPerMin", "AmbientLAeq", "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonLdECMAPowAvgBin", "UASTonLdECMA05ExBin", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR")
+dVar <- "dAnnoyMean"
+
+seeds <- c(540, 104798, 456464, 87331, 94564)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 251
+mtry <- as.integer(length(iVars)/1.5)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+# Tonality with tonal loudness
+
+nperm <- 5
+
+resultsOutTonal1 <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutTonal1$OOB_RMSE
+resultsOutTonal1$OOB_MAE
+resultsOutTonal1$Rsquared
+```
+
+Train multiple seeds model
+
+```{r}
+# Tonality with tonal loudness
+
+resultsOutTonal1 <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutTonal1$OOB_RMSE
+resultsOutTonal1$OOB_MAE
+resultsOutTonal1$Rsquared
+
+```
+
+```{r}
+# store results
+resdAnnoyMnFitAB['Abs tonal inc loud', 'RMSE'] <- resultsOutTonal1$OOB_RMSE
+resdAnnoyMnFitAB['Abs tonal inc loud', 'MAE'] <- resultsOutTonal1$OOB_MAE
+resdAnnoyMnFitAB['Abs tonal inc loud', 'Rsquared'] <- resultsOutTonal1$Rsquared
+resdAnnoyMnPermImpAB$AbsTonal1 <- resultsOutTonal1$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=3.8}
+
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal1.conimp <- arrange(resultsOutTonal1$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 1.4))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnTonalLdConPermimp.svg", width=8, height=3.8, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnTonalLdConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnTonalLdConPermimp.pdf", width=8, height=3.8, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnTonalLdConPermimp.pdf")
+}
+
+```
+
+Selected metric
+
+```{r}
+
+tonLdVar <- "UASTonLdECMAPowAvgBin"
+
+```
+
+##### Tonality without tonal loudness
+
+###### Set variables
+
+```{r}
+
+iVars <- c(absVar, "UASEventPerMin", "AmbientLAeq", "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR")
+dVar <- "dAnnoyMean"
+
+seeds <- c(156089, 5860, 10528, 89541, 4685146)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 501
+mtry <- as.integer(length(iVars)/1.5)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+# Tonality
+
+nperm <- 5
+
+resultsOutTonal2 <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutTonal2$OOB_RMSE
+resultsOutTonal2$OOB_MAE
+resultsOutTonal2$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+# Tonality
+
+resultsOutTonal2 <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutTonal2$OOB_RMSE
+resultsOutTonal2$OOB_MAE
+resultsOutTonal2$Rsquared
+
+```
+
+
+```{r}
+
+# store results
+resdAnnoyMnFitAB['Abs tonal no loud', 'RMSE'] <- resultsOutTonal2$OOB_RMSE
+resdAnnoyMnFitAB['Abs tonal no loud', 'MAE'] <- resultsOutTonal2$OOB_MAE
+resdAnnoyMnFitAB['Abs tonal no loud', 'Rsquared'] <- resultsOutTonal2$Rsquared
+resdAnnoyMnPermImpAB$AbsTonal2 <- resultsOutTonal2$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=3.2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal2.conimp <- arrange(resultsOutTonal2$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 1.4))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnTonalConPermimp.svg", width=8, height=3.2, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnTonalConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnTonalConPermimp.pdf", width=8, height=3.2, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnTonalConPermimp.pdf")
+}
+
+
+```
+
+Selected metric
+
+```{r}
+
+tonalVar <- "UASTonalSHMInt05ExMaxLR"
+
+```
+
+##### Fluctuation strength
+
+###### Set variables
+
+```{r}
+
+# Fluctuation strength
+iVars <- c(absVar, "UASEventPerMin", "AmbientLAeq", "UASFluctSHM10ExBin", "UASFluctSHM05ExBin", "UASFluctFZ10ExMaxLR", "UASFluctFZ05ExMaxLR", "UASFluctOV10ExMaxLR", "UASFluctOV05ExMaxLR")
+dVar <- "dAnnoyMean"
+
+seeds <- c(25107, 546098, 195, 5937, 102658)
+
+```
+
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 1501
+mtry <- as.integer(length(iVars)/1.25)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutFluct <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutFluct$OOB_RMSE
+resultsOutFluct$OOB_MAE
+resultsOutFluct$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutFluct <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutFluct$OOB_RMSE
+resultsOutFluct$OOB_MAE
+resultsOutFluct$Rsquared
+
+```
+
+
+```{r}
+
+# store results
+resdAnnoyMnFitAB['Abs fluct', 'RMSE'] <- resultsOutFluct$OOB_RMSE
+resdAnnoyMnFitAB['Abs fluct', 'MAE'] <- resultsOutFluct$OOB_MAE
+resdAnnoyMnFitAB['Abs fluct', 'Rsquared'] <- resultsOutFluct$Rsquared
+resdAnnoyMnPermImpAB$AbsFluct <- resultsOutFluct$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutFluct.conimp <- arrange(resultsOutFluct$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=CondPermImp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnFluctConPermimp.svg", width=8, height=2.9, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnFluctConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnFluctConPermimp.pdf", width=8, height=2.9, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnFluctConPermimp.pdf")
+}
+
+```
+
+Selected metric
+
+```{r}
+
+fluctVar <- "UASFluctOV10ExMaxLR"
+
+```
+
+##### Roughness
+
+###### Set variables
+
+```{r}
+
+# Roughness
+iVars <- c(absVar, "UASEventPerMin", "AmbientLAeq", "UASRoughECMA10ExBin", "UASRoughECMA05ExBin", "UASRoughFZ10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASRoughDW10ExMaxLR", "UASRoughDW05ExMaxLR")
+dVar <- "dAnnoyMean"
+
+seeds <- c(4701, 52187, 16589, 65217, 16893)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 5501
+mtry <- as.integer(length(iVars)/1.25)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutRough <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutRough$OOB_RMSE
+resultsOutRough$OOB_MAE
+resultsOutRough$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutRough <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutRough$OOB_RMSE
+resultsOutRough$OOB_MAE
+resultsOutRough$Rsquared
+
+```
+
+```{r}
+# store results
+resdAnnoyMnFitAB['Abs rough', 'RMSE'] <- resultsOutRough$OOB_RMSE
+resdAnnoyMnFitAB['Abs rough', 'MAE'] <- resultsOutRough$OOB_MAE
+resdAnnoyMnFitAB['Abs rough', 'Rsquared'] <- resultsOutRough$Rsquared
+resdAnnoyMnPermImpAB$AbsRough <- resultsOutRough$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutRough.conimp <- arrange(resultsOutRough$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=CondPermImp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnRoughConPermimp.svg", width=8, height=2.9, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnRoughConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnRoughConPermimp.pdf", width=8, height=2.9, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnRoughConPermimp.pdf")
+}
+
+
+```
+
+Selected metric
+
+```{r}
+
+roughVar <- "UASRoughECMA10ExBin"
+
+```
+
+##### Impulsiveness
+
+###### Set variables
+
+```{r}
+# Impulsiveness
+iVars <- c(absVar, "UASEventPerMin", "AmbientLAeq", "UASImpulsSHMAvgMaxLR", "UASImpulsSHM05ExMaxLR", "UASImpulsSHMPowAvgMaxLR")
+dVar <- "dAnnoyMean"
+
+seeds <- c(8495, 59867, 5416, 9843, 86)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 2501
+mtry <- as.integer(length(iVars)/1.75)
+
+```
+
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutImpuls <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutImpuls$OOB_RMSE
+resultsOutImpuls$OOB_MAE
+resultsOutImpuls$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutImpuls <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutImpuls$OOB_RMSE
+resultsOutImpuls$OOB_MAE
+resultsOutImpuls$Rsquared
+
+```
+
+```{r}
+
+# store results
+resdAnnoyMnFitAB['Abs impuls', 'RMSE'] <- resultsOutImpuls$OOB_RMSE
+resdAnnoyMnFitAB['Abs impuls', 'MAE'] <- resultsOutImpuls$OOB_MAE
+resdAnnoyMnFitAB['Abs impuls', 'Rsquared'] <- resultsOutImpuls$Rsquared
+resdAnnoyMnPermImpAB$AbsImpuls <- resultsOutImpuls$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutImpuls.conimp <- arrange(resultsOutImpuls$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=CondPermImp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnImpulsConPermimp.svg", width=8, height=2, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnImpulsConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnImpulsConPermimp.pdf", width=8, height=2, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnImpulsConPermimp.pdf")
+}
+
+```
+
+Selected metric
+
+```{r}
+
+impulsVar <- "UASImpulsSHMAvgMaxLR"
+
+```
+
+#### SQM and loudness comparison
+
+Now the highest importance SQMs are ranked against each other, controlling for UAS loudness and ambient LAeq.
+
+##### Include tonal loudness
+
+###### Set variables
+
+```{r}
+
+iVars <- c(absVar, "UASEventPerMin", "AmbientLAeq", sharpVar, tonLdVar, fluctVar, roughVar, impulsVar)
+dVar <- "dAnnoyMean"
+
+seeds <- c(70498, 4, 14986, 453, 864)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 2501
+mtry <- as.integer(length(iVars)/1.25)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutSQMs1 <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSQMs1$OOB_RMSE
+resultsOutSQMs1$OOB_MAE
+resultsOutSQMs1$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutSQMs1 <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSQMs1$OOB_RMSE
+resultsOutSQMs1$OOB_MAE
+resultsOutSQMs1$Rsquared
+
+```
+
+```{r}
+
+# store results
+resdAnnoyMnFitAB['Abs SQMs inc tonal loud', 'RMSE'] <- resultsOutSQMs1$OOB_RMSE
+resdAnnoyMnFitAB['Abs SQMs inc tonal loud', 'MAE'] <- resultsOutSQMs1$OOB_MAE
+resdAnnoyMnFitAB['Abs SQMs inc tonal loud', 'Rsquared'] <- resultsOutSQMs1$Rsquared
+resdAnnoyMnPermImpAB$AbsSQMs1 <- resultsOutSQMs1$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs1.conimp <- arrange(resultsOutSQMs1$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 1.3))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnAbsSQMsTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnAbsSQMsTonLdConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnAbsSQMsTonLdConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnAbsSQMsTonLdConPermimp.pdf")
+}
+
+```
+
+##### Exclude tonal loudness
+
+###### Set variables
+
+```{r}
+
+iVars <- c(absVar, "UASEventPerMin", "AmbientLAeq", sharpVar, tonalVar, fluctVar, roughVar, impulsVar)
+dVar <- "dAnnoyMean"
+
+seeds <- c(546, 57203, 270835, 60592, 8094)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 251
+mtry <- as.integer(length(iVars)/1.5)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutSQMs2 <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSQMs2$OOB_RMSE
+resultsOutSQMs2$OOB_MAE
+resultsOutSQMs2$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutSQMs2 <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSQMs2$OOB_RMSE
+resultsOutSQMs2$OOB_MAE
+resultsOutSQMs2$Rsquared
+
+```
+
+```{r}
+
+# store results
+resdAnnoyMnFitAB['Abs SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_RMSE
+resdAnnoyMnFitAB['Abs SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_MAE
+resdAnnoyMnFitAB['Abs SQMs no tonal loud', 'Rsquared'] <- resultsOutSQMs2$Rsquared
+resdAnnoyMnPermImpAB$AbsSQMs2 <- resultsOutSQMs2$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs2.conimp <- arrange(resultsOutSQMs2$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 1.3))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnAbsSQMsNoTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnAbsSQMsNoTonLdConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnAbsSQMsNoTonLdConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnAbsSQMsNoTonLdConPermimp.pdf")
+}
+
+```
+
+### Difference variables
+
+Next, the difference metrics are analysed, 
+
+#### Remove ambient only stimuli
+
+Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
+
+```{r}
+stimDataNum <- stimDataNum[complete.cases(stimDataNum),]
+stimDataNum$UASLAeq <- as.numeric(stimDataNum$UASLAeq)
+stimDataNum$SNRlevel <- as.numeric(stimDataNum$SNRlevel)
+```
+
+#### Set variables
+
+```{r}
+
+iVars <- c(names(stimDataNum)[which(colnames(stimDataNum)=="LAeqLAF90diff"):
+                               which(colnames(stimDataNum)=="dImpulsSHM05ExMaxLR")],
+           "UASEventPerMin", "SNRlevel")
+dVar <- "dAnnoyMean"
+
+seeds <- c(568392, 498, 4089, 78132, 741809)
+
+```
+
+#### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 501
+mtry <- as.integer(length(iVars)/1.5)
+
+```
+
+#### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutDiffs <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutDiffs$OOB_RMSE
+resultsOutDiffs$OOB_MAE
+resultsOutDiffs$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutDiffs <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutDiffs$OOB_RMSE
+resultsOutDiffs$OOB_MAE
+resultsOutDiffs$Rsquared
+
+```
+
+```{r}
+
+# store results
+resdAnnoyMnFitAB['Diff vars', 'RMSE'] <- resultsOutDiffs$OOB_RMSE
+resdAnnoyMnFitAB['Diff vars', 'MAE'] <- resultsOutDiffs$OOB_MAE
+resdAnnoyMnFitAB['Diff vars', 'Rsquared'] <- resultsOutDiffs$Rsquared
+resdAnnoyMnPermImpAB$DiffVars <- resultsOutDiffs$conditional_permimp
+
+```
+
+#### Plot results
+
+```{r, fig.width=8,fig.height=10}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutDiffs.conimp <- arrange(resultsOutDiffs$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp), levels=rownames(resultsOutDiffs.conimp)), y=CondPermImp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimp.svg", width=8, height=10, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnDiffVarsConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimp.pdf", width=8, height=10, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnDiffVarsConPermimp.pdf")
+}
+
+```
+
+```{r, fig.width=8,fig.height=8}
+
+# Plot only positive values
+resultsOutDiffs.conimpPtv <- resultsOutDiffs.conimp |>
+                                        rownames_to_column('Metric') |>
+                                            filter_if(is.numeric, all_vars(. > 0)) |>
+                                                  column_to_rownames('Metric')
+
+pBar <- ggplot(resultsOutDiffs.conimpPtv) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimpPtv), levels=rownames(resultsOutDiffs.conimpPtv)), y=CondPermImp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimpPtv.svg", width=8, height=8, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnDiffVarsConPermimpPtv.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimpPtv.pdf", width=8, height=8, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnDiffVarsConPermimpPtv.pdf")
+}
+
+```
+```{r, fig.width=8,fig.height=3}
+
+# Plot only values within 1% of the maximum
+resultsOutDiffs.conimp1pc <- resultsOutDiffs.conimp |>
+                                        rownames_to_column('Metric') |>
+                                            filter_if(is.numeric, all_vars(. > max(resultsOutDiffs.conimp)/100)) |>
+                                                  column_to_rownames('Metric')
+
+pBar <- ggplot(resultsOutDiffs.conimp1pc) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp1pc), levels=rownames(resultsOutDiffs.conimp1pc)), y=CondPermImp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimp1pc.svg", width=8, height=3, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnDiffVarsConPermimp1pc.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimp1pc.pdf", width=8, height=3, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnDiffVarsConPermimp1pc.pdf")
+}
+
+```
+
+
+Selected metric
+
+```{r}
+
+diffVar <- "Detect0p1dBIntMaxLR"
+
+```
+
+### dSQM analysis
+
+The ambient-only stimuli are NOT replaced here, as the difference analysis includes dB metrics.
+
+#### Individual SQMs
+
+##### dSharpness
+
+###### Set variables
+
+```{r}
+
+iVars <- c(diffVar, "UASEventPerMin", "dSharpAurISO3PowAvgMaxLR", "dSharpAurISO305ExMaxLR", "dSharpAurSHMPowAvgMaxLR", "dSharpAurSHM05ExMaxLR")
+dVar <- "dAnnoyMean"
+
+seeds <- c(84194, 905, 64815, 928054, 625091)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <-5501
+mtry <- as.integer(length(iVars)/1.75)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutSharp <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSharp$OOB_RMSE
+resultsOutSharp$OOB_MAE
+resultsOutSharp$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutSharp <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSharp$OOB_RMSE
+resultsOutSharp$OOB_MAE
+resultsOutSharp$Rsquared
+
+```
+
+
+```{r}
+# store results
+resdAnnoyMnFitAB['Diff sharp', 'RMSE'] <- resultsOutSharp$OOB_RMSE
+resdAnnoyMnFitAB['Diff sharp', 'MAE'] <- resultsOutSharp$OOB_MAE
+resdAnnoyMnFitAB['Diff sharp', 'Rsquared'] <- resultsOutSharp$Rsquared
+resdAnnoyMnPermImpAB$DiffSharp <- resultsOutSharp$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2.6}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSharp.conimp <- arrange(resultsOutSharp$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=CondPermImp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("dSharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMndSharpConPermimp.svg", width=8, height=2.6, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMndSharpConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMndSharpConPermimp.pdf", width=8, height=2.6, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMndSharpConPermimp.pdf")
+}
+
+
+```
+
+Selected metric
+
+```{r}
+
+dSharpVar <- "dSharpAurISO3PowAvgMaxLR"
+
+```
+
+##### dTonal loudness and dtonality
+
+###### Set variables
+
+```{r}
+
+iVars <- c(diffVar, "UASEventPerMin", "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR", "dTonLdECMAPowAvgBin", "dTonLdECMA05ExBin")
+dVar <- "dAnnoyMean"
+
+seeds <- c(561684, 104798, 1536, 48, 48561)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 2501
+mtry <- as.integer(length(iVars)/1.25)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+# Tonality with tonal loudness
+
+nperm <- 5
+
+resultsOutTonal1 <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutTonal1$OOB_RMSE
+resultsOutTonal1$OOB_MAE
+resultsOutTonal1$Rsquared
+```
+Train multiple seeds model
+
+```{r}
+# Tonality with tonal loudness
+
+resultsOutTonal1 <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutTonal1$OOB_RMSE
+resultsOutTonal1$OOB_MAE
+resultsOutTonal1$Rsquared
+
+```
+
+```{r}
+# store results
+resdAnnoyMnFitAB['Diff tonal inc loud', 'RMSE'] <- resultsOutTonal1$OOB_RMSE
+resdAnnoyMnFitAB['Diff tonal inc loud', 'MAE'] <- resultsOutTonal1$OOB_MAE
+resdAnnoyMnFitAB['Diff tonal inc loud', 'Rsquared'] <- resultsOutTonal1$Rsquared
+resdAnnoyMnPermImpAB$DiffTonal1 <- resultsOutTonal1$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2.6}
+
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal1.conimp <- arrange(resultsOutTonal1$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("dTonality inc. dtonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 2.2))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMndTonalLdConPermimp.svg", width=8, height=2.6, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMndTonalLdConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMndTonalLdConPermimp.pdf", width=8, height=2.6, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMndTonalLdConPermimp.pdf")
+}
+
+```
+
+Selected metric
+
+```{r}
+
+dTonLdVar <- "dTonLdECMAPowAvgBin"
+
+```
+
+##### dTonality without dtonal loudness
+
+###### Set variables
+
+```{r}
+
+iVars <- c(diffVar, "UASEventPerMin", "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR")
+dVar <- "dAnnoyMean"
+
+seeds <- c(410865, 2954, 70812, 203, 7984)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 501
+mtry <- as.integer(length(iVars)/1.75)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+# Tonality
+
+nperm <- 5
+
+resultsOutTonal2 <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutTonal2$OOB_RMSE
+resultsOutTonal2$OOB_MAE
+resultsOutTonal2$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+# Tonality
+
+resultsOutTonal2 <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutTonal2$OOB_RMSE
+resultsOutTonal2$OOB_MAE
+resultsOutTonal2$Rsquared
+
+```
+
+
+```{r}
+
+# store results
+resdAnnoyMnFitAB['Diff tonal no loud', 'RMSE'] <- resultsOutTonal2$OOB_RMSE
+resdAnnoyMnFitAB['Diff tonal no loud', 'MAE'] <- resultsOutTonal2$OOB_MAE
+resdAnnoyMnFitAB['Diff tonal no loud', 'Rsquared'] <- resultsOutTonal2$Rsquared
+resdAnnoyMnPermImpAB$DiffTonal2 <- resultsOutTonal2$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal2.conimp <- arrange(resultsOutTonal2$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("dTonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 2.2))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMndTonalConPermimp.svg", width=8, height=2, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMndTonalConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMndTonalConPermimp.pdf", width=8, height=2, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMndTonalConPermimp.pdf")
+}
+
+
+```
+
+Selectec metric
+
+```{r}
+
+dTonalVar <- "dTonalSHMIntAvgMaxLR"
+
+```
+
+##### dFluctuation strength
+
+###### Set variables
+
+```{r}
+
+# Fluctuation strength
+iVars <- c(diffVar, "UASEventPerMin", "dFluctSHM10ExBin", "dFluctSHM05ExBin", "dFluctOV10ExMaxLR", "dFluctOV05ExMaxLR")
+dVar <- "dAnnoyMean"
+
+seeds <- c(418657, 84, 1630, 18659, 3687)
+
+```
+
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 2501
+mtry <- as.integer(length(iVars)/1.75)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutFluct <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutFluct$OOB_RMSE
+resultsOutFluct$OOB_MAE
+resultsOutFluct$Rsquared
+
+```
+Train multiple seeds model
+
+```{r}
+
+resultsOutFluct <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutFluct$OOB_RMSE
+resultsOutFluct$OOB_MAE
+resultsOutFluct$Rsquared
+
+```
+
+
+```{r}
+
+# store results
+resdAnnoyMnFitAB['Diff fluct', 'RMSE'] <- resultsOutFluct$OOB_RMSE
+resdAnnoyMnFitAB['Diff fluct', 'MAE'] <- resultsOutFluct$OOB_MAE
+resdAnnoyMnFitAB['Diff fluct', 'Rsquared'] <- resultsOutFluct$Rsquared
+resdAnnoyMnPermImpAB$DiffFluct <- resultsOutFluct$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutFluct.conimp <- arrange(resultsOutFluct$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=CondPermImp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("dFluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMndFluctConPermimp.svg", width=8, height=2, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnFluctConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMndFluctConPermimp.pdf", width=8, height=2, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnFluctConPermimp.pdf")
+}
+
+```
+
+Selected metric
+
+```{r}
+
+dFluctVar <- "dFluctSHM05ExBin"
+
+```
+
+
+##### dRoughness
+
+###### Set variables
+
+```{r}
+
+# Roughness
+iVars <- c(diffVar, "UASEventPerMin", "dRoughECMA10ExBin", "dRoughECMA05ExBin", "dRoughFZ10ExMaxLR", "dRoughFZ05ExMaxLR")
+dVar <- "dAnnoyMean"
+
+seeds <- c(69851, 85109, 410986, 1563, 896)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 5501
+mtry <- as.integer(length(iVars)/1.75)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutRough <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutRough$OOB_RMSE
+resultsOutRough$OOB_MAE
+resultsOutRough$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutRough <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutRough$OOB_RMSE
+resultsOutRough$OOB_MAE
+resultsOutRough$Rsquared
+
+```
+
+```{r}
+# store results
+resdAnnoyMnFitAB['Diff rough', 'RMSE'] <- resultsOutRough$OOB_RMSE
+resdAnnoyMnFitAB['Diff rough', 'MAE'] <- resultsOutRough$OOB_MAE
+resdAnnoyMnFitAB['Diff rough', 'Rsquared'] <- resultsOutRough$Rsquared
+resdAnnoyMnPermImpAB$DiffRough <- resultsOutRough$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutRough.conimp <- arrange(resultsOutRough$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=CondPermImp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("dRoughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMndRoughConPermimp.svg", width=8, height=2, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMndRoughConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMndRoughConPermimp.pdf", width=8, height=2, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMndRoughConPermimp.pdf")
+}
+
+
+```
+
+Selected metric
+
+```{r}
+
+dRoughVar <- "dRoughECMA05ExBin"
+
+```
+
+##### dImpulsiveness
+
+###### Set variables
+
+```{r}
+# Impulsiveness
+iVars <- c(diffVar, "UASEventPerMin", "dImpulsSHMAvgMaxLR", "dImpulsSHM05ExMaxLR", "dImpulsSHMPowAvgMaxLR")
+dVar <- "dAnnoyMean"
+
+seeds <- c(418659, 7805, 38475, 65834, 1653)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 251
+mtry <- as.integer(length(iVars)/1.25)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutImpuls <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutImpuls$OOB_RMSE
+resultsOutImpuls$OOB_MAE
+resultsOutImpuls$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutImpuls <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutImpuls$OOB_RMSE
+resultsOutImpuls$OOB_MAE
+resultsOutImpuls$Rsquared
+
+```
+
+```{r}
+
+# store results
+resdAnnoyMnFitAB['Diff impuls', 'RMSE'] <- resultsOutImpuls$OOB_RMSE
+resdAnnoyMnFitAB['Diff impuls', 'MAE'] <- resultsOutImpuls$OOB_MAE
+resdAnnoyMnFitAB['Diff impuls', 'Rsquared'] <- resultsOutImpuls$Rsquared
+resdAnnoyMnPermImpAB$DiffImpuls <- resultsOutImpuls$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutImpuls.conimp <- arrange(resultsOutImpuls$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=CondPermImp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("dImpulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMndImpulsConPermimp.svg", width=8, height=2, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMndImpulsConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMndImpulsConPermimp.pdf", width=8, height=2, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMndImpulsConPermimp.pdf")
+}
+
+```
+
+Selected metric
+
+```{r}
+
+dImpulsVar <- "dImpulsSHMAvgMaxLR"
+
+```
+
+#### dSQM and loudness comparison
+
+Now the highest importance dSQMs are ranked against each other, controlling for loudness difference.
+
+##### Include dtonal loudness
+
+###### Set variables
+
+```{r}
+
+iVars <- c(diffVar, "UASEventPerMin", dSharpVar, dTonLdVar, dFluctVar, dRoughVar, dImpulsVar)
+dVar <- "dAnnoyMean"
+
+seeds <- c(98465, 54163, 6541, 36485, 849675)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 5501
+mtry <- as.integer(length(iVars)/1.25)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutSQMs1 <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSQMs1$OOB_RMSE
+resultsOutSQMs1$OOB_MAE
+resultsOutSQMs1$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutSQMs1 <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSQMs1$OOB_RMSE
+resultsOutSQMs1$OOB_MAE
+resultsOutSQMs1$Rsquared
+
+```
+
+```{r}
+
+# store results
+resdAnnoyMnFitAB['Diff SQMs inc tonal loud', 'RMSE'] <- resultsOutSQMs1$OOB_RMSE
+resdAnnoyMnFitAB['Diff SQMs inc tonal loud', 'MAE'] <- resultsOutSQMs1$OOB_MAE
+resdAnnoyMnFitAB['Diff SQMs inc tonal loud', 'Rsquared'] <- resultsOutSQMs1$Rsquared
+resdAnnoyMnPermImpAB$DiffSQMs1 <- resultsOutSQMs1$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs1.conimp <- arrange(resultsOutSQMs1$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 2.4))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnDiffSQMsTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnDiffSQMsTonLdConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnDiffSQMsTonLdConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnDiffSQMsTonLdConPermimp.pdf")
+}
+
+```
+
+##### Exclude tonal loudness
+
+###### Set variables
+
+```{r}
+
+iVars <- c(diffVar, "UASEventPerMin", dSharpVar, dTonalVar, dFluctVar, dRoughVar, dImpulsVar)
+dVar <- "dAnnoyMean"
+
+seeds <- c(49865, 7852, 845961, 410583, 36748)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 5501
+mtry <- as.integer(length(iVars)/1.25)
+
+```
+
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutSQMs2 <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSQMs2$OOB_RMSE
+resultsOutSQMs2$OOB_MAE
+resultsOutSQMs2$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutSQMs2 <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSQMs2$OOB_RMSE
+resultsOutSQMs2$OOB_MAE
+resultsOutSQMs2$Rsquared
+
+```
+
+```{r}
+
+# store results
+resdAnnoyMnFitAB['Diff SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_RMSE
+resdAnnoyMnFitAB['Diff SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_MAE
+resdAnnoyMnFitAB['Diff SQMs no tonal loud', 'Rsquared'] <- resultsOutSQMs2$Rsquared
+resdAnnoyMnPermImpAB$DiffSQMs2 <- resultsOutSQMs2$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs2.conimp <- arrange(resultsOutSQMs2$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 2.4))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMnDiffSQMsNoTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMnDiffSQMsNoTonLdConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMnDiffSQMsNoTonLdConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMnDiffSQMsNoTonLdConPermimp.pdf")
+}
+
+```
+
+### Save the results outputs to file
+
+```{r}
+
+if (savedata){
+  utils::write.csv(resdAnnoyMnFitAB, paste(outDataPath, "\\PtsABCRFdAnnoyMnOOBFit.csv", sep=""))
+  ii <- 0
+  temp = list()
+  for (res in resdAnnoyMnPermImpAB){
+    ii <- ii + 1
+    temp[[ii]] <- as.data.frame(resdAnnoyMnPermImpAB[ii])
+    names(temp[[ii]]) <- names(resdAnnoyMnPermImpAB[ii])
+  }
+  openxlsx::write.xlsx(temp, paste(outDataPath, "\\PtsABCRFdAnnoyMnConPermimp.xlsx",
+                                   sep=""),
+                       rowNames=TRUE)
+}
+
+```
+
+## (Change to) High annoyance
+
+Initialise results output variables
+
+```{r}
+resdHiAnnoyFitAB <- data.frame(RMSE = numeric(),
+                             MAE = numeric(),
+                             Rsquared = numeric())
+resdHiAnnoyPermImpAB <- list()
+
+```
+
+### All variables (absolute and difference)
+
+#### Remove ambient only stimuli
+
+Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
+
+```{r}
+stimDataNum <- stimDataNum[complete.cases(stimDataNum),]
+stimDataNum$UASLAeq <- as.numeric(stimDataNum$UASLAeq)
+stimDataNum$SNRlevel <- as.numeric(stimDataNum$SNRlevel)
+```
+
+#### Set variables
+
+```{r}
+
+iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEventPerMin'):which(names(stimDataNum) == 'UASImpulsSHM05ExMaxLR')]
+iVars <- iVars[! iVars %in% 'SNRlevel']
+iVars <- c(iVars,
+           names(stimDataNum)[which(colnames(stimDataNum)=="LAeqLAF90diff"):
+                               which(colnames(stimDataNum)=="dImpulsSHM05ExMaxLR")], "SNRlevel")
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(2, 312, 1897, 465978, 821659)
+
+```
+
+#### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 5501
+mtry <- as.integer(length(iVars)/2.25)
+
+```
+
+#### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 10
+
+resultsOutAbsDiffs <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutAbsDiffs$OOB_RMSE
+resultsOutAbsDiffs$OOB_MAE
+resultsOutAbsDiffs$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutAbsDiffs <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutAbsDiffs$OOB_RMSE
+resultsOutAbsDiffs$OOB_MAE
+resultsOutAbsDiffs$Rsquared
+```
+
+```{r}
+# store results
+resdHiAnnoyFitAB['All vars', 'RMSE'] <- resultsOutAbsDiffs$OOB_RMSE
+resdHiAnnoyFitAB['All vars', 'MAE'] <- resultsOutAbsDiffs$OOB_MAE
+resdHiAnnoyFitAB['All vars', 'Rsquared'] <- resultsOutAbsDiffs$Rsquared
+resdHiAnnoyPermImpAB$AllVars <- resultsOutAbsDiffs$conditional_permimp
+
+```
+
+#### Plot results
+
+```{r, fig.width=8,fig.height=20}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutAbsDiffs.conimp <- arrange(resultsOutAbsDiffs$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutAbsDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbsDiffs.conimp), levels=rownames(resultsOutAbsDiffs.conimp)), y=CondPermImp), fill=mycolours[9], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimp.svg", width=8, height=20, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyAllVarsConPermimp.svg")
+
+  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimp.pdf", width=8, height=20, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyAllVarsConPermimp.pdf")
+}
+
+```
+
+```{r, fig.width=8,fig.height=14}
+
+# Plot only positive values
+
+resultsOutAbsDiffs.conimpPtv <- resultsOutAbsDiffs.conimp |>
+                                          rownames_to_column('Metric') |>
+                                                filter_if(is.numeric, all_vars(. > 0)) |>
+                                                      column_to_rownames('Metric')
+
+pBar <- ggplot(resultsOutAbsDiffs.conimpPtv) + geom_col(aes(x=factor(rownames(resultsOutAbsDiffs.conimpPtv), levels=rownames(resultsOutAbsDiffs.conimpPtv)), y=CondPermImp), fill=mycolours[9], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimpPtv.svg", width=8, height=14, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyAllVarsConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimpPtv.pdf", width=8, height=14, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyAllVarsConPermimp.pdf")
+}
+
+```
+
+
+```{r, fig.width=8,fig.height=4}
+
+# Plot only values within 1% of the maximum
+
+resultsOutAbsDiffs.conimp1pc <- resultsOutAbsDiffs.conimp |>
+                                          rownames_to_column('Metric') |>
+                                                filter_if(is.numeric, all_vars(. > max(resultsOutAbsDiffs.conimp)/100)) |>
+                                                      column_to_rownames('Metric')
+
+pBar <- ggplot(resultsOutAbsDiffs.conimp1pc) + geom_col(aes(x=factor(rownames(resultsOutAbsDiffs.conimp1pc), levels=rownames(resultsOutAbsDiffs.conimp1pc)), y=CondPermImp), fill=mycolours[9], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimp1pc.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyAllVarsConPermimp1pc.svg")
+  
+  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimp1pc.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyAllVarsConPermimp1pc.pdf")
+}
+
+```
+
+
+### Absolute variables
+
+#### Set variables
+
+```{r}
+
+iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEventPerMin'):which(names(stimDataNum) == 'UASImpulsSHM05ExMaxLR')]
+iVars <- iVars[! iVars %in% c('SNRlevel')]
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(578312, 544, 84894, 54654, 153157)
+
+```
+
+#### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyAbsVarsHyperTune.svg", width=12, height=4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyAbsVarsHyperTune.svg")
+
+  ggsave(filename="PtsABdHiAnnoyAbsVarsHyperTune.pdf", width=12, height=4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyAbsVarsHyperTune.pdf")
+}
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 1501
+mtry <- as.integer(length(iVars)/2.25)
+
+```
+
+#### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutAbs <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutAbs$OOB_RMSE
+resultsOutAbs$OOB_MAE
+resultsOutAbs$Rsquared
+
+```
+Train multiple seeds model
+
+```{r}
+
+resultsOutAbs <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutAbs$OOB_RMSE
+resultsOutAbs$OOB_MAE
+resultsOutAbs$Rsquared
+
+```
+
+
+```{r}
+
+# store results
+resdHiAnnoyFitAB['Abs vars', 'RMSE'] <- resultsOutAbs$OOB_RMSE
+resdHiAnnoyFitAB['Abs vars', 'MAE'] <- resultsOutAbs$OOB_MAE
+resdHiAnnoyFitAB['Abs vars', 'Rsquared'] <- resultsOutAbs$Rsquared
+resdHiAnnoyPermImpAB$AbsVars <- resultsOutAbs$conditional_permimp
+
+```
+
+#### Plot results
+
+```{r, fig.width=8,fig.height=11.5}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutAbs.conimp <- arrange(resultsOutAbs$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimp), levels=rownames(resultsOutAbs.conimp)), y=CondPermImp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) +
+  coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimp.svg", width=8, height=11.5, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyAbsVarsConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimp.pdf", width=8, height=11.5, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyAbsVarsConPermimp.pdf")
+}
+```
+
+```{r, fig.width=8,fig.height=8}
+
+# Plot only positive values
+resultsOutAbs.conimpPtv <- resultsOutAbs.conimp |>
+                                          rownames_to_column('Metric') |>
+                                                filter_if(is.numeric, all_vars(. > 0)) |>
+                                                      column_to_rownames('Metric')
+
+pBar <- ggplot(resultsOutAbs.conimpPtv,) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimpPtv), levels=rownames(resultsOutAbs.conimpPtv)), y=CondPermImp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimpPtv.svg", width=8, height=8, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyAbsVarsConPermimpPtv.svg")
+  
+  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimpPtv.pdf", width=8, height=8, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyAbsVarsConPermimpPtv.pdf")
+}
+
+```
+
+
+```{r, fig.width=8,fig.height=4}
+
+# Plot only values within 1% of the maximum
+resultsOutAbs.conimp1pc <- resultsOutAbs.conimp |>
+                                          rownames_to_column('Metric') |>
+                                                filter_if(is.numeric, all_vars(. > max(resultsOutAbs.conimp)/100)) |>
+                                                      column_to_rownames('Metric')
+
+pBar <- ggplot(resultsOutAbs.conimp1pc,) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimp1pc), levels=rownames(resultsOutAbs.conimp1pc)), y=CondPermImp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimp1pc.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyAbsVarsConPermimp1pc.svg")
+  
+  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimp1pc.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyAbsVarsConPermimp1pc.pdf")
+}
+
+```
+
+Selected metric
+
+```{r}
+
+absVar <- "UASLoudECMAPowAvgBin"
+
+```
+
+### SQM analysis
+
+#### Replace ambient only stimuli
+
+Here, the 'ambient only' stimuli are replaced, as the SQM analysis can incorporate 0 values (whereas dB metrics cannot be handled in this way).
+
+```{r}
+
+stimDataNum <- rbind(stimDataNum, stimData[stimData['Stimulus']
+                                              == "A1",
+                                              colnames(stimDataNum)],
+                      stimData[stimData['Stimulus']
+                                              == "A2",
+                                              colnames(stimDataNum)])
+stimDataNum <- arrange(stimDataNum, Stimulus)
+
+```
+
+#### Individual SQMs
+
+##### Sharpness
+
+###### Set variables
+
+```{r}
+
+iVars <- c(absVar, "UASEventPerMin", "AmbientLAeq", "UASSharpAurISO3PowAvgMaxLR", "UASSharpAurISO305ExMaxLR", "UASSharpAurSHMPowAvgMaxLR", "UASSharpAurSHM05ExMaxLR", "UASSharpAurISO1PowAvgMaxLR", "UASSharpAurISO105ExMaxLR", "UASSharpvBISO1PowAvgMaxLR", "UASSharpvBISO105ExMaxLR", "UASSharpDINPowAvgMaxLR", "UASSharpDIN05ExMaxLR")
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(7041, 905, 4984651, 6513213, 120651)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 501
+mtry <- as.integer(length(iVars)/1.5)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutSharp <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSharp$OOB_RMSE
+resultsOutSharp$OOB_MAE
+resultsOutSharp$Rsquared
+
+```
+Train multiple seeds model
+
+```{r}
+
+resultsOutSharp <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSharp$OOB_RMSE
+resultsOutSharp$OOB_MAE
+resultsOutSharp$Rsquared
+
+```
+
+
+```{r}
+# store results
+resdHiAnnoyFitAB['Abs sharp', 'RMSE'] <- resultsOutSharp$OOB_RMSE
+resdHiAnnoyFitAB['Abs sharp', 'MAE'] <- resultsOutSharp$OOB_MAE
+resdHiAnnoyFitAB['Abs sharp', 'Rsquared'] <- resultsOutSharp$Rsquared
+resdHiAnnoyPermImpAB$AbsSharp <- resultsOutSharp$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=4.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSharp.conimp <- arrange(resultsOutSharp$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=CondPermImp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoySharpConPermimp.svg", width=8, height=4.9, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoySharpConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoySharpConPermimp.pdf", width=8, height=4.9, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoySharpConPermimp.pdf")
+}
+
+
+```
+
+Selected metric
+
+```{r}
+
+sharpVar <- "UASSharpAurISO305ExMaxLR"
+
+```
+
+
+##### Tonal loudness and tonality
+
+###### Set variables
+
+```{r}
+
+iVars <- c(absVar, "UASEventPerMin", "AmbientLAeq", "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonLdECMAPowAvgBin", "UASTonLdECMA05ExBin", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR")
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(540, 104798, 456464, 87331, 94564)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 501
+mtry <- as.integer(length(iVars)/1.5)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+# Tonality with tonal loudness
+
+nperm <- 5
+
+resultsOutTonal1 <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutTonal1$OOB_RMSE
+resultsOutTonal1$OOB_MAE
+resultsOutTonal1$Rsquared
+```
+
+Train multiple seeds model
+
+```{r}
+# Tonality with tonal loudness
+
+resultsOutTonal1 <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutTonal1$OOB_RMSE
+resultsOutTonal1$OOB_MAE
+resultsOutTonal1$Rsquared
+
+```
+
+```{r}
+# store results
+resdHiAnnoyFitAB['Abs tonal inc loud', 'RMSE'] <- resultsOutTonal1$OOB_RMSE
+resdHiAnnoyFitAB['Abs tonal inc loud', 'MAE'] <- resultsOutTonal1$OOB_MAE
+resdHiAnnoyFitAB['Abs tonal inc loud', 'Rsquared'] <- resultsOutTonal1$Rsquared
+resdHiAnnoyPermImpAB$AbsTonal1 <- resultsOutTonal1$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=3.8}
+
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal1.conimp <- arrange(resultsOutTonal1$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 110))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyTonalLdConPermimp.svg", width=8, height=3.8, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyTonalLdConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoyTonalLdConPermimp.pdf", width=8, height=3.8, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyTonalLdConPermimp.pdf")
+}
+
+```
+
+Selected metric
+
+```{r}
+
+tonLdVar <- "UASTonLdECMAPowAvgBin"
+
+```
+
+
+##### Tonality without tonal loudness
+
+###### Set variables
+
+```{r}
+
+iVars <- c(absVar, "UASEventPerMin", "AmbientLAeq", "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR")
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(156089, 5860, 10528, 89541, 4685146)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 501
+mtry <- as.integer(length(iVars)/1.25)
+
+```
+
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+# Tonality
+
+nperm <- 5
+
+resultsOutTonal2 <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2],
+                           ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm,
+                           minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutTonal2$OOB_RMSE
+resultsOutTonal2$OOB_MAE
+resultsOutTonal2$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+# Tonality
+
+resultsOutTonal2 <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutTonal2$OOB_RMSE
+resultsOutTonal2$OOB_MAE
+resultsOutTonal2$Rsquared
+
+```
+
+
+```{r}
+
+# store results
+resdHiAnnoyFitAB['Abs tonal no loud', 'RMSE'] <- resultsOutTonal2$OOB_RMSE
+resdHiAnnoyFitAB['Abs tonal no loud', 'MAE'] <- resultsOutTonal2$OOB_MAE
+resdHiAnnoyFitAB['Abs tonal no loud', 'Rsquared'] <- resultsOutTonal2$Rsquared
+resdHiAnnoyPermImpAB$AbsTonal2 <- resultsOutTonal2$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=3.2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal2.conimp <- arrange(resultsOutTonal2$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 110))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyTonalConPermimp.svg", width=8, height=3.2, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyTonalConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoyTonalConPermimp.pdf", width=8, height=3.2, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyTonalConPermimp.pdf")
+}
+
+
+```
+
+Selected metric
+
+```{r}
+
+tonalVar <- "UASTonalSHMIntAvgMaxLR"
+
+```
+
+##### Fluctuation strength
+
+###### Set variables
+
+```{r}
+
+# Fluctuation strength
+iVars <- c(absVar, "UASEventPerMin", "AmbientLAeq", "UASFluctSHM10ExBin", "UASFluctSHM05ExBin", "UASFluctFZ10ExMaxLR", "UASFluctFZ05ExMaxLR", "UASFluctOV10ExMaxLR", "UASFluctOV05ExMaxLR")
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(25107, 546098, 195, 5937, 102658)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 1501
+mtry <- as.integer(length(iVars)/1.25)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutFluct <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2],
+                          ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres,
+                          nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutFluct$OOB_RMSE
+resultsOutFluct$OOB_MAE
+resultsOutFluct$Rsquared
+
+```
+Train multiple seeds model
+
+```{r}
+
+resultsOutFluct <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutFluct$OOB_RMSE
+resultsOutFluct$OOB_MAE
+resultsOutFluct$Rsquared
+
+```
+
+
+```{r}
+
+# store results
+resdHiAnnoyFitAB['Abs fluct', 'RMSE'] <- resultsOutFluct$OOB_RMSE
+resdHiAnnoyFitAB['Abs fluct', 'MAE'] <- resultsOutFluct$OOB_MAE
+resdHiAnnoyFitAB['Abs fluct', 'Rsquared'] <- resultsOutFluct$Rsquared
+resdHiAnnoyPermImpAB$AbsFluct <- resultsOutFluct$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutFluct.conimp <- arrange(resultsOutFluct$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=CondPermImp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyFluctConPermimp.svg", width=8, height=2.9, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyFluctConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoyFluctConPermimp.pdf", width=8, height=2.9, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyFluctConPermimp.pdf")
+}
+
+```
+
+Selected metric
+
+```{r}
+
+fluctVar <- "UASFluctOV10ExMaxLR"
+
+```
+
+##### Roughness
+
+###### Set variables
+
+```{r}
+
+# Roughness
+iVars <- c(absVar, "UASEventPerMin", "AmbientLAeq", "UASRoughECMA10ExBin", "UASRoughECMA05ExBin", "UASRoughFZ10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASRoughDW10ExMaxLR", "UASRoughDW05ExMaxLR")
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(4701, 52187, 16589, 65217, 16893)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 1001
+mtry <- as.integer(length(iVars)/1.25)
+
+```
+
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutRough <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutRough$OOB_RMSE
+resultsOutRough$OOB_MAE
+resultsOutRough$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutRough <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutRough$OOB_RMSE
+resultsOutRough$OOB_MAE
+resultsOutRough$Rsquared
+
+```
+
+```{r}
+# store results
+resdHiAnnoyFitAB['Abs rough', 'RMSE'] <- resultsOutRough$OOB_RMSE
+resdHiAnnoyFitAB['Abs rough', 'MAE'] <- resultsOutRough$OOB_MAE
+resdHiAnnoyFitAB['Abs rough', 'Rsquared'] <- resultsOutRough$Rsquared
+resdHiAnnoyPermImpAB$AbsRough <- resultsOutRough$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2.9}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutRough.conimp <- arrange(resultsOutRough$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=CondPermImp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyRoughConPermimp.svg", width=8, height=2.9, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyRoughConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoyRoughConPermimp.pdf", width=8, height=2.9, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyRoughConPermimp.pdf")
+}
+
+
+```
+
+Selected metric
+
+```{r}
+
+roughVar <- "UASRoughFZ05ExMaxLR"
+
+```
+
+
+##### Impulsiveness
+
+###### Set variables
+
+```{r}
+# Impulsiveness
+iVars <- c(absVar, "UASEventPerMin", "AmbientLAeq", "UASImpulsSHMAvgMaxLR", "UASImpulsSHM05ExMaxLR", "UASImpulsSHMPowAvgMaxLR")
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(8495, 59867, 5416, 9843, 86)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 251
+mtry <- as.integer(length(iVars)/1.75)
+
+```
+
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutImpuls <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutImpuls$OOB_RMSE
+resultsOutImpuls$OOB_MAE
+resultsOutImpuls$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutImpuls <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutImpuls$OOB_RMSE
+resultsOutImpuls$OOB_MAE
+resultsOutImpuls$Rsquared
+
+```
+
+```{r}
+
+# store results
+resdHiAnnoyFitAB['Abs impuls', 'RMSE'] <- resultsOutImpuls$OOB_RMSE
+resdHiAnnoyFitAB['Abs impuls', 'MAE'] <- resultsOutImpuls$OOB_MAE
+resdHiAnnoyFitAB['Abs impuls', 'Rsquared'] <- resultsOutImpuls$Rsquared
+resdHiAnnoyPermImpAB$AbsImpuls <- resultsOutImpuls$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutImpuls.conimp <- arrange(resultsOutImpuls$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=CondPermImp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyImpulsConPermimp.svg", width=8, height=2, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyImpulsConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoyImpulsConPermimp.pdf", width=8, height=2, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyImpulsConPermimp.pdf")
+}
+
+```
+
+Selected metric
+
+```{r}
+
+impulsVar <- "UASImpulsSHMAvgMaxLR"
+
+```
+
+#### SQM and loudness comparison
+
+Now the highest importance SQMs are ranked against each other, controlling for UAS loudness and ambient LAeq.
+
+##### Include tonal loudness
+
+###### Set variables
+
+```{r}
+
+iVars <- c(absVar, "UASEventPerMin", "AmbientLAeq", sharpVar, tonLdVar, fluctVar, roughVar, impulsVar)
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(70498, 4, 14986, 453, 864)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 1501
+mtry <- as.integer(length(iVars)/1.5)
+
+```
+
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutSQMs1 <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSQMs1$OOB_RMSE
+resultsOutSQMs1$OOB_MAE
+resultsOutSQMs1$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutSQMs1 <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSQMs1$OOB_RMSE
+resultsOutSQMs1$OOB_MAE
+resultsOutSQMs1$Rsquared
+
+```
+
+```{r}
+
+# store results
+resdHiAnnoyFitAB['Abs SQMs inc tonal loud', 'RMSE'] <- resultsOutSQMs1$OOB_RMSE
+resdHiAnnoyFitAB['Abs SQMs inc tonal loud', 'MAE'] <- resultsOutSQMs1$OOB_MAE
+resdHiAnnoyFitAB['Abs SQMs inc tonal loud', 'Rsquared'] <- resultsOutSQMs1$Rsquared
+resdHiAnnoyPermImpAB$AbsSQMs1 <- resultsOutSQMs1$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs1.conimp <- arrange(resultsOutSQMs1$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 90))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyAbsSQMsTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyAbsSQMsTonLdConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoyAbsSQMsTonLdConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyAbsSQMsTonLdConPermimp.pdf")
+}
+
+```
+
+##### Exclude tonal loudness
+
+###### Set variables
+
+```{r}
+
+iVars <- c(absVar, "UASEventPerMin", "AmbientLAeq", sharpVar, tonalVar, fluctVar, roughVar, impulsVar)
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(546, 57203, 270835, 60592, 8094)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 1001
+mtry <- as.integer(length(iVars)/1.25)
+
+```
+
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutSQMs2 <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSQMs2$OOB_RMSE
+resultsOutSQMs2$OOB_MAE
+resultsOutSQMs2$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutSQMs2 <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSQMs2$OOB_RMSE
+resultsOutSQMs2$OOB_MAE
+resultsOutSQMs2$Rsquared
+
+```
+
+```{r}
+
+# store results
+resdHiAnnoyFitAB['Abs SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_RMSE
+resdHiAnnoyFitAB['Abs SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_MAE
+resdHiAnnoyFitAB['Abs SQMs no tonal loud', 'Rsquared'] <- resultsOutSQMs2$Rsquared
+resdHiAnnoyPermImpAB$AbsSQMs2 <- resultsOutSQMs2$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs2.conimp <- arrange(resultsOutSQMs2$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 90))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyAbsSQMsNoTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyAbsSQMsNoTonLdConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoyAbsSQMsNoTonLdConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyAbsSQMsNoTonLdConPermimp.pdf")
+}
+
+```
+
+### Difference variables
+
+Next, the difference metrics are analysed, 
+
+#### Remove ambient only stimuli
+
+Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
+
+```{r}
+stimDataNum <- stimDataNum[complete.cases(stimDataNum),]
+stimDataNum$UASLAeq <- as.numeric(stimDataNum$UASLAeq)
+stimDataNum$SNRlevel <- as.numeric(stimDataNum$SNRlevel)
+```
+
+#### Set variables
+
+```{r}
+
+iVars <- c(names(stimDataNum)[which(colnames(stimDataNum)=="LAeqLAF90diff"):
+                               which(colnames(stimDataNum)=="dImpulsSHM05ExMaxLR")],
+           "UASEventPerMin", "SNRlevel")
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(568392, 498, 4089, 78132, 741809)
+
+```
+
+#### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 1501
+mtry <- as.integer(length(iVars)/1.5)
+
+```
+
+#### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutDiffs <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutDiffs$OOB_RMSE
+resultsOutDiffs$OOB_MAE
+resultsOutDiffs$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutDiffs <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutDiffs$OOB_RMSE
+resultsOutDiffs$OOB_MAE
+resultsOutDiffs$Rsquared
+
+```
+
+```{r}
+
+# store results
+resdHiAnnoyFitAB['Diff vars', 'RMSE'] <- resultsOutDiffs$OOB_RMSE
+resdHiAnnoyFitAB['Diff vars', 'MAE'] <- resultsOutDiffs$OOB_MAE
+resdHiAnnoyFitAB['Diff vars', 'Rsquared'] <- resultsOutDiffs$Rsquared
+resdHiAnnoyPermImpAB$DiffVars <- resultsOutDiffs$conditional_permimp
+
+```
+
+#### Plot results
+
+```{r, fig.width=8,fig.height=10}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutDiffs.conimp <- arrange(resultsOutDiffs$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp), levels=rownames(resultsOutDiffs.conimp)), y=CondPermImp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyDiffVarsConPermimp.svg", width=8, height=10, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyDiffVarsConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoyDiffVarsConPermimp.pdf", width=8, height=10, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyDiffVarsConPermimp.pdf")
+}
+
+```
+```{r, fig.width=8,fig.height=9}
+
+# Plot only positive values
+resultsOutDiffs.conimpPtv <- resultsOutDiffs.conimp |>
+                                        rownames_to_column('Metric') |>
+                                            filter_if(is.numeric, all_vars(. > 0)) |>
+                                                  column_to_rownames('Metric')
+
+pBar <- ggplot(resultsOutDiffs.conimpPtv) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimpPtv), levels=rownames(resultsOutDiffs.conimpPtv)), y=CondPermImp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyDiffVarsConPermimpPtv.svg", width=8, height=9, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyDiffVarsConPermimpPtv.svg")
+  
+  ggsave(filename="PtsABdHiAnnoyDiffVarsConPermimpPtv.pdf", width=8, height=9, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyDiffVarsConPermimpPtv.pdf")
+}
+
+```
+
+```{r, fig.width=8,fig.height=4}
+
+# Plot only values within 1% of the maximum
+resultsOutDiffs.conimp1pc <- resultsOutDiffs.conimp |>
+                                        rownames_to_column('Metric') |>
+                                            filter_if(is.numeric, all_vars(. > max(resultsOutDiffs.conimp)/100)) |>
+                                                  column_to_rownames('Metric')
+
+pBar <- ggplot(resultsOutDiffs.conimp1pc) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp1pc), levels=rownames(resultsOutDiffs.conimp1pc)), y=CondPermImp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyDiffVarsConPermimp1pc.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyDiffVarsConPermimp1pc.svg")
+  
+  ggsave(filename="PtsABdHiAnnoyDiffVarsConPermimp1pc.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyDiffVarsConPermimp1pc.pdf")
+}
+
+```
+
+Selected metric
+
+```{r}
+
+diffVar <- "EPNLLAeqdiff"
+
+```
+
+### dSQM analysis
+
+The ambient-only stimuli are NOT replaced here, as the difference analysis includes dB metrics.
+
+#### Individual SQMs
+
+##### dSharpness
+
+###### Set variables
+
+```{r}
+
+iVars <- c(diffVar, "UASEventPerMin", "dSharpAurISO3PowAvgMaxLR", "dSharpAurISO305ExMaxLR", "dSharpAurSHMPowAvgMaxLR", "dSharpAurSHM05ExMaxLR")
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(84194, 905, 64815, 928054, 625091, 582031)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 2501
+mtry <- as.integer(length(iVars)/1.75)
+
+```
+
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutSharp <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSharp$OOB_RMSE
+resultsOutSharp$OOB_MAE
+resultsOutSharp$Rsquared
+
+```
+Train multiple seeds model
+
+```{r}
+
+resultsOutSharp <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSharp$OOB_RMSE
+resultsOutSharp$OOB_MAE
+resultsOutSharp$Rsquared
+
+```
+
+
+```{r}
+# store results
+resdHiAnnoyFitAB['Diff sharp', 'RMSE'] <- resultsOutSharp$OOB_RMSE
+resdHiAnnoyFitAB['Diff sharp', 'MAE'] <- resultsOutSharp$OOB_MAE
+resdHiAnnoyFitAB['Diff sharp', 'Rsquared'] <- resultsOutSharp$Rsquared
+resdHiAnnoyPermImpAB$DiffSharp <- resultsOutSharp$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2.6}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSharp.conimp <- arrange(resultsOutSharp$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=CondPermImp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("dSharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoydSharpConPermimp.svg", width=8, height=2.6, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoydSharpConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoydSharpConPermimp.pdf", width=8, height=2.6, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoydSharpConPermimp.pdf")
+}
+
+
+```
+
+Selected metric
+
+```{r}
+
+dSharpVar <- "dSharpAurSHMPowAvgMaxLR"
+
+```
+
+
+##### dTonal loudness and dtonality
+
+###### Set variables
+
+```{r}
+
+iVars <- c(diffVar, "UASEventPerMin", "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR", "dTonLdECMAPowAvgBin", "dTonLdECMA05ExBin")
+dVar <- "dHighAnnoyPc"
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+seeds <- c(561684, 104798, 1536, 48, 48561)
+
+```
+Selected hyperparameters
+
+```{r}
+
+ntree <- 1501
+mtry <- as.integer(length(iVars)/1.25)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+# Tonality with tonal loudness
+
+nperm <- 5
+
+resultsOutTonal1 <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutTonal1$OOB_RMSE
+resultsOutTonal1$OOB_MAE
+resultsOutTonal1$Rsquared
+```
+
+Train multiple seeds model
+
+```{r}
+# Tonality with tonal loudness
+
+resultsOutTonal1 <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutTonal1$OOB_RMSE
+resultsOutTonal1$OOB_MAE
+resultsOutTonal1$Rsquared
+
+```
+
+```{r}
+# store results
+resdHiAnnoyFitAB['Diff tonal inc loud', 'RMSE'] <- resultsOutTonal1$OOB_RMSE
+resdHiAnnoyFitAB['Diff tonal inc loud', 'MAE'] <- resultsOutTonal1$OOB_MAE
+resdHiAnnoyFitAB['Diff tonal inc loud', 'Rsquared'] <- resultsOutTonal1$Rsquared
+resdHiAnnoyPermImpAB$DiffTonal1 <- resultsOutTonal1$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2.6}
+
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal1.conimp <- arrange(resultsOutTonal1$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("dTonality inc. dtonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 40))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoydTonalLdConPermimp.svg", width=8, height=2.6, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoydTonalLdConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoydTonalLdConPermimp.pdf", width=8, height=2.6, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoydTonalLdConPermimp.pdf")
+}
+
+```
+
+Selected metric
+
+```{r}
+
+dTonLdVar <- "dTonLdECMAPowAvgBin"
+
+```
+
+##### dTonality without dtonal loudness
+
+###### Set variables
+
+```{r}
+
+iVars <- c(diffVar, "UASEventPerMin", "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR")
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(410865, 2954, 70812, 203, 7984)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 501
+mtry <- as.integer(length(iVars)/1.75)
+
+```
+
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+# Tonality
+
+nperm <- 5
+
+resultsOutTonal2 <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutTonal2$OOB_RMSE
+resultsOutTonal2$OOB_MAE
+resultsOutTonal2$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+# Tonality
+
+resultsOutTonal2 <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutTonal2$OOB_RMSE
+resultsOutTonal2$OOB_MAE
+resultsOutTonal2$Rsquared
+
+```
+
+
+```{r}
+
+# store results
+resdHiAnnoyFitAB['Diff tonal no loud', 'RMSE'] <- resultsOutTonal2$OOB_RMSE
+resdHiAnnoyFitAB['Diff tonal no loud', 'MAE'] <- resultsOutTonal2$OOB_MAE
+resdHiAnnoyFitAB['Diff tonal no loud', 'Rsquared'] <- resultsOutTonal2$Rsquared
+resdHiAnnoyPermImpAB$DiffTonal2 <- resultsOutTonal2$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutTonal2.conimp <- arrange(resultsOutTonal2$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("dTonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 40))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoydTonalConPermimp.svg", width=8, height=2, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoydTonalConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoydTonalConPermimp.pdf", width=8, height=2, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoydTonalConPermimp.pdf")
+}
+
+
+```
+
+Selected metric
+
+```{r}
+
+dTonalVar <- "dTonalSHMIntAvgMaxLR"
+
+```
+
+##### dFluctuation strength
+
+###### Set variables
+
+```{r}
+
+# Fluctuation strength
+iVars <- c(diffVar, "UASEventPerMin", "dFluctSHM10ExBin", "dFluctSHM05ExBin", "dFluctOV10ExMaxLR", "dFluctOV05ExMaxLR")
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(418657, 84, 1630, 18659, 3687)
+
+```
+
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 501
+mtry <- as.integer(length(iVars)/1.75)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutFluct <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutFluct$OOB_RMSE
+resultsOutFluct$OOB_MAE
+resultsOutFluct$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutFluct <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutFluct$OOB_RMSE
+resultsOutFluct$OOB_MAE
+resultsOutFluct$Rsquared
+
+```
+
+
+```{r}
+
+# store results
+resdHiAnnoyFitAB['Diff fluct', 'RMSE'] <- resultsOutFluct$OOB_RMSE
+resdHiAnnoyFitAB['Diff fluct', 'MAE'] <- resultsOutFluct$OOB_MAE
+resdHiAnnoyFitAB['Diff fluct', 'Rsquared'] <- resultsOutFluct$Rsquared
+resdHiAnnoyPermImpAB$DiffFluct <- resultsOutFluct$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutFluct.conimp <- arrange(resultsOutFluct$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=CondPermImp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("dFluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoydFluctConPermimp.svg", width=8, height=2, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyFluctConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoydFluctConPermimp.pdf", width=8, height=2, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyFluctConPermimp.pdf")
+}
+
+```
+
+Selected metric
+
+```{r}
+
+dFluctVar <- "dFluctSHM10ExBin"
+
+```
+
+##### dRoughness
+
+###### Set variables
+
+```{r}
+
+# Roughness
+iVars <- c(diffVar, "UASEventPerMin", "dRoughECMA10ExBin", "dRoughECMA05ExBin", "dRoughFZ10ExMaxLR", "dRoughFZ05ExMaxLR")
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(69851, 85109, 410986, 1563, 896)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 1501
+mtry <- as.integer(length(iVars)/1.75)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutRough <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutRough$OOB_RMSE
+resultsOutRough$OOB_MAE
+resultsOutRough$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutRough <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutRough$OOB_RMSE
+resultsOutRough$OOB_MAE
+resultsOutRough$Rsquared
+
+```
+
+```{r}
+# store results
+resdHiAnnoyFitAB['Diff rough', 'RMSE'] <- resultsOutRough$OOB_RMSE
+resdHiAnnoyFitAB['Diff rough', 'MAE'] <- resultsOutRough$OOB_MAE
+resdHiAnnoyFitAB['Diff rough', 'Rsquared'] <- resultsOutRough$Rsquared
+resdHiAnnoyPermImpAB$DiffRough <- resultsOutRough$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutRough.conimp <- arrange(resultsOutRough$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=CondPermImp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("dRoughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoydRoughConPermimp.svg", width=8, height=2, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoydRoughConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoydRoughConPermimp.pdf", width=8, height=2, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoydRoughConPermimp.pdf")
+}
+
+
+```
+
+Selected metric
+
+```{r}
+
+dRoughVar <- "dRoughFZ05ExMaxLR"
+
+```
+
+##### dImpulsiveness
+
+###### Set variables
+
+```{r}
+# Impulsiveness
+iVars <- c(diffVar, "UASEventPerMin", "dImpulsSHMAvgMaxLR", "dImpulsSHM05ExMaxLR", "dImpulsSHMPowAvgMaxLR")
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(418659, 7805, 38475, 65834, 1653)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 251
+mtry <- as.integer(length(iVars)/1.25)
+
+```
+
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutImpuls <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutImpuls$OOB_RMSE
+resultsOutImpuls$OOB_MAE
+resultsOutImpuls$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutImpuls <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutImpuls$OOB_RMSE
+resultsOutImpuls$OOB_MAE
+resultsOutImpuls$Rsquared
+
+```
+
+```{r}
+
+# store results
+resdHiAnnoyFitAB['Diff impuls', 'RMSE'] <- resultsOutImpuls$OOB_RMSE
+resdHiAnnoyFitAB['Diff impuls', 'MAE'] <- resultsOutImpuls$OOB_MAE
+resdHiAnnoyFitAB['Diff impuls', 'Rsquared'] <- resultsOutImpuls$Rsquared
+resdHiAnnoyPermImpAB$DiffImpuls <- resultsOutImpuls$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutImpuls.conimp <- arrange(resultsOutImpuls$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=CondPermImp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("dImpulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoydImpulsConPermimp.svg", width=8, height=2, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoydImpulsConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoydImpulsConPermimp.pdf", width=8, height=2, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoydImpulsConPermimp.pdf")
+}
+
+```
+
+Selected metric
+
+```{r}
+
+dImpulsVar <- "dImpulsSHMAvgMaxLR"
+
+```
+
+#### dSQM and loudness comparison
+
+Now the highest importance dSQMs are ranked against each other, controlling for loudness difference.
+
+##### Include dtonal loudness
+
+###### Set variables
+
+```{r}
+
+iVars <- c(diffVar, "UASEventPerMin", dSharpVar, dTonLdVar, dFluctVar, dRoughVar, dImpulsVar)
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(98465, 54163, 6541, 36485, 849675)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 501
+mtry <- as.integer(length(iVars)/1.25)
+
+```
+
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutSQMs1 <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSQMs1$OOB_RMSE
+resultsOutSQMs1$OOB_MAE
+resultsOutSQMs1$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutSQMs1 <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSQMs1$OOB_RMSE
+resultsOutSQMs1$OOB_MAE
+resultsOutSQMs1$Rsquared
+
+```
+
+```{r}
+
+# store results
+resdHiAnnoyFitAB['Diff SQMs inc tonal loud', 'RMSE'] <- resultsOutSQMs1$OOB_RMSE
+resdHiAnnoyFitAB['Diff SQMs inc tonal loud', 'MAE'] <- resultsOutSQMs1$OOB_MAE
+resdHiAnnoyFitAB['Diff SQMs inc tonal loud', 'Rsquared'] <- resultsOutSQMs1$Rsquared
+resdHiAnnoyPermImpAB$DiffSQMs1 <- resultsOutSQMs1$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs1.conimp <- arrange(resultsOutSQMs1$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 50))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyDiffSQMsTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyDiffSQMsTonLdConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoyDiffSQMsTonLdConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyDiffSQMsTonLdConPermimp.pdf")
+}
+
+```
+
+##### Exclude tonal loudness
+
+###### Set variables
+
+```{r}
+
+iVars <- c(diffVar, "UASEventPerMin", dSharpVar, dTonalVar, dFluctVar, dRoughVar, dImpulsVar)
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(49865, 7852, 845961, 410583, 36748)
+
+```
+
+###### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 1001
+mtry <- as.integer(length(iVars)/1.25)
+
+```
+
+###### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutSQMs2 <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSQMs2$OOB_RMSE
+resultsOutSQMs2$OOB_MAE
+resultsOutSQMs2$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutSQMs2 <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutSQMs2$OOB_RMSE
+resultsOutSQMs2$OOB_MAE
+resultsOutSQMs2$Rsquared
+
+```
+
+```{r}
+
+# store results
+resdHiAnnoyFitAB['Diff SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_RMSE
+resdHiAnnoyFitAB['Diff SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_MAE
+resdHiAnnoyFitAB['Diff SQMs no tonal loud', 'Rsquared'] <- resultsOutSQMs2$Rsquared
+resdHiAnnoyPermImpAB$DiffSQMs2 <- resultsOutSQMs2$conditional_permimp
+
+```
+
+###### Plot results
+
+```{r, fig.width=8,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutSQMs2.conimp <- arrange(resultsOutSQMs2$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 50))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyDiffSQMsNoTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyDiffSQMsNoTonLdConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoyDiffSQMsNoTonLdConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyDiffSQMsNoTonLdConPermimp.pdf")
+}
+
+```
+
+### Save the results outputs to file
+
+```{r}
+
+if (savedata){
+  utils::write.csv(resdHiAnnoyFitAB, paste(outDataPath, "\\PtsABCRFdHiAnnoyOOBFit.csv", sep=""))
+  ii <- 0
+  temp = list()
+  for (res in resdHiAnnoyPermImpAB){
+    ii <- ii + 1
+    temp[[ii]] <- as.data.frame(resdHiAnnoyPermImpAB[ii])
+    names(temp[[ii]]) <- names(resdHiAnnoyPermImpAB[ii])
+  }
+  openxlsx::write.xlsx(temp, paste(outDataPath, "\\PtsABCRFdHiAnnoyConPermimp.xlsx",
+                                   sep=""),
+                       rowNames=TRUE)
+}
+
+```
+
+
+## Parts A&B summary
+
+Summary of results for Parts A & B combined
+
+### With tonal loudness
+
+#### Absolute variables
+
+```{r, fig.width=8, fig.height=4}
+# combine the annoyance perm importance results
+
+# convert each result to a tibble with rownames added to a column, renaming the data column to 'dAnnoy' etc.
+resdAnnoyMnAbsPermImpTblAB <- as.data.frame(resdAnnoyMnPermImpAB$AbsSQMs1/max(resdAnnoyMnPermImpAB$AbsSQMs1)) |>
+  tibble::rownames_to_column(var='Variable')
+colnames(resdAnnoyMnAbsPermImpTblAB)[2] <- "dAnnoy"
+
+resdHiAnnoyAbsPermImpTblAB <- as.data.frame(resdHiAnnoyPermImpAB$AbsSQMs1/max(resdHiAnnoyPermImpAB$AbsSQMs1)) |>
+  tibble::rownames_to_column(var='Variable')
+colnames(resdHiAnnoyAbsPermImpTblAB)[2] <- "dHiAnnoy"
+
+# merge the dataframes
+resAbsPermImpTblAB <- list(resdAnnoyMnAbsPermImpTblAB, resdHiAnnoyAbsPermImpTblAB) |>
+  purrr::reduce(merge, by = c('Variable'), all = T)
+
+# rename the columns
+colnames(resAbsPermImpTblAB)[2:3] <- c("Mean change in annoyance", "%HA [p(HA | 0)]")
+resAbsPermImpTblAB[is.na(resAbsPermImpTblAB)] <- 0
+
+resAbsAB <- tidyr::pivot_longer(resAbsPermImpTblAB, cols=-Variable, names_to="Outcome", values_to="Imp")
+
+# reorder res tibble, descending by the variable Imp grouped sum and create column with new group order as a factor
+resAbsAB <- resAbsAB |> mutate(Variable_sum = sum(Imp), .by=Variable) |> arrange(desc(Variable_sum)) |> group_by(Variable_sum, Variable) |>
+   mutate(Order = cur_group_id()) |> mutate(Order = as.factor(Order)) |> arrange(desc(Order))
+
+# Reorder outcome levels
+resAbsAB$Outcome <- factor(resAbsAB$Outcome, levels=c("Mean change in annoyance", "%HA [p(HA | 0)]"))
+
+# plot res as horizontal bar chart, with Imp as y axis, Variable as x axis, Outcome as fill, and Variable_sum as order, relabel x axis with Variable names
+pBar <- ggplot(resAbsAB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable permutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours) + scale_x_discrete(labels=unique(rev(resAbsAB$Variable)))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABcrfAbsSQMsSummary.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABcrfAbsSQMsSummary.svg")
+  
+  ggsave(filename="PtsABcrfAbsSQMsSummary.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABcrfAbsSQMsSummary.pdf")
+}
+
+```
+#### Difference variables
+
+```{r, fig.width=8, fig.height=4}
+# combine the annoyance perm importance results
+
+# convert each result to a tibble with rownames added to a column, renaming the data column to 'dAnnoy' etc.
+resdAnnoyMnDiffPermImpTblAB <- as.data.frame(resdAnnoyMnPermImpAB$DiffSQMs1/max(resdAnnoyMnPermImpAB$DiffSQMs1)) |>
+  tibble::rownames_to_column(var='Variable')
+colnames(resdAnnoyMnDiffPermImpTblAB)[2] <- "dAnnoy"
+
+resdHiAnnoyDiffPermImpTblAB <- as.data.frame(resdHiAnnoyPermImpAB$DiffSQMs1/max(resdHiAnnoyPermImpAB$DiffSQMs1)) |>
+  tibble::rownames_to_column(var='Variable')
+colnames(resdHiAnnoyDiffPermImpTblAB)[2] <- "dHiAnnoy"
+
+# merge the dataframes
+resDiffPermImpTblAB <- list(resdAnnoyMnDiffPermImpTblAB, resdHiAnnoyDiffPermImpTblAB) |>
+  purrr::reduce(merge, by = c('Variable'), all = T)
+
+# rename the columns
+colnames(resDiffPermImpTblAB)[2:3] <- c("Mean change in annoyance", "%HA [p(HA | 0)]")
+resDiffPermImpTblAB[is.na(resDiffPermImpTblAB)] <- 0
+
+resDiffAB <- tidyr::pivot_longer(resDiffPermImpTblAB, cols=-Variable, names_to="Outcome", values_to="Imp")
+
+# reorder res tibble, descending by the variable Imp grouped sum and create column with new group order as a factor
+resDiffAB <- resDiffAB |> mutate(Variable_sum = sum(Imp), .by=Variable) |> arrange(desc(Variable_sum)) |> group_by(Variable_sum, Variable) |>
+   mutate(Order = cur_group_id()) |> mutate(Order = as.factor(Order)) |> arrange(desc(Order))
+
+# Reorder outcome levels
+resDiffAB$Outcome <- factor(resDiffAB$Outcome, levels=c("Mean change in annoyance", "%HA [p(HA | 0)]"))
+
+# plot res as horizontal bar chart, with Imp as y axis, Variable as x axis, Outcome as fill, and Variable_sum as order, relabel x axis with Variable names
+pBar <- ggplot(resDiffAB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable permutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours) + scale_x_discrete(labels=unique(rev(resDiffAB$Variable)))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABcrfDiffSQMsSummary.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABcrfDiffSQMsSummary.svg")
+  
+  ggsave(filename="PtsABcrfDiffSQMsSummary.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABcrfDiffSQMsSummary.pdf")
+}
+
+```
+
+### No tonal loudness
+
+#### Absolute variables
+
+```{r, fig.width=8, fig.height=4}
+# combine the annoyance perm importance results
+
+# convert each result to a tibble with rownames added to a column, renaming the data column to 'dAnnoy' etc.
+resdAnnoyMnAbsPermImpNoTonLdTblAB <- as.data.frame(resdAnnoyMnPermImpAB$AbsSQMs2/max(resdAnnoyMnPermImpAB$AbsSQMs2)) |>
+  tibble::rownames_to_column(var='Variable')
+colnames(resdAnnoyMnAbsPermImpNoTonLdTblAB)[2] <- "dAnnoy"
+
+resdHiAnnoyAbsPermImpNoTonLdTblAB <- as.data.frame(resdHiAnnoyPermImpAB$AbsSQMs2/max(resdHiAnnoyPermImpAB$AbsSQMs2)) |>
+  tibble::rownames_to_column(var='Variable')
+colnames(resdHiAnnoyAbsPermImpNoTonLdTblAB)[2] <- "dHiAnnoy"
+
+# merge the dataframes
+resAbsPermImpNoTonLdTblAB <- list(resdAnnoyMnAbsPermImpNoTonLdTblAB, resdHiAnnoyAbsPermImpNoTonLdTblAB) |>
+  purrr::reduce(merge, by = c('Variable'), all = T)
+
+# rename the columns
+colnames(resAbsPermImpNoTonLdTblAB)[2:3] <- c("Mean change in annoyance", "%HA [p(HA | 0)]")
+resAbsPermImpNoTonLdTblAB[is.na(resAbsPermImpNoTonLdTblAB)] <- 0
+
+resAbsNoTonLdAB <- tidyr::pivot_longer(resAbsPermImpNoTonLdTblAB, cols=-Variable, names_to="Outcome", values_to="Imp")
+
+# reorder res tibble, descending by the variable Imp grouped sum and create column with new group order as a factor
+resAbsNoTonLdAB <- resAbsNoTonLdAB |> mutate(Variable_sum = sum(Imp), .by=Variable) |> arrange(desc(Variable_sum)) |> group_by(Variable_sum, Variable) |>
+   mutate(Order = cur_group_id()) |> mutate(Order = as.factor(Order)) |> arrange(desc(Order))
+
+# Reorder outcome levels
+resAbsNoTonLdAB$Outcome <- factor(resAbsNoTonLdAB$Outcome, levels=c("Mean change in annoyance", "%HA [p(HA | 0)]"))
+
+# plot res as horizontal bar chart, with Imp as y axis, Variable as x axis, Outcome as fill, and Variable_sum as order, relabel x axis with Variable names
+pBar <- ggplot(resAbsNoTonLdAB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable permutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours) + scale_x_discrete(labels=unique(rev(resAbsNoTonLdAB$Variable)))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABcrfAbsSQMsNoTonLdSummary.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABcrfAbsSQMsNoTonLdSummary.svg")
+  
+  ggsave(filename="PtsABcrfAbsSQMsNoTonLdSummary.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABcrfAbsSQMsNoTonLdSummary.pdf")
+}
+
+```
+#### Difference variables
+
+```{r, fig.width=8, fig.height=4}
+# combine the annoyance perm importance results
+
+# convert each result to a tibble with rownames added to a column, renaming the data column to 'dAnnoy' etc.
+resdAnnoyMnDiffPermImpNoTonLdTblAB <- as.data.frame(resdAnnoyMnPermImpAB$DiffSQMs2/max(resdAnnoyMnPermImpAB$DiffSQMs2)) |>
+  tibble::rownames_to_column(var='Variable')
+colnames(resdAnnoyMnDiffPermImpNoTonLdTblAB)[2] <- "dAnnoy"
+
+resdHiAnnoyDiffPermImpNoTonLdTblAB <- as.data.frame(resdHiAnnoyPermImpAB$DiffSQMs2/max(resdHiAnnoyPermImpAB$DiffSQMs2)) |>
+  tibble::rownames_to_column(var='Variable')
+colnames(resdHiAnnoyDiffPermImpNoTonLdTblAB)[2] <- "dHiAnnoy"
+
+# merge the dataframes
+resDiffPermImpNoTonLdTblAB <- list(resdAnnoyMnDiffPermImpNoTonLdTblAB, resdHiAnnoyDiffPermImpNoTonLdTblAB) |>
+  purrr::reduce(merge, by = c('Variable'), all = T)
+
+# rename the columns
+colnames(resDiffPermImpNoTonLdTblAB)[2:3] <- c("Mean change in annoyance", "%HA [p(HA | 0)]")
+resDiffPermImpNoTonLdTblAB[is.na(resDiffPermImpNoTonLdTblAB)] <- 0
+
+resDiffNoTonLdAB <- tidyr::pivot_longer(resDiffPermImpNoTonLdTblAB, cols=-Variable, names_to="Outcome", values_to="Imp")
+
+# reorder res tibble, descending by the variable Imp grouped sum and create column with new group order as a factor
+resDiffNoTonLdAB <- resDiffNoTonLdAB |> mutate(Variable_sum = sum(Imp), .by=Variable) |> arrange(desc(Variable_sum)) |> group_by(Variable_sum, Variable) |>
+   mutate(Order = cur_group_id()) |> mutate(Order = as.factor(Order)) |> arrange(desc(Order))
+
+# Reorder outcome levels
+resDiffNoTonLdAB$Outcome <- factor(resDiffNoTonLdAB$Outcome, levels=c("Mean change in annoyance", "%HA [p(HA | 0)]"))
+
+# plot res as horizontal bar chart, with Imp as y axis, Variable as x axis, Outcome as fill, and Variable_sum as order, relabel x axis with Variable names
+pBar <- ggplot(resDiffNoTonLdAB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable permutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours) + scale_x_discrete(labels=unique(rev(resDiffNoTonLdAB$Variable)))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABcrfDiffSQMsNoTonLdSummary.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABcrfDiffSQMsNoTonLdSummary.svg")
+  
+  ggsave(filename="PtsABcrfDiffSQMsNoTonLdSummary.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABcrfDiffSQMsNoTonLdSummary.pdf")
+}
+
+```
+
+### Save the results outputs to file
+
+```{r}
+# Make a list of the summary results
+resSummary <- list(resAbsAB, resDiffAB, resAbsNoTonLdAB, resDiffNoTonLdAB)
+
+# Save the results
+if (savedata){
+  ii <- 0
+  temp = list()
+  for (res in resSummary){
+    ii <- ii + 1
+    temp[[ii]] <- data.frame(resSummary[ii])
+  }
+  openxlsx::write.xlsx(temp, paste(outDataPath, "\\PtsABCRFSummary.xlsx",
+                                   sep=""),
+                       rowNames=TRUE)
+}
+
+```

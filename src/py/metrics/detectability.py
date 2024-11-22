@@ -13,7 +13,7 @@ from math import gcd
 import bottleneck as bn
 
 
-# Bolt, Beranek & Newman detectability model as interpreted and amended by NASA
+# Bolt, Beranek & Newman detectability model as developed further by NASA
 # -----------------------------------------------------------------------------
 
 def detectBBNNASA(signalTarget, sampleRateTarget, axisTarget,
@@ -21,7 +21,7 @@ def detectBBNNASA(signalTarget, sampleRateTarget, axisTarget,
     """
     Returns
     -------
-    None.
+    
     
     Assumptions
     -----------
@@ -74,37 +74,7 @@ def detectBBNNASA(signalTarget, sampleRateTarget, axisTarget,
     # presumed to be operated using MATLAB poctave
 
     fm, f1, f2 = noct.noctf(20, min(sampleRate/2.4, 20000), 3)
-    for chan in range(numChans):
-        if numChans > 1:
-            sgramTOBTarget = np.zeros([len(fm), sgramTarget.shape[1], sgramTarget.shape[2]])
-        else:
-            sgramTOBTarget = np.zeros([len(fm), sgramTarget.shape[1]])
-        sgramTOBMasker = sgramTOBTarget
-
-        for ii, f in enumerate(fm):
-            signalfmFilt = noct.noct_filter(signalTarget, 3, f,
-                                            sampleRate, order=6, axis=0)
-            
-            if numChans > 1:
-                
-                
-                sgramTOBTarget[ii, :, :] = (np.sum(sgramTarget[np.logical_and(signalSTFT.f > f1[ii],
-                                                                               signalSTFT.f <= f2[ii]), :, :],
-                                                    axis=0)**2/Ben)
-                sgramTOBMasker[ii, :, :] = (signalSTFT.delta_f
-                                            *np.sum(sgramMasker[np.logical_and(signalSTFT.f > f1[ii],
-                                                                               signalSTFT.f <= f2[ii]), :, :],
-                                                    axis=0))
-            else:
-                sgramTOBTarget[ii, :] = (signalSTFT.delta_f
-                                         *np.sum(sgramTarget[np.logical_and(signalSTFT.f > f1[ii],
-                                                                            signalSTFT.f <= f2[ii]), :],
-                                                 axis=0))
-                sgramTOBMasker[ii, :] = (signalSTFT.delta_f
-                                         *np.sum(sgramMasker[np.logical_and(signalSTFT.f > f1[ii],
-                                                                            signalSTFT.f <= f2[ii]), :],
-                                                 axis=0))
-        
+    # TODO finish algorithm
     
 
 def _detectBBNEfficiency():
