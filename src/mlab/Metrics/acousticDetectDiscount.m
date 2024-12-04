@@ -74,7 +74,92 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 %
 % detectDiscount contains the following outputs:
 %
-% 
+% dBSpecTarget : matrix
+%                sound pressure level spectrogram for the input target
+%                signal, with dimensions [timeOut, freqBands, targetChans]
+%
+% dBSpecMasker : matrix
+%                sound pressure level spectrogram for the input masker
+%                signal, with dimensions [timeOut, freqBands, maskerChans] 
+%
+% dBSpecDiscTarget : matrix
+%                    sound pressure level spectrogram for the input target
+%                    signal detectability-discounted, with dimensions
+%                    [timeOut, freqBands, targetChans]
+%
+% dBATDepTarget : matrix or vector
+%                 time-dependent A-weighted sound pressure level for the
+%                 input target signal, with dimensions [timeOut, targetChans]
+%
+% dBATDepTarget : matrix or vector
+%                 time-dependent A-weighted sound pressure level for the
+%                 input masker signal, with dimensions [timeOut, targetChans]
+%
+% dBATDepDiscTarget : matrix or vector
+%                     time-dependent A-weighted sound pressure level for the
+%                     input target signal detectability-discounted, with
+%                     dimensions [timeOut, targetChans]
+%
+% dBATDepDiscount : vector
+%                   time-dependent detectability discount values for the
+%                   A-weighted sound pressure levels of target signal vs
+%                   masker signal, with dimensions [timeOut, targetChans]
+%
+% LAETarget : vector
+%             overall A-weighted sound exposure level for each input target
+%             signal channel
+%
+% LAEMasker : vector
+%             overall A-weighted sound exposure level for each input masker
+%             signal channel
+%
+% LAEDiscTarget : vector
+%                 overall detectability-discounted A-weighted sound
+%                 exposure level for each input target signal channel
+%
+% LAeqTarget : vector
+%              overall A-weighted time-averaged sound level for each input
+%              target signal channel
+%
+% LAeqMasker : vector
+%              overall A-weighted time-averaged sound level for each input
+%              masker signal channel
+%
+% LAeqDiscTarget : vector
+%                  overall detectability-discounted A-weighted
+%                  time-averaged sound level for each input target signal
+%                  channel
+%
+% dBADiscount : vector
+%               overall detectability discount for A-weighted levels for
+%               each input target signal channel
+%
+% detectabilitydB : matrix
+%                   detectability spectrogram for the input target signal
+%                   vs masker signal (i.e., 10log_10[d']), with dimensions
+%                   [timeOut, freqBands, targetChans]
+%
+% detectTDepMaxdB : matrix or vector
+%                   band-maximum time-dependent detectability dB, with
+%                   dimensions [timeOut, targetChans]
+%
+% detectTDepIntdB : matrix or vector
+%                   band-integrated time-dependent detectability dB, with
+%                   dimensions [timeOut, targetChans]
+%
+% detectMaxdB : vector
+%               overall maximum detectability, dB, for each input target
+%               signal channel
+%
+% detectIntdB : vector
+%               overall intergated detectability, dB, for each input target
+%               signal channel
+%
+% freqBands : vector
+%             1/3-octave band centre-frequencies for input freqBandRange
+%
+% timeOut : vector
+%           the window centre times for the spectrograms
 %
 % Assumptions
 % -----------
@@ -92,7 +177,7 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 % Institution: University of Salford
 %
 % Date created: 05/11/2024
-% Date last modified: 14/11/2024
+% Date last modified: 04/12/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -121,6 +206,9 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
         outPlot {mustBeNumericOrLogical} = false
     end
 
+%% Load path
+addpath(genpath(fullfile("refmap-psychoacoustics", "src", "mlab")))
+
 %% Input checks and resampling
 
 % orient axes
@@ -130,6 +218,25 @@ end
 
 if axisMasker == 2
     signalMasker = signalMasker.';
+end
+
+% check input sizes and if necessary repeat masker
+repMasker = 1;
+targetChans = size(signalTarget, 2);
+maskerChans = size(signalMasker, 2);
+if targetChans ~= maskerChans
+    % if masker is single channel, each target channel is assumed to be
+    % matched with the masker (automatic broadcasting), otherwise, check if
+    % target channels are a multiple of masker channels
+    if maskerChans ~= 1
+        if maskerChans > targetChans ||...
+            mod(targetChans, maskerChans) ~= 0 
+            error("Target and masker channel counts cannot be interpreted. Please ensure masker channel count is less than target and is divisible by target.")
+        else
+            % number of repeats for masker
+            repMasker = targetChans/maskerChans;
+        end
+    end
 end
 
 % check input signal sampling frequencies are equal, otherwise resample to
@@ -193,7 +300,7 @@ discountRate = 1;  % \rho, rate at which discount function dimishes with reducin
 
 % diffuse field narrowband noise hearing thresholds for 18-25 year-olds with
 % normal hearing from ISO 389-7:2019 (20 Hz - 16 kHz)
-% NOTE: watch out for odd frequencies in the standard Table 1!
+% NOTE: watch out for non-standard frequencies in the standard Table 1!
 hearThresholdsDF3897 = [78.1; 68.7; 59.5; 51.1; 44.0; 37.5; 31.5; 26.5; 22.1;...
                         17.9; 14.4; 11.4; 8.4; 5.8; 3.8; 2.1; 1.0; 0.8; 1.9;...
                         0.5; -1.5; -3.1; -4.0; -3.8; -1.8; 2.5; 6.8; 8.4; 14.4;...
@@ -215,7 +322,6 @@ Aweight = [-50.5; -44.7; -39.4; -34.6; -30.2; -26.2; -22.5; -19.1; -16.1;...
 itimeSkip = timeSkip/timeStep;
 
 % Calculate 1/3-octave power spectrograms
-
 [spectroTarget, ~, ~] = poctave(signalTarget, sampleRate, 'spectrogram',...
                                 'BandsPerOctave', b, 'WindowLength', timeSteps,...
                                 'FrequencyLimits', [fl, fh]);
@@ -256,17 +362,17 @@ end
 eqAuditoryNoise = detectEfficiency.*(2e-5.*10.^(hearThresholdsDF(il:ih)/20)).^2/targetDetect;
 
 % Calculate detectability and discount
-detectability = detectEfficiency.*spectroTarget./(spectroMasker + eqAuditoryNoise);
+detectability = detectEfficiency.*spectroTarget./(repmat(spectroMasker, 1, 1, repMasker) + eqAuditoryNoise);
 detectabilitydB = 10*log10(detectability);
 discountdB = discountHalfPower./(detectability./detectKnee).^discountRate;
 
 % Calculate aggregated detectability
 detectTDepMax = squeeze(max(detectability, [], 1));
-detectTDepSum = squeeze(sqrt(sum(detectability.^2, 1)));
+detectTDepInt = squeeze(sqrt(sum(detectability.^2, 1)));
 detectTDepMaxdB = 10*log10(detectTDepMax);
-detectTDepSumdB = 10*log10(detectTDepSum);
+detectTDepIntdB = 10*log10(detectTDepInt);
 detectMaxdB = 10*log10(max(detectTDepMax(1 + itimeSkip(1):end - itimeSkip(2), :), [], 1));
-detectIntdB = 10*log10(timeStep*sum(detectTDepSum(1 + itimeSkip(1):end - itimeSkip(2), :), 1));
+detectIntdB = 10*log10(timeStep*sum(detectTDepInt(1 + itimeSkip(1):end - itimeSkip(2), :), 1));
 
 % Calculate time-dependent spectra
 dBSpecTarget = 20*log10(sqrt(spectroTarget)/2e-5);
@@ -317,7 +423,7 @@ detectDiscount.LAeqDiscTarget = LAeqDiscTarget;
 detectDiscount.dBADiscount = dBADiscount;
 detectDiscount.detectabilitydB = detectabilitydB;
 detectDiscount.detectTDepMaxdB = detectTDepMaxdB;
-detectDiscount.detectTDepSumdB = detectTDepSumdB;
+detectDiscount.detectTDepSumdB = detectTDepIntdB;
 detectDiscount.detectMaxdB = detectMaxdB;
 detectDiscount.detectIntdB = detectIntdB;
 detectDiscount.freqBands = f;
@@ -326,7 +432,132 @@ detectDiscount.timeOut = t.';
 %% Plotting
 
 if outPlot
-% TODO
+    % Plot figures
+    % ------------
+    cmap_viridis = load('cmap_viridis.txt');
+    cmap_magma = load('cmap_magma.txt');
+    
+    % number of channels for plotting
+    if repMasker == 1
+        chanMap = [1:targetChans; ones(1, targetChans)];
+    else
+        chanMap = [1:targetChans; repmat(1:maskerChans, 1, repMasker)];
+    end
+
+    % loop through channels with tiled figure for each
+    for iiPlot = 1:targetChans
+        targChan = chanMap(1, iiPlot);
+        maskChan = chanMap(2, iiPlot);
+
+        fig = figure;
+        set(fig, 'position', [300, 200, 1300, 600])
+        tiledlayout(fig, 2, 3);
+        movegui(fig, 'center');
+
+        ax1 = nexttile(1);
+        surf(ax1, [t, t(end) + timeStep] - timeStep/2, f,...
+            [dBSpecTarget(:, :, targChan), dBSpecTarget(:, end, targChan)],...
+            EdgeColor='none');
+        view(2);
+        set(ax1, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
+            'YScale', 'log', 'YLim', [20, 20000],...
+            'YTick', [31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],...
+            'YTickLabel', ["31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]);
+        ax1.YLabel.String = "Frequency, Hz";
+        ax1.XLabel.String = "Time, s";
+        colormap(ax1, cmap_viridis);
+        cbar = colorbar; clim([0, max(dBSpecTarget(:, :, targChan), [], 'all')]);
+        cbar.Label.String = "dB re 2e-5 Pa";
+        ax1.Title.String = "Target spectrogram";
+
+        ax2 = nexttile(2);
+        surf(ax2, [t, t(end) + timeStep] - timeStep/2, f,...
+            [detectabilitydB(:, :, targChan), detectabilitydB(:, end, targChan)],...
+            EdgeColor='none');
+        view(2);
+        set(ax2, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
+            'YScale', 'log', 'YLim', [20, 20000],...
+            'YTick', [31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],...
+            'YTickLabel', ["31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]);
+        ax2.YLabel.String = "Frequency, Hz";
+        ax2.XLabel.String = "Time, s";
+        colormap(ax2, cmap_magma);
+        cbar = colorbar; clim([0, max(detectabilitydB(:, :, targChan), [], 'all')]);
+        cbar.Label.String = "Detectability 10log_{10}{\it d'}, dB";
+        ax2.Title.String = "Masked target detectability";
+
+        ax3 = nexttile(3);
+        plot(ax3, t, dBATDepTarget(:, targChan), 'color', cmap_magma(34, :), 'DisplayName', "Target")
+        hold on
+        plot(ax3, t, dBATDepMasker(:, maskChan), 'color', cmap_magma(166, :), 'DisplayName', "Masker")
+        plot(ax3, t, dBATDepDiscTarget(:, targChan), 'color', cmap_magma(100, :),...
+            'LineStyle', ':', 'DisplayName', "Target discounted")
+        hold off
+        set(ax3, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
+            'YLim', [0, max(max(dBATDepTarget(:, targChan), [], 'all'),...
+                     max(dBATDepMasker(:, maskChan), [], 'all'))],...
+            'XGrid', 'on', 'YGrid', 'on', 'GridAlpha', 0.075,...
+            'GridLineStyle', '--', 'GridLineWidth', 0.25);
+        ax3.YLabel.String = "dB(A) re 2e-5 Pa";
+        ax3.XLabel.String = "Time, s";
+        ax3.Title.String = "Time-dependent levels";
+        legend(ax3, 'Location', 'eastoutside')
+        
+        ax4 = nexttile(4);
+        surf(ax4, [t, t(end) + timeStep] - timeStep/2, f,...
+            [dBSpecMasker(:, :, targChan), dBSpecMasker(:, end, targChan)],...
+            EdgeColor='none');
+        view(2);
+        set(ax4, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
+            'YScale', 'log', 'YLim', [20, 20000],...
+            'YTick', [31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],...
+            'YTickLabel', ["31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]);
+        ax4.YLabel.String = "Frequency, Hz";
+        ax4.XLabel.String = "Time, s";
+        colormap(ax4, cmap_viridis);
+        cbar = colorbar; clim([0, max(dBSpecMasker(:, :, targChan), [], 'all')]);
+        cbar.Label.String = "dB re 2e-5 Pa";
+        ax4.Title.String = "Masker spectrogram";
+
+        ax5 = nexttile(5);
+        surf(ax5, [t, t(end) + timeStep] - timeStep/2, f,...
+            [dBSpecDiscTarget(:, :, targChan), dBSpecTarget(:, end, targChan)],...
+            EdgeColor='none');
+        view(2);
+        set(gca, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
+            'YScale', 'log', 'YLim', [20, 20000],...
+            'YTick', [31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],...
+            'YTickLabel', ["31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]);
+        ax5.YLabel.String = "Frequency, Hz";
+        ax5.XLabel.String = "Time, s";
+        colormap(ax5, cmap_magma);
+        cbar = colorbar; clim([0, max(dBSpecDiscTarget(:, :, targChan), [], 'all')]);
+        cbar.Label.String = "Detectability-discounted level, dB re 2e-5 Pa";
+        ax5.Title.String = "Target detectability-discounted spectrogram";
+
+        ax6 = nexttile(6);
+        levelVals = [LAETarget(targChan), LAEMasker(maskChan), LAEDiscTarget(targChan)];
+        labelVals = num2cell(round(levelVals, 1));
+        labelCats = ["Target", "Masker", "Discount. targ."];
+        % a trick using stacked bar to get the legend mapped
+        b = bar(ax6,...
+                diag(levelVals, 0),...
+                'stacked', 'FaceColor', 'flat');
+        set(b, {'FaceColor'}, {cmap_magma(34, :); cmap_magma(166, :); cmap_magma(100, :)})
+        set(ax6, 'YLim', [min(levelVals, [], 'all')/1.25, max(levelVals)*1.1])
+        ax6.YLabel.String = "{\it L}_{AE}, dB re 2e-5 Pa";
+        ax6.XTickLabel = [];
+        lg = legend(ax6, labelCats, 'Location','eastoutside');
+        lg.Direction = 'normal';
+        % data labels
+        y = sum(reshape(cell2mat(get(b', 'YData')),size(b, 2), []), 1); 
+        x = unique(cell2mat(get(b', 'XData')),'stable');
+        offset = range(ylim)*.1; 
+        th = text(x, y - offset, labelVals, 'HorizontalAlignment', 'Center',...
+                  'VerticalAlignment', 'bottom', 'Color', 'w');
+        ax5.Title.String = "Overall levels";
+
+    end
 end % end of if branch for plotting outputs
 
 % end of function
