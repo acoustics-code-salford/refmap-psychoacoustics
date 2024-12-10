@@ -112,12 +112,9 @@ stimDataBNum <- cbind(stimDataB[, 'Stimulus'],
                                   which(colnames(stimDataB)=="dHighAnnoyProp")],
                       stimDataB[, which(colnames(stimDataB)=="HighAnnoyPc"):
                                   which(colnames(stimDataB)=="dHighAnnoyPc")])
-stimDataBNum <- stimDataBNum[, !(colnames(stimDataBNum) %in% c('UASLAeqMaxLR', 'UASLAEMaxLR', 'UASEventDensity'))]
+stimDataBNum <- stimDataBNum[, !(colnames(stimDataBNum) %in% c('UASLAeq', 'UASEventDensity'))]
 
 colnames(stimDataBNum)[1] <- "Stimulus"
-
-# stimDataBNum[['SNRlevel']] <- encode_ordinal(stimDataB[['SNRlevel']], order=SNRCatsB)
-# stimDataBNum[['UASLAeq']] <- encode_ordinal(stimDataB[['UASLAeq']], order=UASLAeqCatsB)
 
 # make the discrete ordinal variables factors
 stimDataBNum[['UASEvents']] <- factor(stimDataBNum[['UASEvents']], levels=c(0, 1, 3, 5, 9), order=TRUE)
@@ -134,6 +131,10 @@ stimDataBNum[['dAnnoyMedian']] <- factor(stimDataBNum[['dAnnoyMedian']], levels=
                                                                                  0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5,
                                                                                  5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10), order=TRUE)
 
+# omit ambient-only stimuli
+stimDataBNum <- stimDataBNum |> dplyr::filter(UASLAeq != "No UAS")
+
+stimDataBNum$SNRlevel <- as.numeric(stimDataBNum$SNRlevel)
 
 ```
 
@@ -288,8 +289,8 @@ crfReg <- function(dataIn, iVars, dVar, seeds, ntree, mtry, permImpCondThres=0.9
 ## Hyperparameter tuning
 
 ```{r, fig.width=12, fig.height=4}
-mtryTune <- function(dataIn, iVars, dVar, seed, ntrees, minsplit=20, minbucket=7){
-  
+mtryTune <- function(dataIn, iVars, dVar, seeds, ntrees, minsplit=20, minbucket=7){
+
   formVars <- reformulate(iVars, dVar)
   
   # set mtry values and corresponding iVars/mtry ratios
@@ -306,32 +307,51 @@ mtryTune <- function(dataIn, iVars, dVar, seed, ntrees, minsplit=20, minbucket=7
   iVars_mtrys <- iVars_mtrys[mtrys < length(iVars)]
   mtrys <- mtrys[mtrys < length(iVars)]
 
-  resRMSEMap = matrix(data=NA, nrow=length(mtrys), ncol=length(ntrees))
-  resRsquaredMap = matrix(data=NA, nrow=length(mtrys), ncol=length(ntrees))
-  resMAEMap = matrix(data=NA, nrow=length(mtrys), ncol=length(ntrees))
+  resRMSEMap = matrix(data=0, nrow=length(mtrys), ncol=length(ntrees))
+  resRsquaredMap = matrix(data=0, nrow=length(mtrys), ncol=length(ntrees))
+  resMAEMap = matrix(data=0, nrow=length(mtrys), ncol=length(ntrees))
+  
   
   for (ii in seq(1, length(ntrees))){
-    set.seed(seed)
-    ntree = ntrees[ii]
-    tuneMod <- caret::train(formVars,
-                            data=dataIn,
-                            method='cforest',
-                            controls=party::cforest_unbiased(ntree=ntree,
-                                                             minsplit=minsplit,
-                                                             minbucket=minbucket),
-                            tuneGrid=data.frame(.mtry=mtrys),
-                            trControl = trainControl(method = "oob"))
     
-    tuneMod$results <- cbind(tuneMod$results, data.frame(iVars_mtrys=iVars_mtrys))
+    tuneMod.results <- data.frame(RMSE=numeric(length(mtrys)),
+                                Rsquared=numeric(length(mtrys)),
+                                MAE=numeric(length(mtrys)))
     
-    print(tuneMod$results)
-    print(tuneMod$bestTune)
-    
-    resRMSEMap[, ii] = tuneMod$results$RMSE
-    resRsquaredMap[, ii] = tuneMod$results$Rsquared
-    resMAEMap[, ii] = tuneMod$results$MAE
-    
+    for (seed in seeds){
+      set.seed(seed)
+      ntree = ntrees[ii]
+      tuneMod <- caret::train(formVars,
+                              data=dataIn,
+                              method='cforest',
+                              controls=party::cforest_unbiased(ntree=ntree,
+                                                               minsplit=minsplit,
+                                                               minbucket=minbucket),
+                              tuneGrid=data.frame(.mtry=mtrys),
+                              trControl = trainControl(method = "oob"))
+      
+      
+      
+      # accumulate results
+      resRMSEMap[, ii] <- resRMSEMap[, ii] + tuneMod$results$RMSE
+      resRsquaredMap[, ii] <- resRsquaredMap[, ii] + tuneMod$results$Rsquared
+      resMAEMap[, ii] <- resMAEMap[, ii] + tuneMod$results$MAE
+      
+      tuneMod.results <- tuneMod.results + tuneMod$results[, which(names(tuneMod$results) != 'mtry')]
+    }
+
+    # average results
+    tuneMod.results <- tuneMod.results/length(seeds)
+    tuneMod.results <- cbind(tuneMod.results, data.frame(mtry=mtrys), data.frame(iVars_mtry=iVars_mtrys))
+
+    print(tuneMod.results)
+
   }
+  
+  # average results
+  resRMSEMap <- resRMSEMap/length(seeds)
+  resRsquaredMap <- resRsquaredMap/length(seeds)
+  resMAEMap <- resMAEMap/length(seeds)
   
   
   # convert to data frames with mtry as row names and ntree as column names, and convert to long format using tidyverse
@@ -427,6 +447,8 @@ minsplit <- 10
 minbucket <- 5
 ntrees <- c(251, 501, 1001, 1501, 2501, 4001, 5501)
 
+eventVar <- "UASEventPerMin"
+
 ```
 
 ## Mean change in annoyance
@@ -444,21 +466,11 @@ resdAnnoyMnPermImpB <- list()
 
 ### All variables (absolute and difference)
 
-#### Remove ambient only stimuli
-
-Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
-
-```{r}
-stimDataBNum <- stimDataBNum[complete.cases(stimDataBNum),]
-stimDataBNum$UASLAeq <- as.numeric(stimDataBNum$UASLAeq)
-stimDataBNum$SNRlevel <- as.numeric(stimDataBNum$SNRlevel)
-```
-
 #### Set variables
 
 ```{r}
 
-iVars <- names(stimDataBNum)[which(names(stimDataBNum) == 'UASEventPerMin'):which(names(stimDataBNum) == 'UASImpulsSHM05ExMaxLR')]
+iVars <- names(stimDataBNum)[which(names(stimDataBNum) == 'UASEvents'):which(names(stimDataBNum) == 'UASImpulsSHM05ExMaxLR')]
 iVars <- iVars[! iVars %in% c('AmbientLAeq')]
 iVars <- c(iVars,
            names(stimDataBNum)[which(colnames(stimDataBNum)=="LAeqLAF90diff"):
@@ -473,7 +485,7 @@ seeds <- c(14569, 98651, 54654498, 454948, 41321)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
               ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -577,13 +589,35 @@ if (saveplots){
 
 ```
 
+```{r, fig.width=8,fig.height=4}
+
+# Plot only values within 1% of the maximum value
+
+resultsOutAbsDiffs.conimp1pc <- resultsOutAbsDiffs.conimp |>
+                                          rownames_to_column('Metric') |>
+                                                filter_if(is.numeric, all_vars(. > max(resultsOutAbsDiffs.conimp)/100)) |>
+                                                      column_to_rownames('Metric')
+
+pBar <- ggplot(resultsOutAbsDiffs.conimp1pc) + geom_col(aes(x=factor(rownames(resultsOutAbsDiffs.conimp1pc), levels=rownames(resultsOutAbsDiffs.conimp1pc)), y=CondPermImp), fill=mycolours[9], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtBdAnnoyMnAllVarsConPermimp1pc.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink("PtBdAnnoyMnAllVarsConPermimp1pc.svg")
+  
+  ggsave(filename="PtBdAnnoyMnAllVarsConPermimp1pc.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink("PtBdAnnoyMnAllVarsConPermimp1pc.pdf")
+}
+
+```
+
 ### Absolute variables
 
 #### Set variables
 
 ```{r}
 
-iVars <- names(stimDataBNum)[which(names(stimDataBNum) == 'UASEventPerMin'):which(names(stimDataBNum) == 'UASImpulsSHM05ExMaxLR')]
+iVars <- names(stimDataBNum)[which(names(stimDataBNum) == 'UASEvents'):which(names(stimDataBNum) == 'UASImpulsSHM05ExMaxLR')]
 iVars <- iVars[! iVars %in% c('SNRlevel', 'AmbientLAeq')]
 dVar <- "dAnnoyMean"
 
@@ -595,7 +629,7 @@ seeds <- c(578312, 544, 84894, 54654, 153157)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
               ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -712,22 +746,6 @@ absVar <- "UASLoudECMAPowAvgBin"
 
 ### SQM analysis
 
-#### Replace ambient only stimuli
-
-Here, the 'ambient only' stimuli are replaced, as the SQM analysis can incorporate 0 values (whereas dB metrics cannot be handled in this way).
-
-```{r}
-
-stimDataBNum <- rbind(stimDataBNum, stimDataB[stimDataB['Stimulus']
-                                              == "A1",
-                                              colnames(stimDataBNum)],
-                      stimDataB[stimDataB['Stimulus']
-                                              == "A2",
-                                              colnames(stimDataBNum)])
-stimDataBNum <- arrange(stimDataBNum, Stimulus)
-
-```
-
 #### Individual SQMs
 
 ##### Sharpness
@@ -736,7 +754,7 @@ stimDataBNum <- arrange(stimDataBNum, Stimulus)
 
 ```{r}
 
-iVars <- c(absVar, "UASEventPerMin", "UASSharpAurISO3PowAvgMaxLR", "UASSharpAurISO305ExMaxLR", "UASSharpAurSHMPowAvgMaxLR", "UASSharpAurSHM05ExMaxLR", "UASSharpAurISO1PowAvgMaxLR", "UASSharpAurISO105ExMaxLR", "UASSharpvBISO1PowAvgMaxLR", "UASSharpvBISO105ExMaxLR", "UASSharpDINPowAvgMaxLR", "UASSharpDIN05ExMaxLR")
+iVars <- c(absVar, eventVar, "UASSharpAurISO3PowAvgMaxLR", "UASSharpAurISO305ExMaxLR", "UASSharpAurSHMPowAvgMaxLR", "UASSharpAurSHM05ExMaxLR", "UASSharpAurISO1PowAvgMaxLR", "UASSharpAurISO105ExMaxLR", "UASSharpvBISO1PowAvgMaxLR", "UASSharpvBISO105ExMaxLR", "UASSharpDINPowAvgMaxLR", "UASSharpDIN05ExMaxLR")
 dVar <- "dAnnoyMean"
 
 seeds <- c(7041, 905, 4984651, 6513213, 120651)
@@ -747,7 +765,7 @@ seeds <- c(7041, 905, 4984651, 6513213, 120651)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -828,7 +846,7 @@ Selected metric
 
 ```{r}
 
-sharpVar <- "UASSharpDINPowAvgMaxLR"
+sharpVar <- "UASSharpDIN05ExMaxLR"
 
 ```
 
@@ -838,7 +856,7 @@ sharpVar <- "UASSharpDINPowAvgMaxLR"
 
 ```{r}
 
-iVars <- c(absVar, "UASEventPerMin", "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonLdECMAPowAvgBin", "UASTonLdECMA05ExBin", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR")
+iVars <- c(absVar, eventVar, "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonLdECMAPowAvgBin", "UASTonLdECMA05ExBin", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR")
 dVar <- "dAnnoyMean"
 
 seeds <- c(540, 104798, 456464, 87331, 94564)
@@ -849,7 +867,7 @@ seeds <- c(540, 104798, 456464, 87331, 94564)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -940,7 +958,7 @@ tonLdVar <- "UASTonLdECMAPowAvgBin"
 
 ```{r}
 
-iVars <- c(absVar, "UASEventPerMin", "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR")
+iVars <- c(absVar, eventVar, "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR")
 dVar <- "dAnnoyMean"
 
 seeds <- c(156089, 5860, 10528, 89541, 4685146)
@@ -951,7 +969,7 @@ seeds <- c(156089, 5860, 10528, 89541, 4685146)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -1046,7 +1064,7 @@ tonalVar <- "UASTonalAurAvgMaxLR"
 ```{r}
 
 # Fluctuation strength
-iVars <- c(absVar, "UASEventPerMin", "UASFluctSHM10ExBin", "UASFluctSHM05ExBin", "UASFluctFZ10ExMaxLR", "UASFluctFZ05ExMaxLR", "UASFluctOV10ExMaxLR", "UASFluctOV05ExMaxLR")
+iVars <- c(absVar, eventVar, "UASFluctSHM10ExBin", "UASFluctSHM05ExBin", "UASFluctFZ10ExMaxLR", "UASFluctFZ05ExMaxLR", "UASFluctOV10ExMaxLR", "UASFluctOV05ExMaxLR")
 dVar <- "dAnnoyMean"
 
 seeds <- c(25107, 546098, 195, 5937, 102658)
@@ -1058,7 +1076,7 @@ seeds <- c(25107, 546098, 195, 5937, 102658)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -1150,7 +1168,7 @@ fluctVar <- "UASFluctOV10ExMaxLR"
 ```{r}
 
 # Roughness
-iVars <- c(absVar, "UASEventPerMin", "UASRoughECMA10ExBin", "UASRoughECMA05ExBin", "UASRoughFZ10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASRoughDW10ExMaxLR", "UASRoughDW05ExMaxLR")
+iVars <- c(absVar, eventVar, "UASRoughECMA10ExBin", "UASRoughECMA05ExBin", "UASRoughFZ10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASRoughDW10ExMaxLR", "UASRoughDW05ExMaxLR")
 dVar <- "dAnnoyMean"
 
 seeds <- c(4701, 52187, 16589, 65217, 16893)
@@ -1161,7 +1179,7 @@ seeds <- c(4701, 52187, 16589, 65217, 16893)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -1251,7 +1269,7 @@ roughVar <- "UASRoughFZ05ExMaxLR"
 
 ```{r}
 # Impulsiveness
-iVars <- c(absVar, "UASEventPerMin", "UASImpulsSHMAvgMaxLR", "UASImpulsSHM05ExMaxLR", "UASImpulsSHMPowAvgMaxLR")
+iVars <- c(absVar, eventVar, "UASImpulsSHMAvgMaxLR", "UASImpulsSHM05ExMaxLR", "UASImpulsSHMPowAvgMaxLR")
 dVar <- "dAnnoyMean"
 
 seeds <- c(8495, 59867, 5416, 9843, 86)
@@ -1262,7 +1280,7 @@ seeds <- c(8495, 59867, 5416, 9843, 86)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -1357,7 +1375,7 @@ Now the highest importance SQMs are ranked against each other, controlling for U
 
 ```{r}
 
-iVars <- c(absVar, "UASEventPerMin", sharpVar, tonLdVar, fluctVar, roughVar, impulsVar)
+iVars <- c(absVar, eventVar, sharpVar, tonLdVar, fluctVar, roughVar, impulsVar)
 dVar <- "dAnnoyMean"
 
 seeds <- c(70498, 4, 14986, 453, 864)
@@ -1368,7 +1386,7 @@ seeds <- c(70498, 4, 14986, 453, 864)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -1450,7 +1468,7 @@ if (saveplots){
 
 ```{r}
 
-iVars <- c(absVar, "UASEventPerMin", sharpVar, tonalVar, fluctVar, roughVar, impulsVar)
+iVars <- c(absVar, eventVar, sharpVar, tonalVar, fluctVar, roughVar, impulsVar)
 dVar <- "dAnnoyMean"
 
 seeds <- c(546, 57203, 270835, 60592, 8094)
@@ -1461,7 +1479,7 @@ seeds <- c(546, 57203, 270835, 60592, 8094)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -1539,17 +1557,7 @@ if (saveplots){
 
 ### Difference variables
 
-Next, the difference metrics are analysed, 
-
-#### Remove ambient only stimuli
-
-Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
-
-```{r}
-stimDataBNum <- stimDataBNum[complete.cases(stimDataBNum),]
-stimDataBNum$UASLAeq <- as.numeric(stimDataBNum$UASLAeq)
-stimDataBNum$SNRlevel <- as.numeric(stimDataBNum$SNRlevel)
-```
+Next, the difference metrics are analysed
 
 #### Set variables
 
@@ -1568,7 +1576,7 @@ seeds <- c(568392, 498, 4089, 78132, 741809)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -1685,7 +1693,7 @@ The ambient-only stimuli are NOT replaced here, as the difference analysis inclu
 
 ```{r}
 
-iVars <- c(diffVar, "UASEventPerMin", "dSharpAurISO3PowAvgMaxLR", "dSharpAurISO305ExMaxLR", "dSharpAurSHMPowAvgMaxLR", "dSharpAurSHM05ExMaxLR")
+iVars <- c(diffVar, eventVar, "dSharpAurISO3PowAvgMaxLR", "dSharpAurISO305ExMaxLR", "dSharpAurSHMPowAvgMaxLR", "dSharpAurSHM05ExMaxLR")
 dVar <- "dAnnoyMean"
 
 seeds <- c(84194, 905, 64815, 928054, 625091)
@@ -1696,7 +1704,7 @@ seeds <- c(84194, 905, 64815, 928054, 625091)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -1787,7 +1795,7 @@ dSharpVar <- "dSharpAurISO3PowAvgMaxLR"
 
 ```{r}
 
-iVars <- c(diffVar, "UASEventPerMin", "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR", "dTonLdECMAPowAvgBin", "dTonLdECMA05ExBin")
+iVars <- c(diffVar, eventVar, "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR", "dTonLdECMAPowAvgBin", "dTonLdECMA05ExBin")
 dVar <- "dAnnoyMean"
 
 seeds <- c(561684, 104798, 1536, 48, 48561)
@@ -1798,7 +1806,7 @@ seeds <- c(561684, 104798, 1536, 48, 48561)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -1888,7 +1896,7 @@ dTonLdVar <- "dTonLdECMAPowAvgBin"
 
 ```{r}
 
-iVars <- c(diffVar, "UASEventPerMin", "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR")
+iVars <- c(diffVar, eventVar, "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR")
 dVar <- "dAnnoyMean"
 
 seeds <- c(410865, 2954, 70812, 203, 7984)
@@ -1899,7 +1907,7 @@ seeds <- c(410865, 2954, 70812, 203, 7984)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -1994,7 +2002,7 @@ dTonalVar <- "dTonalSHMIntAvgMaxLR"
 ```{r}
 
 # Fluctuation strength
-iVars <- c(diffVar, "UASEventPerMin", "dFluctSHM10ExBin", "dFluctSHM05ExBin", "dFluctOV10ExMaxLR", "dFluctOV05ExMaxLR")
+iVars <- c(diffVar, eventVar, "dFluctSHM10ExBin", "dFluctSHM05ExBin", "dFluctOV10ExMaxLR", "dFluctOV05ExMaxLR")
 dVar <- "dAnnoyMean"
 
 seeds <- c(418657, 84, 1630, 18659, 3687)
@@ -2006,7 +2014,7 @@ seeds <- c(418657, 84, 1630, 18659, 3687)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -2109,7 +2117,7 @@ seeds <- c(69851, 85109, 410986, 1563, 896)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -2210,7 +2218,7 @@ seeds <- c(418659, 7805, 38475, 65834, 1653)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -2304,7 +2312,7 @@ Now the highest importance dSQMs are ranked against each other, controlling for 
 
 ```{r}
 
-iVars <- c(diffVar, "UASEventPerMin", dSharpVar, dTonLdVar, dFluctVar, dRoughVar, dImpulsVar)
+iVars <- c(diffVar, eventVar, dSharpVar, dTonLdVar, dFluctVar, dRoughVar, dImpulsVar)
 dVar <- "dAnnoyMean"
 
 seeds <- c(98465, 54163, 6541, 36485, 849675)
@@ -2315,7 +2323,7 @@ seeds <- c(98465, 54163, 6541, 36485, 849675)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -2397,7 +2405,7 @@ if (saveplots){
 
 ```{r}
 
-iVars <- c(diffVar, "UASEventPerMin", dSharpVar, dTonalVar, dFluctVar, dRoughVar, dImpulsVar)
+iVars <- c(diffVar, eventVar, dSharpVar, dTonalVar, dFluctVar, dRoughVar, dImpulsVar)
 dVar <- "dAnnoyMean"
 
 seeds <- c(49865, 7852, 845961, 410583, 36748)
@@ -2408,7 +2416,7 @@ seeds <- c(49865, 7852, 845961, 410583, 36748)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -2519,21 +2527,11 @@ resdHiAnnoyPermImpB <- list()
 
 ### All variables (absolute and difference)
 
-#### Remove ambient only stimuli
-
-Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
-
-```{r}
-stimDataBNum <- stimDataBNum[complete.cases(stimDataBNum),]
-stimDataBNum$UASLAeq <- as.numeric(stimDataBNum$UASLAeq)
-stimDataBNum$SNRlevel <- as.numeric(stimDataBNum$SNRlevel)
-```
-
 #### Set variables
 
 ```{r}
 
-iVars <- names(stimDataBNum)[which(names(stimDataBNum) == 'UASEventPerMin'):which(names(stimDataBNum) == 'UASImpulsSHM05ExMaxLR')]
+iVars <- names(stimDataBNum)[which(names(stimDataBNum) == 'UASEvents'):which(names(stimDataBNum) == 'UASImpulsSHM05ExMaxLR')]
 iVars <- iVars[! iVars %in% 'AmbientLAeq']
 iVars <- c(iVars,
            names(stimDataBNum)[which(colnames(stimDataBNum)=="LAeqLAF90diff"):
@@ -2548,7 +2546,7 @@ seeds <- c(2, 312, 1897, 465978, 821659)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
               ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -2644,13 +2642,35 @@ if (saveplots){
 
 ```
 
+```{r, fig.width=8,fig.height=4}
+
+# Plot only values within 1% of the maximum
+
+resultsOutAbsDiffs.conimpPtv <- resultsOutAbsDiffs.conimp |>
+                                          rownames_to_column('Metric') |>
+                                                filter_if(is.numeric, all_vars(. > max(resultsOutAbsDiffs.conimp)/100)) |>
+                                                      column_to_rownames('Metric')
+
+pBar <- ggplot(resultsOutAbsDiffs.conimpPtv) + geom_col(aes(x=factor(rownames(resultsOutAbsDiffs.conimpPtv), levels=rownames(resultsOutAbsDiffs.conimpPtv)), y=CondPermImp), fill=mycolours[9], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+if (saveplots){
+  ggsave(filename="PtBdHiAnnoyAllVarsConPermimp1pc.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink("PtBdHiAnnoyAllVarsConPermimp1pc.svg")
+  
+  ggsave(filename="PtBdHiAnnoyAllVarsConPermimp1pc.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink("PtBdHiAnnoyAllVarsConPermimp1pc.pdf")
+}
+
+```
+
 ### Absolute variables
 
 #### Set variables
 
 ```{r}
 
-iVars <- names(stimDataBNum)[which(names(stimDataBNum) == 'UASEventPerMin'):which(names(stimDataBNum) == 'UASImpulsSHM05ExMaxLR')]
+iVars <- names(stimDataBNum)[which(names(stimDataBNum) == 'UASEvents'):which(names(stimDataBNum) == 'UASImpulsSHM05ExMaxLR')]
 iVars <- iVars[! iVars %in% c('SNRlevel')]
 dVar <- "dHighAnnoyPc"
 
@@ -2662,7 +2682,7 @@ seeds <- c(578312, 544, 84894, 54654, 153157)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -2777,22 +2797,6 @@ absVar <- "UASLoudECMAPowAvgBin"
 
 ### SQM analysis
 
-#### Replace ambient only stimuli
-
-Here, the 'ambient only' stimuli are replaced, as the SQM analysis can incorporate 0 values (whereas dB metrics cannot be handled in this way).
-
-```{r}
-
-stimDataBNum <- rbind(stimDataBNum, stimDataB[stimDataB['Stimulus']
-                                              == "A1",
-                                              colnames(stimDataBNum)],
-                      stimDataB[stimDataB['Stimulus']
-                                              == "A2",
-                                              colnames(stimDataBNum)])
-stimDataBNum <- arrange(stimDataBNum, Stimulus)
-
-```
-
 #### Individual SQMs
 
 ##### Sharpness
@@ -2801,7 +2805,7 @@ stimDataBNum <- arrange(stimDataBNum, Stimulus)
 
 ```{r}
 
-iVars <- c(absVar, "UASEventPerMin", "UASSharpAurISO3PowAvgMaxLR", "UASSharpAurISO305ExMaxLR", "UASSharpAurSHMPowAvgMaxLR", "UASSharpAurSHM05ExMaxLR", "UASSharpAurISO1PowAvgMaxLR", "UASSharpAurISO105ExMaxLR", "UASSharpvBISO1PowAvgMaxLR", "UASSharpvBISO105ExMaxLR", "UASSharpDINPowAvgMaxLR", "UASSharpDIN05ExMaxLR")
+iVars <- c(absVar, eventVar, "UASSharpAurISO3PowAvgMaxLR", "UASSharpAurISO305ExMaxLR", "UASSharpAurSHMPowAvgMaxLR", "UASSharpAurSHM05ExMaxLR", "UASSharpAurISO1PowAvgMaxLR", "UASSharpAurISO105ExMaxLR", "UASSharpvBISO1PowAvgMaxLR", "UASSharpvBISO105ExMaxLR", "UASSharpDINPowAvgMaxLR", "UASSharpDIN05ExMaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(7041, 905, 4984651, 6513213, 120651)
@@ -2812,7 +2816,7 @@ seeds <- c(7041, 905, 4984651, 6513213, 120651)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -2903,7 +2907,7 @@ sharpVar <- "UASSharpAurISO1PowAvgMaxLR"
 
 ```{r}
 
-iVars <- c(absVar, "UASEventPerMin", "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonLdECMAPowAvgBin", "UASTonLdECMA05ExBin", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR")
+iVars <- c(absVar, eventVar, "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonLdECMAPowAvgBin", "UASTonLdECMA05ExBin", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(540, 104798, 456464, 87331, 94564)
@@ -2914,7 +2918,7 @@ seeds <- c(540, 104798, 456464, 87331, 94564)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -3006,7 +3010,7 @@ tonLdVar <- "UASTonLdECMAPowAvgBin"
 
 ```{r}
 
-iVars <- c(absVar, "UASEventPerMin", "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR")
+iVars <- c(absVar, eventVar, "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(156089, 5860, 10528, 89541, 4685146)
@@ -3017,7 +3021,7 @@ seeds <- c(156089, 5860, 10528, 89541, 4685146)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -3115,7 +3119,7 @@ tonalVar <- "UASTonalAurAvgMaxLR"
 ```{r}
 
 # Fluctuation strength
-iVars <- c(absVar, "UASEventPerMin", "UASFluctSHM10ExBin", "UASFluctSHM05ExBin", "UASFluctFZ10ExMaxLR", "UASFluctFZ05ExMaxLR", "UASFluctOV10ExMaxLR", "UASFluctOV05ExMaxLR")
+iVars <- c(absVar, eventVar, "UASFluctSHM10ExBin", "UASFluctSHM05ExBin", "UASFluctFZ10ExMaxLR", "UASFluctFZ05ExMaxLR", "UASFluctOV10ExMaxLR", "UASFluctOV05ExMaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(25107, 546098, 195, 5937, 102658)
@@ -3126,7 +3130,7 @@ seeds <- c(25107, 546098, 195, 5937, 102658)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -3219,7 +3223,7 @@ fluctVar <- "UASFluctOV10ExMaxLR"
 ```{r}
 
 # Roughness
-iVars <- c(absVar, "UASEventPerMin", "UASRoughECMA10ExBin", "UASRoughECMA05ExBin", "UASRoughFZ10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASRoughDW10ExMaxLR", "UASRoughDW05ExMaxLR")
+iVars <- c(absVar, eventVar, "UASRoughECMA10ExBin", "UASRoughECMA05ExBin", "UASRoughFZ10ExMaxLR", "UASRoughFZ05ExMaxLR", "UASRoughDW10ExMaxLR", "UASRoughDW05ExMaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(4701, 52187, 16589, 65217, 16893)
@@ -3230,7 +3234,7 @@ seeds <- c(4701, 52187, 16589, 65217, 16893)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -3322,7 +3326,7 @@ roughVar <- "UASRoughFZ05ExMaxLR"
 
 ```{r}
 # Impulsiveness
-iVars <- c(absVar, "UASEventPerMin", "UASImpulsSHMAvgMaxLR", "UASImpulsSHM05ExMaxLR", "UASImpulsSHMPowAvgMaxLR")
+iVars <- c(absVar, eventVar, "UASImpulsSHMAvgMaxLR", "UASImpulsSHM05ExMaxLR", "UASImpulsSHMPowAvgMaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(8495, 59867, 5416, 9843, 86)
@@ -3333,7 +3337,7 @@ seeds <- c(8495, 59867, 5416, 9843, 86)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -3428,7 +3432,7 @@ Now the highest importance SQMs are ranked against each other, controlling for U
 
 ```{r}
 
-iVars <- c(absVar, "UASEventPerMin", sharpVar, tonLdVar, fluctVar, roughVar, impulsVar)
+iVars <- c(absVar, eventVar, sharpVar, tonLdVar, fluctVar, roughVar, impulsVar)
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(70498, 4, 14986, 453, 864)
@@ -3439,7 +3443,7 @@ seeds <- c(70498, 4, 14986, 453, 864)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -3522,7 +3526,7 @@ if (saveplots){
 
 ```{r}
 
-iVars <- c(absVar, "UASEventPerMin", sharpVar, tonalVar, fluctVar, roughVar, impulsVar)
+iVars <- c(absVar, eventVar, sharpVar, tonalVar, fluctVar, roughVar, impulsVar)
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(546, 57203, 270835, 60592, 8094)
@@ -3533,7 +3537,7 @@ seeds <- c(546, 57203, 270835, 60592, 8094)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -3614,16 +3618,6 @@ if (saveplots){
 
 Next, the difference metrics are analysed, 
 
-#### Remove ambient only stimuli
-
-Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
-
-```{r}
-stimDataBNum <- stimDataBNum[complete.cases(stimDataBNum),]
-stimDataBNum$UASLAeq <- as.numeric(stimDataBNum$UASLAeq)
-stimDataBNum$SNRlevel <- as.numeric(stimDataBNum$SNRlevel)
-```
-
 #### Set variables
 
 ```{r}
@@ -3641,7 +3635,7 @@ seeds <- c(568392, 498, 4089, 78132, 741809)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -3716,7 +3710,7 @@ if (saveplots){
 }
 
 ```
-```{r, fig.width=8,fig.height=6}
+```{r, fig.width=8,fig.height=4}
 
 # Plot only positive values
 resultsOutDiffs.conimpPtv <- resultsOutDiffs.conimp |>
@@ -3728,10 +3722,10 @@ pBar <- ggplot(resultsOutDiffs.conimpPtv) + geom_col(aes(x=factor(rownames(resul
 pBar
 
 if (saveplots){
-  ggsave(filename="PtBdHiAnnoyDiffVarsConPermimpPtv.svg", width=8, height=6, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtBdHiAnnoyDiffVarsConPermimpPtv.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
   unlink("PtBdHiAnnoyDiffVarsConPermimpPtv.svg")
   
-  ggsave(filename="PtBdHiAnnoyDiffVarsConPermimpPtv.pdf", width=8, height=6, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtBdHiAnnoyDiffVarsConPermimpPtv.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
   unlink("PtBdHiAnnoyDiffVarsConPermimpPtv.pdf")
 }
 
@@ -3757,7 +3751,7 @@ The ambient-only stimuli are NOT replaced here, as the difference analysis inclu
 
 ```{r}
 
-iVars <- c(diffVar, "UASEventPerMin", "dSharpAurISO3PowAvgMaxLR", "dSharpAurISO305ExMaxLR", "dSharpAurSHMPowAvgMaxLR", "dSharpAurSHM05ExMaxLR")
+iVars <- c(diffVar, eventVar, "dSharpAurISO3PowAvgMaxLR", "dSharpAurISO305ExMaxLR", "dSharpAurSHMPowAvgMaxLR", "dSharpAurSHM05ExMaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(84194, 905, 64815, 928054, 625091, 582031)
@@ -3768,7 +3762,7 @@ seeds <- c(84194, 905, 64815, 928054, 625091, 582031)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -3860,7 +3854,7 @@ dSharpVar <- "dSharpAurISO3PowAvgMaxLR"
 
 ```{r}
 
-iVars <- c(diffVar, "UASEventPerMin", "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR", "dTonLdECMAPowAvgBin", "dTonLdECMA05ExBin")
+iVars <- c(diffVar, eventVar, "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR", "dTonLdECMAPowAvgBin", "dTonLdECMA05ExBin")
 dVar <- "dHighAnnoyPc"
 
 ```
@@ -3869,7 +3863,7 @@ dVar <- "dHighAnnoyPc"
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -3962,7 +3956,7 @@ dTonLdVar <- "dTonLdECMAPowAvgBin"
 
 ```{r}
 
-iVars <- c(diffVar, "UASEventPerMin", "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR")
+iVars <- c(diffVar, eventVar, "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(410865, 2954, 70812, 203, 7984)
@@ -3973,7 +3967,7 @@ seeds <- c(410865, 2954, 70812, 203, 7984)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -4070,7 +4064,7 @@ dTonalVar <- "dTonalSHMIntAvgMaxLR"
 ```{r}
 
 # Fluctuation strength
-iVars <- c(diffVar, "UASEventPerMin", "dFluctSHM10ExBin", "dFluctSHM05ExBin", "dFluctOV10ExMaxLR", "dFluctOV05ExMaxLR")
+iVars <- c(diffVar, eventVar, "dFluctSHM10ExBin", "dFluctSHM05ExBin", "dFluctOV10ExMaxLR", "dFluctOV05ExMaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(418657, 84, 1630, 18659, 3687)
@@ -4082,7 +4076,7 @@ seeds <- c(418657, 84, 1630, 18659, 3687)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -4174,7 +4168,7 @@ dFluctVar <- "dFluctOV10ExMaxLR"
 ```{r}
 
 # Roughness
-iVars <- c(diffVar, "UASEventPerMin", "dRoughECMA10ExBin", "dRoughECMA05ExBin", "dRoughFZ10ExMaxLR", "dRoughFZ05ExMaxLR")
+iVars <- c(diffVar, eventVar, "dRoughECMA10ExBin", "dRoughECMA05ExBin", "dRoughFZ10ExMaxLR", "dRoughFZ05ExMaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(69851, 85109, 410986, 1563, 896)
@@ -4185,7 +4179,7 @@ seeds <- c(69851, 85109, 410986, 1563, 896)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -4275,7 +4269,7 @@ dRoughVar <- "dRoughFZ05ExMaxLR"
 
 ```{r}
 # Impulsiveness
-iVars <- c(diffVar, "UASEventPerMin", "dImpulsSHMAvgMaxLR", "dImpulsSHM05ExMaxLR", "dImpulsSHMPowAvgMaxLR")
+iVars <- c(diffVar, eventVar, "dImpulsSHMAvgMaxLR", "dImpulsSHM05ExMaxLR", "dImpulsSHMPowAvgMaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(418659, 7805, 38475, 65834, 1653)
@@ -4286,7 +4280,7 @@ seeds <- c(418659, 7805, 38475, 65834, 1653)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -4381,7 +4375,7 @@ Now the highest importance dSQMs are ranked against each other, controlling for 
 
 ```{r}
 
-iVars <- c(diffVar, "UASEventPerMin", dSharpVar, dTonLdVar, dFluctVar, dRoughVar, dImpulsVar)
+iVars <- c(diffVar, eventVar, dSharpVar, dTonLdVar, dFluctVar, dRoughVar, dImpulsVar)
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(98465, 54163, 6541, 36485, 849675)
@@ -4392,7 +4386,7 @@ seeds <- c(98465, 54163, 6541, 36485, 849675)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -4475,7 +4469,7 @@ if (saveplots){
 
 ```{r}
 
-iVars <- c(diffVar, "UASEventPerMin", dSharpVar, dTonalVar, dFluctVar, dRoughVar, dImpulsVar)
+iVars <- c(diffVar, eventVar, dSharpVar, dTonalVar, dFluctVar, dRoughVar, dImpulsVar)
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(49865, 7852, 845961, 410583, 36748)
@@ -4486,7 +4480,7 @@ seeds <- c(49865, 7852, 845961, 410583, 36748)
 
 ```{r, fig.width=12, fig.height=4}
 
-p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1],
+p <- mtryTune(dataIn=stimDataBNum, iVars=iVars, dVar=dVar, seed=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
@@ -4620,7 +4614,7 @@ resAbsB <- resAbsB |> mutate(Variable_sum = sum(Imp), .by=Variable) |> arrange(d
 resAbsB$Outcome <- factor(resAbsB$Outcome, levels=c("Mean change in annoyance", "%HA [p(HA | 0)]"))
 
 # plot res as horizontal bar chart, with Imp as y axis, Variable as x axis, Outcome as fill, and Variable_sum as order, relabel x axis with Variable names
-pBar <- ggplot(resAbsB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable permutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours) + scale_x_discrete(labels=unique(rev(resAbsB$Variable)))
+pBar <- ggplot(resAbsB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35', linewidth=0,  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable permutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours) + scale_x_discrete(labels=unique(rev(resAbsB$Variable)))
 pBar
 
 if (saveplots){
@@ -4665,7 +4659,7 @@ resDiffB <- resDiffB |> mutate(Variable_sum = sum(Imp), .by=Variable) |> arrange
 resDiffB$Outcome <- factor(resDiffB$Outcome, levels=c("Mean change in annoyance", "%HA [p(HA | 0)]"))
 
 # plot res as horizontal bar chart, with Imp as y axis, Variable as x axis, Outcome as fill, and Variable_sum as order, relabel x axis with Variable names
-pBar <- ggplot(resDiffB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable permutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours) + scale_x_discrete(labels=unique(rev(resDiffB$Variable)))
+pBar <- ggplot(resDiffB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35', linewidth=0,  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable permutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours) + scale_x_discrete(labels=unique(rev(resDiffB$Variable)))
 pBar
 
 if (saveplots){
@@ -4712,7 +4706,7 @@ resAbsNoTonLdB <- resAbsNoTonLdB |> mutate(Variable_sum = sum(Imp), .by=Variable
 resAbsNoTonLdB$Outcome <- factor(resAbsNoTonLdB$Outcome, levels=c("Mean change in annoyance", "%HA [p(HA | 0)]"))
 
 # plot res as horizontal bar chart, with Imp as y axis, Variable as x axis, Outcome as fill, and Variable_sum as order, relabel x axis with Variable names
-pBar <- ggplot(resAbsNoTonLdB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable permutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours) + scale_x_discrete(labels=unique(rev(resAbsNoTonLdB$Variable)))
+pBar <- ggplot(resAbsNoTonLdB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35', linewidth=0,  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable permutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours) + scale_x_discrete(labels=unique(rev(resAbsNoTonLdB$Variable)))
 pBar
 
 if (saveplots){
@@ -4756,7 +4750,7 @@ resDiffNoTonLdB <- resDiffNoTonLdB |> mutate(Variable_sum = sum(Imp), .by=Variab
 resDiffNoTonLdB$Outcome <- factor(resDiffNoTonLdB$Outcome, levels=c("Mean change in annoyance", "%HA [p(HA | 0)]"))
 
 # plot res as horizontal bar chart, with Imp as y axis, Variable as x axis, Outcome as fill, and Variable_sum as order, relabel x axis with Variable names
-pBar <- ggplot(resDiffNoTonLdB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35',  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable permutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours) + scale_x_discrete(labels=unique(rev(resDiffNoTonLdB$Variable)))
+pBar <- ggplot(resDiffNoTonLdB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35', linewidth=0,  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable permutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours) + scale_x_discrete(labels=unique(rev(resDiffNoTonLdB$Variable)))
 pBar
 
 if (saveplots){

@@ -1619,6 +1619,9 @@ dataByStim['LAeqLAF90diff'] = dataByStim['UASLAeqMaxLR'] - dataByStim['AmbLAF90E
 dataByStim['LASmaxLAF90diff'] = dataByStim['UASLASmaxMaxLR'] - dataByStim['AmbLAF90ExMaxLR']
 dataByStim['LASmaxLAF50diff'] = dataByStim['UASLASmaxMaxLR'] - dataByStim['AmbLAF50ExMaxLR']
 dataByStim['LASmaxLAeqdiff'] = dataByStim['UASLASmaxMaxLR'] - dataByStim['AmbLAeqMaxLR']
+dataByStim['LAELAF90diff'] = dataByStim['UASLAEMaxLR'] - dataByStim['AmbLAF90ExMaxLR']
+dataByStim['LAELAF50diff'] = dataByStim['UASLAEMaxLR'] - dataByStim['AmbLAF50ExMaxLR']
+dataByStim['LAELAeqdiff'] = dataByStim['UASLAEMaxLR'] - dataByStim['AmbLAeqMaxLR']
 dataByStim['PNLMLAeqdiff'] = dataByStim['UASPNLmaxMaxLR'] - dataByStim['AmbLAeqMaxLR']
 dataByStim['PNLTMLAeqdiff'] = dataByStim['UASPNLTmaxMaxLR'] - dataByStim['AmbLAeqMaxLR']
 dataByStim['EPNLLAeqdiff'] = dataByStim['UASEPNLMaxLR'] - dataByStim['AmbLAeqMaxLR']
@@ -1820,24 +1823,26 @@ partAData.insert(loc=partAData.columns.get_loc('UAS_noticed'),
                  column='HighAnnoy', value=partAData.pop('HighAnnoy'))
 
 # change to highly annoyed data
-partAData['dHighAnnoy'] = 0
+partAData['dHighAnnoy'] = np.nan
 for iD in partAData['ID#'].unique():
-    # multiply by inverse of baseline highly annoyed
-    partAData.loc[(partAData['ID#'] == iD)
-                  & (partAData['StimFile'].str.contains("A1")),
-                  'dHighAnnoy'] = (1 - partAData.loc[(partAData['ID#'] == iD)
-                                                     & (partAData['StimFile'] == 'A1.wav'),
-                                                     'HighAnnoy'].values[0])*(partAData.loc[(partAData['ID#'] == iD)
-                                                                                            & (partAData['StimFile'].str.contains("A1")),
-                                                                                            'HighAnnoy'])
+    
+    # for participants with no HA in baseline, add HA occurences
+    if partAData.loc[(partAData['ID#'] == iD) & (partAData['StimFile'] == 'A1.wav'), 'HighAnnoy'].iloc[0] == 0:
+        partAData.loc[(partAData['ID#'] == iD)
+                       & (partAData['StimFile'].str.contains("A1")),
+                       'dHighAnnoy'] = partAData.loc[(partAData['ID#']
+                                                      == iD)
+                                                      & (partAData['StimFile'].str.contains("A1")),
+                                                      'HighAnnoy']
 
-    partAData.loc[(partAData['ID#'] == iD)
-                  & (partAData['StimFile'].str.contains("A2")),
-                  'dHighAnnoy'] = (1 - partAData.loc[(partAData['ID#'] == iD)
-                                                     & (partAData['StimFile'] == 'A2.wav'),
-                                                     'HighAnnoy'].values[0])*(partAData.loc[(partAData['ID#'] == iD)
-                                                                                            & (partAData['StimFile'].str.contains("A2")),
-                                                                                            'HighAnnoy'])
+    if partAData.loc[(partAData['ID#'] == iD) & (partAData['StimFile'] == 'A2.wav'), 'HighAnnoy'].iloc[0] == 0:
+        partAData.loc[(partAData['ID#'] == iD)
+                       & (partAData['StimFile'].str.contains("A2")),
+                       'dHighAnnoy'] = partAData.loc[(partAData['ID#']
+                                                      == iD)
+                                                      & (partAData['StimFile'].str.contains("A2")),
+                                                      'HighAnnoy']
+
 
 # initialise DataFrames for loop over stimulus recordings
 partA = pd.DataFrame(index=partAResponses['Recording'].unique())
@@ -1979,10 +1984,10 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
                                          'HighAnnoyProp'],
                                 index=[file])
 
-    dhighAnnoyAgg = pd.DataFrame(data=[[np.sum(partAdHighAnnoy.values,
-                                               axis=1)[0],
-                                        np.mean(partAdHighAnnoy.values,
-                                                axis=1)[0]]],
+    dhighAnnoyAgg = pd.DataFrame(data=[[np.nansum(partAdHighAnnoy.values,
+                                                  axis=1)[0],
+                                        np.nanmean(partAdHighAnnoy.values,
+                                                   axis=1)[0]]],
                                  columns=['dHighAnnoyTotal',
                                           'dHighAnnoyProp'],
                                  index=[file])
@@ -2074,16 +2079,16 @@ partBData.insert(loc=partBData.columns.get_loc('Recording'),
                  column='HighAnnoy', value=partBData.pop('HighAnnoy'))
 
 # change to highly annoyed data
-partBData['dHighAnnoy'] = 0
+partBData['dHighAnnoy'] = np.nan
 for iD in partBData['ID#'].unique():
-    # multiply by inverse of baseline highly annoyed
-    partBData.loc[(partBData['ID#'] == iD)
-                  & (partBData['StimFile'].str.contains("B2")),
-                  'dHighAnnoy'] = (1 - partBData.loc[(partBData['ID#'] == iD)
-                                                     & (partBData['StimFile'] == 'B2.wav'),
-                                                     'HighAnnoy'].values[0])*(partBData.loc[(partBData['ID#'] == iD)
-                                                                                            & (partBData['StimFile'].str.contains("B2")),
-                                                                                            'HighAnnoy'])
+
+    if partBData.loc[(partBData['ID#'] == iD) & (partBData['StimFile'] == 'B2.wav'), 'HighAnnoy'].iloc[0] == 0:
+        partBData.loc[(partBData['ID#'] == iD)
+                       & (partBData['StimFile'].str.contains("B2")),
+                       'dHighAnnoy'] = partBData.loc[(partBData['ID#']
+                                                      == iD)
+                                                      & (partBData['StimFile'].str.contains("B2")),
+                                                      'HighAnnoy']
 
 # initialise DataFrames for loop over stimulus recordings
 partB = pd.DataFrame(index=partBResponses['Recording'].unique())
@@ -2223,10 +2228,10 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
                                          'HighAnnoyProp'],
                                 index=[file])
 
-    dhighAnnoyAgg = pd.DataFrame(data=[[np.sum(partBdHighAnnoy.values,
-                                               axis=1)[0],
-                                        np.mean(partBdHighAnnoy.values,
-                                                axis=1)[0]]],
+    dhighAnnoyAgg = pd.DataFrame(data=[[np.nansum(partBdHighAnnoy.values,
+                                                  axis=1)[0],
+                                        np.nanmean(partBdHighAnnoy.values,
+                                                   axis=1)[0]]],
                                  columns=['dHighAnnoyTotal',
                                           'dHighAnnoyProp'],
                                  index=[file])

@@ -14,11 +14,15 @@ Load packages
 
 ```{r}
 library(conflicted)
-library(flexplot)
+library(MASS)
 library(geepack)
+library(glmtoolbox)
 library(tidyverse)
 library(openxlsx)
-
+library(ggeffects)
+library(stats)
+library(easystats)
+library(viridis)
 
 # set package parameters
 theme_set(theme_bw())
@@ -47,6 +51,10 @@ if (saveplots){
   # set output plot directory
   choose.files(caption="Just cancel this", filters=matrix(data=c(" ", " "), ncol=2))  # workaround for bug in RTerm choose.dir
   outFigPath <- utils::choose.dir(caption="Select output folder to save plots")
+  
+  if (!dir.exists(file.path(outFigPath, "svg"))){dir.create(file.path(outFigPath, "svg"))}
+  if (!dir.exists(file.path(outFigPath, "pdf"))){dir.create(file.path(outFigPath, "pdf"))}
+  
 }
 
 # toggle to save data
@@ -60,19 +68,28 @@ if (savedata){
   outDataPath <- utils::choose.dir(caption="Select output folder to save data")
 }
 
+set.seed(5419498)
+
 
 ```
 
 # Import data and wrangle
 
-## Part A
+# Import data and wrangle
+
+## Parts A & B combined
 
 ```{r}
 
-subjDataApath <- utils::choose.files(caption=r"(Select refmap_listest1_testdataA_BySubj.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
-                                     filters=matrix(data=c("refmap_listest1_testdataA_BySubj.csv", "refmap_listest1_testdataA_BySubj.csv"), ncol=2))
+subjDataPath <- utils::choose.files(caption=r"(Select refmap_listest1_testdata_BySubj.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
+                                     filters=matrix(data=c("refmap_listest1_testdata_BySubj.csv", "refmap_listest1_testdata_BySubj.csv"), ncol=2))
 
-subjDataA <- read.csv(subjDataApath, header=TRUE)
+subjData <- read.csv(subjDataPath, header=TRUE)
+
+stimDataPath <- utils::choose.files(caption=r"(Select refmap_listest1_testdata_ByStim.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
+                                     filters=matrix(data=c("refmap_listest1_testdata_ByStim.csv", "refmap_listest1_testdata_ByStim.csv"), ncol=2))
+
+stimData <- read.csv(stimDataPath, header=TRUE)
 
 ```
 
@@ -80,39 +97,48 @@ subjDataA <- read.csv(subjDataApath, header=TRUE)
 # definition of ordinal variable levels
 UASLAeqCatsA <- c("No UAS", "42", "48", "54", "60")
 SNRCatsA <- c("No UAS", "-16", "-10", "-4", "2", "8")
-UASOpCatsA <- c("No UAS", "Flyby", "Landing", "Takeoff")
+UASOpCatsA <- c("No UAS", "Flyover", "Landing", "Takeoff")
 UASTypeCatsA <- c("No UAS", "H520", "M300", "T150")
 
 # encode factors
-subjDataA$ID. <- factor(subjDataA$ID.)
-subjDataA$UASLAeq <- factor(subjDataA$UASLAeq, levels=UASLAeqCatsA, order=TRUE)
-subjDataA$SNRlevel <- factor(subjDataA$SNRlevel, levels=SNRCatsA, order=TRUE)
-subjDataA$UASOperation <- factor(subjDataA$UASOperation, levels=UASOpCatsA)
-subjDataA$UASType <- factor(subjDataA$UASType, levels=UASTypeCatsA)
-subjDataA$AmbientEnv <- factor(subjDataA$AmbientEnv, levels=c("Street", "Park"))
-subjDataA$AAM_attitude <- factor(subjDataA$AAM_attitude)
-subjDataA$Home_Area <- factor(subjDataA$Home_Area)
-subjDataA$Area_soundscape <- factor(subjDataA$Area_soundscape)
-subjDataA$NationGeo <- factor(subjDataA$NationGeo)
+subjData$ID. <- factor(subjData$ID.)
+subjData$UASLAeq <- factor(subjData$UASLAeq, levels=UASLAeqCatsA, order=TRUE)
+subjData$SNRlevel <- factor(subjData$SNRlevel, levels=SNRCatsA, order=TRUE)
+subjData$UASOperation <- factor(subjData$UASOperation, levels=UASOpCatsA)
+subjData$UASType <- factor(subjData$UASType, levels=UASTypeCatsA)
+subjData$AmbientEnv <- factor(subjData$AmbientEnv, levels=c("Street", "Park"))
+subjData$AAM_attitude <- factor(subjData$AAM_attitude)
+subjData$Home_Area <- factor(subjData$Home_Area)
+subjData$Area_soundscape <- factor(subjData$Area_soundscape)
+subjData$NationGeo <- factor(subjData$NationGeo)
 
 # recode AAM_attitude to 3 groups
-subjDataA <- subjDataA |> dplyr::mutate(AAM_attitude3 = case_match(AAM_attitude,
+subjData <- subjData |> dplyr::mutate(AAM_attitude3 = case_match(AAM_attitude,
                                                                     "Supportive" ~ "Supportive",
                                                                     c("Ambivalent",
                                                                       "Concerned") ~ "Ambiv_Concern",
                                                                       "Neutral" ~ "Neutral"))
-subjDataA$AAM_attitude3 <- factor(subjDataA$AAM_attitude3)
+subjData$AAM_attitude3 <- factor(subjData$AAM_attitude3)
 
 # recode AAM_attitude to 2 groups
-subjDataA <- subjDataA |> dplyr::mutate(AAM_attitude2 = case_match(AAM_attitude,
+subjData <- subjData |> dplyr::mutate(AAM_attitude2 = case_match(AAM_attitude,
                                                                     "Supportive" ~ "Supportive",
                                                                     c("Ambivalent",
                                                                       "Concerned",
                                                                       "Neutral") ~ "Ambiv_Concern_Neutral"))
-subjDataA$AAM_attitude2 <- factor(subjDataA$AAM_attitude2)
+subjData$AAM_attitude2 <- factor(subjData$AAM_attitude2)
+
+# recode AAM_attitude to 2 other groups
+subjData <- subjData |> dplyr::mutate(AAM_attitude2_2 = case_match(AAM_attitude,
+                                                                    c("Supportive",
+                                                                      "Ambivalent") ~ "Support_Ambiv",
+                                                                    c("Concerned",
+                                                                      "Neutral") ~ "Concern_Neutral"))
+
+subjData$AAM_attitude2_2 <- factor(subjData$AAM_attitude2_2)
 
 # recode NationGeo to 4 groups
-subjDataA <- subjDataA |> dplyr::mutate(NationGeo4 = case_match(NationGeo,
+subjData <- subjData |> dplyr::mutate(NationGeo4 = case_match(NationGeo,
                                                                "UK" ~ "UK",
                                                                c("Africa",
                                                                  "SouthAsia") ~ "Africa_SAsia",
@@ -122,10 +148,10 @@ subjDataA <- subjDataA |> dplyr::mutate(NationGeo4 = case_match(NationGeo,
                                                                  "MidEast",
                                                                  "SouthAmerica") ~ "Other",
                                                                "" ~ "Unspecified"))
-subjDataA$NationGeo4 <- factor(subjDataA$NationGeo4)
+subjData$NationGeo4 <- factor(subjData$NationGeo4)
 
 # recode NationGeo to 3 groups
-subjDataA <- subjDataA |> dplyr::mutate(NationGeo3 = case_match(NationGeo,
+subjData <- subjData |> dplyr::mutate(NationGeo3 = case_match(NationGeo,
                                                                  "UK" ~ "UK",
                                                                  c("Africa",
                                                                    "SouthAsia") ~ "Africa_SAsia",
@@ -135,141 +161,163 @@ subjDataA <- subjDataA |> dplyr::mutate(NationGeo3 = case_match(NationGeo,
                                                                    "MidEast",
                                                                    "SouthAmerica",
                                                                    "") ~ "Other"))
-subjDataA$NationGeo3 <- factor(subjDataA$NationGeo3)
+subjData$NationGeo3 <- factor(subjData$NationGeo3)
+
+# recode NationGeo to 2 groups
+subjData <- subjData |> dplyr::mutate(NationGeo2 = case_match(NationGeo,
+                                                                 "UK" ~ "UK",
+                                                                 c("Africa",
+                                                                   "SouthAsia",
+                                                                   "Australasia",
+                                                                   "EastAsia",
+                                                                   "Europe",
+                                                                   "MidEast",
+                                                                   "SouthAmerica",
+                                                                   "") ~ "Other"))
+subjData$NationGeo2 <- factor(subjData$NationGeo2)
+
+
+subjData$NationGeo3 <- factor(subjData$NationGeo3)
 
 # recode Area of residence to 2 groups
-subjDataA <- subjDataA |> dplyr::mutate(Home_Area2 = case_match(Home_Area,
+subjData <- subjData |> dplyr::mutate(Home_Area2 = case_match(Home_Area,
                                                          "Urban" ~ "Urban",
                                                          c("Suburban",
                                                            "Rural") ~ "Suburban_Rural"))
-subjDataA$Home_Area2 <- factor(subjDataA$Home_Area2)
+subjData$Home_Area2 <- factor(subjData$Home_Area2)
 
 
 # recode Area soundscape to 2 groups
-subjDataA <- subjDataA |> dplyr::mutate(Area_soundscape2 = case_match(Area_soundscape,
+subjData <- subjData |> dplyr::mutate(Area_soundscape2 = case_match(Area_soundscape,
                                                                        c("Calm",
                                                                          "Monotonous") ~ "Uneventful",
                                                                        c("Chaotic",
                                                                          "Vibrant") ~ "Eventful"))
 
-subjDataA$Area_soundscape2 <- factor(subjDataA$Area_soundscape2)
+subjData$Area_soundscape2 <- factor(subjData$Area_soundscape2)
+
+# create column with Part B TrialNumbers continuing from Part A
+subjData$TrialNumberCnt <- subjData$TrialNumber
+subjData$TrialNumberCnt[subjData$SessionPart == "B"] <- subjData$TrialNumberCnt[subjData$SessionPart == "B"] + 
+                                                              max(subjData$TrialNumber[subjData$SessionPart=="A"])
+
+# reorder by participant ID and trial number
+subjData <- subjData[with(subjData, order(ID., TrialNumberCnt)), ]
+
+# rescale trial number variables separately for each session part
+subjData <- rbind(subjData[subjData$SessionPart == "A", ] |> dplyr::mutate(TrialNumberScl = datawizard::standardise(TrialNumber, scale=TRUE)),
+                    subjData[subjData$SessionPart == "B", ] |> dplyr::mutate(TrialNumberScl = datawizard::standardise(TrialNumber, scale=TRUE)))
+subjData <- subjData |> dplyr::mutate(TrialNumberCntScl = datawizard::standardise(TrialNumberCnt, scale=TRUE))
+
+# rescale dB variables
+subjData <- subjData |> dplyr::mutate(UASLAeqMaxLRScl = datawizard::standardise(UASLAeqMaxLR, scale=FALSE))
+subjData <- subjData |> dplyr::mutate(UASLAEMaxLRScl = datawizard::standardise(UASLAEMaxLR, scale=FALSE))
+subjData <- subjData |> dplyr::mutate(UASEPNLMaxLRScl = datawizard::standardise(UASEPNLMaxLR, scale=FALSE))
+subjData <- subjData |> dplyr::mutate(Detect0p1IntMaxLRLog = datawizard::standardise(Detect0p1dBIntMaxLR, scale=FALSE))
+subjData <- subjData |> dplyr::mutate(Detect0p5IntMaxLRLog = datawizard::standardise(Detect0p5dBIntMaxLR, scale=FALSE))
+subjData <- subjData |> dplyr::mutate(LAELAF50diffScl = datawizard::standardise(LAELAF50diff, scale=FALSE))
+
+stimData <- stimData |> dplyr::mutate(UASLAeqMaxLRScl = datawizard::standardise(UASLAeqMaxLR, scale=FALSE))
+stimData <- stimData |> dplyr::mutate(UASLAEMaxLRScl = datawizard::standardise(UASLAEMaxLR, scale=FALSE))
+stimData <- stimData |> dplyr::mutate(UASEPNLMaxLRScl = datawizard::standardise(UASEPNLMaxLR, scale=FALSE))
+stimData <- stimData |> dplyr::mutate(Detect0p1IntMaxLRLog = datawizard::standardise(Detect0p1dBIntMaxLR, scale=FALSE))
+stimData <- stimData |> dplyr::mutate(Detect0p5IntMaxLRLog = datawizard::standardise(Detect0p5dBIntMaxLR, scale=FALSE))
+stimData <- stimData |> dplyr::mutate(LAELAF50diffScl = datawizard::standardise(LAELAF50diff, scale=FALSE))
+
+# convert detectability dB to log variables
+subjData <- subjData |> dplyr::mutate(Detect0p1IntMaxLRLog = Detect0p1dBIntMaxLR/10)
+subjData <- subjData |> dplyr::mutate(Detect0p5IntMaxLRLog = Detect0p5dBIntMaxLR/10)
+
+stimData <- stimData |> dplyr::mutate(Detect0p1IntMaxLRLog = Detect0p1dBIntMaxLR/10)
+stimData <- stimData |> dplyr::mutate(Detect0p5IntMaxLRLog = Detect0p5dBIntMaxLR/10)
+
+# convert events variables to reciprocal
+subjData <- subjData |> dplyr::mutate(UASEventsInv = 1/UASEvents)
+subjData <- subjData |> dplyr::mutate(UASEventPerMinInv = 1/UASEventPerMin)
 
 
-# reorder by trial number
-subjDataA <- subjDataA[with(subjDataA, order(ID., TrialNumber)), ]
+# omit ambient-only stimuli
+subjDataNoAmb <- subjData |> dplyr::filter(UASLAeq != "No UAS")
+stimDataNoAmb <- stimData |> dplyr::filter(UASLAeq != "No UAS")
 
-# rescale trial number variable
-subjDataA <- subjDataA |> dplyr::mutate(TrialNumberScl = scale(TrialNumber))
+# re-encode factors omitting ambient-only stimuli
+subjDataNoAmb$SNRlevel <- factor(subjDataNoAmb$SNRlevel, levels=SNRCatsA[2:length(SNRCatsA)], order=TRUE)
+subjDataNoAmb$UASOperation <- factor(subjDataNoAmb$UASOperation, levels=UASOpCatsA[2: length(UASOpCatsA)])
+subjDataNoAmb$UASType <- factor(subjDataNoAmb$UASType, levels=UASTypeCatsA[2:length(UASTypeCatsA)])
+stimDataNoAmb$SNRlevel <- factor(stimDataNoAmb$SNRlevel, levels=SNRCatsA[2:length(SNRCatsA)], order=TRUE)
+stimDataNoAmb$UASOperation <- factor(stimDataNoAmb$UASOperation, levels=UASOpCatsA[2: length(UASOpCatsA)])
+stimDataNoAmb$UASType <- factor(stimDataNoAmb$UASType, levels=UASTypeCatsA[2:length(UASTypeCatsA)])
 
 ```
 
+# Parts A & B combined analysis: change in mean annoyance rating
 
-## Part B
+## Generalised estimating equations
+
+### Model 1: Categorical variables
 
 ```{r}
 
-subjDataBpath <- utils::choose.files(caption=r"(Select refmap_listest1_testdataB_BySubj.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
-                                     filters=matrix(data=c("refmap_listest1_testdataB_BySubj.csv", "refmap_listest1_testdataB_BySubj.csv"), ncol=2))
+model1 <- mABTypeOpLAExEnv1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~  UASLAEMaxLR*AmbientEnv +
+                                                         UASType + UASOperation +
+                                                         TrialNumberScl + I(UASEvents^-1),
+                                                         data=subjDataNoAmb, family=gaussian(link='identity'),
+                                                         id=ID., corstr='exchangeable')
 
-subjDataB <- read.csv(subjDataBpath, header=TRUE)
+model1predict <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLR [all]", "AmbientEnv", "UASEvents [1]"),
+                                             type='fixed', margin='marginalmeans', by="UASLAEMaxLR")
 
-```
+ggplot(data=model1predict) +
+  geom_line(aes(x=x, y=predicted, colour=group), linewidth=1) +
+  geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.15) +
+  geom_point(data=stimDataNoAmb, aes(x=UASLAEMaxLR, y=dAnnoyMean, colour=AmbientEnv, shape=AmbientEnv), alpha=0.35) +
+  labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance") +
+  scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-1, 9)) +
+  theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif"), legend.title=element_blank()) +
+  scale_color_viridis(option='plasma', direction=1, discrete=TRUE, begin = 0.2, end = 0.7, guide = guide_legend(reverse = TRUE)) +
+  scale_fill_viridis(option='plasma', direction=1, discrete=TRUE, begin = 0.2, end = 0.7, guide = guide_legend(reverse = TRUE)) +
+  scale_shape_manual(values=c(1, 3), guide=FALSE)
 
-```{r}
-# definition of ordinal variable levels
-UASLAeqCatsB <- c("No UAS", "54", "60")
-SNRCatsB <- c("No UAS", "2", "8")
-UASOpCatsB <- c("No UAS", "Flyby")
-UASTypeCatsB <- c("No UAS", "H520", "T150")
-
-# encode factors
-subjDataB$ID. <- factor(subjDataB$ID.)
-subjDataB$UASLAeq <- factor(subjDataB$UASLAeq, levels=UASLAeqCatsB, order=TRUE)
-subjDataB$SNRlevel <- factor(subjDataB$SNRlevel, levels=SNRCatsB, order=TRUE)
-subjDataB$UASOperation <- factor(subjDataB$UASOperation, levels=UASOpCatsB)
-subjDataB$UASType <- factor(subjDataB$UASType, levels=UASTypeCatsB)
-subjDataB$AmbientEnv <- factor(subjDataB$AmbientEnv)
-subjDataB$AAM_attitude <- factor(subjDataB$AAM_attitude)
-subjDataB$Home_Area <- factor(subjDataB$Home_Area)
-subjDataB$Area_soundscape <- factor(subjDataB$Area_soundscape)
-subjDataB$NationGeo <- factor(subjDataB$NationGeo)
-
-# recode AAM_attitude to 3 groups
-subjDataB <- subjDataB |> dplyr::mutate(AAM_attitude3 = case_match(AAM_attitude,
-                                                                    "Supportive" ~ "Supportive",
-                                                                    c("Ambivalent",
-                                                                      "Concerned") ~ "Ambiv_Concern",
-                                                                      "Neutral" ~ "Neutral"))
-subjDataB$AAM_attitude3 <- factor(subjDataB$AAM_attitude3)
-
-# recode AAM_attitude to 2 groups
-subjDataB <- subjDataB |> dplyr::mutate(AAM_attitude2 = case_match(AAM_attitude,
-                                                                    "Supportive" ~ "Supportive",
-                                                                    c("Ambivalent",
-                                                                      "Concerned",
-                                                                      "Neutral") ~ "Ambiv_Concern_Neutral"))
-subjDataB$AAM_attitude2 <- factor(subjDataB$AAM_attitude2)
-
-# recode NationGeo to 4 groups
-subjDataB <- subjDataB |> dplyr::mutate(NationGeo4 = case_match(NationGeo,
-                                                                 "UK" ~ "UK",
-                                                                 c("Africa",
-                                                                   "SouthAsia") ~ "Africa_SAsia",
-                                                                 c("Australasia",
-                                                                   "EastAsia",
-                                                                   "Europe",
-                                                                   "MidEast",
-                                                                   "SouthAmerica") ~ "Other",
-                                                                 "" ~ "Unspecified"))
-subjDataB$NationGeo4 <- factor(subjDataB$NationGeo4)
-
-# recode NationGeo to 3 groups
-subjDataB <- subjDataB |> dplyr::mutate(NationGeo3 = case_match(NationGeo,
-                                                                 "UK" ~ "UK",
-                                                                 c("Africa",
-                                                                   "SouthAsia") ~ "Africa_SAsia",
-                                                                 c("Australasia",
-                                                                   "EastAsia",
-                                                                   "Europe",
-                                                                   "MidEast",
-                                                                   "SouthAmerica",
-                                                                   "") ~ "Other"))
-subjDataB$NationGeo3 <- factor(subjDataB$NationGeo3)
-
-# recode Area of residence to 2 groups
-subjDataB <- subjDataB |> dplyr::mutate(Home_Area2 = case_match(Home_Area,
-                                                                 "Urban" ~ "Urban",
-                                                                 c("Suburban",
-                                                                   "Rural") ~ "Suburban_Rural"))
-subjDataB$Home_Area2 <- factor(subjDataB$Home_Area2)
-
-
-# recode Area soundscape to 2 groups
-subjDataB <- subjDataB |> dplyr::mutate(Area_soundscape2 = case_match(Area_soundscape,
-                                                                       c("Calm",
-                                                                         "Monotonous") ~ "Uneventful",
-                                                                       c("Chaotic",
-                                                                         "Vibrant") ~ "Eventful"))
-subjDataB$Area_soundscape2 <- factor(subjDataB$Area_soundscape2)
-
-
-# reorder by trial number
-subjDataB <- subjDataB[with(subjDataB, order(ID., TrialNumber)), ]
-
-# rescale trial number variable
-subjDataB <- subjDataB |> dplyr::mutate(TrialNumberScl = scale(TrialNumber))
+parameters::model_parameters(model1)
 
 ```
 
-# Part A analysis
-
-## Fit the best performing models from the lmer analysis
+### Categorical variables reduced
 
 ```{r}
 
+model1 <- mABTypeOpLAExEnv1_QSq.GEE
 
+model2 <- mABTypeOpLAExEnv1_Q.GEE <- glmtoolbox::glmgee(dAnnoyance ~  UASLAEMaxLR*AmbientEnv +
+                                                         UASType + UASOperation +
+                                                         UASEvents + I(UASEvents^-1),
+                                                         data=subjDataNoAmb, family=gaussian(link='identity'),
+                                                         id=ID., corstr='exchangeable')
+
+anova(model1, test='score')
+
+model2predict <- ggeffects::predict_response(model2, terms=c("UASLAEMaxLR [all]", "AmbientEnv"),
+                                             type='fixed', margin='marginalmeans', by="UASLAEMaxLR")
+
+ggplot(data=model2predict) +
+  geom_line(aes(x=x, y=predicted, colour=group), linewidth=1) +
+  geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.15) +
+  geom_point(data=stimDataNoAmb, aes(x=UASLAEMaxLR, y=dAnnoyMean, colour=AmbientEnv, shape=AmbientEnv), alpha=0.25) +
+  labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance") +
+  scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-1, 9)) +
+  theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif"), legend.title=element_blank()) +
+  scale_color_viridis(option='plasma', direction=1, discrete=TRUE, begin = 0.2, end = 0.8, guide = guide_legend(reverse = TRUE)) +
+  scale_fill_viridis(option='plasma', direction=1, discrete=TRUE, begin = 0.2, end = 0.8, guide = guide_legend(reverse = TRUE)) +
+  scale_shape_manual(values=c(1, 3), guide=FALSE)
+
+parameters::model_parameters(model2)
+
+glmtoolbox::QIC(mABTypeOpLAExEnv1_QSq.GEE, mABTypeOpLAExEnv1_Q.GEE)
+glmtoolbox::CIC(mABTypeOpLAExEnv1_QSq.GEE, mABTypeOpLAExEnv1_Q.GEE)
+glmtoolbox::RJC(mABTypeOpLAExEnv1_QSq.GEE, mABTypeOpLAExEnv1_Q.GEE)
+glmtoolbox::AGPC(mABTypeOpLAExEnv1_QSq.GEE, mABTypeOpLAExEnv1_Q.GEE)
+glmtoolbox::SGPC(mABTypeOpLAExEnv1_QSq.GEE, mABTypeOpLAExEnv1_Q.GEE)
+glmtoolbox::PAC(mABTypeOpLAExEnv1_QSq.GEE, mABTypeOpLAExEnv1_Q.GEE)
 
 
 ```
-
-
