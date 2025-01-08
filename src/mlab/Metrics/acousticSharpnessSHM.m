@@ -113,8 +113,9 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRatein, axisn,...
 % The modification is undertaken using an expression for deriving the Bark
 % critical band rate from frequency according to:
 %
-% Fastl, H. & Zwicker, E., 2007. Psychoacoustics: Facts and models. 3rd
-% edition. Berlin: Springer-Verlag.
+% Volk, F., 2015. Comparison and fitting of analytical expressions to
+% existing data for the critical-band concept, Acta Acustica united with
+% Acustica, 101(6), 1157-1167. https://doi.org/10.3813/AAA.918908
 %
 % Requirements
 % ------------
@@ -127,7 +128,7 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRatein, axisn,...
 % Institution: University of Salford
 %
 % Date created: 01/11/2024
-% Date last modified: 01/11/2024
+% Date last modified: 08/01/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -187,25 +188,28 @@ end
 
 %% Define constants
 
-deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2024 [deltaf(f=0)]
+deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2024
 c = 0.1618;  % Half-Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2024
 dz = 0.5;  % critical band resolution [deltaz]
-halfBark = dz:dz:26.5;  % half-critical band rate scale [z]
-f = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2024 [F(z)]
-z = 13*atan(0.76*(f/1000)) + 3.5*atan((f/7500).^2);  % Bark Eq 6.1 Fastl & Zwicker using f from SHM
+halfBark = dz:dz:26.5;  % half-critical band rate scale
+f = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2024
+% z = 13*atan(0.76*(f/1000)) + 3.5*atan((f/7500).^2);  % Bark Eq 6.1 Fastl
+% & Zwicker (no longer used)
+z = 32.12*(1 - (1 + (f/873.47).^1.18).^-0.4);  % Bark eq 9 Volk, 2015
 
 dt = 1/187.5;  % time step (resolution, s)
 
 % calibration value required to ensure an overall sharpness of 1 acum
-% corresponds with a narrowband noise 1 critical bandwidth at 60 dB
-% (free-field)
+% corresponds with a 60 dB (free-field) narrowband noise 1 critical
+% bandwidth centred on 1 kHz
+
 switch method
     case 'aures'
-        calS = 1.066382547066478;
+        calS = 1.0643285;
         acum = "Aur | SHM";
 
     case 'vonbismarck'
-        calS = 0.988276258707001;
+        calS = 0.98393;
         acum = "vBis | SHM";
         q1 = 15;
         q2 = 0.2;
@@ -213,7 +217,7 @@ switch method
         q4 = 0.8;
 
     case 'widmann'
-        calS = 0.989732271049128;
+        calS = 0.9854;
         acum = "Widm | SHM";
         q1 = 15.8;
         q2 = 0.15;
