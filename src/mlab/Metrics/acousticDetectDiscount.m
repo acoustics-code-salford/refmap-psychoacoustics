@@ -24,7 +24,9 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 % Acoustical Society of America.
 % https://ntrs.nasa.gov/citations/20210024824
 %
-% Rizzi, SA et al, 2024.
+% Rizzi, SA et al, 2024. Annoyance model assessments of urban air mobility
+% vehicle operations. 30th AIAA/CEAS Aeroacoustics Conference, Rome, Italy,
+% June 4-7, 2024. https://doi.org/10.2514/6.2024-3014
 %
 %
 % Inputs
@@ -553,8 +555,8 @@ if outPlot
         y = sum(reshape(cell2mat(get(b', 'YData')),size(b, 2), []), 1); 
         x = unique(cell2mat(get(b', 'XData')),'stable');
         offset = range(ylim)*.1; 
-        th = text(x, y - offset, labelVals, 'HorizontalAlignment', 'Center',...
-                  'VerticalAlignment', 'bottom', 'Color', 'w');
+        text(x, y - offset, labelVals, 'HorizontalAlignment', 'Center',...
+             'VerticalAlignment', 'bottom', 'Color', 'w');
         ax5.Title.String = "Overall levels";
 
     end
