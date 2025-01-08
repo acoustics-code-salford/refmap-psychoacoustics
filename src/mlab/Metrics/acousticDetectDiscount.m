@@ -179,7 +179,7 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 % Institution: University of Salford
 %
 % Date created: 05/11/2024
-% Date last modified: 04/12/2024
+% Date last modified: 08/01/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
