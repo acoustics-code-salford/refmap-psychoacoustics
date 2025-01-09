@@ -120,7 +120,7 @@ function tonalitySHM = acousticSHMTonality(p, sampleRatein, axisn,...
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 07/08/2023
-% Date last modified: 11/11/2024
+% Date last modified: 09/01/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -131,6 +131,12 @@ function tonalitySHM = acousticSHMTonality(p, sampleRatein, axisn,...
 % As per the licensing information, please be aware that this code is
 % WITHOUT ANY WARRANTY; without even the implied warranty of
 % MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+%
+% This code calls sub-component file 'cmap_plasma.txt'. The contents of
+% the file includes a copy of data obtained from the repository 
+% https://github.com/BIDS/colormap, and is CC0 1.0 licensed for modified
+% use, see https://creativecommons.org/publicdomain/zero/1.0 for
+% information.
 %
 % This code was developed from an original file 'SottekTonality.m' authored
 % by Matt Torjussen (14/02/2022), based on implementing ECMA-418-2:2020.

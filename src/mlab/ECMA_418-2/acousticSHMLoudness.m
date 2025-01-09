@@ -96,7 +96,7 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRatein, axisn,...
 % Institution: University of Salford
 %
 % Date created: 22/09/2023
-% Date last modified: 01/11/2024
+% Date last modified: 09/01/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -107,6 +107,12 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRatein, axisn,...
 % As per the licensing information, please be aware that this code is
 % WITHOUT ANY WARRANTY; without even the implied warranty of
 % MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+%
+% This code calls sub-component file 'cmap_viridis.txt'. The contents of
+% the file includes a copy of data obtained from the repository 
+% https://github.com/BIDS/colormap, and is CC0 1.0 licensed for modified
+% use, see https://creativecommons.org/publicdomain/zero/1.0 for
+% information.
 %
 % Checked by:
 % Date last checked:
