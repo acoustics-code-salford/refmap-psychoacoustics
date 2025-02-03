@@ -100,7 +100,7 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn,...
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 09/01/2025
+% Date last modified: 03/02/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -377,13 +377,20 @@ for chan = size(pn_om, 2):-1:1
         % Section 7.1.5.1 ECMA-418-2:2024
         for lBlock = nBlocks:-1:1
             % identify peaks in each block (for each band)
-            [PhiPks, kLocs, ~, proms] = findpeaks(modWeightSpectraAvg(3:256,...
+            % NOTE: here, the search starts from k=1 so that a peak at k=2
+            % can be detected
+            [PhiPks, kLocs, ~, proms] = findpeaks(modWeightSpectraAvg(1 + mlabIndex:256 + mlabIndex,...
                                                                       lBlock,...
                                                                       zBand));
 
             % reindex kLocs to match spectral start index used in findpeaks
             % for indexing into modulation spectra matrices
-            kLocs = kLocs + 2;
+            kLocs = kLocs + mlabIndex;
+
+            % we cannot have a peak at k=1 or k=256
+            mask = and((kLocs ~= 1 + mlabIndex), (kLocs ~= 256 + mlabIndex));
+            kLocs = kLocs(mask);
+            PhiPks = PhiPks(mask);
 
             % consider 10 highest prominence peaks only
             if length(proms) > 10
@@ -592,9 +599,9 @@ for chan = size(pn_om, 2):-1:1
 
     % interpolation to 50 Hz sampling rate
     % Section 7.1.7 Equation 103 [l_50,end]
-    l_50 = floor(n_samples/sampleRate48k*sampleRate50);
+    l_50Last = floor(n_samples/sampleRate48k*sampleRate50) + 1;
     x = (iBlocks - 1)/sampleRatein;
-    xq = linspace(0, signalT - 1/sampleRate50, l_50);
+    xq = linspace(0, signalT, l_50Last);
     for zBand = nBands:-1:1
         specRoughEst(:, zBand) = pchip(x, modAmpMax(:, zBand), xq);
     end  % end of for loop for interpolation
