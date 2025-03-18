@@ -120,7 +120,7 @@ function tonalitySHM = acousticSHMTonality(p, sampleRatein, axisn,...
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 07/08/2023
-% Date last modified: 09/01/2025
+% Date last modified: 18/03/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -293,7 +293,7 @@ for chan = size(pn_om, 2):-1:1
     % (duplicated) indices corresponding with the NB bands around each z band
     i_NBandsAvgDupe = [1, 1, 1, 6:18, 23:31, 34:61;
                        2, 3, 5, 10:22, 25:33, 34:61];
-    
+
     for zBand = 61:-1:1
         if waitBar
             waitbar(((62 - zBand) + i_step)/n_steps, w, strcat("Applying ACF in 61 bands, ",...
@@ -355,8 +355,8 @@ for chan = size(pn_om, 2):-1:1
 
         % Average the ACF over adjacent time blocks [phibar_z'(m)]
         if zBand <= 16 
-            meanScaledACF = movmean(meanScaledACF, 3, 2, 'omitnan',...
-                                    'EndPoints', 'fill');
+            meanScaledACF(:, 2:end-1) = movmean(meanScaledACF, 3, 2, 'omitnan',...
+                                    'EndPoints', 'discard');
         end
         
         % Application of ACF lag window Section 6.2.4 ECMA-418-2:2024
@@ -371,29 +371,30 @@ for chan = size(pn_om, 2):-1:1
         lagWindowACF = zeros(size(meanScaledACF));
         lagWindowACF(mz_start:mz_end, :) = meanScaledACF(mz_start:mz_end, :)...
                                            - mean(meanScaledACF(mz_start:mz_end, :));
-        
+
         % Estimation of tonal loudness
         % ----------------------------
         % Section 6.2.5 Equation 36 ECMA-418-2:2024
         % ACF spectrum in the lag window [Phi'_z,tau(k)]
         magFFTlagWindowACF = abs(fft(lagWindowACF, 2*max(blockSize), 1));
         magFFTlagWindowACF(isnan(magFFTlagWindowACF)) = 0;
-    
+
         % Section 6.2.5 Equation 37 ECMA-418-2:2024 [Nhat'_tonal(z)]
         % first estimation of specific loudness of tonal component in critical band
         bandTonalLoudness = meanScaledACF(1, :);
         mask = 2*max(magFFTlagWindowACF, [], 1)/(M/2) <= meanScaledACF(1, :);
         bandTonalLoudness(mask) = 2*max(magFFTlagWindowACF(:, mask), [], 1)/(M/2);
-    
+
         % Section 6.2.5 Equation 38 & 39 ECMA-418-2:2024
         % [k_max(z)]
         [~, kz_max] = max(magFFTlagWindowACF, [], 1);
         % frequency of maximum tonal component in critical band [f_ton(z)]
-        bandTonalFreqs = kz_max*(sampleRate48k/(2*max(blockSize)));
+        bandTonalFreqs = (kz_max - 1)*(sampleRate48k/(2*max(blockSize)));
 
         % Section 6.2.7 Equation 41 ECMA-418-2:2024 [N'_signal(l,z)]
         % specific loudness of complete band-pass signal in critical band
         bandLoudness = meanScaledACF(1, :);
+        
         
         % Resampling to common time basis Section 6.2.6 ECMA-418-2:2024
         if i_interp(zBand) > 1
@@ -402,7 +403,8 @@ for chan = size(pn_om, 2):-1:1
             % calculation for tonal and noise components
             l_n = size(meanScaledACF, 2);
             x = linspace(1, l_n, l_n);
-            xq = linspace(1, l_n, i_interp(zBand)*l_n);
+            xq = linspace(1, l_n, i_interp(zBand)*(l_n - 1) + 1);
+
             bandTonalLoudness = interp1(x, bandTonalLoudness, xq);
             bandLoudness = interp1(x, bandLoudness, xq);
             bandTonalFreqs = interp1(x, bandTonalFreqs, xq);
@@ -411,7 +413,6 @@ for chan = size(pn_om, 2):-1:1
 
         % Remove end zero-padded samples Section 6.2.6 ECMA-418-2:2024
         l_end = ceil(size(p_re, 1)/sampleRate48k*sampleRate1875) + 1;  % Equation 40 ECMA-418-2:2024
-
         bandTonalLoudness = bandTonalLoudness(1:l_end);
         bandLoudness = bandLoudness(1:l_end);
         bandTonalFreqs = bandTonalFreqs(1:l_end);
