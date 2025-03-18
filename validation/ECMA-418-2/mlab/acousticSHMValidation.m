@@ -1,4 +1,4 @@
-function acousticSHMValidation
+function acousticSHMValidation(savePlots)
 % acousticSHMValidation
 %
 % Compares ECMA-418-2 (Sottek Hearing Model) implementation with values
@@ -10,7 +10,7 @@ function acousticSHMValidation
 % Institution: University of Salford
 %
 % Date created: 19/08/2024
-% Date last modified: 22/10/2024
+% Date last modified: 18/03/2024
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -27,6 +27,12 @@ function acousticSHMValidation
 %
 % input parameters
 %
+%
+%% Arguments validation
+    arguments (Input)
+        savePlots {mustBeNumericOrLogical} = true
+    end
+
 %% Load path
 addpath(genpath(fullfile("refmap-psychoacoustics", "src", "mlab")))
 
@@ -163,7 +169,11 @@ roughSinglesAll = vertcat(roughSingles, horzcat([roughnessSHM1.roughness90Pc,...
 %% Results comparison plots
 
 % path for saving figures
-figpath = fullfile("validation", "ECMA-418-2", "results");
+if savePlots
+    figpath = fullfile("validation", "ECMA-418-2", "results");
+else
+    figpath = false;
+end
 
 % figure format
 figformat = 'png';
@@ -220,8 +230,11 @@ for bb = 1:length(br)
         'HorizontalAlignment','center',...
         'VerticalAlignment','bottom', 'FontSize', 8)
 end
-exportgraphics(fg, fullfile(figpath, "tonalSHMsingles.pdf"), 'ContentType', 'vector')
-exportgraphics(fg, fullfile(figpath, "tonalSHMsingles.png"), 'Resolution', 300)
+
+if savePlots
+    exportgraphics(fg, fullfile(figpath, "tonalSHMsingles.pdf"), 'ContentType', 'vector')
+    exportgraphics(fg, fullfile(figpath, "tonalSHMsingles.png"), 'Resolution', 300)
+end
 
 % Loudness
 % --------
