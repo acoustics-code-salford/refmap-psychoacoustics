@@ -1,5 +1,6 @@
 function loudnessSHM = acousticSHMLoudness(p, sampleRatein, axisn,...
-                                           fieldtype, outplot, binaural)
+                                           fieldtype, waitBar, ...
+                                           outplot, binaural)
 % loudnessSHM = acousticSHMLoudness(p, sampleRatein, axisn, fieldtype,
 %                                   outplot, binaural)
 %
@@ -20,6 +21,10 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRatein, axisn,...
 %
 % axisn : integer (1 or 2, default: 1)
 %         the time axis along which to calculate the tonality
+%
+% waitBar : keyword string (default: true)
+%           determines whether a progress bar displays during processing
+%           (set waitBar to false for doing multi-file parallel calculations)
 %
 % fieldtype : keyword string (default: 'free-frontal')
 %             determines whether the 'free-frontal' or 'diffuse' field stages
@@ -96,7 +101,7 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRatein, axisn,...
 % Institution: University of Salford
 %
 % Date created: 22/09/2023
-% Date last modified: 09/01/2025
+% Date last modified: 18/03/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -125,6 +130,7 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRatein, axisn,...
         fieldtype (1, :) string {mustBeMember(fieldtype,...
                                                        {'free-frontal',...
                                                         'diffuse'})} = 'free-frontal'
+        waitBar {mustBeNumericOrLogical} = true
         outplot {mustBeNumericOrLogical} = false
         binaural {mustBeNumericOrLogical} = true
     end
@@ -181,7 +187,8 @@ sampleRate1875 = 48e3/256;
 % ------------------------------------------------------------
 
 % Obtain tonal and noise component specific loudnesses from Sections 5 & 6 ECMA-418-2:2024
-tonalitySHM = acousticSHMTonality(p, sampleRatein, 1, fieldtype, false);
+tonalitySHM = acousticSHMTonality(p, sampleRatein, 1, fieldtype, waitBar,...
+                                  false);
 
 specTonalLoudness = tonalitySHM.specTonalLoudness;  % [N'_tonal(l,z)]
 specNoiseLoudness = tonalitySHM.specNoiseLoudness;  % [N'_noise(l,z)]
