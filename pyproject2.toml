@@ -1,0 +1,45 @@
+[tool.poetry]
+name = "refmap-psychoacoustics"
+version = "0.1.0"
+description = "REFMAP project task 4.3: Psychoacoustics of sound from unmanned aircraft systems (UAS) / unmanned aerial vehicles (UAVs), and urban air mobility (UAM)"
+authors = ["Mike Lotinga <m.j.lotinga@edu.salford.ac.uk>"]
+license = "https://github.com/acoustics-code-salford/refmap-psychoacoustics/blob/main/LICENSE"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+numpy = "^1.26.3"
+pandas = "^2.1.4"
+SciPy = "^1.11.4"
+matplotlib = "^3.8.2"
+statsmodels = "^0.14.1"
+librosa = "^0.10.1"
+acoustics = "^0.2.6"
+openpyxl = "^3.1.2"
+XlsxWriter = "^3.1.9"
+bambi = "^0.13.0"
+PySoundFile = "^0.9.0.post1"
+seaborn = "^0.13.1"
+scikit-learn = "^1.3.2"
+mosqito = "^1.1.0"
+ffmpeg = "^1.4"
+pyqt5-qt5 = "5.15.2"
+pyqtwebengine-qt5 = "5.15.2"
+torch = "^2.1.2"
+torchvision = "^0.16.2"
+torchaudio = "^2.1.2"
+guidata = "^3.2.2"
+matlabengine = {version = "23.2.3", python = ">=3.11,<3.12"}
+pingouin = "^0.5.4"
+parallel-pandas = "^0.6.4"
+bottleneck = "^1.4.2"
+
+[tool.poetry.group.dev.dependencies]
+spyder = "^5.5.0"
+jupyter = "^1.0.0"
+addcopyfighandler = "^3.2.0"
+spyder-notebook = "^0.5.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

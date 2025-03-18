@@ -157,6 +157,18 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 %               overall intergated detectability, dB, for each input target
 %               signal channel
 %
+% detectMaxPcdB : structure
+%                 contains percent-based aggregated metrics for maximum
+%                 detectability, comprising:
+% Ex50 : vector
+%        50% exceeded (median) dB, for each input target signal channel
+%
+% detectIntPcdB : structure
+%                 contains percent-based aggregated metrics for maximum
+%                 detectability, comprising:
+% Ex50 : vector
+%        50% exceeded (median) dB, for each input target signal channel
+%
 % freqBands : vector
 %             1/3-octave band centre-frequencies for input freqBandRange
 %
@@ -179,7 +191,7 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 % Institution: University of Salford
 %
 % Date created: 05/11/2024
-% Date last modified: 08/01/2025
+% Date last modified: 23/01/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -375,6 +387,8 @@ detectTDepMaxdB = 10*log10(detectTDepMax);
 detectTDepIntdB = 10*log10(detectTDepInt);
 detectMaxdB = 10*log10(max(detectTDepMax(1 + itimeSkip(1):end - itimeSkip(2), :), [], 1));
 detectIntdB = 10*log10(timeStep*sum(detectTDepInt(1 + itimeSkip(1):end - itimeSkip(2), :), 1));
+detectMaxPcdB.Ex50 = quantile(10*log10(detectTDepMax(1 + itimeSkip(1):end - itimeSkip(2), :)), 0.50, 1);
+detectIntPcdB.Ex50 = quantile(10*log10(detectTDepInt(1 + itimeSkip(1):end - itimeSkip(2), :)), 0.50, 1);
 
 % Calculate time-dependent spectra
 dBSpecTarget = 20*log10(sqrt(spectroTarget)/2e-5);
@@ -428,6 +442,8 @@ detectDiscount.detectTDepMaxdB = detectTDepMaxdB;
 detectDiscount.detectTDepIntdB = detectTDepIntdB;
 detectDiscount.detectMaxdB = detectMaxdB;
 detectDiscount.detectIntdB = detectIntdB;
+detectDiscount.detectMaxPcdB.Ex50 = detectMaxPcdB.Ex50;
+detectDiscount.detectIntPcdB.Ex50 = detectIntPcdB.Ex50;
 detectDiscount.freqBands = f;
 detectDiscount.timeOut = t.';
 

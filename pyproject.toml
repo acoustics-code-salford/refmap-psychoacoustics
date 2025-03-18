@@ -39,7 +39,8 @@ spyder = "^5.5.0"
 jupyter = "^1.0.0"
 addcopyfighandler = "^3.2.0"
 spyder-notebook = "^0.5.1"
+spyder-kernels = "^2.5.0"
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"

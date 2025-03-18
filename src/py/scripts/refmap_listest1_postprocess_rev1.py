@@ -254,23 +254,32 @@ for ii, file in enumerate(filelist):
     dataByStim.loc[stemNames[ii], 'LASmaxMaxLR'] = signalLASmax.max()
 
     # calculate intermittency ratio for test sounds
+    C = [2, 3, 5]  # define threshold constant (dB)
+
     if (stemNames[ii].find("A1") != -1 or stemNames[ii].find("A2") != -1
         or stemNames[ii].find("B2") != -1):
 
         # 1-second LAeq
-        signalLAeq1s = 20*np.log10(np.sqrt(pd.DataFrame((signalA[start_skips:-end_skips]**2)).rolling(window=sampleRatein, step=sampleRatein).mean())/2e-5)
-        intermitRatioK = signalLAeq + 3  # IR threshold
-        mask = signalLAeq1s > intermitRatioK
-        # calculate average intensity for events exceeding threshold
-        IAeqEvents = np.nansum(10**(signalLAeq1s[mask]/10), axis=0)/(len(signalA[start_skips:-end_skips])/sampleRatein)
-        # convert to sound pressure while avoiding log(0)
-        LAeqEvents = 10*np.log10(IAeqEvents, out=np.zeros_like(IAeqEvents, dtype=np.float64),
-                                 where=(IAeqEvents != 0))
-        intermitRatio = 100*10**((LAeqEvents - signalLAeq)/10)
-        intermitRatio[IAeqEvents == 0] = 0  # replace tiny decimal with 0
-        dataByStim.loc[stemNames[ii], 'IntermitRatioMaxLR'] = intermitRatio.max()
-    else:
-        dataByStim.loc[stemNames[ii], 'IntermitRatioMaxLR'] = np.nan
+        signalLAeq1s = 20*np.log10(np.sqrt(pd.DataFrame(signalA[start_skips:-end_skips]**2).rolling(window=sampleRatein,
+                                                                                                    step=sampleRatein,
+                                                                                                    closed='left').mean())/2e-5)
+        intermitRatioAll = np.zeros((len(C), 2))
+        for jj, jjC in enumerate(C):
+            intermitRatioK = signalLAeq + jjC  # IR threshold
+            mask = signalLAeq1s > intermitRatioK
+            # calculate average intensity for events exceeding threshold
+            IAeqEvents = np.nansum(10**(signalLAeq1s[mask]/10), axis=0)/(len(signalA[start_skips:-end_skips])/sampleRatein)
+            # convert to sound pressure while avoiding log(0)
+            LAeqEvents = 10*np.log10(IAeqEvents, out=np.zeros_like(IAeqEvents, dtype=np.float64),
+                                     where=(IAeqEvents != 0))
+            intermitRatio = 100*10**((LAeqEvents - signalLAeq)/10)
+            intermitRatio[IAeqEvents == 0] = 0  # replace tiny decimal with 0
+            
+            intermitRatioAll[jj, :] = intermitRatio
+            
+            dataByStim.loc[stemNames[ii], ('IntermitRatioC' + str(jjC) + 'MaxLR')] = intermitRatioAll[jj, :].max()
+
+
 
 
 # end of for loop over CALBIN signal wav files

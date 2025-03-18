@@ -24,6 +24,7 @@ library(openxlsx)
 library(caret)
 library(viridis)
 library(cowplot)
+library(permimp)
 # set package parameters
 theme_set(theme_bw())
 
@@ -463,7 +464,7 @@ ambVar <- "AmbientLAeq"
 
 ## Mean change in annoyance
 
-Initialise results output variables
+### Initialise results output variables
 
 ```{r}
 resdAnnoyMnFitAB <- data.frame(RMSE = numeric(),
@@ -636,7 +637,7 @@ if (saveplots){
 ```{r}
 
 iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEvents'):which(names(stimDataNum) == 'UASImpulsSHM05ExMaxLR')]
-iVars <- iVars[! iVars %in% c('SNRlevel')]
+iVars <- iVars[! iVars %in% c('SNRlevel', 'IntermitRatioMaxLR')]
 dVar <- "dAnnoyMean"
 
 seeds <- c(578312, 544, 84894, 54654, 153157)
@@ -665,8 +666,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
-mtry <- as.integer(length(iVars)/1.75)
+ntree <- 2501
+mtry <- as.integer(length(iVars)/1.25)
 
 ```
 
@@ -754,7 +755,7 @@ if (saveplots){
 
 ```
 
-```{r, fig.width=8,fig.height=3}
+```{r, fig.width=8,fig.height=2.6}
 
 # Plot only values within 1% of the maximum
 
@@ -767,10 +768,10 @@ pBar <- ggplot(resultsOutAbs.conimp1pc) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp1pc.svg", width=8, height=3, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp1pc.svg", width=8, height=2.6, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMnAbsVarsConPermimp1pc.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp1pc.pdf", width=8, height=3, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp1pc.pdf", width=8, height=2.6, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMnAbsVarsConPermimp1pc.pdf")
 }
 
@@ -1620,7 +1621,7 @@ Here, the 'ambient only' stimuli are removed, as the analysis cannot handle miss
 
 iVars <- c(names(stimDataNum)[which(colnames(stimDataNum)=="LAeqLAF90diff"):
                                which(colnames(stimDataNum)=="dImpulsSHM05ExMaxLR")],
-           "UASEvents", "SNRlevel")
+           "UASEvents", "SNRlevel", "IntermitRatioMaxLR")
 dVar <- "dAnnoyMean"
 
 seeds <- c(568392, 498, 4089, 78132, 741809)
@@ -1641,8 +1642,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 4001
-mtry <- as.integer(length(iVars)/1.5)
+ntree <- 2501
+mtry <- as.integer(length(iVars)/1.75)
 
 ```
 
@@ -1700,7 +1701,7 @@ pBar
 if (saveplots){
   ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimp.svg", width=8, height=10, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMnDiffVarsConPermimp.svg")
-  
+
   ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimp.pdf", width=8, height=10, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMnDiffVarsConPermimp.pdf")
 }
@@ -1721,7 +1722,7 @@ pBar
 if (saveplots){
   ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimpPtv.svg", width=8, height=8, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMnDiffVarsConPermimpPtv.svg")
-  
+
   ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimpPtv.pdf", width=8, height=8, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMnDiffVarsConPermimpPtv.pdf")
 }
@@ -1741,9 +1742,32 @@ pBar
 if (saveplots){
   ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimp1pc.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMnDiffVarsConPermimp1pc.svg")
-    
+
   ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimp1pc.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMnDiffVarsConPermimp1pc.pdf")
+}
+
+```
+
+```{r, fig.width=4,fig.height=4}
+
+# Plot only values within 1% of the maximum
+resultsOutDiffs.conimp1pc <- resultsOutDiffs.conimp |>
+                                        rownames_to_column('Metric') |>
+                                            filter_if(is.numeric, all_vars(. > max(resultsOutDiffs.conimp)/100)) |>
+                                                  column_to_rownames('Metric')
+
+pBar <- ggplot(resultsOutDiffs.conimp1pc) + geom_col(aes(x=factor(rownames(resultsOutDiffs.conimp1pc), levels=rownames(resultsOutDiffs.conimp1pc)), y=CondPermImp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable permutation\nimportance (mean change in annoyance)") + theme(text = element_text(family = "serif"), axis.title.x=element_text(family = "serif", size=9), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
+pBar
+
+filename = "PtsABdAnnoyMnDiffVarsConPermimp1pcNw"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg"), width=4, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg"))
+
+  ggsave(filename=paste(filename, ".pdf"), width=4, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".svg"))
 }
 
 ```
@@ -2592,7 +2616,7 @@ if (savedata){
 
 ## (Change to) High annoyance
 
-Initialise results output variables
+### Initialise results output variables
 
 ```{r}
 resdHiAnnoyFitAB <- data.frame(RMSE = numeric(),
@@ -2750,7 +2774,7 @@ if (saveplots){
 ```{r}
 
 iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEvents'):which(names(stimDataNum) == 'UASImpulsSHM05ExMaxLR')]
-iVars <- iVars[! iVars %in% c('SNRlevel')]
+iVars <- iVars[! iVars %in% c('SNRlevel', 'IntermitRatioMaxLR')]
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(578312, 544, 84894, 54654, 153157)
@@ -2779,8 +2803,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 2501
-mtry <- as.integer(length(iVars)/2.75)
+ntree <- 501
+mtry <- as.integer(length(iVars)/1.75)
 
 ```
 
@@ -2790,7 +2814,7 @@ Train preliminary model
 
 ```{r}
 
-nperm <- 5
+nperm <- 10
 
 resultsOutAbs <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
 
@@ -3743,7 +3767,7 @@ Next, the difference metrics are analysed
 
 iVars <- c(names(stimDataNum)[which(colnames(stimDataNum)=="LAeqLAF90diff"):
                                which(colnames(stimDataNum)=="dImpulsSHM05ExMaxLR")],
-           "UASEvents", "SNRlevel")
+           "UASEvents", "SNRlevel", "IntermitRatioMaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(568392, 498, 4089, 78132, 741809)
@@ -3764,8 +3788,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 501
-mtry <- as.integer(length(iVars)/1.75)
+ntree <- 1001
+mtry <- as.integer(length(iVars)/2.25)
 
 ```
 
@@ -4724,7 +4748,7 @@ Summary of results for Parts A & B combined
 
 #### Absolute variables
 
-```{r, fig.width=8, fig.height=4}
+```{r, fig.width=4, fig.height=4}
 # combine the annoyance perm importance results
 
 # convert each result to a tibble with rownames added to a column, renaming the data column to 'dAnnoy' etc.
@@ -4741,7 +4765,7 @@ resAbsPermImpTblAB <- list(resdAnnoyMnAbsPermImpTblAB, resdHiAnnoyAbsPermImpTblA
   purrr::reduce(merge, by = c('Variable'), all = T)
 
 # rename the columns
-colnames(resAbsPermImpTblAB)[2:3] <- c("Mean change in annoyance", "%HA [p(HA | 0)]")
+colnames(resAbsPermImpTblAB)[2:3] <- c("Mean change in annoyance", "%HA | HA' (amb.)")
 resAbsPermImpTblAB[is.na(resAbsPermImpTblAB)] <- 0
 
 resAbsAB <- tidyr::pivot_longer(resAbsPermImpTblAB, cols=-Variable, names_to="Outcome", values_to="Imp")
@@ -4751,19 +4775,33 @@ resAbsAB <- resAbsAB |> mutate(Variable_sum = sum(Imp), .by=Variable) |> arrange
    mutate(Order = cur_group_id()) |> mutate(Order = as.factor(Order)) |> arrange(desc(Order))
 
 # Reorder outcome levels
-resAbsAB$Outcome <- factor(resAbsAB$Outcome, levels=c("Mean change in annoyance", "%HA [p(HA | 0)]"))
+resAbsAB$Outcome <- factor(resAbsAB$Outcome, levels=c("Mean change in annoyance", "%HA | HA' (amb.)"))
 
 # plot res as horizontal bar chart, with Imp as y axis, Variable as x axis, Outcome as fill, and Variable_sum as order, relabel x axis with Variable names
-pBar <- ggplot(resAbsAB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35', linewidth=0,  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable permutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours) + scale_x_discrete(labels=unique(rev(resAbsAB$Variable)))
-pBar
+pBar <- ggplot(resAbsAB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35', linewidth=0,  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised conditional variable\npermutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 1)) + scale_fill_manual(values=mycolours, labels=c(expression(paste(bar(Delta~A))), "%HA | HA' (amb.)")) + scale_x_discrete(labels=unique(rev(resAbsAB$Variable))) + guides(fill=guide_legend(title='Outcome'))
+pBar + scale_y_continuous(breaks=seq(0, 1, by=0.5))
 
 if (saveplots){
   ggsave(filename="PtsABcrfAbsSQMsSummary.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
   unlink("PtsABcrfAbsSQMsSummary.svg")
-  
+
   ggsave(filename="PtsABcrfAbsSQMsSummary.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
   unlink("PtsABcrfAbsSQMsSummary.pdf")
 }
+
+
+# plot res as horizontal bar chart, with Imp as y axis, Variable as x axis, Outcome as fill, and Variable_sum as order, relabel x axis with Variable names
+pBar <- ggplot(resAbsAB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35', linewidth=0,  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised conditional variable\npermutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "top") + coord_flip(ylim=c(0, 1)) + scale_fill_manual(values=mycolours, labels=c(expression(paste(bar(Delta~A))), "%HA | HA' (amb.)")) + scale_x_discrete(labels=unique(rev(resAbsAB$Variable))) + guides(fill=guide_legend(title='Outcome', nrow=2, ncol=1))
+pBar + scale_y_continuous(breaks=seq(0, 1, by=0.5))
+
+if (saveplots){
+  ggsave(filename="PtsABcrfAbsSQMsSummaryNw.svg", width=4, height=4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABcrfAbsSQMsSummary.svg")
+
+  ggsave(filename="PtsABcrfAbsSQMsSummaryNw.pdf", width=4, height=4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABcrfAbsSQMsSummary.pdf")
+}
+
 
 ```
 #### Difference variables
@@ -4785,7 +4823,7 @@ resDiffPermImpTblAB <- list(resdAnnoyMnDiffPermImpTblAB, resdHiAnnoyDiffPermImpT
   purrr::reduce(merge, by = c('Variable'), all = T)
 
 # rename the columns
-colnames(resDiffPermImpTblAB)[2:3] <- c("Mean change in annoyance", "%HA [p(HA | 0)]")
+colnames(resDiffPermImpTblAB)[2:3] <- c("Mean change in annoyance", "%HA | HA' (amb.)")
 resDiffPermImpTblAB[is.na(resDiffPermImpTblAB)] <- 0
 
 resDiffAB <- tidyr::pivot_longer(resDiffPermImpTblAB, cols=-Variable, names_to="Outcome", values_to="Imp")
@@ -4795,17 +4833,17 @@ resDiffAB <- resDiffAB |> mutate(Variable_sum = sum(Imp), .by=Variable) |> arran
    mutate(Order = cur_group_id()) |> mutate(Order = as.factor(Order)) |> arrange(desc(Order))
 
 # Reorder outcome levels
-resDiffAB$Outcome <- factor(resDiffAB$Outcome, levels=c("Mean change in annoyance", "%HA [p(HA | 0)]"))
+resDiffAB$Outcome <- factor(resDiffAB$Outcome, levels=c("Mean change in annoyance", "%HA | HA' (amb.)"))
 
 # plot res as horizontal bar chart, with Imp as y axis, Variable as x axis, Outcome as fill, and Variable_sum as order, relabel x axis with Variable names
-pBar <- ggplot(resDiffAB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35', linewidth=0,  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable permutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours) + scale_x_discrete(labels=unique(rev(resDiffAB$Variable)))
-pBar
+pBar <- ggplot(resDiffAB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35', linewidth=0,  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised conditional variable permutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 1.1)) + scale_fill_manual(values=mycolours) + scale_x_discrete(labels=unique(rev(resDiffAB$Variable)))
+pBar + scale_y_continuous(breaks=seq(0, 1, by=0.5))
 
 if (saveplots){
-  ggsave(filename="PtsABcrfDiffSQMsSummary.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABcrfDiffSQMsSummary.svg", width=8, height=3, path=file.path(outFigPath, "svg"))
   unlink("PtsABcrfDiffSQMsSummary.svg")
   
-  ggsave(filename="PtsABcrfDiffSQMsSummary.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABcrfDiffSQMsSummary.pdf", width=8, height=3, path=file.path(outFigPath, "pdf"))
   unlink("PtsABcrfDiffSQMsSummary.pdf")
 }
 
@@ -4832,7 +4870,7 @@ resAbsPermImpNoTonLdTblAB <- list(resdAnnoyMnAbsPermImpNoTonLdTblAB, resdHiAnnoy
   purrr::reduce(merge, by = c('Variable'), all = T)
 
 # rename the columns
-colnames(resAbsPermImpNoTonLdTblAB)[2:3] <- c("Mean change in annoyance", "%HA [p(HA | 0)]")
+colnames(resAbsPermImpNoTonLdTblAB)[2:3] <- c("Mean change in annoyance", "%HA | HA' (amb.)")
 resAbsPermImpNoTonLdTblAB[is.na(resAbsPermImpNoTonLdTblAB)] <- 0
 
 resAbsNoTonLdAB <- tidyr::pivot_longer(resAbsPermImpNoTonLdTblAB, cols=-Variable, names_to="Outcome", values_to="Imp")
@@ -4842,17 +4880,17 @@ resAbsNoTonLdAB <- resAbsNoTonLdAB |> mutate(Variable_sum = sum(Imp), .by=Variab
    mutate(Order = cur_group_id()) |> mutate(Order = as.factor(Order)) |> arrange(desc(Order))
 
 # Reorder outcome levels
-resAbsNoTonLdAB$Outcome <- factor(resAbsNoTonLdAB$Outcome, levels=c("Mean change in annoyance", "%HA [p(HA | 0)]"))
+resAbsNoTonLdAB$Outcome <- factor(resAbsNoTonLdAB$Outcome, levels=c("Mean change in annoyance", "%HA | HA' (amb.)"))
 
 # plot res as horizontal bar chart, with Imp as y axis, Variable as x axis, Outcome as fill, and Variable_sum as order, relabel x axis with Variable names
-pBar <- ggplot(resAbsNoTonLdAB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35', linewidth=0,  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable permutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours) + scale_x_discrete(labels=unique(rev(resAbsNoTonLdAB$Variable)))
-pBar
+pBar <- ggplot(resAbsNoTonLdAB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35', linewidth=0,  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised conditional variable permutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 1.1)) + scale_fill_manual(values=mycolours) + scale_x_discrete(labels=unique(rev(resAbsNoTonLdAB$Variable)))
+pBar + scale_y_continuous(breaks=seq(0, 1, by=0.5))
 
 if (saveplots){
-  ggsave(filename="PtsABcrfAbsSQMsNoTonLdSummary.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABcrfAbsSQMsNoTonLdSummary.svg", width=8, height=3, path=file.path(outFigPath, "svg"))
   unlink("PtsABcrfAbsSQMsNoTonLdSummary.svg")
   
-  ggsave(filename="PtsABcrfAbsSQMsNoTonLdSummary.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABcrfAbsSQMsNoTonLdSummary.pdf", width=8, height=3, path=file.path(outFigPath, "pdf"))
   unlink("PtsABcrfAbsSQMsNoTonLdSummary.pdf")
 }
 
@@ -4876,7 +4914,7 @@ resDiffPermImpNoTonLdTblAB <- list(resdAnnoyMnDiffPermImpNoTonLdTblAB, resdHiAnn
   purrr::reduce(merge, by = c('Variable'), all = T)
 
 # rename the columns
-colnames(resDiffPermImpNoTonLdTblAB)[2:3] <- c("Mean change in annoyance", "%HA [p(HA | 0)]")
+colnames(resDiffPermImpNoTonLdTblAB)[2:3] <- c("Mean change in annoyance", "%HA | HA' (amb.)")
 resDiffPermImpNoTonLdTblAB[is.na(resDiffPermImpNoTonLdTblAB)] <- 0
 
 resDiffNoTonLdAB <- tidyr::pivot_longer(resDiffPermImpNoTonLdTblAB, cols=-Variable, names_to="Outcome", values_to="Imp")
@@ -4886,17 +4924,17 @@ resDiffNoTonLdAB <- resDiffNoTonLdAB |> mutate(Variable_sum = sum(Imp), .by=Vari
    mutate(Order = cur_group_id()) |> mutate(Order = as.factor(Order)) |> arrange(desc(Order))
 
 # Reorder outcome levels
-resDiffNoTonLdAB$Outcome <- factor(resDiffNoTonLdAB$Outcome, levels=c("Mean change in annoyance", "%HA [p(HA | 0)]"))
+resDiffNoTonLdAB$Outcome <- factor(resDiffNoTonLdAB$Outcome, levels=c("Mean change in annoyance", "%HA | HA' (amb.)"))
 
 # plot res as horizontal bar chart, with Imp as y axis, Variable as x axis, Outcome as fill, and Variable_sum as order, relabel x axis with Variable names
-pBar <- ggplot(resDiffNoTonLdAB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35', linewidth=0,  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised variable permutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 2)) + scale_fill_manual(values=mycolours) + scale_x_discrete(labels=unique(rev(resDiffNoTonLdAB$Variable)))
-pBar
+pBar <- ggplot(resDiffNoTonLdAB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='grey35', linewidth=0,  width=0.75, show.legend=TRUE) + labs(x="Variable", y="Normalised conditional variable permutation importance") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2), legend.position = "right") + coord_flip(ylim=c(-0.1, 1.1)) + scale_fill_manual(values=mycolours) + scale_x_discrete(labels=unique(rev(resDiffNoTonLdAB$Variable)))
+pBar + scale_y_continuous(breaks=seq(0, 1, by=0.5))
 
 if (saveplots){
-  ggsave(filename="PtsABcrfDiffSQMsNoTonLdSummary.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABcrfDiffSQMsNoTonLdSummary.svg", width=8, height=3, path=file.path(outFigPath, "svg"))
   unlink("PtsABcrfDiffSQMsNoTonLdSummary.svg")
   
-  ggsave(filename="PtsABcrfDiffSQMsNoTonLdSummary.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABcrfDiffSQMsNoTonLdSummary.pdf", width=8, height=3, path=file.path(outFigPath, "pdf"))
   unlink("PtsABcrfDiffSQMsNoTonLdSummary.pdf")
 }
 
