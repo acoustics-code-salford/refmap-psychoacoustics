@@ -1,7 +1,7 @@
 function [resampledSignal, resampledRate]...
-          = ShmResample(signal, sampleRatein)
+          = shmResample(signal, sampleRatein)
 % [resampledSignal, resampledRate]...
-%         = ShmResample_(signal, sampleRatein)
+%         = shmResample_(signal, sampleRatein)
 %
 % Returns signal resampled to 48 kHz, according to ECMA-418-2:2024
 % (the Sottek Hearing Model) for an input signal.
