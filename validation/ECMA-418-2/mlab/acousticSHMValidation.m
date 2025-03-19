@@ -180,9 +180,9 @@ roughSinglesAll = vertcat(roughSingles, horzcat([roughnessSHM1.roughness90Pc,...
 
 %% Results comparison plots
 
-% path for saving figures
+% path for saving figures (assumes refmap-psychoacoustics is root)
 if savePlots
-    figpath = fullfile("refmap-psychoacoustics", "validation", "ECMA-418-2", "results");
+    figpath = fullfile("validation", "ECMA-418-2", "results");
 else
     figpath = false;
 end
