@@ -39,7 +39,7 @@ function [resampledSignal, resampledRate]...
 % Institution: University of Salford
 %
 % Date created: 26/09/2023
-% Date last modified: 21/10/2024
+% Date last modified: 19/03/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
