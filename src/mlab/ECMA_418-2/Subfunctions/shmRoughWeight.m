@@ -1,5 +1,5 @@
-function roughWeight = ShmRoughWeight(modRate, modfreqMaxWeight, roughWeightParams)
-% roughWeight = ShmRoughWeight(modRate, modfreqMaxWeight, roughWeightParams)
+function roughWeight = shmRoughWeight(modRate, modfreqMaxWeight, roughWeightParams)
+% roughWeight = shmRoughWeight(modRate, modfreqMaxWeight, roughWeightParams)
 %
 % Returns roughness weighting for high- and low-frequency (modulation
 % rates) according to ECMA-418-2:2024 (the Sottek Hearing Model) for a set
