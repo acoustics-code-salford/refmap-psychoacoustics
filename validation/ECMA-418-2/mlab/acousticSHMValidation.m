@@ -4,13 +4,18 @@ function acousticSHMValidation(savePlots)
 % Compares ECMA-418-2 (Sottek Hearing Model) implementation with values
 % obtained using commercially-available software for reference signals.
 %
+% Inputs
+% ------
+% savePlots : Boolean (default = true)
+%             flag indicating whether to save the generated plots to file
+%
 % Ownership and Quality Assurance
 % -------------------------------
 % Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 % Institution: University of Salford
 %
 % Date created: 19/08/2024
-% Date last modified: 18/03/2024
+% Date last modified: 19/03/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within

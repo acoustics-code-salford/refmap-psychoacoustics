@@ -11,7 +11,7 @@ function acousticSHMGenerateRefSignals
 % Institution: University of Salford
 %
 % Date created: 19/08/2024
-% Date last modified: 22/10/2024
+% Date last modified: 19/03/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -26,7 +26,11 @@ function acousticSHMGenerateRefSignals
 % Checked by:
 % Date last checked:
 %
-% input parameters
+
+%% Load path
+addpath(genpath(fullfile("refmap-psychoacoustics")))
+
+%% Input parameters
 
 fs = 48e3;
 dt = 1/fs;
@@ -39,6 +43,7 @@ A_tone = sqrt(2)*2e-5*10^(40/20);
 outpath = fullfile("validation",...
                    "ECMA-418-2", "audio");
 
+%% Generate signals
 % reference sinusoid for loudness and tonality
 
 sine_1kHz_40dB = A_tone*sin(2*pi*f_tone.*t);
@@ -50,7 +55,7 @@ sine_1kHz_70Hz_60dB = (1 + sine_70Hz_mod).*sin(2*pi*f_tone.*t);
 A_adjust = rms(sine_1kHz_70Hz_60dB)/0.02;
 sine_1kHz_70Hz_60dB = sine_1kHz_70Hz_60dB/A_adjust;
 
-% save signals as wav files (assumes current folder is
+%% Save signals as wav files (assumes current folder is
 % refmap-psychoacoustics root)
 audiowrite(fullfile(outpath, "sine_1kHz_40dB.wav"), sine_1kHz_40dB, fs,...
            "BitsPerSample", 24)

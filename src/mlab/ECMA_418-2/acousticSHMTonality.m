@@ -120,7 +120,7 @@ function tonalitySHM = acousticSHMTonality(p, sampleRatein, axisn,...
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 07/08/2023
-% Date last modified: 18/03/2025
+% Date last modified: 19/03/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -238,19 +238,19 @@ cal_Tx = 1/0.9999043734252;  % Adjustment to calibration factor (Footnote 22 ECM
 % Input pre-processing
 % --------------------
 if sampleRatein ~= sampleRate48k  % Resample signal
-    [p_re, ~] = ShmResample(p, sampleRatein);
+    [p_re, ~] = shmResample(p, sampleRatein);
 else  % don't resample
     p_re = p;
 end
 
 % Section 5.1.2 ECMA-418-2:2024 Fade in weighting and zero-padding
-pn = ShmPreProc(p_re, max(blockSize), max(hopSize));
+pn = shmPreProc(p_re, max(blockSize), max(hopSize));
 
 % Apply outer & middle ear filter
 % -------------------------------
 %
 % Section 5.1.3.2 ECMA-418-2:2024 Outer and middle/inner ear signal filtering
-pn_om = ShmOutMidEarFilter(pn, fieldtype);
+pn_om = shmOutMidEarFilter(pn, fieldtype);
 
 n_steps = 115;  % approximate number of calculation steps
 
@@ -272,7 +272,7 @@ for chan = size(pn_om, 2):-1:1
 
     % Filter equalised signal using 53 1/2Bark ERB filters according to 
     % Section 5.1.4.2 ECMA-418-2:2024
-    pn_omz = ShmAuditoryFiltBank(pn_om(:, chan), false);
+    pn_omz = shmAuditoryFiltBank(pn_om(:, chan), false);
 
     % Autocorrelation function analysis
     % ---------------------------------
@@ -304,14 +304,14 @@ for chan = size(pn_om, 2):-1:1
         % ------------------------
         % Section 5.1.5 ECMA-418-2:2024
         i_start = blockSizeDupe(1) - blockSizeDupe(zBand) + 1;
-        [pn_lz, ~] = ShmSignalSegment(pn_omzDupe(:, zBand), 1,...
+        [pn_lz, ~] = shmSignalSegment(pn_omzDupe(:, zBand), 1,...
                                       blockSizeDupe(zBand), overlap, i_start);
  
         % Transformation into Loudness
         % ----------------------------
         % Sections 5.1.6 to 5.1.9 ECMA-418-2:2024 [N'_basis(z)]
         [pn_rlz, bandBasisLoudness, ~]...
-            = ShmBasisLoudness(pn_lz, bandCentreFreqsDupe(zBand));
+            = shmBasisLoudness(pn_lz, bandCentreFreqsDupe(zBand));
         basisLoudnessArray{zBand} = bandBasisLoudness;
 
         % Apply ACF
@@ -426,11 +426,11 @@ for chan = size(pn_om, 2):-1:1
 
         % Equation 43 ECMA-418-2:2024 low pass filtered specific loudness
         % of non-tonal component in critical band [Ntilde'_tonal(l,z)]
-        bandTonalLoudness = ShmNoiseRedLowPass(bandTonalLoudness, sampleRate1875);
+        bandTonalLoudness = shmNoiseRedLowPass(bandTonalLoudness, sampleRate1875);
 
         % Equation 44 ECMA-418-2:2024 lowpass filtered SNR (improved estimation)
         % [SNRtilde(l,z)]
-        SNRlz = ShmNoiseRedLowPass(SNRlz1, sampleRate1875);
+        SNRlz = shmNoiseRedLowPass(SNRlz1, sampleRate1875);
 
         % Equation 46 ECMA-418-2:2024 [g(z)]
         gz = csz_b(zBand)/(bandCentreFreqs(zBand)^dsz_b(zBand));
@@ -444,7 +444,7 @@ for chan = size(pn_om, 2):-1:1
         bandTonalLoudness = nrlz.*bandTonalLoudness;
 
         % Section 6.2.8 Equation 48 ECMA-418-2:2024 [N'_noise(l,z)]
-        bandNoiseLoudness = ShmNoiseRedLowPass(bandLoudness, sampleRate1875) - bandTonalLoudness;  % specific loudness of non-tonal component in critical band
+        bandNoiseLoudness = shmNoiseRedLowPass(bandLoudness, sampleRate1875) - bandTonalLoudness;  % specific loudness of non-tonal component in critical band
     
         % Store critical band results
         % ---------------------------
