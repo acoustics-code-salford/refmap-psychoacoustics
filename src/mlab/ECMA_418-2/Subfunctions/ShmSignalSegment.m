@@ -1,6 +1,6 @@
-function [signalSegmented, iBlocksOut] = ShmSignalSegment(signal, axisn, blockSize, overlap,...
+function [signalSegmented, iBlocksOut] = shmSignalSegment(signal, axisn, blockSize, overlap,...
                                                           i_start, endShrink)
-% signalSegmented = ShmSignalSegment(signal, axisn, blockSize, overlap,
+% signalSegmented = shmSignalSegment(signal, axisn, blockSize, overlap,
 %                                    i_start, endShrink)
 %
 % Returns input signal segmented into blocks for processing.
