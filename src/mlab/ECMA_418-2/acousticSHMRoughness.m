@@ -100,7 +100,7 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn,...
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 03/02/2025
+% Date last modified: 19/03/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -291,7 +291,7 @@ for chan = size(pn_om, 2):-1:1
 
         % Section 5.1.5 ECMA-418-2:2024
         i_start = 1;
-        [pn_lz, iBlocks] = ShmSignalSegment(pn_omz(:, zBand), 1, blockSize, overlap,...
+        [pn_lz, iBlocksOut] = ShmSignalSegment(pn_omz(:, zBand), 1, blockSize, overlap,...
                                             i_start, true);
 
         % Transformation into Loudness
@@ -600,7 +600,7 @@ for chan = size(pn_om, 2):-1:1
     % interpolation to 50 Hz sampling rate
     % Section 7.1.7 Equation 103 [l_50,end]
     l_50Last = floor(n_samples/sampleRate48k*sampleRate50) + 1;
-    x = (iBlocks - 1)/sampleRate48k;
+    x = (iBlocksOut - 1)/sampleRate48k;
     xq = linspace(0, signalT, l_50Last);
     for zBand = nBands:-1:1
         specRoughEst(:, zBand) = pchip(x, modAmpMax(:, zBand), xq);

@@ -34,10 +34,10 @@ function acousticSHMValidation(savePlots)
     end
 
 %% Load path
-addpath(genpath(fullfile("refmap-psychoacoustics", "src", "mlab")))
+addpath(genpath(fullfile("refmap-psychoacoustics")))
 
 %% Import reference data
-refpath = fullfile("validation", "ECMA-418-2", "reference");
+refpath = fullfile("refmap-psychoacoustics", "validation", "ECMA-418-2", "reference");
 
 % Loudness
 
@@ -132,14 +132,18 @@ roughSingles = horzcat([sine_1kHz_40dB.Roughness, sine_1kHz_70Hz_60dB.Roughness]
 
 %% Calculate sound qualities
 
-tonalitySHM1 = acousticSHMTonality(signal1, fs1, 1, 'free-frontal', false);
-tonalitySHM2 = acousticSHMTonality(signal2, fs2, 1, 'free-frontal', false);
-tonalitySHM3 = acousticSHMTonality(signal3, fs3, 1, 'free-frontal', false);
+tonalitySHM1 = acousticSHMTonality(signal1, fs1, 1, 'free-frontal',...
+                                   true, false);
+tonalitySHM2 = acousticSHMTonality(signal2, fs2, 1, 'free-frontal',...
+                                   true, false);
+tonalitySHM3 = acousticSHMTonality(signal3, fs3, 1, 'free-frontal',...
+                                   true, false);
 
 loudnessSHM1 = acousticSHMLoudnessFromComponent(tonalitySHM1.specTonalLoudness,...
                                                 tonalitySHM1.specNoiseLoudness,...
                                                 false, false);
-loudnessSHM1full = acousticSHMLoudness(signal1, fs1, 1, 'free-frontal', false, false);
+loudnessSHM1full = acousticSHMLoudness(signal1, fs1, 1, 'free-frontal',...
+                                       true, false, false);
 loudnessSHM2 = acousticSHMLoudnessFromComponent(tonalitySHM2.specTonalLoudness,...
                                                 tonalitySHM2.specNoiseLoudness,...
                                                 false, false);
@@ -147,9 +151,12 @@ loudnessSHM3 = acousticSHMLoudnessFromComponent(tonalitySHM3.specTonalLoudness,.
                                                 tonalitySHM3.specNoiseLoudness,...
                                                 false, true);
 
-roughnessSHM1 = acousticSHMRoughness(signal1, fs1, 1, 'free-frontal', false, false);
-roughnessSHM2 = acousticSHMRoughness(signal2, fs2, 1, 'free-frontal', false, false);
-roughnessSHM3 = acousticSHMRoughness(signal3, fs3, 1, 'free-frontal', false, true);
+roughnessSHM1 = acousticSHMRoughness(signal1, fs1, 1, 'free-frontal',...
+                                     true, false, false);
+roughnessSHM2 = acousticSHMRoughness(signal2, fs2, 1, 'free-frontal',...
+                                     true, false, false);
+roughnessSHM3 = acousticSHMRoughness(signal3, fs3, 1, 'free-frontal',...
+                                     true, false, true);
 
 loudSinglesAll = vertcat(loudSingles, horzcat([loudnessSHM1.loudnessPowAvg,...
                                                loudnessSHM2.loudnessPowAvg],...
@@ -170,7 +177,7 @@ roughSinglesAll = vertcat(roughSingles, horzcat([roughnessSHM1.roughness90Pc,...
 
 % path for saving figures
 if savePlots
-    figpath = fullfile("validation", "ECMA-418-2", "results");
+    figpath = fullfile("refmap-psychoacoustics", "validation", "ECMA-418-2", "results");
 else
     figpath = false;
 end
