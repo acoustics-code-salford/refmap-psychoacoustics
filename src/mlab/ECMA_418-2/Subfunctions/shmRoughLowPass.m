@@ -1,6 +1,6 @@
-function specRoughness = ShmRoughLowPass(specRoughEstTform, sampleRate, ...
+function specRoughness = shmRoughLowPass(specRoughEstTform, sampleRate, ...
                                          riseTime, fallTime)
-% specRoughness = ShmRoughLowPass(specRoughEstTform, sampleRatein, riseTime, fallTime)
+% specRoughness = shmRoughLowPass(specRoughEstTform, sampleRatein, riseTime, fallTime)
 %
 % Returns specific roughness low pass filtered for smoothing according to
 % ECMA-418-2:2024 (the Sottek Hearing Model) for an input transformed
