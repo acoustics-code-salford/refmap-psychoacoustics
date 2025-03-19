@@ -38,7 +38,7 @@ function specRoughness = shmRoughLowPass(specRoughEstTform, sampleRate, ...
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 22/09/2023
-% Date last modified: 22/08/2024
+% Date last modified: 19/03/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
