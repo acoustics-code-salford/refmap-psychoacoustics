@@ -1,6 +1,6 @@
 function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget, signalMasker,...
                                                  sampleRateMasker, timeSkip, axisTarget, axisMasker,...
-                                                 timeStep, freqBandRange, outPlot)
+                                                 timeStep, freqRange, outPlot)
 % detectDiscount = acousticDetection(signalTarget, sampleRateTarget, axisTarget,
 %                                    signalMasker, sampleRateMasker, axisMasker)
 %
@@ -62,9 +62,10 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 %            the time window (seconds) to use for calculating target
 %            detectability
 %
-% freqBandRange : vector (default: [20, 20000])
-%                 the 1/3-octave band range over which to determine
-%                 detection and discounted spectra
+% freqRange : vector (default: [20, 20000])
+%                 the frequency range over which to determine
+%                 detection and discounted spectra (1/3-octave band
+%                 centre-frequencies within this range will be included)
 %
 % outPlot : Boolean (default: false)
 %           determines whether to plot outputs from the calculations
@@ -191,7 +192,7 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 % Institution: University of Salford
 %
 % Date created: 05/11/2024
-% Date last modified: 23/01/2025
+% Date last modified: 03/04/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -212,11 +213,11 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
         sampleRateTarget (1, 1) double {mustBePositive, mustBeInteger}
         signalMasker (:, :) double {mustBeReal}
         sampleRateMasker (1, 1) double {mustBePositive, mustBeInteger}
-        timeSkip (1, 2) double {mustBePositive} = [0, 0]
+        timeSkip (1, 2) double {mustBeReal} = [0, 0]
         axisTarget (1, 1) {mustBeInteger, mustBeInRange(axisTarget, 1, 2)} = 1
         axisMasker (1, 1) {mustBeInteger, mustBeInRange(axisMasker, 1, 2)} = 1
         timeStep (1, 1) double {mustBePositive} = 0.5
-        freqBandRange (1, 2) double {mustBeInRange(freqBandRange, 16, 22000)} = [20, 20000]
+        freqRange (1, 2) double {mustBeInRange(freqRange, 19, 20000)} = [20, 20000]
         outPlot {mustBeNumericOrLogical} = false
     end
 
@@ -278,8 +279,8 @@ if sum(timeSkip) > T
 end
 
 % check frequency range
-fl = min(freqBandRange);
-fh = max(freqBandRange);
+fl = min(freqRange);
+fh = max(freqRange);
 
 % ensure frequency range is suitable for signal sampling frequency
 if fh > sampleRate/2.4
@@ -365,11 +366,16 @@ detectEfficiency = efficiencyFactor*sqrt(timeStep)*sqrt(fBandWidth).*sqrt(fBandW
 
 % Calculate equivalent auditory system noise
 ind = (-17:1:13).';  % range of frequency indices for hearing threshold bands
+ind_vis = [ind; ind(end) + 1];  % used for visualisations
 if mod(b, 1) == 0
     fm = G10.^(ind/b)*1000;
+    fm_vis = G10.^(ind_vis/b)*1000;
 else
     fm = G10.^((2*ind + 1)/(2*b))*1000;
+    fm_vis = G10.^((2*ind_vis + 1)/(2*b))*1000;
 end
+fBandWidth_vis = fm_vis*OctRatio - fm_vis/OctRatio;
+
 [~, il] = min(abs(fm - f(1)));  % find nearest lower exact frequency
 [~, ih] = min(abs(fm - f(end)));  % find nearest higher exact frequency
 
@@ -473,12 +479,12 @@ if outPlot
         movegui(fig, 'center');
 
         ax1 = nexttile(1);
-        surf(ax1, [t, t(end) + timeStep] - timeStep/2, f,...
-            [dBSpecTarget(:, :, targChan), dBSpecTarget(:, end, targChan)],...
-            EdgeColor='none');
+        surf(ax1, [t, t(end) + timeStep] - timeStep/2, fm_vis - fBandWidth_vis/2,...
+             arrangeSpectro(dBSpecTarget(:, :, targChan)),...
+             EdgeColor='none', FaceColor='interp');
         view(2);
         set(ax1, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
-            'YScale', 'log', 'YLim', [20, 20000],...
+            'YScale', 'log', 'YLim', [f1(1), f2(end)],...
             'YTick', [31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],...
             'YTickLabel', ["31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]);
         ax1.YLabel.String = "Frequency, Hz";
@@ -487,14 +493,15 @@ if outPlot
         cbar = colorbar; clim([0, max(dBSpecTarget(:, :, targChan), [], 'all')]);
         cbar.Label.String = "dB re 2e-5 Pa";
         ax1.Title.String = "Target spectrogram";
+        ax1.TitleFontWeight = "normal";
 
         ax2 = nexttile(2);
-        surf(ax2, [t, t(end) + timeStep] - timeStep/2, f,...
-            [detectabilitydB(:, :, targChan), detectabilitydB(:, end, targChan)],...
-            EdgeColor='none');
+        surf(ax2, [t, t(end) + timeStep] - timeStep/2, fm_vis - fBandWidth_vis/2,...
+             arrangeSpectro(detectabilitydB(:, :, targChan)),...
+             EdgeColor='none', FaceColor='interp');
         view(2);
         set(ax2, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
-            'YScale', 'log', 'YLim', [20, 20000],...
+            'YScale', 'log', 'YLim', [f1(1), f2(end)],...
             'YTick', [31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],...
             'YTickLabel', ["31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]);
         ax2.YLabel.String = "Frequency, Hz";
@@ -503,31 +510,34 @@ if outPlot
         cbar = colorbar; clim([0, max(detectabilitydB(:, :, targChan), [], 'all')]);
         cbar.Label.String = "Detectability 10log_{10}{\it d'}, dB";
         ax2.Title.String = "Masked target detectability";
+        ax2.TitleFontWeight = "normal";
 
         ax3 = nexttile(3);
         plot(ax3, t, dBATDepTarget(:, targChan), 'color', cmap_magma(34, :), 'DisplayName', "Target")
         hold on
         plot(ax3, t, dBATDepMasker(:, maskChan), 'color', cmap_magma(166, :), 'DisplayName', "Masker")
         plot(ax3, t, dBATDepDiscTarget(:, targChan), 'color', cmap_magma(100, :),...
-            'LineStyle', ':', 'DisplayName', "Target discounted")
+            'LineStyle', ':', 'LineWidth', 2, 'DisplayName', "Target discounted")
         hold off
         set(ax3, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
-            'YLim', [0, max(max(dBATDepTarget(:, targChan), [], 'all'),...
-                     max(dBATDepMasker(:, maskChan), [], 'all'))],...
+            'YLim', [min(dBATDepMasker(:, maskChan), [], 'all') - 10,...
+                     max(max(dBATDepTarget(:, targChan), [], 'all'),...
+                     max(dBATDepMasker(:, maskChan), [], 'all'))*1.05],...
             'XGrid', 'on', 'YGrid', 'on', 'GridAlpha', 0.075,...
             'GridLineStyle', '--', 'GridLineWidth', 0.25);
         ax3.YLabel.String = "dB(A) re 2e-5 Pa";
         ax3.XLabel.String = "Time, s";
         ax3.Title.String = "Time-dependent levels";
-        legend(ax3, 'Location', 'eastoutside')
+        ax3.TitleFontWeight = "normal";
+        lg3 = legend(ax3, 'Location', 'eastoutside');
         
         ax4 = nexttile(4);
-        surf(ax4, [t, t(end) + timeStep] - timeStep/2, f,...
-            [dBSpecMasker(:, :, targChan), dBSpecMasker(:, end, targChan)],...
-            EdgeColor='none');
+        surf(ax4, [t, t(end) + timeStep] - timeStep/2, fm_vis - fBandWidth_vis/2,...
+             arrangeSpectro(dBSpecMasker(:, :, targChan)),...
+             EdgeColor='none', FaceColor='interp');
         view(2);
         set(ax4, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
-            'YScale', 'log', 'YLim', [20, 20000],...
+            'YScale', 'log', 'YLim', [f1(1), f2(end)],...
             'YTick', [31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],...
             'YTickLabel', ["31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]);
         ax4.YLabel.String = "Frequency, Hz";
@@ -536,22 +546,24 @@ if outPlot
         cbar = colorbar; clim([0, max(dBSpecMasker(:, :, targChan), [], 'all')]);
         cbar.Label.String = "dB re 2e-5 Pa";
         ax4.Title.String = "Masker spectrogram";
+        ax4.TitleFontWeight = "normal";
 
         ax5 = nexttile(5);
-        surf(ax5, [t, t(end) + timeStep] - timeStep/2, f,...
-            [dBSpecDiscTarget(:, :, targChan), dBSpecTarget(:, end, targChan)],...
-            EdgeColor='none');
+        surf(ax5, [t, t(end) + timeStep] - timeStep/2, fm_vis - fBandWidth_vis/2,...
+             arrangeSpectro(dBSpecDiscTarget(:, :, targChan)),...
+             EdgeColor='none', FaceColor='interp');
         view(2);
         set(gca, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
-            'YScale', 'log', 'YLim', [20, 20000],...
+            'YScale', 'log', 'YLim', [f1(1), f2(end)],...
             'YTick', [31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],...
             'YTickLabel', ["31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]);
         ax5.YLabel.String = "Frequency, Hz";
         ax5.XLabel.String = "Time, s";
         colormap(ax5, cmap_magma);
         cbar = colorbar; clim([0, max(dBSpecDiscTarget(:, :, targChan), [], 'all')]);
-        cbar.Label.String = "Detectability-discounted level, dB re 2e-5 Pa";
+        cbar.Label.String = "Detectability-discounted \newline     level, dB re 2e-5 Pa";
         ax5.Title.String = "Target detectability-discounted spectrogram";
+        ax5.TitleFontWeight = "normal";
 
         ax6 = nexttile(6);
         levelVals = [LAETarget(targChan), LAEMasker(maskChan), LAEDiscTarget(targChan)];
@@ -565,17 +577,27 @@ if outPlot
         set(ax6, 'YLim', [min(levelVals, [], 'all')/1.25, max(levelVals)*1.1])
         ax6.YLabel.String = "{\it L}_{AE}, dB re 2e-5 Pa";
         ax6.XTickLabel = [];
-        lg = legend(ax6, labelCats, 'Location','eastoutside');
-        lg.Direction = 'normal';
+        lg6 = legend(ax6, labelCats, 'Location','eastoutside');
+        lg6.Direction = 'normal';
         % data labels
         y = sum(reshape(cell2mat(get(b', 'YData')),size(b, 2), []), 1); 
         x = unique(cell2mat(get(b', 'XData')),'stable');
         offset = range(ylim)*.1; 
         text(x, y - offset, labelVals, 'HorizontalAlignment', 'Center',...
              'VerticalAlignment', 'bottom', 'Color', 'w');
-        ax5.Title.String = "Overall levels";
-
+        ax6.Title.String = "Overall levels";
+        ax6.TitleFontWeight = "normal";
     end
 end % end of if branch for plotting outputs
+
+function returnXft = arrangeSpectro(targetXft)
+% returnXft = arrangeSpectro(targetXft)
+%
+% Return 2D matrix arranged for plotting spectrogram-like plots with fully
+% rendered cells at boundaries. Input and output matrices have shape
+% [freqs, time]
+
+returnXft = [targetXft(:, :), targetXft(:, end);
+             targetXft(end, :), targetXft(end, end)];
 
 % end of function

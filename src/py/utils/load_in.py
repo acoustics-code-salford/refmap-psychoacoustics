@@ -11,7 +11,7 @@ import librosa
 from dsp.filterFuncs import A_weight_T
 
 
-def audio_caltnc(filepath, cal_val, tnc=[0, 0], cal_tnc='pre', cal_type='LAEQ'):
+def audio_caltnc(filepath, cal_val, tnc=[0, 0], cal_tnc='pre', cal_type=None):
     '''
     Returns calibrated, truncated (optional) signal from audio input file.
     Inputs
@@ -29,7 +29,7 @@ def audio_caltnc(filepath, cal_val, tnc=[0, 0], cal_tnc='pre', cal_type='LAEQ'):
               place pre- or post-truncation operation
               'pre':apply calibration before file truncation
               'post': apply calibration to the truncated file
-    cal_type : keyword string (default: 'LAEQ')
+    cal_type : keyword string (default: None)
                specifies the type of calibration for the input file (ie, what
                property cal_val represents)
     
@@ -83,7 +83,6 @@ def audio_caltnc(filepath, cal_val, tnc=[0, 0], cal_tnc='pre', cal_type='LAEQ'):
                 xpeak = np.max(np.abs(xt), axis=0)
                 cal_valPa = 2e-5*10**(cal_val/20)
                 xn = xt*(cal_valPa/xpeak)
-
     else:
         xn = xt
 

@@ -19,7 +19,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
  
 Date created: 27/10/2023
-Date last modified: 04/02/2025
+Date last modified: 01/04/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -218,10 +218,6 @@ def ShmBasisLoudness(signalSegmented, bandCentreFreq):
     with half-Bark critical bands over the third dimension) obtained using
     acousticSHMAuditoryFiltBank.m and ShmSignalSegment.m
     
-    Requirements
-    ------------
-    None
-    
     Ownership and Quality Assurance
     -------------------------------
     Authors: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk) &
@@ -339,109 +335,7 @@ def ShmBasisLoudness(signalSegmented, bandCentreFreq):
     # end of function
 
 
-# %% shmPreProc
-def shmPreProc(signal, blockSize, hopSize, padStart, padEnd):
-    """Function signalFadePad = shmPreProc(signal, blockSize, hopSize,
-                                           padStart, padEnd)
-
-    Returns signal with fade-in and zero-padding pre-processing according to
-    ECMA-418-2:2024 (the Sottek Hearing Model) for an input signal.
-
-    Inputs
-    ------
-    signal : 1D or 2D array
-             the input signal/s
-
-    blockSize : integer
-                the maximum signal segmentation block size
-
-    hopSize : integer
-              the maximum signal segmentation hop size
-              = (1 - overlap)*blockSize
-
-    padStart : Boolean
-               flag to indicate whether to pad the start of the signal
-
-    padEnd : Boolean
-             flag to indicate whether to pad the end of the signal
- 
-
-    Returns
-    -------
-    signalFadePad : 1D or 2D array
-                    the output faded, padded signal
-
-    Assumptions
-    -----------
-    The input signal is oriented with time on axis 0 (and channel # on axis
-    1), ie, the fade and padding operation is applied along axis 0.
-    The input signal must be sampled at 48 kHz.
-
-    Copyright statement: This file and code is part of work undertaken within
-    the RefMap project (www.refmap.eu), and is subject to licence as detailed
-    in the code repository
-    (https://github.com/acoustics-code-salford/refmap-psychoacoustics)
-
-    Checked by:
-    Date last checked:
-
-    """
-    # %% Arguments validation
-
-    # arguments (Input)
-    #     signal (:, :) double {mustBeReal}
-    #     blockSize (1, 1) {mustBeInteger}
-    #     hopSize (1, 1) {mustBeInteger}
-    #     padStart {mustBeNumericOrLogical} = true
-    #     padEnd {mustBeNumericOrLogical} = true
-    # end
-
-    # TODO
-
-    # %% Signal processing
-
-    # Input pre-processing
-    # --------------------
-    #
-    # Check signal dimensions and add axis if 1D input
-    #
-    if np.size(signal.shape) == 1:
-        numChans = 1
-        signal = signal[:, np.newaxis]
-    else:
-        numChans = signal.shape(1)
-
-    if numChans > 2:
-        raise ValueError("Input signal must be 1- or 2-channel")
-
-    # Fade in weighting function Section 5.1.2 ECMA-418-2:2024
-
-    fadeWeight = 0.5 - 0.5*np.cos(np.pi*np.arange(0, 240)/240)[:, np.newaxis]
-    # Apply fade in
-    signalFade = np.concatenate((fadeWeight*signal[0:240, :],
-                                 signal[240:, :]))
-
-    # Zero-padding Section 5.1.2 ECMA-418-2:2024
-    if padStart:
-        n_zeross = int(blockSize)  # start zero-padding
-    else:
-        n_zeross = 0
-
-    if padEnd:
-        n_samples = signal.shape[0]
-        n_new = int(hopSize*(np.ceil((n_samples
-                                      + hopSize
-                                      + n_zeross)/hopSize) - 1))
-        n_zerose = n_new - n_samples  # end zero-padding
-
-    # Apply zero-padding
-    signalFadePad = np.concatenate([np.zeros((n_zeross, numChans)),
-                                    signalFade,
-                                    np.zeros((n_zerose, numChans))])
-
-    return signalFadePad  # end of shmPreProc function
-
-
+# %% shmOutMidEarFilter
 def shmOutMidEarFilter(signal, outplot=False):
     """signalFiltered  = shmOutMidEarFilter_(signal, outplot)
 
@@ -473,19 +367,8 @@ def shmOutMidEarFilter(signal, outplot=False):
     Checked by:
     Date last checked:
 
-    %% Arguments validation
-        arguments (Input)
-            signal (:, :) double {mustBeReal}
-            outplot {mustBeNumericOrLogical} = false
-        end
     """
     # Arguments validation
-    if not type(signal) is np.ndarray:
-        try:
-            np.array(signal)
-        except Exception:  # TODO specific exception handling
-            raise TypeError("\nInput signal does not appear to be an array")
-
     if not isinstance(outplot, bool):
         raise ValueError("\nInput argument 'outplot' must be logical True/False")
 
@@ -530,7 +413,10 @@ def shmOutMidEarFilter(signal, outplot=False):
     sos = np.array([b_0k, b_1k, b_2k, a_0k, a_1k, a_2k]).T.copy(order='C')
 
     # Section 5.1.3.2 ECMA-418-2:2022 Outer and middle/inner ear signal filtering
-    signalFiltered = sosfilt(sos, signal, axis=0)
+    try:
+        signalFiltered = sosfilt(sos, signal, axis=1)
+    except TypeError as err:
+        raise TypeError("\nInput signal does not appear to be an array:", err)
 
     # Plot figures
 
@@ -573,3 +459,161 @@ def shmOutMidEarFilter(signal, outplot=False):
         ax2.grid(True, which='major', linestyle='--', alpha=0.5)
 
     return signalFiltered  # end of shmOutMidEarFilter function
+
+
+# %% shmPreProc
+def shmPreProc(signal, blockSize, hopSize, padStart, padEnd):
+    """Function signalFadePad = shmPreProc(signal, blockSize, hopSize,
+                                           padStart, padEnd)
+
+    Returns signal with fade-in and zero-padding pre-processing according to
+    ECMA-418-2:2024 (the Sottek Hearing Model) for an input signal.
+
+    Inputs
+    ------
+    signal : 1D or 2D array
+             the input signal/s
+
+    blockSize : integer
+                the maximum signal segmentation block size
+
+    hopSize : integer
+              the maximum signal segmentation hop size
+              = (1 - overlap)*blockSize
+
+    padStart : Boolean
+               flag to indicate whether to pad the start of the signal
+
+    padEnd : Boolean
+             flag to indicate whether to pad the end of the signal
+ 
+
+    Returns
+    -------
+    signalFadePad : 1D or 2D array
+                    the output faded, padded signal
+
+    Assumptions
+    -----------
+    The input signal is oriented with time on axis 1 (and channel # on axis
+    0), ie, the fade and padding operation is applied along axis 1.
+    The input signal must be sampled at 48 kHz.
+
+    Copyright statement: This file and code is part of work undertaken within
+    the RefMap project (www.refmap.eu), and is subject to licence as detailed
+    in the code repository
+    (https://github.com/acoustics-code-salford/refmap-psychoacoustics)
+
+    Checked by:
+    Date last checked:
+
+    """
+    # %% Arguments validation
+
+
+    # TODO
+
+    # %% Signal processing
+
+    # Input pre-processing
+    # --------------------
+    #
+    # Check signal dimensions and add axis if 1D input
+    #
+    if np.size(signal.shape) == 1:
+        numChans = 1
+        signal = signal[:, np.newaxis]
+    else:
+        numChans = signal.shape[0]
+
+    if numChans > 2:
+        raise ValueError("Input signal must be 1- or 2-channel")
+
+    # Fade in weighting function Section 5.1.2 ECMA-418-2:2024
+
+    fadeWeight = 0.5 - 0.5*np.cos(np.pi*np.arange(0, 240)/240)[np.newaxis, :]
+    # Apply fade in
+    signalFade = np.concatenate((fadeWeight*signal[:, 0:240],
+                                 signal[:, 240:]), axis=1)
+
+    # Zero-padding Section 5.1.2 ECMA-418-2:2024
+    if padStart:
+        n_zeross = int(blockSize)  # start zero-padding
+    else:
+        n_zeross = 0
+
+    if padEnd:
+        n_samples = signal.shape[1]
+        n_new = int(hopSize*(np.ceil((n_samples
+                                      + hopSize
+                                      + n_zeross)/hopSize) - 1))
+        n_zerose = n_new - n_samples  # end zero-padding
+
+    # Apply zero-padding
+    signalFadePad = np.concatenate([np.zeros((numChans, n_zeross)),
+                                    signalFade,
+                                    np.zeros((numChans, n_zerose))], axis=1)
+
+    return signalFadePad  # end of shmPreProc function
+
+
+# %% shmResample
+def shmResample(signal, sampleRatein):
+    '''
+    Returns signal resampled to 48 kHz, according to ECMA-418-2:2024
+    (the Sottek Hearing Model) for an input signal.
+    
+    Inputs
+    ------
+    signal : 1D or 2D array
+             the input signal
+    
+    sampleRatein : integer
+                   the sample rate (frequency) of the input signal(s)
+    
+    Returns
+    -------
+    For each channel in the input signal:
+    
+    resampledSignal : number or 1D array
+                  average (overall) tonality value
+    
+    resampledRate : integer
+                    the resampled signal sample rate, ie, 48 kHz
+    
+    Assumptions
+    -----------
+    The input signal is oriented with time on axis 1 (and channel # on axis
+    0), ie, the resample operation is applied along axis 1.
+
+    Checked by:
+    Date last checked:
+
+    '''
+
+    # %% Define constants
+    
+    # Section 5.1.1 ECMA-418-2:2024
+    resampledRate = int(48e3)  # Signal sample rate prescribed to be 48 kHz
+
+    # %% Signal processing
+
+    # Input pre-processing
+    # --------------------
+    if sampleRatein != resampledRate:  # Resample signal
+        try:
+            up = resampledRate/gcd(resampledRate, sampleRatein)  # upsampling factor
+            down = sampleRatein/gcd(resampledRate, sampleRatein)  # downsampling factor
+            
+        except TypeError as err:
+            raise TypeError("The input sample rate must be a positive integer to enable resampling to " + str(resampledRate) + " Hz:", err)
+        try:
+            resampledSignal = resample_poly(signal, up, down, axis=1)  # apply resampling
+        except TypeError as err:
+            raise TypeError("TypeError: The input signal must be a numerical array:", err)
+    else:  # don't resample
+        resampledSignal = signal
+
+    return(resampledSignal)
+
+# end of shmResample function

@@ -19,7 +19,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 22/01/2024
-Date last modified: 05/11/2024
+Date last modified: 03/04/2025
 Python version: 3.11.5
 
 Copyright statements: This file and code is part of work undertaken within
@@ -62,6 +62,8 @@ def A_weight_T(x, fs, axis=0, check=False):
          the sampling frequency of the signals to be processed
     axis : integer
            the signal array axis along which to apply the filter
+    check : boolean
+            flag to check the filter against IEC acceptance limits
 
     Returns
     -------
@@ -98,14 +100,32 @@ def A_weight_T(x, fs, axis=0, check=False):
     dtu = 1/fsu
 
     G_Aw = 10**(2/20)
-    w1 = 2*np.pi*20.598997
+    
+    f1 = np.sqrt((-1/(1 - np.sqrt(0.5))*(1e3**2 + 1e3*10**7.8/1e3**2
+                                         - np.sqrt(0.5)*(1e3 + 10**7.8))
+                  - np.sqrt((1/(1 - np.sqrt(0.5))*(1e3**2
+                                                   + 1e3*10**7.8/1e3**2
+                                                   - np.sqrt(0.5)*(1e3 + 10**7.8)))**2
+                            - 4*1e3*10**7.8)) / 2)
+    
+    f4 = np.sqrt((-1/(1 - np.sqrt(0.5))*(1e3**2 + 1e3*10**7.8/1e3**2
+                                         - np.sqrt(0.5)*(1e3 + 10**7.8))
+                  + np.sqrt((1/(1 - np.sqrt(0.5))*(1e3**2
+                                                   + 1e3*10**7.8/1e3**2
+                                                   - np.sqrt(0.5)*(1e3 + 10**7.8)))**2
+                            - 4*1e3*10**7.8)) / 2)
+    
+    f2 = 10**2.45*((3 - np.sqrt(5))/2)
+    f3 = 10**2.45*((3 + np.sqrt(5))/2)
+
+    w1 = 2*np.pi*f1
     w1w = 2/dtu*np.tan(w1*dtu/2)  # pre-warped frequency
-    w4 = 2*np.pi*12194.217
+    w4 = 2*np.pi*f4
     w4w = 2/dtu*np.tan(w4*dtu/2)  # pre-warped frequency
-    w3 = 2*np.pi*107.65265
-    w3w = 2/dtu*np.tan(w3*dtu/2)  # pre-warped frequency
-    w2 = 2*np.pi*737.86223
+    w2 = 2*np.pi*f2
     w2w = 2/dtu*np.tan(w2*dtu/2)  # pre-warped frequency
+    w3 = 2*np.pi*f3
+    w3w = 2/dtu*np.tan(w3*dtu/2)  # pre-warped frequency
 
     B = np.array([G_Aw*w4w**2, 0, 0, 0, 0])
     A1 = [1.0, 2*w4w, (w4w)**2]
