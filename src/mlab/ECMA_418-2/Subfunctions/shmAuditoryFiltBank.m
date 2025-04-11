@@ -38,7 +38,7 @@ function signalFiltered = shmAuditoryFiltBank(signal, outplot)
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 27/09/2023
-% Date last modified: 19/03/2025
+% Date last modified: 11/04/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -110,7 +110,7 @@ for zBand = 53:-1:1
     %% Plot figures
 
     if outplot
-        [H, f] = freqz(b_m, a_m, 10e3, 'whole', 48e3);
+        [H, f] = freqz(b_m, a_m, 10e3, 'whole', sampleRate48k);
         phir = angle(H);
         phirUnwrap = unwrap(phir,[], 1);
         phiUnwrap = phirUnwrap/pi*180;
@@ -152,6 +152,8 @@ for zBand = 53:-1:1
             ax2.FontName = 'Arial';
             ax2.FontSize = 12;
         end
+        ax1.XScale = 'log';
+        ax2.XScale = 'log';
     end
 
 

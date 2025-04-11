@@ -13,7 +13,16 @@ function signalFiltered  = shmOutMidEarFilter(signal, fieldtype, outplot)
 %
 % fieldtype : keyword string (default: 'free-frontal')
 %             determines whether the 'free-frontal' or 'diffuse' field 
-%             stages are applied in the outer-middle ear filter
+%             stages are applied in the outer-middle ear filter;
+%             alternatively, the 'noOuter' option omits the outer ear stage
+%             entirely, ie, only the middle ear stage is applied
+%             (this may be useful for reliance on a recording made
+%             with an artificial head + outer ear, when compensation
+%             equalisation filtering is unavailable or is not desired.
+%             Note: omitting the outer ear stage is beyond the current
+%             scope of the standard, but is consistent with the description
+%             of the implementation in section 5.1.3.2 and the frequency
+%             response shown in Figure 3).
 %
 % outplot : Boolean true/false (default: false)
 %           flag indicating whether to generate a frequency and phase
@@ -41,7 +50,7 @@ function signalFiltered  = shmOutMidEarFilter(signal, fieldtype, outplot)
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 26/09/2023
-% Date last modified: 19/03/2025
+% Date last modified: 11/04/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -64,8 +73,9 @@ function signalFiltered  = shmOutMidEarFilter(signal, fieldtype, outplot)
     arguments (Input)
         signal (:, :) double {mustBeReal}
         fieldtype (1, 1) string {mustBeMember(fieldtype,...
-                                              {'free-frontal'...
-                                               'diffuse'})} = 'free-frontal'
+                                              {'free-frontal',...
+                                               'diffuse',...
+                                               'noOuter'})} = 'free-frontal'
         outplot {mustBeNumericOrLogical} = false
     end
 
@@ -103,7 +113,7 @@ a_1k = [-1.925298877776079, -1.806088011849494, -1.763632154338248,...
         -1.912433802933871, 0.162319983017519];
 a_2k = [0.938014080620272, 0.835381997160530, 0.783159968178343,...
         0.727599221415107, -0.284120167620817, 0.805837815618546,...
-        0.914160847411739, 0.284243574266175]; 
+        0.914160847411739, 0.284243574266175];
 
 if fieldtype == "free-frontal"
     sos = [b_0k.', b_1k.', b_2k.', a_0k.', a_1k.', a_2k.'];
@@ -111,6 +121,10 @@ elseif fieldtype == "diffuse"
     % omit free field filter stages
     sos = [b_0k(3:end).', b_1k(3:end).', b_2k(3:end).',...
            a_0k(3:end).', a_1k(3:end).', a_2k(3:end).'];
+elseif fieldtype == "noOuter"
+    % omit outer ear stages
+    sos = [b_0k(6:end).', b_1k(6:end).', b_2k(6:end).',...
+           a_0k(6:end).', a_1k(6:end).', a_2k(6:end).'];
 end
 
 % Section 5.1.3.2 ECMA-418-2:2024 Outer and middle/inner ear signal filtering
@@ -156,6 +170,7 @@ if outplot
     ax2.FontSize = 12;
 
     title(ax1, fieldtype)
+    ax1.TitleFontWeight = "normal";
 end
 
 
