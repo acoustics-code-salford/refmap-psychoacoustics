@@ -19,7 +19,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
  
 Date created: 27/10/2023
-Date last modified: 01/04/2025
+Date last modified: 11/04/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -60,7 +60,7 @@ mpl.rcParams['figure.autolayout'] = True
 
 
 # %% shmAuditoryFiltBank
-def shmAuditoryFiltBank(signal, outplot=False):
+def shmAuditoryFiltBank(signal, outPlot=False):
     """Function signalFiltered = shmAuditoryFiltBank(signal, outplot)
 
     Returns a set of signals, bandpass filtered for the inner ear response
@@ -73,7 +73,7 @@ def shmAuditoryFiltBank(signal, outplot=False):
     signal : 1D or 2D array
              the input signal as single audio (sound pressure) signal
 
-    outplot : Boolean true/false (default: false)
+    outPlot : Boolean true/false (default: false)
               flag indicating whether to generate a figure a frequency and phase
               response figure for the filter bank
 
@@ -88,14 +88,6 @@ def shmAuditoryFiltBank(signal, outplot=False):
     operation is applied along axis 1.
     The input signal must be sampled at 48 kHz.
 
-    Checked by:
-    Date last checked:
-    %
-    # %Arguments validation
-    #     arguments (Input)
-    #         signal (:, 1) double {mustBeReal}
-    #         outplot {mustBeNumericOrLogical} = false
-    #     end
     """
 
     # %% Arguments validation
@@ -122,7 +114,7 @@ def shmAuditoryFiltBank(signal, outplot=False):
     k = 5  # filter order = 5, footnote 5 ECMA-418-2:2024
     e_i = [0, 1, 11, 11, 1]  # filter coefficients for Section 5.1.4.2 Equation 15 ECMA-418-2:2024
 
-    signalFiltered = np.zeros((len(signal), len(halfBark)))
+    signalFiltered = np.zeros((len(halfBark), len(signal)))
     for zBand in range(53):
         # Section 5.1.4.1 Equation 8 ECMA-418-2:2024
         tau = (1/(2**(2*k - 1)))*comb(2*k - 2, k - 1)*(1/dfz[zBand])
@@ -144,12 +136,12 @@ def shmAuditoryFiltBank(signal, outplot=False):
         # Recursive filter Section 5.1.4.2 Equation 13 ECMA-418-2:2024
         # Note, the results are complex so 2x the real-valued band-pass signal
         # is required.
-        signalFiltered[:, zBand] = 2*np.real(lfilter(b_m, a_m, signal))
+        signalFiltered[zBand, :] = 2*np.real(lfilter(b_m, a_m, signal))
 
         # Plot figures
 
-        if outplot:
-            f, H = freqz(b_m, a=a_m, worN=int(10e3), whole=True, fs=48e3)
+        if outPlot:
+            f, H = freqz(b_m, a=a_m, worN=int(10e3), whole=True, fs=sampleRate48k)
             phir = np.angle(H)
             phirUnwrap = np.unwrap(p=phir, discont=np.pi, axis=0)
             phiUnwrap = phirUnwrap/np.pi*180
@@ -158,8 +150,9 @@ def shmAuditoryFiltBank(signal, outplot=False):
                 fig, axs = plt.subplots(nrows=2, ncols=1)
                 ax1 = axs[0]
                 ax2 = axs[1]
-                ax1.semilogx(f, 20*np.log10(abs(H)))
-                ax2.semilogx(f, phiUnwrap)
+
+            ax1.semilogx(f, 20*np.log10(abs(H)))
+            ax2.semilogx(f, phiUnwrap)
 
             if zBand == 52:
                 ax1.set(xlim=[20, 20e3],
@@ -217,32 +210,7 @@ def ShmBasisLoudness(signalSegmented, bandCentreFreq):
     The input signal is a segmented signal (either band-limited, or arranged
     with half-Bark critical bands over the third dimension) obtained using
     acousticSHMAuditoryFiltBank.m and ShmSignalSegment.m
-    
-    Ownership and Quality Assurance
-    -------------------------------
-    Authors: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk) &
-     Matt Torjussen (matt@anv.co.uk)
-    Institution: University of Salford / ANV Measurement Systems
-    
-    Date created: 27/09/2023
-    Date last modified: 21/10/2024
-    MATLAB version: 2023b
-    
-    Copyright statement: This file and code is part of work undertaken within
-    the RefMap project (www.refmap.eu), and is subject to licence as detailed
-    in the code repository
-    (https://github.com/acoustics-code-salford/refmap-psychoacoustics)
-    
-    As per the licensing information, please be aware that this code is
-    WITHOUT ANY WARRANTY without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    
-    This code was developed from an original file 'SottekTonality.m' authored
-    by Matt Torjussen (14/02/2022), based on implementing ECMA-418-2:2020.
-    The original code has been reused and updated here with permission.
-    
-    Checked by:
-    Date last checked:
+
     """
 
     # %% Arguments validation
@@ -261,7 +229,7 @@ def ShmBasisLoudness(signalSegmented, bandCentreFreq):
     # check if input band centre frequency is not a vector (arguments
     # validation does not allow empty default with specified size)
     if ~isempty(bandCentreFreq) && max(size(bandCentreFreq)) ~= 1
-        error("Band centre frequency input must be a single value")
+        raise error("Band centre frequency input must be a single value")
     end
     
     # %% Define constants
@@ -315,7 +283,7 @@ def ShmBasisLoudness(signalSegmented, bandCentreFreq):
     # Transformation into Loudness
     # ----------------------------
     # Section 5.1.8 Equations 23 & 24 ECMA-418-2:2024
-    bandLoudness = cal_N*cal_Nx*(blockRMS/20e-6).*prod((1 + (blockRMS./p_threshold).^a).^((diff(v)/a)'))
+    bandLoudness = cal_N*cal_Nx*(blockRMS/2e-5)*np.prod((1 + (blockRMS/p_threshold)**a)**((np.diff(v)/a).T))
     
     # remove singleton dimension from block RMS output
     blockRMS = squeeze(blockRMS)
@@ -336,7 +304,7 @@ def ShmBasisLoudness(signalSegmented, bandCentreFreq):
 
 
 # %% shmOutMidEarFilter
-def shmOutMidEarFilter(signal, outplot=False):
+def shmOutMidEarFilter(signal, fieldType='freeFrontal', outPlot=False):
     """signalFiltered  = shmOutMidEarFilter_(signal, outplot)
 
     Returns signal filtered for outer and middle ear response according to
@@ -349,7 +317,19 @@ def shmOutMidEarFilter(signal, outplot=False):
     signal : 1D or 2D array
              the input signal (sound pressure)
 
-    outplot : Boolean true/false (default: false)
+    fieldType : keyword string (default: 'freeFrontal')
+                determines whether the 'freeFrontal' or 'diffuse' field 
+                stages are applied in the outer-middle ear filter; alternatively,
+                the 'noOuter' option omits the outer ear stage entirely, ie,
+                only the middle ear stage is applied.
+                (this may be useful for reliance on a recording made with an
+                artificial head + outer ear, when compensation equalisation
+                filtering is unavailable or is not desired. Note: omitting the
+                outer ear stage is beyond the current scope of the standard,
+                but is consistent with the description of the implementation in
+                section 5.1.3.2 and the frequency response shown in Figure 3).
+
+    outPlot : Boolean true/false (default: false)
               flag indicating whether to generate a frequency and phase
               response figure for the filter
 
@@ -369,7 +349,7 @@ def shmOutMidEarFilter(signal, outplot=False):
 
     """
     # Arguments validation
-    if not isinstance(outplot, bool):
+    if not isinstance(outPlot, bool):
         raise ValueError("\nInput argument 'outplot' must be logical True/False")
 
     # Signal processing
@@ -410,7 +390,16 @@ def shmOutMidEarFilter(signal, outplot=False):
 
     # form 2nd-order section for transfer function (copy is needed to enforce
     # C-contiguity in the tranposed array)
-    sos = np.array([b_0k, b_1k, b_2k, a_0k, a_1k, a_2k]).T.copy(order='C')
+    if fieldType == "freeFrontal":
+        sos = np.array([b_0k, b_1k, b_2k, a_0k, a_1k, a_2k]).T.copy(order='C')
+    elif fieldType == "diffuse":
+        sos = np.array([b_0k[2:], b_1k[2:], b_2k[2:],
+                        a_0k[2:], a_1k[2:], a_2k[2:]]).T.copy(order='C')
+    elif fieldType == "noOuter":
+        sos = np.array([b_0k[5:], b_1k[5:], b_2k[5:],
+                        a_0k[5:], a_1k[5:], a_2k[5:]]).T.copy(order='C')
+    else:
+        raise ValueError("\nInput argument 'fieldtype' must be one of 'freeFrontal', 'diffuse', or 'noOuter'.")
 
     # Section 5.1.3.2 ECMA-418-2:2022 Outer and middle/inner ear signal filtering
     try:
@@ -420,7 +409,7 @@ def shmOutMidEarFilter(signal, outplot=False):
 
     # Plot figures
 
-    if outplot:
+    if outPlot:
         f, H = sosfreqz(sos, worN=10000, whole=True, fs=48e3)
         phir = np.angle(H, deg=False)
         phirUnwrap = np.unwrap(phir, discont=np.pi)
@@ -441,6 +430,7 @@ def shmOutMidEarFilter(signal, outplot=False):
         ax1.set_xlabel("Frequency, Hz", fontname='Arial', fontsize=12)
         ax1.set_ylabel("$H$, dB", fontname='Arial', fontsize=12)
         ax1.grid(True, which='major', linestyle='--', alpha=0.5)
+        ax1.set_title(fieldType)
 
         ax2.semilogx(f[1:], phiUnwrap[1:], color=[0.8, 0.1, 0.8])
         ax2.set_xticks(ticks=[31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],
@@ -462,7 +452,7 @@ def shmOutMidEarFilter(signal, outplot=False):
 
 
 # %% shmPreProc
-def shmPreProc(signal, blockSize, hopSize, padStart, padEnd):
+def shmPreProc(signal, blockSize, hopSize, padStart=True, padEnd=True):
     """Function signalFadePad = shmPreProc(signal, blockSize, hopSize,
                                            padStart, padEnd)
 
@@ -481,12 +471,12 @@ def shmPreProc(signal, blockSize, hopSize, padStart, padEnd):
               the maximum signal segmentation hop size
               = (1 - overlap)*blockSize
 
-    padStart : Boolean
+    padStart : Boolean (default: True)
                flag to indicate whether to pad the start of the signal
 
-    padEnd : Boolean
+    padEnd : Boolean (default: True)
              flag to indicate whether to pad the end of the signal
- 
+
 
     Returns
     -------
@@ -585,6 +575,8 @@ def shmResample(signal, sampleRatein):
     -----------
     The input signal is oriented with time on axis 1 (and channel # on axis
     0), ie, the resample operation is applied along axis 1.
+    The sampleRatein is an integer value (this is to guarantee that the target
+                                          rate is exactly met).
 
     Checked by:
     Date last checked:
@@ -617,3 +609,135 @@ def shmResample(signal, sampleRatein):
     return(resampledSignal)
 
 # end of shmResample function
+
+
+def shmSignalSegment(signal, blockSize, overlap, axisn=1, i_start=0, endShrink=False)
+"""
+Returns input signal segmented into blocks for processing.
+
+Inputs
+------
+signal : 1D or 2D array
+         the input signal/s
+
+axisn : integer (0 or 1, default: 1)
+        the (time) axis along which to apply block segmentation
+
+blockSize : integer
+            the block size in samples
+
+overlap : double (>=0, < 1)
+          the proportion of overlap for each successive block
+
+i_start : integer (optional, default: 0)
+          the sample index from which to start the segmented signal
+
+endShrink : Boolean (optional, default: false)
+            option to include the end of the signal data in a block using
+            increased overlap with the preceding block
+
+Returns
+-------
+For each channel in the input signal:
+
+signalSegmented : 2D or 3D array
+                  the segmented signal, arranged by channels over the
+                  last axis, samples (within each block) along the axis
+                  corresponding with axisn, and block number along the
+                  other remaining axis
+
+Also: 
+
+iBlocksOut : 1D array
+             the indices corresponding with each output block starting
+             index (NOTE: the indices corresponding with the input
+             indexing can be recovered by adding i_start to iBlocksOut)
+
+Assumptions
+-----------
+None
+
+"""
+
+#%% Signal pre-processing
+
+# Orient input
+if axisn == 0:
+    signal = signal.T
+    axisFlip = True
+elif axisn == 1:
+    axisFlip = False
+else:
+    raise ValueError("Input argument 'axisn' can take values 1 (default) or 0.")
+
+
+# ensure i_start is positive integer
+try:
+    i_start = int(abs(i_start))
+except TypeError:
+    raise TypeError("Input argument i_start must be a (positive real) number.")
+
+# Check sample index start will allow segmentation to proceed
+if np.shape(signal[:, i_start:])[1] <= blockSize
+    error("Signal is too short to apply segmentation using the selected parameters")
+end
+
+# Check signal dimensions and add axis if 1D input
+#
+if np.size(signal.shape) == 1:
+    numChans = 1
+    signal = signal[:, np.newaxis]
+else:
+    numChans = signal.shape[0]
+
+# Hop size
+hopSize = (1 - overlap)*blockSize
+
+# Truncate the signal to start from i_start and to end at an index
+# corresponding with the truncated signal length that will fill an
+# integer number of overlapped blocks
+signalTrunc = signal[:, i_start:]
+n_blocks = np.floor((signalTrunc.shape[1] - overlap*blockSize)/hopSize)
+i_end = int(n_blocks*hopSize + overlap*blockSize - 1)
+signalTrunc = signalTrunc[:, 0:i_end]
+
+#%% Signal segmentation
+
+# Arrange the signal into overlapped blocks - each block reads
+# along first axis, and each column is the succeeding overlapped
+# block. 3 columns of zeros are appended to the left side of the
+# matrix and the column shifted copies of this matrix are
+# concatenated. The first 6 columns are then discarded as these all
+# contain zeros from the appended zero columns.
+
+for chan = numChans:-1:1
+    signalSegmentedChan = [zeros(hopSize, 3),...
+                           reshape(signalTrunc, hopSize, [])];
+    
+    signalSegmentedChan = cat(1, circshift(signalSegmentedChan, 3, 2),...
+                              circshift(signalSegmentedChan, 2, 2),...
+                              circshift(signalSegmentedChan, 1, 2),...
+                              circshift(signalSegmentedChan, 0, 2));
+    
+    signalSegmentedChan = signalSegmentedChan(:, 7:end);
+
+    # if branch to include block of end data with increased overlap
+    if endShrink && (size(signal(i_start:end), 1) > size(signalTrunc, 1))
+        signalSegmentedChanOut = [signalSegmentedChan, signal(end-blockSize + 1:end)];
+        iBlocksOut = [1:hopSize:n_blocks*hopSize,...
+                      size(signal(i_start:end), 1) - blockSize + 1];
+    else
+        signalSegmentedChanOut = signalSegmentedChan;
+        iBlocksOut = 1:hopSize:n_blocks*hopSize;
+    # end of if branch for end data with increased overlap
+
+    signalSegmented(:, :, chan) = signalSegmentedChanOut;
+end
+
+# re-orient segmented signal to match input
+if axisFlip
+    signalSegmented = permute(signalSegmented, [2, 1, 3]);
+end
+
+# end of shmSignalSegment function
+
