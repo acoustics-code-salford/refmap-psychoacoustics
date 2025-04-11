@@ -1,0 +1,10 @@
+cff-version: 0.0.1
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Lotinga"
+  given-names: "Michael J B"
+  orcid: "https://orcid.org/0000-0002-9243-9453"
+title: "refmap-psychoacoustics"
+version: 2025
+
+url: "https://github.com/acoustics-code-salford/refmap-psychoacoustics"
