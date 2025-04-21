@@ -58,7 +58,7 @@ function [signalSegmented, iBlocksOut] = shmSignalSegment(signal, axisn, blockSi
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 27/09/2023
-% Date last modified: 19/03/2025
+% Date last modified: 14/04/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -139,10 +139,10 @@ for chan = nchans:-1:1
     signalSegmentedChan = signalSegmentedChan(:, 7:end);
 
     % if branch to include block of end data with increased overlap
-    if endShrink && (size(signal(i_start:end), 1) > size(signalTrunc, 1))
-        signalSegmentedChanOut = [signalSegmentedChan, signal(end-blockSize + 1:end)];
+    if endShrink && (size(signal(i_start:end, chan), 1) > size(signalTrunc, 1))
+        signalSegmentedChanOut = [signalSegmentedChan, signal(end-blockSize + 1:end, chan)];
         iBlocksOut = [1:hopSize:n_blocks*hopSize,...
-                      size(signal(i_start:end), 1) - blockSize + 1];
+                      size(signal(i_start:end, chan), 1) - blockSize + 1];
     else
         signalSegmentedChanOut = signalSegmentedChan;
         iBlocksOut = 1:hopSize:n_blocks*hopSize;

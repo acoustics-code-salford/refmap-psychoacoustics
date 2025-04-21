@@ -20,15 +20,13 @@ function [signalRectSeg, basisLoudness, blockRMS]...
 % Returns
 % -------
 % signalRectSeg : 2D or 3D matrix
-%                 rectified band-limited segmented signal, orientated as
-%                 per the input
+%                 rectified band-limited segmented signal
 %
 % basisLoudness : 2D or 3D matrix
-%                 basis loudness in each block, orientated as per the input
+%                 basis loudness in each block
 % 
 % blockRMS : column vector or 2D matrix
-%            RMS for each block, orientated as per the input with singleton
-%            dimension removed
+%            RMS for each block
 %
 % Assumptions
 % -----------
@@ -47,7 +45,7 @@ function [signalRectSeg, basisLoudness, blockRMS]...
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 27/09/2023
-% Date last modified: 19/03/2025
+% Date last modified: 15/04/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -148,7 +146,7 @@ if ~isempty(bandCentreFreq) && length(size(signalSegmented)) == 2
 else
     % basis loudness for all bands
     basisLoudness = bandLoudness - repmat(reshape(LTQz, [1, 1, 53]),...
-                                              1, size(bandLoudness, 2), 1);
+                                          1, size(bandLoudness, 2), 1);
     basisLoudness(basisLoudness < 0) = 0;
 end
 
