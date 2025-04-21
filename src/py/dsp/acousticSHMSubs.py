@@ -4,8 +4,8 @@
 acousticSHMSubs.py
 --------------
 
-Acoustic signal analysis subroutines for implementing the Sottek Hearing Model,
-as defined in the ECMA-418-2 standard (currently 2024).
+Acoustic signal analysis subfunctions for implementing the Sottek Hearing
+Model, as defined in the ECMA-418-2 standard (currently 2024).
 
 Requirements
 ------------
@@ -17,9 +17,9 @@ Ownership and Quality Assurance
 -------------------------------
 Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
- 
+
 Date created: 27/10/2023
-Date last modified: 11/04/2025
+Date last modified: 15/04/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -74,13 +74,13 @@ def shmAuditoryFiltBank(signal, outPlot=False):
              the input signal as single audio (sound pressure) signal
 
     outPlot : Boolean true/false (default: false)
-              flag indicating whether to generate a figure a frequency and phase
-              response figure for the filter bank
+              flag indicating whether to generate a figure a frequency and
+              phase response figure for the filter bank
 
     Returns
     -------
     signalFiltered : 2D array
-                     the filtered signals 
+                     the filtered signals
 
     Assumptions
     -----------
@@ -90,10 +90,6 @@ def shmAuditoryFiltBank(signal, outPlot=False):
 
     """
 
-    # %% Arguments validation
-
-    # TODO - see above
-
     # %% Define constants
 
     sampleRate48k = 48e3  # Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2024
@@ -101,8 +97,10 @@ def shmAuditoryFiltBank(signal, outPlot=False):
     c = 0.1618  # Half-Bark band centre-frequency demoninator constant defined in Section 5.1.4.1 ECMA-418-2:2024
 
     halfBark = np.arange(0.5, 27, 0.5)  # half-critical band rate scale
-    bandCentreFreqs = (deltaFreq0/c)*np.sinh(c*halfBark)  # Section 5.1.4.1 Equation 9 ECMA-418-2:2024
-    dfz = np.sqrt(deltaFreq0**2 + (c*bandCentreFreqs)**2)  # Section 5.1.4.1 Equation 10 ECMA-418-2:2024
+    # Section 5.1.4.1 Equation 9 ECMA-418-2:2024
+    bandCentreFreqs = (deltaFreq0/c)*np.sinh(c*halfBark)
+    # Section 5.1.4.1 Equation 10 ECMA-418-2:2024
+    dfz = np.sqrt(deltaFreq0**2 + (c*bandCentreFreqs)**2)
 
     # %% Signal processing
 
@@ -112,7 +110,8 @@ def shmAuditoryFiltBank(signal, outPlot=False):
     # Section 5.1.4.2 ECMA-418-2:2024
 
     k = 5  # filter order = 5, footnote 5 ECMA-418-2:2024
-    e_i = [0, 1, 11, 11, 1]  # filter coefficients for Section 5.1.4.2 Equation 15 ECMA-418-2:2024
+    # filter coefficients for Section 5.1.4.2 Equation 15 ECMA-418-2:2024
+    e_i = [0, 1, 11, 11, 1]
 
     signalFiltered = np.zeros((len(halfBark), len(signal)))
     for zBand in range(53):
@@ -122,7 +121,8 @@ def shmAuditoryFiltBank(signal, outPlot=False):
         d = np.exp(-1./(sampleRate48k*tau))  # Section 5.1.4.1 ECMA-418-2:2024
 
         # Band-pass modifier Section 5.1.4.2 Equation 16/17 ECMA-418-2:2024
-        bp = np.exp((1j*2*np.pi*bandCentreFreqs[zBand]*np.arange(0, k + 2))/sampleRate48k)
+        bp = np.exp((1j*2*np.pi*bandCentreFreqs[zBand]*np.arange(0,
+                                                                 k + 2))/sampleRate48k)
 
         # Feed-backward coefficients, Section 5.1.4.2 Equation 14 ECMA-418-2:2024
         m = range(1, k + 1)
@@ -141,7 +141,8 @@ def shmAuditoryFiltBank(signal, outPlot=False):
         # Plot figures
 
         if outPlot:
-            f, H = freqz(b_m, a=a_m, worN=int(10e3), whole=True, fs=sampleRate48k)
+            f, H = freqz(b_m, a=a_m, worN=int(10e3), whole=True,
+                         fs=sampleRate48k)
             phir = np.angle(H)
             phirUnwrap = np.unwrap(p=phir, discont=np.pi, axis=0)
             phiUnwrap = phirUnwrap/np.pi*180
@@ -156,7 +157,8 @@ def shmAuditoryFiltBank(signal, outPlot=False):
 
             if zBand == 52:
                 ax1.set(xlim=[20, 20e3],
-                        xticks=[31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],
+                        xticks=[31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3,
+                                16e3],
                         xticklabels=["31.5", "63", "125", "250", "500", "1k",
                                      "2k", "4k", "8k", "16k"],
                         xlabel="Frequency, Hz", ylabel="$H$, dB")
@@ -164,10 +166,12 @@ def shmAuditoryFiltBank(signal, outPlot=False):
                 ax1.grid(alpha=0.15, linestyle='--')
 
                 ax2.set(xlim=[20, 20e3],
-                        xticks=[31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],
+                        xticks=[31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3,
+                                16e3],
                         xticklabels=["31.5", "63", "125", "250", "500", "1k",
                                      "2k", "4k", "8k", "16k"],
-                        xlabel="Frequency, Hz", ylabel=r"Phase angle$^\degree$")
+                        xlabel="Frequency, Hz",
+                        ylabel=r"Phase angle$^\degree$")
                 ax2.minorticks_off()
                 ax2.grid(alpha=0.15, linestyle='--')
 
@@ -175,137 +179,129 @@ def shmAuditoryFiltBank(signal, outPlot=False):
 
 
 # %% ShmBasisLoudness
-def ShmBasisLoudness(signalSegmented, bandCentreFreq):
-    """Function ShmBandBasisLoudness(signalSegmented, bandCentreFreq)
-    
+def shmBasisLoudness(signalSegmented, bandCentreFreq=None):
+    """Function shmBandBasisLoudness(signalSegmented, bandCentreFreq)
+
     Returns rectified input and basis loudness in specified half-Bark
     critical band according to ECMA-418-2:2024 (the Sottek Hearing Model)
     for an input band-limited signal, segmented into processing blocks
-    
+
     Inputs
     ------
-    signalSegmented : 2D or 3D matrix
-              input band-limited segmented signal(s)
-    
-    bandCentreFreq : double (optional, default = [])
-             half-Bark critical band centre frequency - if empty, all
-             bands are assumed to be present in the input segmented
-             signal matrix
-    
+    signalSegmented : 2D or 3D array
+                      input band-limited segmented signal(s)
+
+    bandCentreFreq : double (optional, default: None)
+                     half-Bark critical band centre frequency - if None, all
+                     bands are assumed to be present in the input segmented
+                     signal matrix
+
     Returns
     -------
-    signalRectSeg : 2D or 3D matrix
-            rectified band-limited segmented signal, orientated as
-            per the input
-    
-    basisLoudness : 2D or 3D matrix
-            basis loudness in each block, orientated as per the input
-    
-    blockRMS : column vector or 2D matrix
-       RMS for each block, orientated as per the input with singleton
-       dimension removed
-    
+    signalRectSeg : 2D or 3D array
+                    rectified band-limited segmented signal
+
+    basisLoudness : 2D or 3D array
+                    basis loudness in each block
+
+    blockRMS : 1D or 2D array
+               RMS for each block
+
     Assumptions
     -----------
-    The input signal is a segmented signal (either band-limited, or arranged
-    with half-Bark critical bands over the third dimension) obtained using
-    acousticSHMAuditoryFiltBank.m and ShmSignalSegment.m
+    The input signal is a band-limited segmented signal obtained using
+    ShmAuditoryFiltBank.m and ShmSignalSegment.m
 
     """
 
-    # %% Arguments validation
-        # arguments (Input)
-        #     signalSegmented double {mustBeReal}
-        #     bandCentreFreq double {mustBePositive} = []
-        # end
-    # TODO
-    
-    # check if input is 2D and includes band centre frequency - otherwise raise
-    # error
-    if isempty(bandCentreFreq) && length(size(signalSegmented)) == 2
-        raise ValueError("Band centre frequency must be specified for single band-limited input signal")
-    end
-    
-    # check if input band centre frequency is not a vector (arguments
-    # validation does not allow empty default with specified size)
-    if ~isempty(bandCentreFreq) && max(size(bandCentreFreq)) ~= 1
-        raise error("Band centre frequency input must be a single value")
-    end
-    
     # %% Define constants
-    
+
     deltaFreq0 = 81.9289  # defined in Section 5.1.4.1 ECMA-418-2:2024
-    c = 0.1618  # Half-Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2024
-    
-    halfBark = 0.5:0.5:26.5  # half-critical band rate scale
-    bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark)  # Section 5.1.4.1 Equation 9 ECMA-418-2:2024
-    
-    cal_N = 0.0211668  # Calibration factor from Section 5.1.8 Equation 23 ECMA-418-2:2024
-    cal_Nx = 1.00132  # Calibration multiplier (Footnote 8 ECMA-418-2:2024)
-    #cal_N*cal_Nx = 0.021194740176  # Adjusted calibration factor
-    #cal_Nx = 1.001398416387928  # Calibration multiplier (Footnote 8 ECMA-418-2:2024)
-    #cal_N*cal_Nx = 0.0211964  # Adjusted calibration factor
-    
+    # Half-Bark band centre-frequency denominator constant defined in Section
+    # 5.1.4.1 ECMA-418-2:2024
+    c = 0.1618
+
+    halfBark = np.arange(0.5, 27, 0.5)  # half-critical band rate scale
+    # Section 5.1.4.1 Equation 9 ECMA-418-2:2024
+    bandCentreFreqs = (deltaFreq0/c)*np.sinh(c*halfBark)
+
+    # Calibration factor from Section 5.1.8 Equation 23 ECMA-418-2:2024
+    cal_N = 0.0211668
+    cal_Nx = 1  # 1.00132  # Calibration multiplier (Footnote 8 ECMA-418-2:2024)
+    # cal_N*cal_Nx = 0.021194740176  # Adjusted calibration factor
+    # cal_Nx = 1.001398416387928  # Calibration multiplier (Footnote 8 ECMA-418-2:2024)
+    # cal_N*cal_Nx = 0.0211964  # Adjusted calibration factor
+
     a = 1.5  # Constant (alpha) from Section 5.1.8 Equation 23 ECMA-418-2:2024
-    
+
     # Values from Section 5.1.8 Table 2 ECMA-418-2:2024
-    p_threshold = 2e-5*10.^((15:10:85)/20).T
+    p_threshold = 2e-5*10**(np.arange(15, 95, 10)/20).T
     v = [1, 0.6602, 0.0864, 0.6384, 0.0328, 0.4068, 0.2082, 0.3994, 0.6434]
-    
+
     # Loudness threshold in quiet Section 5.1.9 Table 3 ECMA-418-2:2024
-    LTQz = [0.3310, 0.1625, 0.1051, 0.0757, 0.0576, 0.0453, 0.0365, 0.0298,...
-            0.0247, 0.0207, 0.0176, 0.0151, 0.0131, 0.0115, 0.0103, 0.0093,...
-            0.0086, 0.0081, 0.0077, 0.0074, 0.0073, 0.0072, 0.0071, 0.0072,...
-            0.0073, 0.0074, 0.0076, 0.0079, 0.0082, 0.0086, 0.0092, 0.0100,...
-            0.0109, 0.0122, 0.0138, 0.0157, 0.0172, 0.0180, 0.0180, 0.0177,...
-            0.0176, 0.0177, 0.0182, 0.0190, 0.0202, 0.0217, 0.0237, 0.0263,...
-            0.0296, 0.0339, 0.0398, 0.0485, 0.0622]
-    
+    LTQz = np.array([0.3310, 0.1625, 0.1051, 0.0757, 0.0576, 0.0453, 0.0365,
+                     0.0298, 0.0247, 0.0207, 0.0176, 0.0151, 0.0131, 0.0115,
+                     0.0103, 0.0093, 0.0086, 0.0081, 0.0077, 0.0074, 0.0073,
+                     0.0072, 0.0071, 0.0072, 0.0073, 0.0074, 0.0076, 0.0079,
+                     0.0082, 0.0086, 0.0092, 0.0100, 0.0109, 0.0122, 0.0138,
+                     0.0157, 0.0172, 0.0180, 0.0180, 0.0177, 0.0176, 0.0177,
+                     0.0182, 0.0190, 0.0202, 0.0217, 0.0237, 0.0263, 0.0296,
+                     0.0339, 0.0398, 0.0485, 0.0622])
+
     # %% Input check
-    
-    if ~isempty(bandCentreFreq) && ~ismember(bandCentreFreq, bandCentreFreqs)
-        error("Input half-Bark critical rate scale band centre frequency does not match ECMA-418-2:2024 values")
-    end
-    
+
+    if bandCentreFreq is not None and ~np.all(np.isin(bandCentreFreq,
+                                                      bandCentreFreqs)):
+        raise ValueError("Input half-Bark critical rate scale band centre frequency input does not match ECMA-418-2:2024 values.")
+    # end of if branch to check bandCentreFreq is valid
+
     # %% Signal processing
-    
+
     # Half Wave Rectification
     # -----------------------
     # Section 5.1.6 Equation 21 ECMA-418-2:2020
     signalRectSeg = signalSegmented
-    signalRectSeg(signalSegmented <= 0) = 0
-    
+    signalRectSeg[signalSegmented <= 0] = 0
+
     # Calculation of RMS
     # ------------------
     # Section 5.1.7 Equation 22 ECMA-418-2:2024
-    blockRMS = sqrt((2/size(signalRectSeg, 1))*sum(signalRectSeg.^2, 1))
-    
+    blockRMS = np.sqrt((2/signalRectSeg.shape[-1])*np.sum(signalRectSeg**2,
+                                                          axis=-1))
+
     # Transformation into Loudness
     # ----------------------------
     # Section 5.1.8 Equations 23 & 24 ECMA-418-2:2024
-    bandLoudness = cal_N*cal_Nx*(blockRMS/2e-5)*np.prod((1 + (blockRMS/p_threshold)**a)**((np.diff(v)/a).T))
-    
+    bandLoudness = cal_N*cal_Nx*(blockRMS/2e-5)*np.prod((1
+                                                         + (np.broadcast_to(blockRMS,
+                                                                            [p_threshold.size]
+                                                                            + list(blockRMS.shape)).T/p_threshold)**a)**((np.diff(v)/a)), axis=-1)
+
     # remove singleton dimension from block RMS output
-    blockRMS = squeeze(blockRMS)
-    
+    blockRMS = np.squeeze(blockRMS)
+
     # Section 5.1.9 Equation 25 ECMA-418-2:2024
-    if ~isempty(bandCentreFreq) && length(size(signalSegmented)) == 2
+    if bandCentreFreq is not None and len(signalSegmented.shape) < 3:
         # half-Bark critical band basis loudness
-        basisLoudness = bandLoudness - LTQz(bandCentreFreq == bandCentreFreqs)
-        basisLoudness(basisLoudness < 0) = 0
-    else
+        basisLoudness = bandLoudness - LTQz[bandCentreFreq == bandCentreFreqs]
+        basisLoudness[basisLoudness < 0] = 0
+    else:
         # basis loudness for all bands
-        basisLoudness = bandLoudness - repmat(reshape(LTQz, [1, 1, 53]),...
-                                                  1, size(bandLoudness, 2), 1)
-        basisLoudness(basisLoudness < 0) = 0
-    end
-    
+        basisLoudness = bandLoudness - np.broadcast_to(np.reshape(LTQz,
+                                                                  (53, 1, 1)),
+                                                       (53,
+                                                        bandLoudness.shape[-1],
+                                                        1))
+        basisLoudness[basisLoudness < 0] = 0
+    # end of if branch for determining basis loudness
+    return (signalRectSeg, basisLoudness, blockRMS)
+
     # end of function
 
 
 # %% shmOutMidEarFilter
 def shmOutMidEarFilter(signal, fieldType='freeFrontal', outPlot=False):
-    """signalFiltered  = shmOutMidEarFilter_(signal, outplot)
+    """shmOutMidEarFilter_(signal, outplot)
 
     Returns signal filtered for outer and middle ear response according to
     ECMA-418-2:2024 (the Sottek Hearing Model) for an input calibrated
@@ -318,10 +314,10 @@ def shmOutMidEarFilter(signal, fieldType='freeFrontal', outPlot=False):
              the input signal (sound pressure)
 
     fieldType : keyword string (default: 'freeFrontal')
-                determines whether the 'freeFrontal' or 'diffuse' field 
-                stages are applied in the outer-middle ear filter; alternatively,
-                the 'noOuter' option omits the outer ear stage entirely, ie,
-                only the middle ear stage is applied.
+                determines whether the 'freeFrontal' or 'diffuse' field
+                stages are applied in the outer-middle ear filter;
+                alternatively, the 'noOuter' option omits the outer ear stage
+                entirely, ie, only the middle ear stage is applied.
                 (this may be useful for reliance on a recording made with an
                 artificial head + outer ear, when compensation equalisation
                 filtering is unavailable or is not desired. Note: omitting the
@@ -417,7 +413,8 @@ def shmOutMidEarFilter(signal, fieldType='freeFrontal', outPlot=False):
         # Plot frequency and phase response for filter
         fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(10, 7))
         ax1.semilogx(f[1:], 20*np.log10(np.abs(H[1:])), color=[0.0, 0.2, 0.8])
-        ax1.set_xticks(ticks=[31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],
+        ax1.set_xticks(ticks=[31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3,
+                              16e3],
                        labels=["31.5", "63", "125", "250", "500", "1k", "2k",
                                "4k", "8k", "16k"])
         ax1.axis(xmin=20, xmax=20e3, ymin=-30, ymax=10)
@@ -433,7 +430,8 @@ def shmOutMidEarFilter(signal, fieldType='freeFrontal', outPlot=False):
         ax1.set_title(fieldType)
 
         ax2.semilogx(f[1:], phiUnwrap[1:], color=[0.8, 0.1, 0.8])
-        ax2.set_xticks(ticks=[31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],
+        ax2.set_xticks(ticks=[31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3,
+                              16e3],
                        labels=["31.5", "63", "125", "250", "500", "1k", "2k",
                                "4k", "8k", "16k"])
         ax2.set_yticks(ticks=np.arange(-180, 210, 30))
@@ -498,10 +496,6 @@ def shmPreProc(signal, blockSize, hopSize, padStart=True, padEnd=True):
     Date last checked:
 
     """
-    # %% Arguments validation
-
-
-    # TODO
 
     # %% Signal processing
 
@@ -512,7 +506,7 @@ def shmPreProc(signal, blockSize, hopSize, padStart=True, padEnd=True):
     #
     if np.size(signal.shape) == 1:
         numChans = 1
-        signal = signal[:, np.newaxis]
+        signal = signal[np.newaxis, :]
     else:
         numChans = signal.shape[0]
 
@@ -549,28 +543,28 @@ def shmPreProc(signal, blockSize, hopSize, padStart=True, padEnd=True):
 
 # %% shmResample
 def shmResample(signal, sampleRatein):
-    '''
+    """
     Returns signal resampled to 48 kHz, according to ECMA-418-2:2024
     (the Sottek Hearing Model) for an input signal.
-    
+
     Inputs
     ------
     signal : 1D or 2D array
              the input signal
-    
+
     sampleRatein : integer
                    the sample rate (frequency) of the input signal(s)
-    
+
     Returns
     -------
     For each channel in the input signal:
-    
+
     resampledSignal : number or 1D array
                   average (overall) tonality value
-    
+
     resampledRate : integer
                     the resampled signal sample rate, ie, 48 kHz
-    
+
     Assumptions
     -----------
     The input signal is oriented with time on axis 1 (and channel # on axis
@@ -581,10 +575,10 @@ def shmResample(signal, sampleRatein):
     Checked by:
     Date last checked:
 
-    '''
+    """
 
     # %% Define constants
-    
+
     # Section 5.1.1 ECMA-418-2:2024
     resampledRate = int(48e3)  # Signal sample rate prescribed to be 48 kHz
 
@@ -594,150 +588,176 @@ def shmResample(signal, sampleRatein):
     # --------------------
     if sampleRatein != resampledRate:  # Resample signal
         try:
-            up = resampledRate/gcd(resampledRate, sampleRatein)  # upsampling factor
-            down = sampleRatein/gcd(resampledRate, sampleRatein)  # downsampling factor
-            
+            # upsampling factor
+            up = resampledRate/gcd(resampledRate, sampleRatein)
+            # downsampling factor
+            down = sampleRatein/gcd(resampledRate, sampleRatein)
+
         except TypeError as err:
             raise TypeError("The input sample rate must be a positive integer to enable resampling to " + str(resampledRate) + " Hz:", err)
         try:
-            resampledSignal = resample_poly(signal, up, down, axis=1)  # apply resampling
+            # apply resampling
+            resampledSignal = resample_poly(signal, up, down, axis=1)
         except TypeError as err:
             raise TypeError("TypeError: The input signal must be a numerical array:", err)
     else:  # don't resample
         resampledSignal = signal
 
-    return(resampledSignal)
-
-# end of shmResample function
+    return resampledSignal  # end of shmResample function
 
 
-def shmSignalSegment(signal, blockSize, overlap, axisn=1, i_start=0, endShrink=False)
-"""
-Returns input signal segmented into blocks for processing.
+def shmSignalSegment(signal, blockSize, overlap, axisn=1, i_start=0,
+                     endShrink=False):
+    """
+    Returns input signal segmented into blocks for processing.
 
-Inputs
-------
-signal : 1D or 2D array
-         the input signal/s
+    Inputs
+    ------
+    signal : 1D or 2D array
+             the input signal/s
 
-axisn : integer (0 or 1, default: 1)
-        the (time) axis along which to apply block segmentation
+    axisn : integer (0 or 1, default: 1)
+            the (time) axis along which to apply block segmentation
 
-blockSize : integer
-            the block size in samples
+    blockSize : integer
+                the block size in samples
 
-overlap : double (>=0, < 1)
-          the proportion of overlap for each successive block
+    overlap : double (>=0, < 1)
+              the proportion of overlap for each successive block
 
-i_start : integer (optional, default: 0)
-          the sample index from which to start the segmented signal
+    i_start : integer (optional, default: 0)
+              the sample index from which to start the segmented signal
 
-endShrink : Boolean (optional, default: false)
-            option to include the end of the signal data in a block using
-            increased overlap with the preceding block
+    endShrink : Boolean (optional, default: false)
+                option to include the end of the signal data in a block using
+                increased overlap with the preceding block
 
-Returns
--------
-For each channel in the input signal:
+    Returns
+    -------
+    For each channel in the input signal:
 
-signalSegmented : 2D or 3D array
-                  the segmented signal, arranged by channels over the
-                  last axis, samples (within each block) along the axis
-                  corresponding with axisn, and block number along the
-                  other remaining axis
+    signalSegmented : 2D or 3D array
+                      the segmented signal, arranged by channels over the
+                      last axis, samples (within each block) along the axis
+                      corresponding with axisn, and block number along the
+                      other remaining axis
 
-Also: 
+    Also:
 
-iBlocksOut : 1D array
-             the indices corresponding with each output block starting
-             index (NOTE: the indices corresponding with the input
-             indexing can be recovered by adding i_start to iBlocksOut)
+    iBlocksOut : 1D array
+                 the indices corresponding with each output block starting
+                 index (NOTE: the indices corresponding with the input
+                 indexing can be recovered by adding i_start to iBlocksOut)
 
-Assumptions
------------
-None
+    Assumptions
+    -----------
+    None
 
-"""
+    """
 
-#%% Signal pre-processing
+    # %% Signal pre-processing
 
-# Orient input
-if axisn == 0:
-    signal = signal.T
-    axisFlip = True
-elif axisn == 1:
-    axisFlip = False
-else:
-    raise ValueError("Input argument 'axisn' can take values 1 (default) or 0.")
+    # Orient input
+    if axisn == 0:
+        signal = signal.T
+        axisFlip = True
+    elif axisn == 1:
+        axisFlip = False
+    else:
+        raise ValueError("Input argument 'axisn' can take values 1 (default) or 0.")
 
+    # ensure i_start is positive integer
+    try:
+        i_start = int(abs(i_start))
+    except TypeError:
+        raise TypeError("Input argument i_start must be a (positive real) number.")
 
-# ensure i_start is positive integer
-try:
-    i_start = int(abs(i_start))
-except TypeError:
-    raise TypeError("Input argument i_start must be a (positive real) number.")
+    # Check sample index start will allow segmentation to proceed
+    if np.shape(signal[:, i_start:])[1] <= blockSize:
+        raise ValueError("Signal is too short to apply segmentation using the selected parameters.")
+    # end
 
-# Check sample index start will allow segmentation to proceed
-if np.shape(signal[:, i_start:])[1] <= blockSize
-    error("Signal is too short to apply segmentation using the selected parameters")
-end
+    # Check signal dimensions and add axis if 1D input
+    #
+    if np.size(signal.shape) == 1:
+        numChans = 1
+        signal = signal[np.newaxis, :]
+    else:
+        numChans = signal.shape[0]
 
-# Check signal dimensions and add axis if 1D input
-#
-if np.size(signal.shape) == 1:
-    numChans = 1
-    signal = signal[:, np.newaxis]
-else:
-    numChans = signal.shape[0]
+    # Hop size
+    hopSize = int((1 - overlap)*blockSize)
 
-# Hop size
-hopSize = (1 - overlap)*blockSize
+    # Truncate the signal to start from i_start and to end at an index
+    # corresponding with the truncated signal length that will fill an
+    # integer number of overlapped blocks
+    signalTrunc = signal[:, i_start:]
+    n_blocks = int(np.floor((signalTrunc.shape[1]
+                             - overlap*blockSize)/hopSize))
+    i_end = int(n_blocks*hopSize + overlap*blockSize - 1)
+    signalTrunc = signalTrunc[:, 0:i_end + 1]
 
-# Truncate the signal to start from i_start and to end at an index
-# corresponding with the truncated signal length that will fill an
-# integer number of overlapped blocks
-signalTrunc = signal[:, i_start:]
-n_blocks = np.floor((signalTrunc.shape[1] - overlap*blockSize)/hopSize)
-i_end = int(n_blocks*hopSize + overlap*blockSize - 1)
-signalTrunc = signalTrunc[:, 0:i_end]
+    # %% Signal segmentation
 
-#%% Signal segmentation
+    # Arrange the signal into overlapped blocks - each block reads
+    # along first axis, and each column is the succeeding overlapped
+    # block. 3 columns of zeros are appended to the left side of the
+    # matrix and the column shifted copies of this matrix are
+    # concatenated. The first 6 columns are then discarded as these all
+    # contain zeros from the appended zero columns.
+    n_blocksTotal = n_blocks
+    if signal[:, i_start:].shape[1] > signalTrunc.shape[1]:
+        excessSignal = True
+        if endShrink:
+            n_blocksTotal = n_blocks + 1
 
-# Arrange the signal into overlapped blocks - each block reads
-# along first axis, and each column is the succeeding overlapped
-# block. 3 columns of zeros are appended to the left side of the
-# matrix and the column shifted copies of this matrix are
-# concatenated. The first 6 columns are then discarded as these all
-# contain zeros from the appended zero columns.
+    signalSegmented = np.zeros((numChans, n_blocksTotal, blockSize))
 
-for chan = numChans:-1:1
-    signalSegmentedChan = [zeros(hopSize, 3),...
-                           reshape(signalTrunc, hopSize, [])];
-    
-    signalSegmentedChan = cat(1, circshift(signalSegmentedChan, 3, 2),...
-                              circshift(signalSegmentedChan, 2, 2),...
-                              circshift(signalSegmentedChan, 1, 2),...
-                              circshift(signalSegmentedChan, 0, 2));
-    
-    signalSegmentedChan = signalSegmentedChan(:, 7:end);
+    for chan in range(0, numChans):
+        signalSegmentedChan = np.concatenate((np.zeros((3, hopSize)),
+                                              np.reshape(signalTrunc,
+                                                         (-1, hopSize))),
+                                             axis=0)
 
-    # if branch to include block of end data with increased overlap
-    if endShrink && (size(signal(i_start:end), 1) > size(signalTrunc, 1))
-        signalSegmentedChanOut = [signalSegmentedChan, signal(end-blockSize + 1:end)];
-        iBlocksOut = [1:hopSize:n_blocks*hopSize,...
-                      size(signal(i_start:end), 1) - blockSize + 1];
-    else
-        signalSegmentedChanOut = signalSegmentedChan;
-        iBlocksOut = 1:hopSize:n_blocks*hopSize;
-    # end of if branch for end data with increased overlap
+        signalSegmentedChan = np.concatenate((np.roll(signalSegmentedChan,
+                                                      shift=3, axis=0),
+                                              np.roll(signalSegmentedChan,
+                                                      shift=2, axis=0),
+                                              np.roll(signalSegmentedChan,
+                                                      shift=1, axis=0),
+                                              np.roll(signalSegmentedChan,
+                                                      shift=0, axis=0)),
+                                             axis=1)
 
-    signalSegmented(:, :, chan) = signalSegmentedChanOut;
-end
+        signalSegmentedChan = signalSegmentedChan[6:, :]
 
-# re-orient segmented signal to match input
-if axisFlip
-    signalSegmented = permute(signalSegmented, [2, 1, 3]);
-end
+        # if branch to include block of end data with increased overlap
+        if endShrink and excessSignal:
+            signalChan = signal[chan, -blockSize:]
+            signalSegmentedChanOut = np.concatenate((signalSegmentedChan,
+                                                     signalChan[np.newaxis,
+                                                                :]),
+                                                    axis=0)
+            iBlocksOut = np.append(np.arange(0, n_blocks*hopSize, hopSize),
+                                   signal[chan, i_start:].size - blockSize)
+        else:
+            signalSegmentedChanOut = signalSegmentedChan
+            iBlocksOut = np.arange(0, n_blocks*hopSize, hopSize)
+        # end of if branch for end data with increased overlap
 
-# end of shmSignalSegment function
+        signalSegmented[chan, :, :] = signalSegmentedChanOut
 
+    # end of for loop over channels
+
+    # squeeze singleton dimensions
+    if numChans == 1:
+        signalSegmented = np.squeeze(signalSegmented)
+        # re-orient segmented signal to match input
+        if axisFlip:
+            signalSegmented = np.swapaxes(signalSegmented, 0, 1)
+    elif axisFlip:
+        signalSegmented = np.swapaxes(signalSegmented, 1, 2)
+
+    # end of if branch to revert shape of input
+
+    return (signalSegmented, iBlocksOut)  # end of shmSignalSegment function
