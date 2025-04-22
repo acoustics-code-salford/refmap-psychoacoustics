@@ -192,7 +192,7 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 % Institution: University of Salford
 %
 % Date created: 05/11/2024
-% Date last modified: 03/04/2025
+% Date last modified: 22/04/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -305,13 +305,13 @@ discountRate = 1;  % \rho, rate at which discount function dimishes with reducin
 %                      1.7; -1.3; -4.2; -6.0; -5.4; -1.5; 6.0; 12.6; 13.9; 12.3];
 
 % free-field frontal tone hearing thresholds for 18-25 year-olds with
-% normal hearing from ISO 389-7:2019 (14 - 18 kHz)
-% hearThresholds3897 = [18.4; 40.2; 70.4];
+% normal hearing from ISO 389-7:2019 (16 - 18 kHz)
+% hearThresholds3897 = [40.2; 70.4];
 
 % free-field frontal tone hearing thresholds for 18-25 year-olds with
 % normal hearing from ISO 226:2023 | ISO 389-7:2019 (20 - 18 kHz), with 20
 % kHz band estimated from figure 1 in ISO 389-7:2019
-% hearThresholds = [hearThresholds226; hearThresholds3897; 100];
+% hearThresholds = [hearThresholds226; hearThresholds3897];
 
 % diffuse field narrowband noise hearing thresholds for 18-25 year-olds with
 % normal hearing from ISO 389-7:2019 (20 Hz - 16 kHz)
@@ -319,11 +319,11 @@ discountRate = 1;  % \rho, rate at which discount function dimishes with reducin
 hearThresholdsDF3897 = [78.1; 68.7; 59.5; 51.1; 44.0; 37.5; 31.5; 26.5; 22.1;...
                         17.9; 14.4; 11.4; 8.4; 5.8; 3.8; 2.1; 1.0; 0.8; 1.9;...
                         0.5; -1.5; -3.1; -4.0; -3.8; -1.8; 2.5; 6.8; 8.4; 14.4;...
-                        23.2; 43.7];
+                        43.7];
 
 % estimated full range diffuse field narrowband noise hearing thresholds
 % for 18-25 year-olds with normal hearing 
-hearThresholdsDF = [hearThresholdsDF3897; 70.4; 100];
+hearThresholdsDF = [hearThresholdsDF3897; 70.4];
 
 % 1/3-octave A-weighting dB values (20 Hz - 20 kHz)
 Aweight = [-50.5; -44.7; -39.4; -34.6; -30.2; -26.2; -22.5; -19.1; -16.1;...
@@ -529,7 +529,7 @@ if outPlot
         ax3.XLabel.String = "Time, s";
         ax3.Title.String = "Time-dependent levels";
         ax3.TitleFontWeight = "normal";
-        lg3 = legend(ax3, 'Location', 'eastoutside');
+        legend(ax3, 'Location', 'eastoutside');
         
         ax4 = nexttile(4);
         surf(ax4, [t, t(end) + timeStep] - timeStep/2, fm_vis - fBandWidth_vis/2,...
