@@ -1,6 +1,6 @@
 function [signalSegmented, iBlocksOut] = shmSignalSegment(signal, axisn, blockSize, overlap,...
                                                           i_start, endShrink)
-% signalSegmented = shmSignalSegment(signal, axisn, blockSize, overlap,
+% [signalSegmented, iBlocksOut] = shmSignalSegment(signal, axisn, blockSize, overlap,
 %                                    i_start, endShrink)
 %
 % Returns input signal segmented into blocks for processing.
@@ -58,7 +58,7 @@ function [signalSegmented, iBlocksOut] = shmSignalSegment(signal, axisn, blockSi
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 27/09/2023
-% Date last modified: 14/04/2025
+% Date last modified: 23/04/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
