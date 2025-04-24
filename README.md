@@ -12,4 +12,4 @@ If you use, reuse or adapt any original code from this repository, please includ
 > Lotinga, M.J.B. (2025). refmap-psychoacoustics. GitHub. [https://github.com/acoustics-code-salford/refmap-psychoacoustics](https://github.com/acoustics-code-salford/refmap-psychoacoustics)
 
 # Disclaimer
-This repository contains 'work in progress' code for a research project. It is not a completed package or code library. % As per the licensing information, the code is published WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+This repository contains 'work in progress' code for a research project. It is not a completed package or code library. As per the licensing information, the code is published WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
