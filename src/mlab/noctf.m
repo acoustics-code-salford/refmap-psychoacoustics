@@ -1,4 +1,4 @@
-function [fm, f1, f2] = noctf(frange, b)
+function [fm, f1, f2, fn] = noctf(frange, b)
 % Return consecutive range of exact and nominal mid-frequencies, with lower
 % and upper band-edge frequencies for 1/b fractional-octave-band filters,
 % according to BS EN 61260:2014
@@ -29,7 +29,7 @@ function [fm, f1, f2] = noctf(frange, b)
 % Institution: University of Salford
 %  
 % Date created: 31/03/2025
-% Date last modified: 31/03/2025
+% Date last modified: 22/04/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
