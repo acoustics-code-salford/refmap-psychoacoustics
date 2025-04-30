@@ -1,9 +1,9 @@
-function roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn,...
-                                             fieldtype, waitBar, outplot,...
-                                             binaural)
-% roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn, fieldtype, waitBar, outplot, binaural)
+function fluctuationSHM = acousticSHMFluctuation(p, sampleRatein, axisn,...
+                                                 fieldtype, waitBar, outplot,...
+                                                 binaural)
+% fluctuationSHM = acousticSHMFluctuation(p, sampleRatein, axisn, fieldtype, waitBar, outplot, binaural)
 %
-% Returns roughness values **and frequencies** according to ECMA-418-2:2024
+% Returns roughness values **and frequencies** according to ECMA-418-2:2025
 % (using the Sottek Hearing Model) for an input calibrated single mono
 % or single stereo audio (sound pressure) time-series signal, p. For stereo
 % signals, the binaural roughness can be calculated, and each channel is
@@ -39,10 +39,10 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn,...
 % Returns
 % -------
 %
-% roughnessSHM : structure
+% fluctuationSHM : structure
 %                contains the output
 %
-% roughnessSHM contains the following outputs:
+% fluctuationSHM contains the following outputs:
 %
 % specRoughness : matrix
 %                 time-dependent specific roughness for each (half)
@@ -164,71 +164,78 @@ end
 %% Define constants
 
 signalT = size(p, 1)/sampleRatein;  % duration of input signal
-sampleRate48k = 48e3;  % Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2024 [r_s]
-deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2024 [deltaf(f=0)]
-c = 0.1618;  % Half-Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2024 [c]
+sampleRate48k = 48e3;  % Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2025 [r_s]
+deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2025 [deltaf(f=0)]
+c = 0.1618;  % Half-Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2025 [c]
 
 dz = 0.5;  % critical band resolution [deltaz]
 halfBark = 0.5:dz:26.5;  % half-critical band rate scale [z]
 nBands = length(halfBark);  % number of bands
-bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2024 [F(z)]
+bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2025 [F(z)]
 
-% Block and hop sizes Section 7.1.1 ECMA-418-2:2024
+% Block and hop sizes Section 9.1.1 ECMA-418-2:2025
 overlap = 0.75;  % block overlap proportion
-blockSize = 16384;  % block size [s_b]
+blockSize = 65536;  % block size [s_b]
 hopSize = (1 - overlap)*blockSize;  % hop size [s_h]
 
-% Downsampled block and hop sizes Section 7.1.2 ECMA-418-2:2024
+% Downsampled block and hop sizes Section 9.1.2 ECMA-418-2:2025
 downSample = 32;  % downsampling factor
 sampleRate1500 = sampleRate48k/downSample;
 blockSize1500 = blockSize/downSample;
 % hopSize1500 = (1 - overlap)*blockSize1500;
-resDFT1500 = sampleRate1500/blockSize1500;  % DFT resolution (section 7.1.5.1) [deltaf]
+% resDFT1500 = sampleRate1500/blockSize1500;  % DFT resolution (section 7.1.5.1) [deltaf]
+
+% Default envelope analysis window Section 9.1.3.1 ECMA-418-2:2025 [w_Elz(ntilde)]
+envWindow = zeros([blockSize1500, 1]);
+num0WinStart = blockSize1500/32;
+num0WinEnd = num0WinStart;
+envWindow(num0WinStart + 1:end - num0WinEnd) = 1;
+movMedLen = blockSize1500/64 + 1;  % moving median filter length
 
 % Modulation rate error correction values Table 8, Section 7.1.5.1
-% ECMA-418-2:2024 [E(theta)]
+% ECMA-418-2:2025 [E(theta)]
 errorCorrection = [0.0000, 0.0457, 0.0907, 0.1346, 0.1765, 0.2157, 0.2515,...
                    0.2828, 0.3084, 0.3269, 0.3364, 0.3348, 0.3188, 0.2844,...
                    0.2259, 0.1351, 0.0000];
 errorCorrection = [errorCorrection, flip(-errorCorrection(1:end-1)), 0];
 
 % High modulation rate roughness perceptual scaling function
-% (section 7.1.5.2 ECMA-418-2:2024)
-% Table 11 ECMA-418-2:2024 [r_1; r_2]
+% (section 7.1.5.2 ECMA-418-2:2025)
+% Table 11 ECMA-418-2:2025 [r_1; r_2]
 roughScaleParams = [0.3560, 0.8024;
                     0.8049, 0.9333];
 roughScaleParams = [roughScaleParams(:, 1).*ones([2, sum(bandCentreFreqs < 1e3)]),...
                     roughScaleParams(:, 2).*ones([2, sum(bandCentreFreqs >= 1e3)])];
-% Equation 84 ECMA-418-2:2024 [r_max(z)]
+% Equation 84 ECMA-418-2:2025 [r_max(z)]
 roughScale = 1./(1 + roughScaleParams(1, :).*abs(log2(bandCentreFreqs/1000)).^roughScaleParams(2, :));
 roughScale = reshape(roughScale, [1, 1, nBands]);  % Note: this is to ease parallelised calculations
 
 % High/low modulation rate roughness perceptual weighting function parameters
-% (section 7.1.5.2 ECMA-418-2:2024)
-% Equation 86 ECMA-418-2:2024 [f_max(z)]
+% (section 7.1.5.2 ECMA-418-2:2025)
+% Equation 86 ECMA-418-2:2025 [f_max(z)]
 modfreqMaxWeight = 72.6937*(1 - 1.1739*exp(-5.4583*bandCentreFreqs/1000));
 
 % TODO for next update
 %bandCentreFreqsWeight = max(ones(size(bandCentreFreqs)).*bandCentreFreqs(3), bandCentreFreqs);
 %modfreqMaxWeight = 72.6937*(1 - 1.1739*exp(-5.4583*bandCentreFreqsWeight/1000));
 
-% Equation 87 ECMA-418-2:2024 [q_1; q_2(z)]
+% Equation 87 ECMA-418-2:2025 [q_1; q_2(z)]
 roughHiWeightParams = [1.2822*ones(size(bandCentreFreqs));...
                        0.2471*ones(size(bandCentreFreqs))];
 mask = bandCentreFreqs/1000 >= 2^-3.4253;
 roughHiWeightParams(2, mask) = 0.2471 + 0.0129.*(log2(bandCentreFreqs(mask)/1000) + 3.4253).^2;
 roughHiWeightParams = reshape(roughHiWeightParams, [2, 1, nBands]);  % Note: this is to ease parallelised calculations
 
-% (section 7.1.5.4 ECMA-418-2:2024)
-% Equation 96 ECMA-418-2:2024 [q_1; q_2(z)]
+% (section 7.1.5.4 ECMA-418-2:2025)
+% Equation 96 ECMA-418-2:2025 [q_1; q_2(z)]
 roughLoWeightParams = [0.7066*ones(size(bandCentreFreqs));...
                        1.0967 - 0.064.*log2(bandCentreFreqs/1000)];
 
-% Output sample rate (section 7.1.7 ECMA-418-2:2024) [r_s50]
+% Output sample rate (section 7.1.7 ECMA-418-2:2025) [r_s50]
 sampleRate50 = 50;
 
 % Calibration constant
-cal_R = 0.0180909;   % calibration factor in Section 7.1.7 Equation 104 ECMA-418-2:2024 [c_R]
+cal_R = 0.0180909;   % calibration factor in Section 7.1.7 Equation 104 ECMA-418-2:2025 [c_R]
 %cal_Rx = 1/1.00123972659601;  % calibration adjustment factor
 %cal_R*cal_Rx = 0.0180685; adjusted calibration value
 cal_Rx = 1/1.0011565;  % calibration adjustment factor
@@ -246,14 +253,14 @@ end
 % Input signal samples
 n_samples = size(p_re, 1);
 
-% Section 5.1.2 ECMA-418-2:2024 Fade in weighting and zero-padding
+% Section 5.1.2 ECMA-418-2:2025 Fade in weighting and zero-padding
 % (only the start is zero-padded)
 pn = shmPreProc(p_re, max(blockSize), max(hopSize), true, false);
 
 % Apply outer & middle ear filter
 % -------------------------------
 %
-% Section 5.1.3.2 ECMA-418-2:2024 Outer and middle/inner ear signal filtering
+% Section 5.1.3.2 ECMA-418-2:2025 Outer and middle/inner ear signal filtering
 pn_om = shmOutMidEarFilter(pn, fieldtype);
 
 n_steps = 270;  % approximate number of calculation steps
@@ -274,7 +281,7 @@ for chan = size(pn_om, 2):-1:1
     end % end of if branch for waitBar
 
     % Filter equalised signal using 53 1/2Bark ERB filters according to 
-    % Section 5.1.4.2 ECMA-418-2:2024
+    % Section 5.1.4.2 ECMA-418-2:2025
     pn_omz = shmAuditoryFiltBank(pn_om(:, chan), false);
 
     % Note: At this stage, typical computer RAM limits impose a need to loop
@@ -289,7 +296,7 @@ for chan = size(pn_om, 2):-1:1
             i_step = i_step + 1;
         end % end of if branch for waitBar
 
-        % Section 5.1.5 ECMA-418-2:2024
+        % Section 5.1.5 ECMA-418-2:2025
         i_start = 1;
         [pn_lz, iBlocksOut] = shmSignalSegment(pn_omz(:, zBand), 1,...
                                                blockSize, overlap,...
@@ -300,16 +307,16 @@ for chan = size(pn_om, 2):-1:1
         if waitBar
             i_step = i_step + 1;
         end
-        % Sections 5.1.6 to 5.1.9 ECMA-418-2:2024
-        [~, bandBasisLoudness, ~] = shmBasisLoudness(pn_lz, bandCentreFreqs(zBand));
-        basisLoudness(:, :, zBand) = bandBasisLoudness;
+        % % Sections 5.1.6 to 5.1.9 ECMA-418-2:2025
+        % [~, bandBasisLoudness, ~] = shmBasisLoudness(pn_lz, bandCentreFreqs(zBand));
+        % basisLoudness(:, :, zBand) = bandBasisLoudness;
     
         % Envelope power spectral analysis
         % --------------------------------
         if waitBar
             i_step = i_step + 1;
         end
-        % Sections 7.1.2 ECMA-418-2:2024
+        % Sections 7.1.2 ECMA-418-2:2025
         % magnitude of Hilbert transform with downsample - Equation 65
         % [p(ntilde)_E,l,z]
         envelopes(:, :, zBand) = downsample(abs(hilbert(pn_lz)), downSample, 0);
@@ -318,7 +325,25 @@ for chan = size(pn_om, 2):-1:1
 
     % Note: With downsampled envelope signals, parallelised approach can continue
 
-    % Section 7.1.3 equation 66 ECMA-418-2:2024 [Phi(k)_E,l,z]
+    % Section 9.1.3 Envelope analysis windows
+    nBlocks = size(envelopes, 2);
+    num0WinStartMat = repmat(num0WinStart, 1, nBlocks, nBands);
+    num0WinEndMat = repmat(num0WinEnd, 1, nBlocks, nBands);
+    envWindowMat = repmat(envWindow, 1, nBlocks, nBands);
+    % Section 9.1.3.2 Envelope smoothing and first rest period weighting  
+    envMedWeight = envWindow.*round(movmedian(envelopes, movMedLen, 1), 8,...
+                                    'significant');
+    envMedWghtMax = max(envMedWeight, [], 1);
+    envWindowMat(:, envMedWghtMax <= 5e-6) = 0;
+
+    % Section 9.1.3.3 Further rest period detection
+    restThreshold = round(0.01*envMedWghtMax, 8, 'significant');
+    restPeriods = envMedWeight < restThreshold;
+    [~, num0WinStartMat] = min(envMedWeight >= restThreshold, [], 1);
+    [~, num0WinEndMat] = max(envMedWeight >= restThreshold, [], 1);
+    num0WinEndMat = num0WinEndMat - blockSize + 1;
+
+    % Section 7.1.3 equation 66 ECMA-418-2:2025 [Phi(k)_E,l,z]
     modSpectra = zeros(size(envelopes));
     envelopeWin = envelopes.*repmat(hann(blockSize1500, "periodic"), 1,...
                                     size(envelopes, 2), nBands)./sqrt(0.375);
@@ -335,18 +360,18 @@ for chan = size(pn_om, 2):-1:1
 
     % Envelope noise reduction
     % ------------------------
-    % section 7.1.4 ECMA-418-2:2024
+    % section 7.1.4 ECMA-418-2:2025
     modSpectraAvg = modSpectra;
     modSpectraAvg(:, :, 2:end-1) = movmean(modSpectra, [1, 1], 3, 'Endpoints', 'discard');
     
     modSpectraAvgSum = sum(modSpectraAvg, 3);  % Equation 68 [s(l,k)]
 
-    % Equation 71 ECMA-418-2:2024 [wtilde(l,k)]
+    % Equation 71 ECMA-418-2:2025 [wtilde(l,k)]
     clipWeight = 0.0856.*modSpectraAvgSum(1:size(modSpectraAvg, 1)/2 + 1, :)...
                  ./(median(modSpectraAvgSum(3:size(modSpectraAvg, 1)/2, :), 1) + 1e-10)...
                  .*transpose(min(max(0.1891.*exp(0.012.*(0:size(modSpectraAvg, 1)/2)), 0), 1));
 
-    % Equation 70 ECMA-418-2:2024 [w(l,k)]
+    % Equation 70 ECMA-418-2:2025 [w(l,k)]
     weightingFactor1 = zeros(size(modSpectraAvgSum(1:257, :, :)));
     mask = clipWeight >= 0.05*max(clipWeight(3:256, :), [], 1);
     weightingFactor1(mask) = min(max(clipWeight(mask) - 0.1407, 0), 1);
@@ -358,7 +383,7 @@ for chan = size(pn_om, 2):-1:1
 
     % Spectral weighting
     % ------------------
-    % Section 7.1.5 ECMA-418-2:2024
+    % Section 7.1.5 ECMA-418-2:2025
     % theta used in equation 79, including additional index for
     % errorCorrection terms from table 10
     theta = 0:1:33;
@@ -373,7 +398,7 @@ for chan = size(pn_om, 2):-1:1
             i_step = i_step + 1;
         end % end of if branch for waitBar
 
-        % Section 7.1.5.1 ECMA-418-2:2024
+        % Section 7.1.5.1 ECMA-418-2:2025
         for lBlock = nBlocks:-1:1
             % identify peaks in each block (for each band)
             % NOTE: here, the search starts from k=1 so that a peak at k=2
@@ -413,7 +438,7 @@ for chan = size(pn_om, 2):-1:1
                 kLocs = kLocs(mask);
                 % loop over peaks to obtain modulation rates
                 for iPeak = length(PhiPks):-1:1
-                    % Equation 74 ECMA-418-2:2024
+                    % Equation 74 ECMA-418-2:2025
                     % Note: here, the kLoc values are used as indices for
                     % the modulation spectral matrix, so MATLAB indexing
                     % is correctly addressed (see Equation 75 below)
@@ -425,7 +450,7 @@ for chan = size(pn_om, 2):-1:1
                     % Equation 82 [A_i(l,z)]
                     modAmp(iPeak, lBlock, zBand) = sum(modAmpMat);
 
-                    % Equation 75 ECMA-418-2:2024
+                    % Equation 75 ECMA-418-2:2025
                     % Note: because the kLoc index values are used directly
                     % in the calculation, MATLAB indexing needs to be
                     % compensated for by subtracting 1 from kLocs
@@ -436,25 +461,25 @@ for chan = size(pn_om, 2):-1:1
 
                     coeffVec = modIndexMat\modAmpMat;  % Equation 73 solution [C]
 
-                    % Equation 76 ECMA-418-2:2024 [ftilde_p,i(l,z)]
+                    % Equation 76 ECMA-418-2:2025 [ftilde_p,i(l,z)]
                     modRateEst = -(coeffVec(2)/(2*coeffVec(1)))*resDFT1500;
 
-                    % Equation 79 ECMA-418-2:2024 [beta(theta)]
+                    % Equation 79 ECMA-418-2:2025 [beta(theta)]
                     errorBeta = (floor(modRateEst/resDFT1500) + theta(1:33)/32)*resDFT1500...
                                 - (modRateEst + errorCorrection(theta(1:33) + mlabIndex)); % compensated theta value for MATLAB-indexing
 
-                    % Equation 80 ECMA-418-2:2024 [theta_min]
+                    % Equation 80 ECMA-418-2:2025 [theta_min]
                     [~, i_minError] = min(abs(errorBeta));
                     thetaMinError = theta(i_minError);  % the result here is 0-indexed
 
-                    % Equation 81 ECMA-418-2:2024 [theta_corr]
+                    % Equation 81 ECMA-418-2:2025 [theta_corr]
                     if thetaMinError > 0 && errorBeta(i_minError)*errorBeta(i_minError - 1) < 0 % (0-indexed)
                         thetaCorr = thetaMinError;  % 0-indexed
                     else
                         thetaCorr = thetaMinError + 1;  % 0-indexed
                     end  % end of eq 81 if-branch
 
-                    % Equation 78 ECMA-418-2:2024
+                    % Equation 78 ECMA-418-2:2025
                     % thetaCorr is 0-indexed so needs adjusting when
                     % indexing
                     % [rho(ftilde_p,i(l,z))]
@@ -465,7 +490,7 @@ for chan = size(pn_om, 2):-1:1
                                     /(errorBeta(thetaCorr + mlabIndex)...
                                       - errorBeta(thetaCorr + mlabIndex - 1));
 
-                    % Equation 77 ECMA-418-2:2024 [f_p,i(l,z)]
+                    % Equation 77 ECMA-418-2:2025 [f_p,i(l,z)]
                     modRate(iPeak, lBlock, zBand) = modRateEst + biasAdjust;
 
                 end  % end of for loop over peaks in block per band
@@ -473,7 +498,7 @@ for chan = size(pn_om, 2):-1:1
         end  % end of for loop over blocks for peak detection      
     end  % end of for loop over bands for modulation spectral weighting
 
-    % Section 7.1.5.2 ECMA-418-2:2024 - Weighting for high modulation rates
+    % Section 7.1.5.2 ECMA-418-2:2025 - Weighting for high modulation rates
     % Equation 85 [G_l,z,i(f_p,i(l,z))]
     roughHiWeight = shmRoughWeight(modRate,...
                                    reshape(modfreqMaxWeight, [1, 1, nBands]),...
@@ -487,7 +512,7 @@ for chan = size(pn_om, 2):-1:1
     modAmpHiWeight(mask) = modAmpHiWeight(mask).*roughHiWeight(mask);
 
 
-    % Section 7.1.5.3 ECMA-418-2:2024 - Estimation of fundamental modulation rate
+    % Section 7.1.5.3 ECMA-418-2:2025 - Estimation of fundamental modulation rate
     % TODO: replace the loop approach with a parallelised approach!
     % matrix initialisation to ensure zero rates do not cause missing bands in output
     modFundRate = zeros([nBlocks, nBands]);
@@ -594,7 +619,7 @@ for chan = size(pn_om, 2):-1:1
 
     % Time-dependent specific roughness
     % ---------------------------------
-    % Section 7.1.7 ECMA-418-2:2024
+    % Section 7.1.7 ECMA-418-2:2025
 
     % interpolation to 50 Hz sampling rate
     % Section 7.1.7 Equation 103 [l_50,end]
@@ -636,7 +661,7 @@ for chan = size(pn_om, 2):-1:1
 end  % end of for loop over channels
 
 % Binaural roughness
-% Section 7.1.11 ECMA-418-2:2024 [R'_B(l_50,z)]
+% Section 7.1.11 ECMA-418-2:2025 [R'_B(l_50,z)]
 if inchans == 2 && binaural
     specRoughness(:, :, 3) = sqrt(sum(specRoughness.^2, 3)/2);  % Equation 112
     outchans = 3;  % set number of 'channels' to stereo plus single binaural
@@ -646,11 +671,11 @@ else
     outchans = inchans;  % assign number of output channels
 end
 
-% Section 7.1.8 ECMA-418-2:2024
+% Section 7.1.8 ECMA-418-2:2025
 % Time-averaged specific roughness [R'(z)]
 specRoughnessAvg = mean(specRoughness(17:end, :, :), 1);
 
-% Section 7.1.9 ECMA-418-2:2024
+% Section 7.1.9 ECMA-418-2:2025
 % Time-dependent roughness Equation 111 [R(l_50)]
 % Discard singleton dimensions
 if outchans == 1
@@ -661,7 +686,7 @@ else
     specRoughnessAvg = squeeze(specRoughnessAvg);
 end
 
-% Section 7.1.10 ECMA-418-2:2024
+% Section 7.1.10 ECMA-418-2:2025
 % Overall roughness [R]
 roughness90Pc = prctile(roughnessTDep(17:end, :, :), 90, 1);
 
@@ -672,25 +697,25 @@ timeOut = (0:(size(specRoughness, 1) - 1))/sampleRate50;
 
 % Assign outputs to structure
 if outchans == 3
-    roughnessSHM.specRoughness = specRoughness(:, :, 1:2);
-    roughnessSHM.specRoughnessAvg = specRoughnessAvg(:, 1:2);
-    roughnessSHM.roughnessTDep = roughnessTDep(:, 1:2);
-    roughnessSHM.roughness90Pc = roughness90Pc(:, 1:2);
-    roughnessSHM.specRoughnessBin = specRoughness(:, :, 3);
-    roughnessSHM.specRoughnessAvgBin = specRoughnessAvg(:, 3);
-    roughnessSHM.roughnessTDepBin = roughnessTDep(:, 3);
-    roughnessSHM.roughness90PcBin = roughness90Pc(:, 3);
-    roughnessSHM.bandCentreFreqs = bandCentreFreqs;
-    roughnessSHM.timeOut = timeOut;
-    roughnessSHM.soundField = fieldtype;
+    fluctuationSHM.specRoughness = specRoughness(:, :, 1:2);
+    fluctuationSHM.specRoughnessAvg = specRoughnessAvg(:, 1:2);
+    fluctuationSHM.roughnessTDep = roughnessTDep(:, 1:2);
+    fluctuationSHM.roughness90Pc = roughness90Pc(:, 1:2);
+    fluctuationSHM.specRoughnessBin = specRoughness(:, :, 3);
+    fluctuationSHM.specRoughnessAvgBin = specRoughnessAvg(:, 3);
+    fluctuationSHM.roughnessTDepBin = roughnessTDep(:, 3);
+    fluctuationSHM.roughness90PcBin = roughness90Pc(:, 3);
+    fluctuationSHM.bandCentreFreqs = bandCentreFreqs;
+    fluctuationSHM.timeOut = timeOut;
+    fluctuationSHM.soundField = fieldtype;
 else
-    roughnessSHM.specRoughness = specRoughness;
-    roughnessSHM.specRoughnessAvg = specRoughnessAvg;
-    roughnessSHM.roughnessTDep = roughnessTDep;
-    roughnessSHM.roughness90Pc = roughness90Pc;
-    roughnessSHM.bandCentreFreqs = bandCentreFreqs;
-    roughnessSHM.timeOut = timeOut;
-    roughnessSHM.soundField = fieldtype;
+    fluctuationSHM.specRoughness = specRoughness;
+    fluctuationSHM.specRoughnessAvg = specRoughnessAvg;
+    fluctuationSHM.roughnessTDep = roughnessTDep;
+    fluctuationSHM.roughness90Pc = roughness90Pc;
+    fluctuationSHM.bandCentreFreqs = bandCentreFreqs;
+    fluctuationSHM.timeOut = timeOut;
+    fluctuationSHM.soundField = fieldtype;
 end
 
 %% Output plotting
