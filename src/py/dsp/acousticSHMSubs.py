@@ -19,7 +19,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 27/10/2023
-Date last modified: 15/04/2025
+Date last modified: 30/04/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -84,8 +84,8 @@ def shmAuditoryFiltBank(signal, outPlot=False):
 
     Assumptions
     -----------
-    The input signal is oriented with time on axis 1, ie, the filter
-    operation is applied along axis 1.
+    The input signal is a numpy array oriented with time on axis 1, ie, the
+    filter operation is applied along axis 1.
     The input signal must be sampled at 48 kHz.
 
     """
@@ -281,7 +281,7 @@ def shmBasisLoudness(signalSegmented, bandCentreFreq=None):
     blockRMS = np.squeeze(blockRMS)
 
     # Section 5.1.9 Equation 25 ECMA-418-2:2024
-    if bandCentreFreq is not None and len(signalSegmented.shape) < 3:
+    if bandCentreFreq is not None and signalSegmented.ndim < 3:
         # half-Bark critical band basis loudness
         basisLoudness = bandLoudness - LTQz[bandCentreFreq == bandCentreFreqs]
         basisLoudness[basisLoudness < 0] = 0
@@ -504,9 +504,9 @@ def shmPreProc(signal, blockSize, hopSize, padStart=True, padEnd=True):
     #
     # Check signal dimensions and add axis if 1D input
     #
-    if np.size(signal.shape) == 1:
+    if signal.ndim == 1:
         numChans = 1
-        signal = signal[np.newaxis, :]
+        signal = shmDimensional(signal)
     else:
         numChans = signal.shape[0]
 
@@ -679,9 +679,9 @@ def shmSignalSegment(signal, blockSize, overlap, axisn=1, i_start=0,
 
     # Check signal dimensions and add axis if 1D input
     #
-    if np.size(signal.shape) == 1:
+    if signal.ndim == 1:
         numChans = 1
-        signal = signal[np.newaxis, :]
+        signal = shmDimensional(signal)
     else:
         numChans = signal.shape[0]
 
@@ -761,3 +761,56 @@ def shmSignalSegment(signal, blockSize, overlap, axisn=1, i_start=0,
     # end of if branch to revert shape of input
 
     return (signalSegmented, iBlocksOut)  # end of shmSignalSegment function
+
+
+# %% shmDimensional
+def shmDimensional(ndArray, targetDim=2, where='first'):
+    """
+    Return array increased by dimensions depending on difference between
+    targetDim and len(ndarray.shape), placed either 'first' or 'last' according
+    to where keyword argument
+
+    Parameters
+    ----------
+    ndArray : array_like
+        Input array.
+    targetDim : TYPE, optional
+        The target number of dimensions. The default is 2.
+    where : keyword string or corresponding integer (0, -1), optional
+        Where the added dimensions are to be placed.
+        The default is 'first' (0). The altgernative is 'last' (-1).
+
+    Returns
+    -------
+    targArray : nD array
+                Output numpy array increased by dimensions.
+
+    """
+
+    # check input type and try to convert to numpy array
+    if type(ndArray) is np.ndarray:
+        pass
+    else:
+        try:
+            ndArray = np.array(ndArray)
+        except TypeError:
+            raise TypeError("Input ndArray must be an array-like object.")
+
+    # assign dimensions to add
+    dimsToAdd = targetDim - ndArray.ndim
+
+    # add number of dimensions
+    targArray = ndArray
+    if dimsToAdd <= 0:
+        return targArray
+    else:
+        if where == 'first' or where == 0:
+            for ii in range(dimsToAdd):
+                targArray = np.expand_dims(targArray, 0)
+        elif where == 'last' or where == -1:
+            for ii in range(dimsToAdd):
+                targArray = np.expand_dims(targArray, -1)
+        else:
+            raise ValueError("Input argument 'where' must either have string values 'first' or 'last', or integer values 0 or -1")
+
+    return targArray
