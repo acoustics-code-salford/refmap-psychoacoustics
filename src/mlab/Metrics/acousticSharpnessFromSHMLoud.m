@@ -1,5 +1,4 @@
-function sharpnessSHM = acousticSharpnessFromSHMLoud(specSHMLoudness, method,...
-                                                     outplot, binaural)
+function sharpnessSHM = acousticSharpnessFromSHMLoud(specSHMLoudness, method, outplot, binaural)
 % sharpnessSHM = acousticSharpnessFromSHMLoud(specSHMLoudness, method,
 %                                             outplot, binaural)
 %
@@ -41,10 +40,10 @@ function sharpnessSHM = acousticSharpnessFromSHMLoud(specSHMLoudness, method,...
 % Returns
 % -------
 %
-% sharpnessAuresSHM : structure
+% sharpnessSHM : structure
 %                     contains the output
 %
-% sharpnessAuresSHM contains the following outputs:
+% sharpnessSHM contains the following outputs:
 %
 % sharpnessTDep : vector or matrix
 %                 time-dependent sharpness
@@ -61,12 +60,12 @@ function sharpnessSHM = acousticSharpnessFromSHMLoud(specSHMLoudness, method,...
 %          indicates which sharpness method was applied
 %
 % If binaural=true, a corresponding set of outputs for the binaural
-% sharpness are also contained in sharpnessAuresSHM
+% sharpness are also contained in sharpnessSHM
 %
-% If outplot=true, a set of plots is returned illustrating the
+% If outplot=true, a plot is returned illustrating the
 % time-dependent sharpness, with the time-aggregated value.
-% A set of plots is returned for each input channel, with another
-% set for the binaural loudness, if binaural=true.
+% A plot is returned for each input channel, with another
+% plot for the binaural sharpness, if binaural=true.
 %
 % Assumptions
 % -----------
@@ -117,7 +116,7 @@ function sharpnessSHM = acousticSharpnessFromSHMLoud(specSHMLoudness, method,...
 % Institution: University of Salford
 %
 % Date created: 01/11/2024
-% Date last modified: 09/01/2025
+% Date last modified: 30/04/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within

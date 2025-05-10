@@ -1,6 +1,4 @@
-function sharpnessSHM = acousticSharpnessSHM(p, sampleRatein, axisn,...
-                                             fieldtype, method,...
-                                             outplot, binaural)
+function sharpnessSHM = acousticSharpnessSHM(p, sampleRatein, axisn, fieldtype, method, outplot, binaural)
 % sharpnessSHM = acousticSharpnessSHM(p, sampleRatein, axisn,...
 %                                     fieldtype, method, outplot, binaural)
 %
@@ -28,7 +26,7 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRatein, axisn,...
 %                the sample rate (frequency) of the input signal(s)
 %
 % axisn : integer (1 or 2, default: 1)
-%         the time axis along which to calculate the tonality
+%         the time axis along which to calculate the sharpness
 %
 % fieldtype : keyword string (default: 'free-frontal')
 %             determines whether the 'free-frontal' or 'diffuse' field stages
@@ -50,10 +48,10 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRatein, axisn,...
 % Returns
 % -------
 %
-% sharpnessAuresSHM : structure
+% sharpnessSHM : structure
 %                     contains the output
 %
-% sharpnessAuresSHM contains the following outputs:
+% sharpnessSHM contains the following outputs:
 %
 % sharpnessTDep : vector or matrix
 %                 time-dependent sharpness
@@ -74,12 +72,12 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRatein, axisn,...
 %          indicates which sharpness method was applied
 %
 % If binaural=true, a corresponding set of outputs for the binaural
-% sharpness are also contained in sharpnessAuresSHM
+% sharpness are also contained in sharpnessSHM
 %
-% If outplot=true, a set of plots is returned illustrating the
+% If outplot=true, a plot is returned illustrating the
 % time-dependent sharpness, with the time-aggregated value.
-% A set of plots is returned for each input channel, with another
-% set for the binaural loudness, if binaural=true.
+% A plot is returned for each input channel, with another
+% plot for the binaural sharpness, if binaural=true.
 %
 % Assumptions
 % -----------
@@ -128,7 +126,7 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRatein, axisn,...
 % Institution: University of Salford
 %
 % Date created: 01/11/2024
-% Date last modified: 09/01/2025
+% Date last modified: 30/04/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -155,8 +153,9 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRatein, axisn,...
         sampleRatein (1, 1) double {mustBePositive, mustBeInteger}
         axisn (1, 1) {mustBeInteger, mustBeInRange(axisn, 1, 2)} = 1
         fieldtype (1, :) string {mustBeMember(fieldtype,...
-                                                       {'free-frontal',...
-                                                        'diffuse'})} = 'free-frontal'
+                                              {'free-frontal',...
+                                               'diffuse',...
+                                               'noOuter'})} = 'free-frontal'
         method (1, :) string {mustBeMember(method,...
                                            {'aures',...
                                             'vonbismarck',...

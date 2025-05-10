@@ -1,11 +1,9 @@
-function sharpnessQZ = acousticSharpFromQuasiZwicker(loudQZTDep, specQZLoudness,...
-                                                          timeStep, method,...
-                                                          outPlot)
-% sharpnessQZ = acousticSharpFromQuasiZwicker(loudQZTDep, specSHMLoudness, method,
-%                                             outPlot)
+function sharpness = acousticSharpFromQuasiZwicker(loudQZTDep, specQZLoudness, timeStep, method, outPlot)
+% sharpness = acousticSharpFromQuasiZwicker(loudQZTDep, specQZLoudness,
+%                                             method, outPlot)
 %
-% Returns sharpness values using quasi-loudness results obtained using
-% loudQuasiZwicker.m.
+% Returns quasi-sharpness values using quasi-loudness results obtained using
+% acousticLoudQuasiZwicker.m or acousticLoudQuasiZwickerWav.m.
 %
 % The sharpness model used can be specified using the 'method' input
 % argument. Options comprise 'aures', 'vonBismarck', or 'widmann' (which
@@ -40,18 +38,22 @@ function sharpnessQZ = acousticSharpFromQuasiZwicker(loudQZTDep, specQZLoudness,
 % Returns
 % -------
 %
-% sharpnessQZ : structure
-%                     contains the output
+% sharpness : structure
+%             contains the output
 %
-% sharpnessQZ contains the following outputs:
+% sharpness contains the following outputs:
 %
-% sharpnessTDep : vector or matrix
+% sharpTDep : vector or matrix
 %                 time-dependent sharpness
 %                 arranged as [time(, channels)]
 % 
-% sharpnessPowAvg : number or vector
+% sharpPowAvg : number or vector
 %                   time-power-averaged sharpness
 %                   arranged as [sharpness(, channels)]
+%
+% sharp5pcEx : number or vector
+%                  95th percentile (5% exceeded) sharpness
+%                  arranged as [sharpness(, channels)]
 %
 % timeOut : vector
 %           time (seconds) corresponding with time-dependent outputs
@@ -60,7 +62,7 @@ function sharpnessQZ = acousticSharpFromQuasiZwicker(loudQZTDep, specQZLoudness,
 %          indicates which sharpness method was applied
 %
 % If outplot=true, a set of plots is returned illustrating the
-% time-dependent sharpness, with the time-aggregated value.
+% time-dependent sharpness, with the time-aggregated values.
 % A set of plots is returned for each input channel.
 %
 % Assumptions
@@ -98,7 +100,7 @@ function sharpnessQZ = acousticSharpFromQuasiZwicker(loudQZTDep, specQZLoudness,
 % Institution: University of Salford
 %
 % Date created: 30/04/2025
-% Date last modified: 30/04/2025
+% Date last modified: 05/05/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -170,15 +172,11 @@ bark = dz:dz:24;  % Bark numbers for ISO 532-1 specific loudness
 
 switch method
     case 'aures'
-        %calS = 0.914785424486417;  % perfect calibration for adjustEQL=false
-        %calS = 0.951624236276074;  % perfect calibration for adjustEQL=true
-        calS = 0.933204830381245;  % mean value of calibrations
+        calS = 0.971827112506741;
         acum = "Aur | Quasi-Zwicker";
 
     case 'vonbismarck'
-        %calS = 0.941543209163120;  % perfect calibration for adjustEQL=false
-        %calS = 0.952378909513930;  % perfect calibration for adjustEQL=true
-        calS = 0.946961059338525;  % mean value of calibrations
+        calS = 0.972308112404852;
         acum = "vBis | Quasi-Zwicker";
         q1 = 15;
         q2 = 0.2;
@@ -186,9 +184,7 @@ switch method
         q4 = 0.8;
 
     case 'widmann'
-        %calS = 0.944679089470061;  % perfect calibration for adjustEQL=false
-        %calS = 0.955561377108622;  % perfect calibration for adjustEQL=true
-        calS = 0.950120233289341;  % mean value of calibrations
+        calS = 0.975032094599035;
         acum = "Widm | Quasi-Zwicker";
         q1 = 15.8;
         q2 = 0.15;
@@ -210,7 +206,7 @@ switch method
 
         % time-dependent sharpness
         % Note: no multiplication by z (otherwise weighting would need /bark term)
-        sharpnessTDep = calS*0.11.*sum(specQZLoudness.*weightSharp*dz, 2);
+        sharpTDep = calS*0.11.*sum(specQZLoudness.*weightSharp*dz, 2);
 
     case {'vonbismarck', 'widmann'}
         % von Bismarck or Widmann weightings
@@ -218,20 +214,23 @@ switch method
         weightSharp(bark>=q1) = q2*exp(q3*(bark(bark>=q1) - q1) ) + q4;
 
         % time-dependent sharpness
-        sharpnessTDep = calS*0.11.*squeeze(sum(specQZLoudness.*weightSharp.*bark*dz, 2))./(loudQZTDep + eps);
+        sharpTDep = calS*0.11.*squeeze(sum(specQZLoudness.*weightSharp.*bark*dz, 2))./(loudQZTDep + eps);
 
 end
 
 % Discard singleton dimensions
 if chans ~= 1
-    sharpnessTDep = squeeze(sharpnessTDep);
+    sharpTDep = squeeze(sharpTDep);
 end
 
 % ensure any 0 loudness values also have 0 sharpness
-sharpnessTDep(loudQZTDep == 0) = 0;
+sharpTDep(loudQZTDep == 0) = 0;
 
 % overall (power-averaged) sharpness
-sharpnessPowAvg = (sum(sharpnessTDep.^(1/log10(2)), 1)./size(sharpnessTDep, 1)).^log10(2);
+sharpPowAvg = (sum(sharpTDep.^(1/log10(2)), 1)./size(sharpTDep, 1)).^log10(2);
+
+% overall (95th percentile) sharpness
+sharp5pcEx = prctile(sharpTDep, 95, 1);
 
 % time (s) corresponding with results output
 timeOut = (0:(size(specQZLoudness, 1) - 1))*timeStep;
@@ -239,10 +238,11 @@ timeOut = (0:(size(specQZLoudness, 1) - 1))*timeStep;
 %% Output assignment
 
 % Assign outputs to structure
-sharpnessQZ.sharpnessTDep = sharpnessTDep;
-sharpnessQZ.sharpnessPowAvg = sharpnessPowAvg;
-sharpnessQZ.timeOut = timeOut.';
-sharpnessQZ.method = method;
+sharpness.sharpTDep = sharpTDep;
+sharpness.sharpPowAvg = sharpPowAvg;
+sharpness.sharp5pcEx = sharp5pcEx;
+sharpness.timeOut = timeOut.';
+sharpness.method = method;
 
 %% Output plotting
 
@@ -255,15 +255,18 @@ if outPlot
         fig = figure;
         movegui(fig, 'center');
         ax = gca();
-        plot(ax, timeOut, sharpnessPowAvg(1, chan)*ones(size(timeOut)), 'color',...
+        plot(ax, timeOut, sharpPowAvg(1, chan)*ones(size(timeOut)), 'color',...
              cmap_viridis(34, :), 'LineWidth', 1, 'DisplayName', "Power" + string(newline) + "time-avg");
         hold on
-        plot(ax, timeOut, sharpnessTDep(:, chan), 'color', cmap_viridis(166, :),...
+        plot(ax, timeOut, sharp5pcEx(1, chan)*ones(size(timeOut)), 'color',...
+             cmap_viridis(34, :), 'LineWidth', 1, 'LineStyle', ':',...
+             'DisplayName', "5%" + string(newline) + "exceeded");
+        plot(ax, timeOut, sharpTDep(:, chan), 'color', cmap_viridis(166, :),...
              'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
         hold off
         ax.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
-        if max(sharpnessTDep(:, chan)) > 0
-            ax.YLim = [0, 1.1*ceil(max(sharpnessTDep(:, chan))*10)/10];
+        if max(sharpTDep(:, chan)) > 0
+            ax.YLim = [0, 1.1*ceil(max(sharpTDep(:, chan))*10)/10];
         end
         ax.XLabel.String = "Time, s";
         ax.YLabel.String = "Sharpness, acum_{" + acum + "}";
@@ -282,4 +285,4 @@ if outPlot
     end  % end of for loop for plotting over channels
 end  % end of if branch for plotting if outplot true
 
-% function end
+end % end of acousticSharpFromQuasiZwicker function

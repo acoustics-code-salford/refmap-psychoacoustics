@@ -1,9 +1,8 @@
-function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget, signalMasker, sampleRateMasker, axisTarget, axisMasker, timeSkip, timeStep, freqRange, outPlot)
-% detectDiscount = acousticDetection(signalTarget, sampleRateTarget,
-%                                    signalMasker, sampleRateMasker,
-%                                    axisTarget, axisMasker,
-%                                    timeSkip, timeSkip,
-%                                    freqRange, outPlot)
+function detectDiscount = acousticDetectDiscntFromLeqf(LeqTarget, LeqMasker, axisTarget, axisMasker, timeSkip, timeStep, freqMids, outPlot)
+% detectDiscount = acousticDetectDiscntFromLeqf(LeqTarget, LeqMasker,
+%                                               axisTarget, axisMasker,
+%                                               timeSkip, timeSkip,
+%                                               freqRange, outPlot)
 %
 % Returns detectability and discounted sound levels from input target
 % source and masker signals based on the detectability model originally
@@ -34,43 +33,37 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 % ------
 % signalTarget : vector or 2D matrix
 %                the input target signal as single mono or stereo audio
-%                (sound pressure) signals
-%
-% sampleRateTarget : integer
-%                    the sample rate (frequency) of the input target signal(s)
+%                (sound pressure) signals.
 %
 % signalMasker : vector or 2D matrix
 %                the input masker signal(s) as single mono or stereo audio
-%                (sound pressure) signals
-%
-% sampleRateMasker : integer
-%                    the sample rate (frequency) of the input masker signal(s)
+%                (sound pressure) signals.
 %
 % axisTarget : integer (1 or 2, default: 1)
 %              the time axis for the target signal(s) along which to determine
-%              detection
+%              detection.
 %
 % axisMasker : integer (1 or 2, default: 1)
 %              the time axis for the masker signal(s) along which to determine
-%              detection
+%              detection.
 %
 % timeSkip : vector (default: [0, 0])
 %            time (seconds) to skip from input signals for calculating
 %            time-aggregated outputs. [startSkip, endSkip] ignores
-%            starkSkip seconds of the start, and endSkip seconds of the end
+%            starkSkip seconds of the start, and endSkip seconds of the
+%            end.
 %
 % timeStep : number (default: 0.5)
 %            the time window (seconds) to use for calculating target
-%            detectability
+%            detectability.
 %
-% freqRange : vector (default: [20, 20000])
-%                 the frequency range over which to determine
-%                 detection and discounted spectra (1/3-octave band
-%                 centre-frequencies within this range will be included)
+% freqMids : vector (default: [20, 20000])
+%            the 1/3-octave band centre-frequencies for signal and
+%            masker Leq inputs.
 %
 % outPlot : Boolean (default: false)
 %           determines whether to plot outputs from the calculations
-% 
+%
 % Returns
 % -------
 % detectDiscount : structure
@@ -192,8 +185,8 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 % Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 % Institution: University of Salford
 %
-% Date created: 05/11/2024
-% Date last modified: 05/05/2025
+% Date created: 30/04/2025
+% Date last modified: 30/04/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -210,15 +203,13 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 %
 %% Arguments validation;
     arguments (Input)
-        signalTarget (:, :) double {mustBeReal}
-        sampleRateTarget (1, 1) double {mustBePositive, mustBeInteger}
-        signalMasker (:, :) double {mustBeReal}
-        sampleRateMasker (1, 1) double {mustBePositive, mustBeInteger}
+        LeqTarget (:, :) double {mustBeReal}
+        LeqMasker (:, :) double {mustBeReal}
         axisTarget (1, 1) {mustBeInteger, mustBeInRange(axisTarget, 1, 2)} = 1
         axisMasker (1, 1) {mustBeInteger, mustBeInRange(axisMasker, 1, 2)} = 1
-        timeSkip (1, 2) double {mustBeReal, mustBeNonnegative} = [0, 0]
+        timeSkip (1, 2) double {mustBeReal} = [0, 0]
         timeStep (1, 1) double {mustBePositive} = 0.5
-        freqRange (1, 2) double {mustBeInRange(freqRange, 19, 20000)} = [20, 20000]
+        freqMids (1, 2) double {mustBeInRange(freqMids, 19, 20000)} = [20, 20000]
         outPlot {mustBeNumericOrLogical} = false
     end
 
