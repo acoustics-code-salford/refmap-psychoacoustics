@@ -635,7 +635,9 @@ subjData <- subjData |> dplyr::mutate(EPNLLAeqdiffScl = datawizard::standardise(
 subjData <- subjData |> dplyr::mutate(UASDisc0p5LAEMaxLRScl = datawizard::standardise(UASDisc0p5LAEMaxLR, scale=FALSE))
 subjData <- subjData |> dplyr::mutate(UASDisc0p5PAEMaxLR = 2e-5*10^(UASDisc0p5LAEMaxLR/20))
 subjData <- subjData |> dplyr::mutate(UASLoudECMAPowAvgBinScl = datawizard::standardise(UASLoudECMAPowAvgBin, scale=FALSE))
-subjData <- subjData |> dplyr::mutate(IntermitRatioMaxLRScl = IntermitRatioMaxLR/100)
+subjData <- subjData |> dplyr::mutate(IntermitRatioC2MaxLRScl = IntermitRatioC2MaxLR/100)
+subjData <- subjData |> dplyr::mutate(IntermitRatioC3MaxLRScl = IntermitRatioC3MaxLR/100)
+subjData <- subjData |> dplyr::mutate(IntermitRatioC5MaxLRScl = IntermitRatioC5MaxLR/100)
 
 stimData <- stimData |> dplyr::mutate(UASLAeqMaxLRScl = datawizard::standardise(UASLAeqMaxLR, scale=FALSE))
 stimData <- stimData |> dplyr::mutate(UASLAEMaxLRScl = datawizard::standardise(UASLAEMaxLR, scale=FALSE))
@@ -646,7 +648,9 @@ stimData <- stimData |> dplyr::mutate(EPNLLAeqdiffScl = datawizard::standardise(
 stimData <- stimData |> dplyr::mutate(UASDisc0p5LAEMaxLRScl = datawizard::standardise(UASDisc0p5LAEMaxLR, scale=FALSE))
 stimData <- stimData |> dplyr::mutate(UASDisc0p5PAEMaxLR = 2e-5*10^(UASDisc0p5LAEMaxLR/20))
 stimData <- stimData |> dplyr::mutate(UASLoudECMAPowAvgBinScl = datawizard::standardise(UASLoudECMAPowAvgBin, scale=FALSE))
-stimData <- stimData |> dplyr::mutate(IntermitRatioMaxLRScl = IntermitRatioMaxLR/100)
+stimData <- stimData |> dplyr::mutate(IntermitRatioC2MaxLRScl = IntermitRatioC2MaxLR/100)
+stimData <- stimData |> dplyr::mutate(IntermitRatioC3MaxLRScl = IntermitRatioC3MaxLR/100)
+stimData <- stimData |> dplyr::mutate(IntermitRatioC5MaxLRScl = IntermitRatioC5MaxLR/100)
 
 # convert detectability dB to log variables
 subjData <- subjData |> dplyr::mutate(Detect0p1IntMaxLRLog = Detect0p1dBIntMaxLR/10)
@@ -699,9 +703,20 @@ stimDataNoAmb$UASType <- factor(stimDataNoAmb$UASType, levels=UASTypeCatsA[2:len
 
 ```{r, 6.4, fig.height=4}
 
-dataFrame <- subjData |> group_by(TrialNumberSclCnt) |> summarise(dAnnoyance = mean(dAnnoyance))
+dataFrame <- subjData |> group_by(TrialNumberScl) |> summarise(dAnnoyance = mean(dAnnoyance))
 
 ggplot(data=dataFrame, mapping=aes(TrialNumberScl, dAnnoyance)) + geom_point(color=mycolours[1], alpha=0.3) +
+       geom_smooth(formula = y ~ x, method = "lm", alpha=0.3, color=mycolours[1]) +
+       theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 90, maxColorValue = 255))) + 
+       labs(x="Trial number (standardised)", y="Change in annoyance rating\n(rel. to baseline)") + scale_y_continuous(n.breaks=10, limits=c(-4, 7))
+
+```
+
+```{r, 6.4, fig.height=4}
+
+dataFrame <- subjData |> group_by(TrialNumberCntScl) |> summarise(dAnnoyance = mean(dAnnoyance))
+
+ggplot(data=dataFrame, mapping=aes(TrialNumberCntScl, dAnnoyance)) + geom_point(color=mycolours[1], alpha=0.3) +
        geom_smooth(formula = y ~ x, method = "lm", alpha=0.3, color=mycolours[1]) +
        theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 90, maxColorValue = 255))) + 
        labs(x="Trial number (standardised)", y="Change in annoyance rating\n(rel. to baseline)") + scale_y_continuous(n.breaks=10, limits=c(-4, 7))
@@ -724,7 +739,7 @@ for (corstr in c("Exchangeable", "AR-M-dependent(1)", "Stationary-M-dependent(1)
                                  UASLAEMaxLRScl*AmbientEnv +
                                  UASType*UASOperation*AmbientEnv +
                                  UASLAEMaxLRScl*I(UASEvents^-1) +
-                                 TrialNumberCntScl,
+                                 TrialNumberScl,
                                  maxit=2e3,                                 
                                  data=subjDataNoAmb, family=gaussian(link='identity'),
                                  id=ID., corstr=corstr)
@@ -745,7 +760,7 @@ modelMax <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl*UASType*UASOperation 
                                UASLAEMaxLRScl*AmbientEnv +
                                UASType*UASOperation*AmbientEnv +
                                UASLAEMaxLRScl*I(UASEvents^-1) +
-                               TrialNumberCntScl,
+                               TrialNumberScl,
                                data=subjDataNoAmb, family=gaussian(link='identity'),
                                id=ID., corstr='exchangeable')
 geeModelPerformance(modelMax, verbose=TRUE)
@@ -772,7 +787,7 @@ model1 <- mABEnvxTypexOpxLAExEnv1_QxLAESq.GEE <- glmtoolbox::glmgee(dAnnoyance ~
                                                                       UASLAEMaxLRScl*UASOperation +
                                                                       UASLAEMaxLRScl*AmbientEnv +
                                                                       UASType*UASOperation*AmbientEnv +
-                                                                      TrialNumberCntScl,
+                                                                      TrialNumberScl,
                                                                 data=subjDataNoAmb,
                                                                 family=gaussian(link='identity'),
                                                                 id=ID.,
@@ -785,7 +800,7 @@ geeModelPerformance(mABEnvxTypexOpxLAExEnv1_QxLAESq.GEE)
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
 ggplot(data=predictMeans) +
@@ -1031,7 +1046,7 @@ model1 <- mABEnvxTypexOpxLAExEnvlgQxLAESq.GEE <- glmtoolbox::glmgee(dAnnoyance ~
                                                                       UASLAEMaxLRScl*UASOperation +
                                                                       UASLAEMaxLRScl*AmbientEnv +
                                                                       UASType*UASOperation*AmbientEnv +
-                                                                      TrialNumberCntScl,
+                                                                      TrialNumberScl,
                                                                 data=subjDataNoAmb,
                                                                 family=gaussian(link='identity'),
                                                                 id=ID.,
@@ -1045,7 +1060,7 @@ geeModelPerformance(mABEnvxTypexOpxLAExEnv1_QxLAESq.GEE,
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
 ggplot(data=predictMeans) +
@@ -1293,7 +1308,7 @@ model1 <- mABTypexEnvxOpxLAExEnv1_QxLAESq.GEE <- glmtoolbox::glmgee(dAnnoyance ~
                                                                       UASType:UASOperation +
                                                                       UASType:AmbientEnv +
                                                                       UASOperation:AmbientEnv +
-                                                                      TrialNumberCntScl,
+                                                                      TrialNumberScl,
                                                                 data=subjDataNoAmb,
                                                                 family=gaussian(link='identity'),
                                                                 id=ID.,
@@ -1306,7 +1321,7 @@ geeModelPerformance(mABEnvxTypexOpxLAExEnv1_QxLAESq.GEE, mABTypexEnvxOpxLAExEnv1
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
 ggplot(data=predictMeans) +
@@ -1507,7 +1522,7 @@ model1 <- mABEnvxTypeOpxLAExEnv1_QxLAESq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ 
                                                                       UASLAEMaxLRScl*AmbientEnv +
                                                                       UASType:AmbientEnv +
                                                                       UASOperation:AmbientEnv +
-                                                                TrialNumberCntScl,
+                                                                TrialNumberScl,
                                                                 data=subjDataNoAmb,
                                                                 family=gaussian(link='identity'),
                                                                 id=ID.,
@@ -1521,7 +1536,7 @@ geeModelPerformance(mABEnvxTypexOpxLAExEnv1_QxLAESq.GEE, mABTypexEnvxOpxLAExEnv1
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
 ggplot(data=predictMeans) +
@@ -1720,7 +1735,7 @@ model1 <- mABEnvxOpTypexLAExEnv1_QxLAESq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ 
                                                                       UASLAEMaxLRScl*UASOperation +
                                                                       UASLAEMaxLRScl*AmbientEnv +
                                                                       UASOperation:AmbientEnv +
-                                                                      TrialNumberCntScl,
+                                                                      TrialNumberScl,
                                                                 data=subjDataNoAmb,
                                                                 family=gaussian(link='identity'),
                                                                 id=ID.,
@@ -1734,7 +1749,7 @@ geeModelPerformance(mABEnvxTypexOpxLAExEnv1_QxLAESq.GEE, mABTypexEnvxOpxLAExEnv1
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
 ggplot(data=predictMeans) +
@@ -1932,7 +1947,7 @@ model1 <- mABLAExTypeOpxLAExEnv1_QxLAESq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ 
                                                                 UASLAEMaxLRScl*UASType +
                                                                 UASLAEMaxLRScl*UASOperation +
                                                                 UASLAEMaxLRScl*AmbientEnv +
-                                                                TrialNumberCntScl,
+                                                                TrialNumberScl,
                                                                 data=subjDataNoAmb,
                                                                 family=gaussian(link='identity'),
                                                                 id=ID.,
@@ -1947,7 +1962,7 @@ geeModelPerformance(mABEnvxTypexOpxLAExEnv1_QxLAESq.GEE, mABTypexEnvxOpxLAExEnv1
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
 ggplot(data=predictMeans) +
@@ -2160,7 +2175,7 @@ for (corstr in c("Exchangeable", "AR-M-dependent(1)", "Stationary-M-dependent(1)
                                   UASLAEMaxLRScl*UASType +
                                   UASLAEMaxLRScl*UASOperation +
                                   UASLAEMaxLRScl*AmbientEnv +
-                                  TrialNumberCntScl,
+                                  TrialNumberScl,
                                  data=subjDataNoAmb,
                                  family=gaussian(link='identity'),
                                  id=ID.,
@@ -2181,7 +2196,7 @@ model1 <- mABLAExTypeOpxLAExEnv1_QxLAESq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ 
                                                                   UASLAEMaxLRScl*UASType +
                                                                   UASLAEMaxLRScl*UASOperation +
                                                                   UASLAEMaxLRScl*AmbientEnv +
-                                                                  TrialNumberCntScl,
+                                                                  TrialNumberScl,
                                                                 data=subjDataNoAmb,
                                                                 family=gaussian(link='identity'),
                                                                 id=ID.,
@@ -2196,7 +2211,7 @@ geeModelPerformance(mABEnvxTypexOpxLAExEnv1_QxLAESq.GEE, mABTypexEnvxOpxLAExEnv1
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
 ggplot(data=predictMeans) +
@@ -2443,7 +2458,7 @@ model1 <- mABLAExTypeOpxLAExEnvlgQxLAESq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ 
                                                                   UASLAEMaxLRScl*UASType +
                                                                   UASLAEMaxLRScl*UASOperation +
                                                                   UASLAEMaxLRScl*AmbientEnv +
-                                                                  TrialNumberCntScl,
+                                                                  TrialNumberScl,
                                                                 data=subjDataNoAmb,
                                                                 family=gaussian(link='identity'),
                                                                 id=ID.,
@@ -2458,7 +2473,7 @@ geeModelPerformance(mABEnvxTypexOpxLAExEnv1_QxLAESq.GEE, mABTypexEnvxOpxLAExEnv1
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
 ggplot(data=predictMeans) +
@@ -2713,7 +2728,7 @@ model1 <- mABLAExTypeOpxLAExEnv1_QxLAESqNatAtt.GEE <- glmtoolbox::glmgee(dAnnoya
                                                                   UASLAEMaxLRScl*UASType +
                                                                   UASLAEMaxLRScl*UASOperation +
                                                                   UASLAEMaxLRScl*AmbientEnv +
-                                                                  TrialNumberCntScl +
+                                                                  TrialNumberScl +
                                                                     NationGeo2 + AAM_attitude2,
                                                                 data=subjDataNoAmb,
                                                                 family=gaussian(link='identity'),
@@ -2729,7 +2744,7 @@ geeModelPerformance(mABEnvxTypexOpxLAExEnv1_QxLAESq.GEE, mABTypexEnvxOpxLAExEnv1
 
 # predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
 #                            response=stimDataNoAmb$dAnnoyMean,
-#                            fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+#                            fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
 # ggplot(data=predictMeans) +
@@ -3038,7 +3053,7 @@ model1 <- mABLAExTypeOpxLAExEnv1_QxLAESqNatAttLang.GEE <- glmtoolbox::glmgee(dAn
                                                                   UASLAEMaxLRScl*UASType +
                                                                   UASLAEMaxLRScl*UASOperation +
                                                                   UASLAEMaxLRScl*AmbientEnv +
-                                                                  TrialNumberCntScl +
+                                                                  TrialNumberScl +
                                                                     NationGeo2 + AAM_attitude2 +
                                                                     NativeLang,
                                                                 data=subjDataNoAmb,
@@ -3051,12 +3066,12 @@ geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=
 
 geeModelPerformance(mABEnvxTypexOpxLAExEnv1_QxLAESq.GEE, mABTypexEnvxOpxLAExEnv1_QxLAESq.GEE,
                     mABEnvxTypeOpxLAExEnv1_QxLAESq.GEE, mABEnvxOpTypexLAExEnv1_QxLAESq.GEE,
-                    mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABLAExTypeOpxLAExEnv1_QxLAESqNatxAtt.GEE,
+                    mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABLAExTypeOpxLAExEnv1_QxLAESqNatAtt.GEE,
                     mABLAExTypeOpxLAExEnv1_QxLAESqNatAttLang.GEE)
 
 # predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
 #                            response=stimDataNoAmb$dAnnoyMean,
-#                            fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+#                            fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
 # ggplot(data=predictMeans) +
@@ -3403,7 +3418,7 @@ for (corstr in c("Exchangeable", "AR-M-dependent(1)", "Stationary-M-dependent(1)
                                    UASLAEMaxLRScl:UASRoughFZ05ExMaxLR +
                                    UASLAEMaxLRScl:UASSharpAurISO305ExMaxLR +
                                    UASLAEMaxLRScl:UASTonLdECMAPowAvgBin +
-                                   TrialNumberCntScl,
+                                   TrialNumberScl,
                                  maxit=2e3,
                                  data=subjDataNoAmb,
                                  family=gaussian(link='identity'),
@@ -3429,7 +3444,7 @@ modelMax <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl*I(UASEvents^-1) +
                                UASLAEMaxLRScl:UASSharpAurISO305ExMaxLR +
                                UASLAEMaxLRScl:UASFluctOV10ExMaxLR +
                                UASLAEMaxLRScl:UASRoughFZ05ExMaxLR +
-                               TrialNumberCntScl,
+                               TrialNumberScl,
                               data=subjDataNoAmb,
                               family=gaussian(link='identity'),
                               id=ID.,
@@ -3452,14 +3467,10 @@ modelStep <- glmtoolbox::stepCriterion(model=modelMax,
 
 ```{r}
 
-model1 <- mABFxIRxSxTnxFLAE1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl + I(UASEvents^-1) +
-                                                        UASTonLdECMAPowAvgBin*UASFluctOV10ExMaxLR +
-                                                        UASTonLdECMAPowAvgBin:UASSharpAurISO305ExMaxLR +
-                                                        UASTonLdECMAPowAvgBin:UASImpulsSHMAvgMaxLR +
-                                                        UASFluctOV10ExMaxLR*UASSharpAurISO305ExMaxLR*UASRoughFZ05ExMaxLR +
-                                                        UASTonLdECMAPowAvgBin:UASSharpAurISO305ExMaxLR:UASImpulsSHMAvgMaxLR + 
-                                                        UASFluctOV10ExMaxLR*UASSharpAurISO305ExMaxLR*UASImpulsSHMAvgMaxLR +
-                                                        TrialNumberCntScl,
+model1 <- mABISxTnLAEx1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl*I(UASEvents^-1) +
+                                                        UASTonLdECMAPowAvgBin*UASSharpAurISO305ExMaxLR +
+                                                        UASImpulsSHMAvgMaxLR +
+                                                        TrialNumberScl,
                                                         data=subjDataNoAmb,
                                                         family=gaussian(link='identity'),
                                                         id=ID.,
@@ -3468,11 +3479,11 @@ model1 <- mABFxIRxSxTnxFLAE1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMa
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
 geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
 
-geeModelPerformance(mABFxIRxSxTnxFLAE1_QSq.GEE)
+geeModelPerformance(mABISxTnLAEx1_QSq.GEE)
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
 ggplot(data=predictMeans) +
@@ -3527,170 +3538,13 @@ p1
 
 ```
 
-### omit roughness
-
-```{r}
-
-model1 <- mABFxISxTnxFLAE1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl + I(UASEvents^-1) +
-                                                        UASTonLdECMAPowAvgBin*UASFluctOV10ExMaxLR +
-                                                        UASTonLdECMAPowAvgBin:UASSharpAurISO305ExMaxLR +
-                                                        UASTonLdECMAPowAvgBin:UASImpulsSHMAvgMaxLR +
-                                                        UASTonLdECMAPowAvgBin:UASSharpAurISO305ExMaxLR:UASImpulsSHMAvgMaxLR + 
-                                                        UASFluctOV10ExMaxLR*UASSharpAurISO305ExMaxLR*UASImpulsSHMAvgMaxLR +
-                                                        TrialNumberCntScl,
-                                                        data=subjDataNoAmb,
-                                                        family=gaussian(link='identity'),
-                                                        id=ID.,
-                                                        corstr='exchangeable')
-
-geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
-geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
-
-geeModelPerformance(mABFxIRxSxTnxFLAE1_QSq.GEE,
-                    mABFxISxTnxFLAE1_QSq.GEE)
-
-predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
-                           response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
-
-# using ggplot, plot the predicted fit against the responses in predictMeans
-ggplot(data=predictMeans) +
-  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=12),
-        axis.text=element_text(family = "serif", size=14)) +
-  
-  geom_point(mapping=aes(x=response, y=fit), size=2.5, shape=1, colour=mycolours[1], alpha=0.5) +
-  
-  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
-  
-  scale_x_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 9)) +
-  scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 9)) +
-  
-  labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance")
-
-
-model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl [-12:13]",
-                                                                "UASEvents [all]"),
-                                             margin='marginalmeans', type='fixed', 
-                                            vcov=vcov(model1, type="bias-corrected"))
-
-
-p1 <- ggplot(data=model1predictEvt) +
-              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
-                    axis.text=element_text(family = "serif", size=14)) +
-              
-              geom_point(data=stimDataNoAmb, aes(x=UASLAEMaxLRScl, y=dAnnoyMean, colour=factor(UASEvents), shape=factor(UASEvents)),
-                         alpha=0.35, size=2) +
-              
-              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.1) +
-              
-              geom_line(aes(x=x, y=predicted, colour=group), linewidth=1) +
-              
-              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_shape_manual(values=c(4, 5, 7, 8)) +
-              
-              guides(colour=guide_legend(title="UAS events", reverse=TRUE),
-                     fill=guide_legend(title="UAS events", reverse=TRUE),
-                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
-            
-              
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
-              scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-2, 8)) +
-              
-              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
-
-p1
-
-
-
-```
-
 ### omit impulsiveness
 
 ```{r}
 
-model1 <- mABFSxTnxFLAE1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl + I(UASEvents^-1) +
-                                                        UASTonLdECMAPowAvgBin*UASFluctOV10ExMaxLR +
-                                                        UASTonLdECMAPowAvgBin:UASSharpAurISO305ExMaxLR +
-                                                        UASFluctOV10ExMaxLR*UASSharpAurISO305ExMaxLR +
-                                                        TrialNumberCntScl,
-                                                        data=subjDataNoAmb,
-                                                        family=gaussian(link='identity'),
-                                                        id=ID.,
-                                                        corstr='exchangeable')
-
-geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
-geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
-
-geeModelPerformance(mABFxIRxSxTnxFLAE1_QSq.GEE,
-                    mABFxISxTnxFLAE1_QSq.GEE, mABFSxTnxFLAE1_QSq.GEE)
-
-predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
-                           response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
-
-# using ggplot, plot the predicted fit against the responses in predictMeans
-ggplot(data=predictMeans) +
-  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=12),
-        axis.text=element_text(family = "serif", size=14)) +
-  
-  geom_point(mapping=aes(x=response, y=fit), size=2.5, shape=1, colour=mycolours[1], alpha=0.5) +
-  
-  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
-  
-  scale_x_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 9)) +
-  scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 9)) +
-  
-  labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance")
-
-
-model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl [-12:13]",
-                                                                "UASEvents [all]"),
-                                             margin='marginalmeans', type='fixed', 
-                                            vcov=vcov(model1, type="bias-corrected"))
-
-
-p1 <- ggplot(data=model1predictEvt) +
-              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
-                    axis.text=element_text(family = "serif", size=14)) +
-              
-              geom_point(data=stimDataNoAmb, aes(x=UASLAEMaxLRScl, y=dAnnoyMean, colour=factor(UASEvents), shape=factor(UASEvents)),
-                         alpha=0.35, size=2) +
-              
-              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.1) +
-              
-              geom_line(aes(x=x, y=predicted, colour=group), linewidth=1) +
-              
-              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_shape_manual(values=c(4, 5, 7, 8)) +
-              
-              guides(colour=guide_legend(title="UAS events", reverse=TRUE),
-                     fill=guide_legend(title="UAS events", reverse=TRUE),
-                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
-            
-              
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
-              scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-2, 8)) +
-              
-              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
-
-p1
-
-
-
-```
-
-### include impulsiveness, omit fluctuation strength
-
-```{r}
-
-model1 <- mABISxTnLAE1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl + I(UASEvents^-1) +
-                                                         UASImpulsSHMAvgMaxLR +
+model1 <- mABSxTnLAEx1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl*I(UASEvents^-1) +
                                                         UASTonLdECMAPowAvgBin*UASSharpAurISO305ExMaxLR +
-                                                        TrialNumberCntScl,
+                                                        TrialNumberScl,
                                                         data=subjDataNoAmb,
                                                         family=gaussian(link='identity'),
                                                         id=ID.,
@@ -3699,13 +3553,11 @@ model1 <- mABISxTnLAE1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
 geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
 
-geeModelPerformance(mABFxIRxSxTnxFLAE1_QSq.GEE,
-                    mABFxISxTnxFLAE1_QSq.GEE, mABFSxTnxFLAE1_QSq.GEE,
-                    mABISxTnLAE1_QSq.GEE)
+geeModelPerformance(mABISxTnLAEx1_QSq.GEE, mABSxTnLAEx1_QSq.GEE)
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
 ggplot(data=predictMeans) +
@@ -3764,12 +3616,9 @@ p1
 
 ```{r}
 
-model1 <- mABISTnLAE1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl +
-                                                        I(UASEvents^-1) +
-                                                      UASImpulsSHMAvgMaxLR +
-                                                      UASSharpAurISO305ExMaxLR +
-                                                        UASTonLdECMAPowAvgBin +
-                                                      TrialNumberCntScl,
+model1 <- mABSTnLAEx1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl*I(UASEvents^-1) +
+                                                      UASTonLdECMAPowAvgBin + UASSharpAurISO305ExMaxLR +
+                                                      TrialNumberScl,
                                                       data=subjDataNoAmb,
                                                       family=gaussian(link='identity'),
                                                       id=ID.,
@@ -3778,13 +3627,11 @@ model1 <- mABISTnLAE1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
 geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
 
-geeModelPerformance(mABFxIRxSxTnxFLAE1_QSq.GEE,
-                    mABFxISxTnxFLAE1_QSq.GEE, mABFSxTnxFLAE1_QSq.GEE,
-                    mABISxTnLAE1_QSq.GEE, mABISTnLAE1_QSq.GEE)
+geeModelPerformance(mABISxTnLAEx1_QSq.GEE, mABSxTnLAEx1_QSq.GEE, mABSTnLAEx1_QSq.GEE)
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
 ggplot(data=predictMeans) +
@@ -3827,84 +3674,6 @@ p1 <- ggplot(data=model1predictEvt) +
                      shape=guide_legend(title="UAS events", reverse=TRUE)) +
             
               
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
-              scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-2, 8)) +
-              
-              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
-
-p1
-
-
-
-```
-
-### include sharpness-tonal loudness interaction, add LAE-events interaction
-
-```{r}
-
-model1 <- mABISxTnLAEx1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl*I(UASEvents^-1) +
-                                                      UASImpulsSHMAvgMaxLR +
-                                                      UASSharpAurISO305ExMaxLR*UASTonLdECMAPowAvgBin +
-                                                      TrialNumberCntScl,
-                                                      data=subjDataNoAmb,
-                                                      family=gaussian(link='identity'),
-                                                      id=ID.,
-                                                      corstr='exchangeable')
-
-geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
-geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
-
-geeModelPerformance(mABFxIRxSxTnxFLAE1_QSq.GEE,
-                    mABFxISxTnxFLAE1_QSq.GEE, mABFSxTnxFLAE1_QSq.GEE,
-                    mABISxTnLAE1_QSq.GEE, mABISTnLAE1_QSq.GEE,
-                    mABISxTnLAEx1_QSq.GEE)
-
-predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
-                           response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
-
-# using ggplot, plot the predicted fit against the responses in predictMeans
-ggplot(data=predictMeans) +
-  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=12),
-        axis.text=element_text(family = "serif", size=14)) +
-  
-  geom_point(mapping=aes(x=response, y=fit), size=2.5, shape=1, colour=mycolours[1], alpha=0.5) +
-  
-  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
-  
-  scale_x_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 9)) +
-  scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 9)) +
-  
-  labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance")
-
-
-model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl [-12:13]",
-                                                                "UASEvents [all]"),
-                                             margin='marginalmeans', type='fixed', 
-                                            vcov=vcov(model1, type="bias-corrected"))
-
-
-p1 <- ggplot(data=model1predictEvt) +
-              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
-                    axis.text=element_text(family = "serif", size=14)) +
-              
-              geom_point(data=stimDataNoAmb, aes(x=UASLAEMaxLRScl, y=dAnnoyMean, colour=factor(UASEvents), shape=factor(UASEvents)),
-                         alpha=0.35, size=2) +
-              
-              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.1) +
-              
-              geom_line(aes(x=x, y=predicted, colour=group), linewidth=1) +
-              
-              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_shape_manual(values=c(4, 5, 7, 8)) +
-              
-              guides(colour=guide_legend(title="UAS events", reverse=TRUE),
-                     fill=guide_legend(title="UAS events", reverse=TRUE),
-                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
-            
-              #scale_x_continuous(breaks=seq(55, 80, by=5)) +
               rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
                              stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
               scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-2, 8)) +
@@ -3922,26 +3691,23 @@ p1
 ```{r}
 
 model1 <- mABISxTnNx1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLoudECMAPowAvgBin*I(UASEvents^-1) +
-                                                      UASImpulsSHMAvgMaxLR +
-                                                      UASSharpAurISO305ExMaxLR*UASTonLdECMAPowAvgBin +
-                                                      TrialNumberCntScl,
-                                                      data=subjDataNoAmb,
-                                                      family=gaussian(link='identity'),
-                                                      id=ID.,
-                                                      corstr='exchangeable')
+                                                        UASTonLdECMAPowAvgBin*UASSharpAurISO305ExMaxLR +
+                                                        UASImpulsSHMAvgMaxLR +
+                                                        TrialNumberScl,
+                                                        data=subjDataNoAmb,
+                                                        family=gaussian(link='identity'),
+                                                        id=ID.,
+                                                        corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
 geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
 
-geeModelPerformance(mABFxIRxSxTnxFLAE1_QSq.GEE,
-                    mABFxISxTnxFLAE1_QSq.GEE, mABFSxTnxFLAE1_QSq.GEE,
-                    mABISxTnLAE1_QSq.GEE, mABISTnLAE1_QSq.GEE,
-                    mABISxTnLAEx1_QSq.GEE, mABISxTnNx1_QSq.GEE)
-
+geeModelPerformance(mABISxTnLAEx1_QSq.GEE, mABSxTnLAEx1_QSq.GEE, mABSTnLAEx1_QSq.GEE,
+                    mABISxTnNx1_QSq.GEE)
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
 ggplot(data=predictMeans) +
@@ -3998,7 +3764,7 @@ p1
 ```{r}
 
 model1 <- mABLAEx1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl*I(UASEvents^-1) +
-                                                      TrialNumberCntScl,
+                                                      TrialNumberScl,
                                                       data=subjDataNoAmb,
                                                       family=gaussian(link='identity'),
                                                       id=ID.,
@@ -4007,14 +3773,12 @@ model1 <- mABLAEx1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl*I(U
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
 geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
 
-geeModelPerformance(mABFxIRxSxTnxFLAE1_QSq.GEE,
-                    mABFxISxTnxFLAE1_QSq.GEE, mABFSxTnxFLAE1_QSq.GEE,
-                    mABISxTnLAE1_QSq.GEE, mABISTnLAE1_QSq.GEE,
-                    mABISxTnLAEx1_QSq.GEE, mABISxTnNx1_QSq.GEE, mABLAEx1_QSq.GEE)
+geeModelPerformance(mABISxTnLAEx1_QSq.GEE, mABSxTnLAEx1_QSq.GEE, mABSTnLAEx1_QSq.GEE,
+                    mABISxTnNx1_QSq.GEE, mABLAEx1_QSq.GEE)
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
 ggplot(data=predictMeans) +
@@ -4073,26 +3837,25 @@ p1
 ```{r}
 
 model1 <- mABISxTLAEx1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl*I(UASEvents^-1) +
-                                                     UASImpulsSHMAvgMaxLR +
-                                                     UASSharpAurISO305ExMaxLR*UASTonalSHMInt05ExMaxLR +
-                                                     TrialNumberCntScl,
-                                                    data=subjDataNoAmb,
-                                                    family=gaussian(link='identity'),
-                                                    id=ID.,
-                                                    corstr='exchangeable')
+                                                        UASTonalSHMInt05ExMaxLR*UASSharpAurISO305ExMaxLR +
+                                                        UASImpulsSHMAvgMaxLR +
+                                                        TrialNumberScl,
+                                                        data=subjDataNoAmb,
+                                                        family=gaussian(link='identity'),
+                                                        id=ID.,
+                                                        corstr='exchangeable')
+
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
 geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
 
-geeModelPerformance(mABFxIRxSxTnxFLAE1_QSq.GEE,
-                    mABFxISxTnxFLAE1_QSq.GEE, mABFSxTnxFLAE1_QSq.GEE,
-                    mABISxTnLAE1_QSq.GEE, mABISTnLAE1_QSq.GEE,
-                    mABISxTnLAEx1_QSq.GEE, mABISxTnNx1_QSq.GEE, mABLAEx1_QSq.GEE,
+geeModelPerformance(mABISxTnLAEx1_QSq.GEE, mABSxTnLAEx1_QSq.GEE, mABSTnLAEx1_QSq.GEE,
+                    mABISxTnNx1_QSq.GEE, mABLAEx1_QSq.GEE,
                     mABISxTLAEx1_QSq.GEE)
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
 ggplot(data=predictMeans) +
@@ -4231,14 +3994,15 @@ p1 + p2 + p3
 for (corstr in c("Exchangeable", "AR-M-dependent(1)", "Stationary-M-dependent(1)",
                  "Independence")){
   modelMax <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl*I(UASEvents^-1) +
-                                 UASImpulsSHMAvgMaxLR +
-                                 UASSharpAurISO305ExMaxLR*UASTonLdECMAPowAvgBin +
-                                 TrialNumberCntScl,
-                                 data=subjDataNoAmb,
-                                 family=gaussian(link='identity'),
-                                 id=ID.,
-                                 corstr=corstr)
+                                UASTonLdECMAPowAvgBin*UASSharpAurISO305ExMaxLR +
+                                UASImpulsSHMAvgMaxLR +
+                                TrialNumberScl,
+                                data=subjDataNoAmb,
+                                family=gaussian(link='identity'),
+                                id=ID.,
+                                corstr=corstr)
   print(corstr)
+  
   
   geeModelPerformance(modelMax, verbose=TRUE)
 
@@ -4251,13 +4015,13 @@ for (corstr in c("Exchangeable", "AR-M-dependent(1)", "Stationary-M-dependent(1)
 ```{r}
 
 model1 <- mABISxTnLAEx1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl*I(UASEvents^-1) +
-                                                     UASImpulsSHMAvgMaxLR +
-                                                     UASSharpAurISO305ExMaxLR*UASTonLdECMAPowAvgBin +
-                                                     TrialNumberCntScl,
-                                                    data=subjDataNoAmb,
-                                                    family=gaussian(link='identity'),
-                                                    id=ID.,
-                                                    corstr='exchangeable')
+                                                      UASTonLdECMAPowAvgBin*UASSharpAurISO305ExMaxLR +
+                                                      UASImpulsSHMAvgMaxLR +
+                                                      TrialNumberScl,
+                                                      data=subjDataNoAmb,
+                                                      family=gaussian(link='identity'),
+                                                      id=ID.,
+                                                      corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
 geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -4266,7 +4030,7 @@ geeModelPerformance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABISxTnLAEx1_QSq.GEE)
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
 ggplot(data=predictMeans) +
@@ -4419,7 +4183,7 @@ for (corstr in c("Exchangeable", "AR-M-dependent(1)", "Stationary-M-dependent(1)
                                  AmbientEnv:UASRoughFZ05ExMaxLR +
                                  AmbientEnv:UASSharpAurISO305ExMaxLR +
                                  AmbientEnv:UASTonLdECMAPowAvgBin +
-                                 TrialNumberCntScl,
+                                 TrialNumberScl,
                                  maxit=2e3,
                                  data=subjDataNoAmb,
                                  family=gaussian(link='identity'),
@@ -4446,7 +4210,7 @@ modelMax <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl*I(UASEvents^-1) +
                                  AmbientEnv:UASRoughFZ05ExMaxLR +
                                  AmbientEnv:UASSharpAurISO305ExMaxLR +
                                  AmbientEnv:UASTonLdECMAPowAvgBin +
-                                 TrialNumberCntScl,
+                                 TrialNumberScl,
                               data=subjDataNoAmb,
                               family=gaussian(link='identity'),
                               id=ID.,
@@ -4473,7 +4237,7 @@ model1 <- mABISxTnxEnvLAE1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxL
                                                       UASImpulsSHMAvgMaxLR +
                                                       UASSharpAurISO305ExMaxLR*UASTonLdECMAPowAvgBin +
                                                       AmbientEnv*UASTonLdECMAPowAvgBin +
-                                                      TrialNumberCntScl,
+                                                      TrialNumberScl,
                                                       data=subjDataNoAmb,
                                                       family=gaussian(link='identity'),
                                                       id=ID.,
@@ -4486,7 +4250,7 @@ geeModelPerformance(mABISxTnLAEx1_QSq.GEE, mABISxTnxEnvLAE1_QSq.GEE)
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
 ggplot(data=predictMeans) +
@@ -4618,36 +4382,35 @@ p1 + p2 + p3
 p4 <- ggplot(data=model1predictEnvSxTn) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
-  
+
               geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.03) +
-              
+
               geom_line(aes(x=x, y=predicted, colour=group), alpha=0.5, linewidth=1) +
-              
+
               scale_color_viridis(option='mako', direction=-1, discrete=TRUE, begin = 0.2, end = 0.8) +
               scale_fill_viridis(option='mako', direction=-1, discrete=TRUE, begin = 0.2, end = 0.8) +
               scale_shape_manual(values=c(4, 5, 7, 8)) +
-              
+
               guides(colour=guide_legend(title=expression(paste(italic(T)[N]^"*"~","~sone[SHM])), reverse=TRUE),
                      fill=guide_legend(title=expression(paste(italic(T)[N]^"*"~","~sone[SHM])), reverse=TRUE),
                      shape=guide_legend(title="UAS events", reverse=TRUE)) +
               ggnewscale::new_scale_color() +
-              
+
               geom_point(data=stimDataNoAmbTemp,
                          aes(x=UASSharpAurISO305ExMaxLR, y=dAnnoyMean,
                              colour=UASTonLdECMAPowAvgBin, shape=factor(UASEvents)),
                          alpha=0.35, size=2) +
-  
+
               scale_color_viridis(option='mako', direction=-1, discrete=FALSE, begin = 0.2, end = 0.8) +
-  
+
               guides(colour=guide_legend(title=expression(paste(italic(T)[N]^"*"~","~sone[SHM])), reverse=TRUE)) +
-  
-            
+
               scale_x_continuous(breaks=seq(0, 4, by=0.4),
-                                 sec.axis=sec_axis(~ . ,
-                                                   name=expression(paste(UAS~italic(L)[AE]~","~dB)),
-                                                   breaks = NULL, labels = NULL)) +
+                                 sec.axis=dup_axis(name = expression(paste(UAS~italic(L)[AE], ",", ~dB)),
+                                 breaks=NULL, labels=NULL)) +
+  
               scale_y_continuous(breaks=seq(-3, 10, by=1)) +
-              
+
               labs(x=expression(paste(UAS~italic(S)["5"],",",~acum[A~"|"~`M-G-S`])), y="Mean change in annoyance") +
               facet_grid(AmbientEnv ~ UASLAEMaxLRSclRnd,
                          labeller=labeller(UASLAEMaxLRSclRnd=facetLabels))
@@ -22302,7 +22065,7 @@ for (corstr in c("Exchangeable", "AR-M-dependent(1)", "Stationary-M-dependent(1)
                                     UASDisc0p5LAEMaxLRScl*UASImpulsSHMPowAvgMaxLR +
                                     UASDisc0p5LAEMaxLRScl*UASSharpAurSHM05ExMaxLR +
                                     UASDisc0p5LAEMaxLRScl*UASTonLdECMAPowAvgBin +
-                                 UASDisc0p5LAEMaxLRScl*IntermitRatioMaxLRScl +
+                                 UASDisc0p5LAEMaxLRScl*IntermitRatioC3MaxLRScl +
                                    TrialNumberCntScl,
                                  data=subjDataNoAmb, family=binomial(link='logit'),
                                  id=ID., corstr=corstr)
@@ -22324,7 +22087,7 @@ modelMax <- glmtoolbox::glmgee(dHighAnnoy ~ UASDisc0p5LAEMaxLRScl*I(log10(UASEve
                                     UASDisc0p5LAEMaxLRScl*UASImpulsSHMPowAvgMaxLR +
                                     UASDisc0p5LAEMaxLRScl*UASSharpAurSHM05ExMaxLR +
                                     UASDisc0p5LAEMaxLRScl*UASTonLdECMAPowAvgBin +
-                                 UASDisc0p5LAEMaxLRScl*IntermitRatioMaxLRScl +
+                                 UASDisc0p5LAEMaxLRScl*IntermitRatioC3MaxLRScl +
                                    TrialNumberCntScl,
                               data=subjDataNoAmb,
                               family=binomial(link='logit'),
@@ -22354,7 +22117,7 @@ model1 <- mABdHIrxDLAE5xISxTnxDLAE5xlgQSq.GEE <- glmtoolbox::glmgee(dHighAnnoy ~
                                                       UASDisc0p5LAEMaxLRScl*UASImpulsSHMPowAvgMaxLR +
                                                       UASDisc0p5LAEMaxLRScl*UASSharpAurSHM05ExMaxLR +
                                                       UASDisc0p5LAEMaxLRScl*UASTonLdECMAPowAvgBin +
-                                                   UASDisc0p5LAEMaxLRScl*IntermitRatioMaxLRScl +
+                                                   UASDisc0p5LAEMaxLRScl*IntermitRatioC3MaxLRScl +
                                                      TrialNumberCntScl,
                                               data=subjDataNoAmb,
                                               family=binomial(link='logit'),
@@ -22386,18 +22149,18 @@ ggplot(data=predictProbs) +
 
 
 model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASDisc0p5LAEMaxLRScl [all]",
-                                                                "IntermitRatioMaxLRScl [0:0.9, by=0.3]"),
+                                                                "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictDLxTn <- ggeffects::predict_response(model1, terms=c("UASDisc0p5LAEMaxLRScl [all]",
                                                                  "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
-                                                                 "IntermitRatioMaxLRScl [0.5]"),
+                                                                 "IntermitRatioC3MaxLRScl [0.5]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictTnxIr <- ggeffects::predict_response(model1, terms=c("UASTonLdECMAPowAvgBin [all]",
-                                                                 "IntermitRatioMaxLRScl [0:0.9, by=0.3]",
+                                                                 "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
@@ -22421,7 +22184,7 @@ p1 <- ggplot(data=model1predictEvt) +
               ggnewscale::new_scale_colour() +
             
               geom_point(data=stimDataNoAmb, aes(x=UASDisc0p5LAEMaxLRScl, y=dHighAnnoyProp,
-                                                 colour=IntermitRatioMaxLRScl, shape=factor(UASEvents)),
+                                                 colour=IntermitRatioC3MaxLRScl, shape=factor(UASEvents)),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='viridis', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -22480,7 +22243,7 @@ p3 <- ggplot(data=model1predictTnxIr) +
   
               ggnewscale::new_scale_color() +
               
-              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioMaxLRScl),
+              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioC3MaxLRScl),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -22503,7 +22266,7 @@ p1 + p2 + p3
 model1 <- mABdHIrxDLAE5xISxTnDLAE5xlgQSq.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ UASDisc0p5LAEMaxLRScl*I(log10(UASEvents)) +
                                                      UASTonLdECMAPowAvgBin*UASSharpAurSHM05ExMaxLR +
                                                       UASDisc0p5LAEMaxLRScl*UASImpulsSHMPowAvgMaxLR +
-                                                   UASDisc0p5LAEMaxLRScl*IntermitRatioMaxLRScl +
+                                                   UASDisc0p5LAEMaxLRScl*IntermitRatioC3MaxLRScl +
                                                      TrialNumberCntScl,
                                               data=subjDataNoAmb,
                                               family=binomial(link='logit'),
@@ -22536,18 +22299,18 @@ ggplot(data=predictProbs) +
 
 
 model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASDisc0p5LAEMaxLRScl [all]",
-                                                                "IntermitRatioMaxLRScl [0:0.9, by=0.3]"),
+                                                                "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictDLxTn <- ggeffects::predict_response(model1, terms=c("UASDisc0p5LAEMaxLRScl [all]",
                                                                  "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
-                                                                 "IntermitRatioMaxLRScl [0.5]"),
+                                                                 "IntermitRatioC3MaxLRScl [0.5]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictTnxIr <- ggeffects::predict_response(model1, terms=c("UASTonLdECMAPowAvgBin [all]",
-                                                                 "IntermitRatioMaxLRScl [0:0.9, by=0.3]",
+                                                                 "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
@@ -22571,7 +22334,7 @@ p1 <- ggplot(data=model1predictEvt) +
               ggnewscale::new_scale_colour() +
             
               geom_point(data=stimDataNoAmb, aes(x=UASDisc0p5LAEMaxLRScl, y=dHighAnnoyProp,
-                                                 colour=IntermitRatioMaxLRScl, shape=factor(UASEvents)),
+                                                 colour=IntermitRatioC3MaxLRScl, shape=factor(UASEvents)),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='viridis', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -22630,7 +22393,7 @@ p3 <- ggplot(data=model1predictTnxIr) +
   
               ggnewscale::new_scale_color() +
               
-              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioMaxLRScl),
+              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioC3MaxLRScl),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -22652,7 +22415,7 @@ p1 + p2 + p3
 model1 <- mABdHDLAE5ISxTnDLAE5xIrlgQSq.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ I(log10(UASEvents)) +
                                                      UASTonLdECMAPowAvgBin*UASSharpAurSHM05ExMaxLR +
                                                       UASImpulsSHMPowAvgMaxLR +
-                                                   UASDisc0p5LAEMaxLRScl*IntermitRatioMaxLRScl +
+                                                   UASDisc0p5LAEMaxLRScl*IntermitRatioC3MaxLRScl +
                                                      TrialNumberCntScl,
                                               data=subjDataNoAmb,
                                               family=binomial(link='logit'),
@@ -22686,18 +22449,18 @@ ggplot(data=predictProbs) +
 
 
 model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASDisc0p5LAEMaxLRScl [all]",
-                                                                "IntermitRatioMaxLRScl [0:0.9, by=0.3]"),
+                                                                "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictDLxTn <- ggeffects::predict_response(model1, terms=c("UASDisc0p5LAEMaxLRScl [all]",
                                                                  "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
-                                                                 "IntermitRatioMaxLRScl [0.5]"),
+                                                                 "IntermitRatioC3MaxLRScl [0.5]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictTnxIr <- ggeffects::predict_response(model1, terms=c("UASTonLdECMAPowAvgBin [all]",
-                                                                 "IntermitRatioMaxLRScl [0:0.9, by=0.3]",
+                                                                 "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
@@ -22721,7 +22484,7 @@ p1 <- ggplot(data=model1predictEvt) +
               ggnewscale::new_scale_colour() +
             
               geom_point(data=stimDataNoAmb, aes(x=UASDisc0p5LAEMaxLRScl, y=dHighAnnoyProp,
-                                                 colour=IntermitRatioMaxLRScl, shape=factor(UASEvents)),
+                                                 colour=IntermitRatioC3MaxLRScl, shape=factor(UASEvents)),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='viridis', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -22780,7 +22543,7 @@ p3 <- ggplot(data=model1predictTnxIr) +
   
               ggnewscale::new_scale_color() +
               
-              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioMaxLRScl),
+              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioC3MaxLRScl),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -22802,7 +22565,7 @@ model1 <- mABdHDLAE5ISTnDLAE5xIrlgQSq.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ I(l
                                                      UASTonLdECMAPowAvgBin +
                                                        UASSharpAurSHM05ExMaxLR +
                                                       UASImpulsSHMPowAvgMaxLR +
-                                                   UASDisc0p5LAEMaxLRScl*IntermitRatioMaxLRScl +
+                                                   UASDisc0p5LAEMaxLRScl*IntermitRatioC3MaxLRScl +
                                                      TrialNumberCntScl,
                                               data=subjDataNoAmb,
                                               family=binomial(link='logit'),
@@ -22837,18 +22600,18 @@ ggplot(data=predictProbs) +
 
 
 model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASDisc0p5LAEMaxLRScl [all]",
-                                                                "IntermitRatioMaxLRScl [0:0.9, by=0.3]"),
+                                                                "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictDLxTn <- ggeffects::predict_response(model1, terms=c("UASDisc0p5LAEMaxLRScl [all]",
                                                                  "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
-                                                                 "IntermitRatioMaxLRScl [0.5]"),
+                                                                 "IntermitRatioC3MaxLRScl [0.5]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictTnxIr <- ggeffects::predict_response(model1, terms=c("UASTonLdECMAPowAvgBin [all]",
-                                                                 "IntermitRatioMaxLRScl [0:0.9, by=0.3]",
+                                                                 "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
@@ -22872,7 +22635,7 @@ p1 <- ggplot(data=model1predictEvt) +
               ggnewscale::new_scale_colour() +
             
               geom_point(data=stimDataNoAmb, aes(x=UASDisc0p5LAEMaxLRScl, y=dHighAnnoyProp,
-                                                 colour=IntermitRatioMaxLRScl, shape=factor(UASEvents)),
+                                                 colour=IntermitRatioC3MaxLRScl, shape=factor(UASEvents)),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='viridis', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -22931,7 +22694,7 @@ p3 <- ggplot(data=model1predictTnxIr) +
   
               ggnewscale::new_scale_color() +
               
-              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioMaxLRScl),
+              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioC3MaxLRScl),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -22955,7 +22718,7 @@ model1 <- mABdHDLAE5xSITnDLAE5xIrlgQ.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ I(lo
                                                      UASTonLdECMAPowAvgBin +
                                                        UASDisc0p5LAEMaxLRScl*UASSharpAurSHM05ExMaxLR +
                                                       UASImpulsSHMPowAvgMaxLR +
-                                                   UASDisc0p5LAEMaxLRScl*IntermitRatioMaxLRScl,
+                                                   UASDisc0p5LAEMaxLRScl*IntermitRatioC3MaxLRScl,
                                               data=subjDataNoAmb,
                                               family=binomial(link='logit'),
                                               id=ID.,
@@ -22989,18 +22752,18 @@ ggplot(data=predictProbs) +
 
 
 model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASDisc0p5LAEMaxLRScl [all]",
-                                                                "IntermitRatioMaxLRScl [0:0.9, by=0.3]"),
+                                                                "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictDLxTn <- ggeffects::predict_response(model1, terms=c("UASDisc0p5LAEMaxLRScl [all]",
                                                                  "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
-                                                                 "IntermitRatioMaxLRScl [0.5]"),
+                                                                 "IntermitRatioC3MaxLRScl [0.5]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictTnxIr <- ggeffects::predict_response(model1, terms=c("UASTonLdECMAPowAvgBin [all]",
-                                                                 "IntermitRatioMaxLRScl [0:0.9, by=0.3]",
+                                                                 "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
@@ -23024,7 +22787,7 @@ p1 <- ggplot(data=model1predictEvt) +
               ggnewscale::new_scale_colour() +
             
               geom_point(data=stimDataNoAmb, aes(x=UASDisc0p5LAEMaxLRScl, y=dHighAnnoyProp,
-                                                 colour=IntermitRatioMaxLRScl, shape=factor(UASEvents)),
+                                                 colour=IntermitRatioC3MaxLRScl, shape=factor(UASEvents)),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='viridis', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -23083,7 +22846,7 @@ p3 <- ggplot(data=model1predictTnxIr) +
   
               ggnewscale::new_scale_color() +
               
-              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioMaxLRScl),
+              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioC3MaxLRScl),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -23117,7 +22880,7 @@ model1 <- mABdHDLAE5xSTnDLAE5IrlgQ.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ I(log1
                                                      UASTonLdECMAPowAvgBin +
                                                        UASDisc0p5LAEMaxLRScl*UASSharpAurSHM05ExMaxLR +
                                                    UASDisc0p5LAEMaxLRScl +
-                                                     IntermitRatioMaxLRScl,
+                                                     IntermitRatioC3MaxLRScl,
                                               data=subjDataNoAmb,
                                               family=binomial(link='logit'),
                                               id=ID.,
@@ -23152,18 +22915,18 @@ ggplot(data=predictProbs) +
 
 
 model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASDisc0p5LAEMaxLRScl [all]",
-                                                                "IntermitRatioMaxLRScl [0:0.9, by=0.3]"),
+                                                                "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictDLxTn <- ggeffects::predict_response(model1, terms=c("UASDisc0p5LAEMaxLRScl [all]",
                                                                  "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
-                                                                 "IntermitRatioMaxLRScl [0.5]"),
+                                                                 "IntermitRatioC3MaxLRScl [0.5]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictTnxIr <- ggeffects::predict_response(model1, terms=c("UASTonLdECMAPowAvgBin [all]",
-                                                                 "IntermitRatioMaxLRScl [0:0.9, by=0.3]",
+                                                                 "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
@@ -23187,7 +22950,7 @@ p1 <- ggplot(data=model1predictEvt) +
               ggnewscale::new_scale_colour() +
             
               geom_point(data=stimDataNoAmb, aes(x=UASDisc0p5LAEMaxLRScl, y=dHighAnnoyProp,
-                                                 colour=IntermitRatioMaxLRScl, shape=factor(UASEvents)),
+                                                 colour=IntermitRatioC3MaxLRScl, shape=factor(UASEvents)),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='viridis', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -23246,7 +23009,7 @@ p3 <- ggplot(data=model1predictTnxIr) +
   
               ggnewscale::new_scale_color() +
               
-              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioMaxLRScl),
+              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioC3MaxLRScl),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -23269,7 +23032,7 @@ model1 <- mABdHDt1ixSTnDt1i2IrlgQ.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ I(log10
                                                      UASTonLdECMAPowAvgBin +
                                                        Detect0p1IntMaxLRLogScl*UASSharpAurSHM05ExMaxLR +
                                                    I(Detect0p1IntMaxLRLogScl^2) +
-                                                     IntermitRatioMaxLRScl,
+                                                     IntermitRatioC3MaxLRScl,
                                               data=subjDataNoAmb,
                                               family=binomial(link='logit'),
                                               id=ID.,
@@ -23304,18 +23067,18 @@ ggplot(data=predictProbs) +
 
 
 model1predictEvt <- ggeffects::predict_response(model1, terms=c("Detect0p1IntMaxLRLogScl [all]",
-                                                                "IntermitRatioMaxLRScl [0:0.9, by=0.3]"),
+                                                                "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictDLxTn <- ggeffects::predict_response(model1, terms=c("Detect0p1IntMaxLRLogScl [all]",
                                                                  "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
-                                                                 "IntermitRatioMaxLRScl [0.5]"),
+                                                                 "IntermitRatioC3MaxLRScl [0.5]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictTnxIr <- ggeffects::predict_response(model1, terms=c("UASTonLdECMAPowAvgBin [all]",
-                                                                 "IntermitRatioMaxLRScl [0:0.9, by=0.3]",
+                                                                 "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
@@ -23339,7 +23102,7 @@ p1 <- ggplot(data=model1predictEvt) +
               ggnewscale::new_scale_colour() +
             
               geom_point(data=stimDataNoAmb, aes(x=Detect0p1IntMaxLRLogScl, y=dHighAnnoyProp,
-                                                 colour=IntermitRatioMaxLRScl, shape=factor(UASEvents)),
+                                                 colour=IntermitRatioC3MaxLRScl, shape=factor(UASEvents)),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='viridis', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -23398,7 +23161,7 @@ p3 <- ggplot(data=model1predictTnxIr) +
   
               ggnewscale::new_scale_color() +
               
-              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioMaxLRScl),
+              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioC3MaxLRScl),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -23421,7 +23184,7 @@ model1 <- mABdHDt5ixSTnDt5i2IrlgQ.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ I(log10
                                                      UASTonLdECMAPowAvgBin +
                                                        Detect0p5IntMaxLRLogScl*UASSharpAurSHM05ExMaxLR +
                                                    I(Detect0p5IntMaxLRLogScl^2) +
-                                                     IntermitRatioMaxLRScl,
+                                                     IntermitRatioC3MaxLRScl,
                                               data=subjDataNoAmb,
                                               family=binomial(link='logit'),
                                               id=ID.,
@@ -23457,18 +23220,18 @@ ggplot(data=predictProbs) +
 
 
 model1predictEvt <- ggeffects::predict_response(model1, terms=c("Detect0p5IntMaxLRLogScl [all]",
-                                                                "IntermitRatioMaxLRScl [0:0.9, by=0.3]"),
+                                                                "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictDLxTn <- ggeffects::predict_response(model1, terms=c("Detect0p5IntMaxLRLogScl [all]",
                                                                  "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
-                                                                 "IntermitRatioMaxLRScl [0.5]"),
+                                                                 "IntermitRatioC3MaxLRScl [0.5]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictTnxIr <- ggeffects::predict_response(model1, terms=c("UASTonLdECMAPowAvgBin [all]",
-                                                                 "IntermitRatioMaxLRScl [0:0.9, by=0.3]",
+                                                                 "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
@@ -23492,7 +23255,7 @@ p1 <- ggplot(data=model1predictEvt) +
               ggnewscale::new_scale_colour() +
             
               geom_point(data=stimDataNoAmb, aes(x=Detect0p5IntMaxLRLogScl, y=dHighAnnoyProp,
-                                                 colour=IntermitRatioMaxLRScl, shape=factor(UASEvents)),
+                                                 colour=IntermitRatioC3MaxLRScl, shape=factor(UASEvents)),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='viridis', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -23551,7 +23314,7 @@ p3 <- ggplot(data=model1predictTnxIr) +
   
               ggnewscale::new_scale_color() +
               
-              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioMaxLRScl),
+              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioC3MaxLRScl),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -23574,7 +23337,7 @@ model1 <- mABdHSxTnDt1i2IrlgQ.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ I(log10(UAS
                                                      Detect0p1IntMaxLRLogScl +
                                                        UASTonLdECMAPowAvgBin*UASSharpAurSHM05ExMaxLR +
                                                    I(Detect0p1IntMaxLRLogScl^2) +
-                                                     IntermitRatioMaxLRScl,
+                                                     IntermitRatioC3MaxLRScl,
                                               data=subjDataNoAmb,
                                               family=binomial(link='logit'),
                                               id=ID.,
@@ -23610,18 +23373,18 @@ ggplot(data=predictProbs) +
 
 
 model1predictEvt <- ggeffects::predict_response(model1, terms=c("Detect0p1IntMaxLRLogScl [all]",
-                                                                "IntermitRatioMaxLRScl [0:0.9, by=0.3]"),
+                                                                "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictDLxTn <- ggeffects::predict_response(model1, terms=c("Detect0p1IntMaxLRLogScl [all]",
                                                                  "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
-                                                                 "IntermitRatioMaxLRScl [0.5]"),
+                                                                 "IntermitRatioC3MaxLRScl [0.5]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictTnxIr <- ggeffects::predict_response(model1, terms=c("UASTonLdECMAPowAvgBin [all]",
-                                                                 "IntermitRatioMaxLRScl [0:0.9, by=0.3]",
+                                                                 "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
@@ -23645,7 +23408,7 @@ p1 <- ggplot(data=model1predictEvt) +
               ggnewscale::new_scale_colour() +
             
               geom_point(data=stimDataNoAmb, aes(x=Detect0p1IntMaxLRLogScl, y=dHighAnnoyProp,
-                                                 colour=IntermitRatioMaxLRScl, shape=factor(UASEvents)),
+                                                 colour=IntermitRatioC3MaxLRScl, shape=factor(UASEvents)),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='viridis', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -23704,7 +23467,7 @@ p3 <- ggplot(data=model1predictTnxIr) +
   
               ggnewscale::new_scale_color() +
               
-              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioMaxLRScl),
+              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioC3MaxLRScl),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -23728,7 +23491,7 @@ model1 <- mABdHISxTnDt1i2IrlgQ.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ I(log10(UA
                                                        UASTonLdECMAPowAvgBin*UASSharpAurSHM05ExMaxLR +
                                                    I(Detect0p1IntMaxLRLogScl^2) +
                                                      UASImpulsSHMPowAvgMaxLR +
-                                                     IntermitRatioMaxLRScl,
+                                                     IntermitRatioC3MaxLRScl,
                                               data=subjDataNoAmb,
                                               family=binomial(link='logit'),
                                               id=ID.,
@@ -23765,18 +23528,18 @@ ggplot(data=predictProbs) +
 
 
 model1predictEvt <- ggeffects::predict_response(model1, terms=c("Detect0p1IntMaxLRLogScl [all]",
-                                                                "IntermitRatioMaxLRScl [0:0.9, by=0.3]"),
+                                                                "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictDLxTn <- ggeffects::predict_response(model1, terms=c("Detect0p1IntMaxLRLogScl [all]",
                                                                  "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
-                                                                 "IntermitRatioMaxLRScl [0.5]"),
+                                                                 "IntermitRatioC3MaxLRScl [0.5]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictTnxIr <- ggeffects::predict_response(model1, terms=c("UASTonLdECMAPowAvgBin [all]",
-                                                                 "IntermitRatioMaxLRScl [0:0.9, by=0.3]",
+                                                                 "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
@@ -23800,7 +23563,7 @@ p1 <- ggplot(data=model1predictEvt) +
               ggnewscale::new_scale_colour() +
             
               geom_point(data=stimDataNoAmb, aes(x=Detect0p1IntMaxLRLogScl, y=dHighAnnoyProp,
-                                                 colour=IntermitRatioMaxLRScl, shape=factor(UASEvents)),
+                                                 colour=IntermitRatioC3MaxLRScl, shape=factor(UASEvents)),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='viridis', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -23859,7 +23622,7 @@ p3 <- ggplot(data=model1predictTnxIr) +
   
               ggnewscale::new_scale_color() +
               
-              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioMaxLRScl),
+              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioC3MaxLRScl),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -23882,7 +23645,7 @@ model1 <- mABdHSxTnDt1i2IrlgQSq.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ I(log10(U
                                                      Detect0p1IntMaxLRLogScl +
                                                        UASTonLdECMAPowAvgBin*UASSharpAurSHM05ExMaxLR +
                                                    I(Detect0p1IntMaxLRLogScl^2) +
-                                                     IntermitRatioMaxLRScl +
+                                                     IntermitRatioC3MaxLRScl +
                                                      TrialNumberCntScl,
                                               data=subjDataNoAmb,
                                               family=binomial(link='logit'),
@@ -23920,18 +23683,18 @@ ggplot(data=predictProbs) +
 
 
 model1predictEvt <- ggeffects::predict_response(model1, terms=c("Detect0p1IntMaxLRLogScl [all]",
-                                                                "IntermitRatioMaxLRScl [0:0.9, by=0.3]"),
+                                                                "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictDLxTn <- ggeffects::predict_response(model1, terms=c("Detect0p1IntMaxLRLogScl [all]",
                                                                  "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
-                                                                 "IntermitRatioMaxLRScl [0.5]"),
+                                                                 "IntermitRatioC3MaxLRScl [0.5]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictTnxIr <- ggeffects::predict_response(model1, terms=c("UASTonLdECMAPowAvgBin [all]",
-                                                                 "IntermitRatioMaxLRScl [0:0.9, by=0.3]",
+                                                                 "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
@@ -23955,7 +23718,7 @@ p1 <- ggplot(data=model1predictEvt) +
               ggnewscale::new_scale_colour() +
             
               geom_point(data=stimDataNoAmb, aes(x=Detect0p1IntMaxLRLogScl, y=dHighAnnoyProp,
-                                                 colour=IntermitRatioMaxLRScl, shape=factor(UASEvents)),
+                                                 colour=IntermitRatioC3MaxLRScl, shape=factor(UASEvents)),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='viridis', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -24014,7 +23777,7 @@ p3 <- ggplot(data=model1predictTnxIr) +
   
               ggnewscale::new_scale_color() +
               
-              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioMaxLRScl),
+              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioC3MaxLRScl),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -24049,7 +23812,7 @@ for (corstr in c("Exchangeable", "AR-M-dependent(1)", "Stationary-M-dependent(1)
                                  Detect0p1IntMaxLRLogScl +
                                    UASTonLdECMAPowAvgBin*UASSharpAurSHM05ExMaxLR +
                                I(Detect0p1IntMaxLRLogScl^2) +
-                                 IntermitRatioMaxLRScl +
+                                 IntermitRatioC3MaxLRScl +
                                  TrialNumberCntScl,
                                   data=subjDataNoAmb,
                                   family=binomial(link='logit'),
@@ -24071,7 +23834,7 @@ model1 <- mABdHSxTnDt1i2IrlgQSq.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ I(log10(U
                                                      Detect0p1IntMaxLRLogScl +
                                                        UASTonLdECMAPowAvgBin*UASSharpAurSHM05ExMaxLR +
                                                    I(Detect0p1IntMaxLRLogScl^2) +
-                                                     IntermitRatioMaxLRScl +
+                                                     IntermitRatioC3MaxLRScl +
                                                      TrialNumberCntScl,
                                               data=subjDataNoAmb,
                                               family=binomial(link='logit'),
@@ -24105,25 +23868,25 @@ ggplot(data=predictProbs) +
 
 
 model1predictEvt <- ggeffects::predict_response(model1, terms=c("Detect0p1IntMaxLRLogScl [all]",
-                                                                "IntermitRatioMaxLRScl [0:0.9, by=0.3]"),
+                                                                "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictDLxTn <- ggeffects::predict_response(model1, terms=c("Detect0p1IntMaxLRLogScl [all]",
                                                                  "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
-                                                                 "IntermitRatioMaxLRScl [0.5]"),
+                                                                 "IntermitRatioC3MaxLRScl [0.5]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictTnxIr <- ggeffects::predict_response(model1, terms=c("UASTonLdECMAPowAvgBin [all]",
-                                                                 "IntermitRatioMaxLRScl [0:0.9, by=0.3]",
+                                                                 "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictSxTn <- ggeffects::predict_response(model1, terms=c("UASSharpAurSHM05ExMaxLR [all]",
                                                                  "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
-                                                                 "IntermitRatioMaxLRScl [0.5]"),
+                                                                 "IntermitRatioC3MaxLRScl [0.5]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
@@ -24146,7 +23909,7 @@ p1 <- ggplot(data=model1predictEvt) +
               ggnewscale::new_scale_colour() +
             
               geom_point(data=stimDataNoAmb, aes(x=Detect0p1IntMaxLRLogScl, y=dHighAnnoyProp,
-                                                 colour=IntermitRatioMaxLRScl, shape=factor(UASEvents)),
+                                                 colour=IntermitRatioC3MaxLRScl, shape=factor(UASEvents)),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='viridis', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -24205,7 +23968,7 @@ p3 <- ggplot(data=model1predictTnxIr) +
   
               ggnewscale::new_scale_color() +
               
-              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioMaxLRScl),
+              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=IntermitRatioC3MaxLRScl),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -24259,7 +24022,7 @@ for (corstr in c("Exchangeable", "AR-M-dependent(1)", "Stationary-M-dependent(1)
                  "Independence")){
   modelMax <- glmtoolbox::glmgee(dHighAnnoy ~ I(log10(UASEvents))*dSharpAurSHMPowAvgMaxLR +
                                    LAELAeqdiff*dSharpAurSHMPowAvgMaxLR +
-                                   IntermitRatioMaxLRScl +
+                                   IntermitRatioC3MaxLRScl +
                                    dSharpAurSHMPowAvgMaxLR*dTonalSHMIntAvgMaxLR +
                                    dRoughFZ05ExMaxLR*dFluctSHM10ExBin +
                                    dImpulsSHMAvgMaxLR +
@@ -24281,7 +24044,7 @@ for (corstr in c("Exchangeable", "AR-M-dependent(1)", "Stationary-M-dependent(1)
 
 modelMax <- glmtoolbox::glmgee(dHighAnnoy ~  I(log10(UASEvents))*dSharpAurSHMPowAvgMaxLR +
                                    LAELAeqdiff*dSharpAurSHMPowAvgMaxLR +
-                                   IntermitRatioMaxLRScl +
+                                   IntermitRatioC3MaxLRScl +
                                    dSharpAurSHMPowAvgMaxLR*dTonalSHMIntAvgMaxLR +
                                    dRoughFZ05ExMaxLR*dFluctSHM10ExBin +
                                    dImpulsSHMAvgMaxLR +
@@ -24311,7 +24074,7 @@ modelStep <- glmtoolbox::stepCriterion(model=modelMax,
 
 model1 <- mABdHdLAELAeqxdSxdTndFdI.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ 
                                                LAELAeqdiff*dSharpAurSHMPowAvgMaxLR +
-                                               IntermitRatioMaxLRScl +
+                                               IntermitRatioC3MaxLRScl +
                                                dSharpAurSHMPowAvgMaxLR*dTonalSHMIntAvgMaxLR +
                                                dFluctSHM10ExBin +
                                                dImpulsSHMAvgMaxLR,
@@ -24379,7 +24142,7 @@ p1
 
 model1 <- mABdHdLAELAeqdSxdTndFdI.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ 
                                                LAELAeqdiff +
-                                               IntermitRatioMaxLRScl +
+                                               IntermitRatioC3MaxLRScl +
                                                dSharpAurSHMPowAvgMaxLR*dTonalSHMIntAvgMaxLR +
                                                dFluctSHM10ExBin +
                                                dImpulsSHMAvgMaxLR,
@@ -24449,7 +24212,7 @@ p1
 
 model1 <- mABdHdLAELAeqdSxdTndRdI.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ 
                                                LAELAeqdiff +
-                                               IntermitRatioMaxLRScl +
+                                               IntermitRatioC3MaxLRScl +
                                                dSharpAurSHMPowAvgMaxLR*dTonalSHMIntAvgMaxLR +
                                                dRoughFZ10ExMaxLR +
                                                dImpulsSHMAvgMaxLR,

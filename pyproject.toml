@@ -33,6 +33,7 @@ matlabengine = {version = "23.2.3", python = ">=3.11,<3.12"}
 pingouin = "^0.5.4"
 parallel-pandas = "^0.6.4"
 bottleneck = "^1.4.2"
+scienceplots = "^2.1.1"
 
 [tool.poetry.group.dev.dependencies]
 spyder = "^5.5.0"

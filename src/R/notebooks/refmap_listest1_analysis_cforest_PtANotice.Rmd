@@ -111,8 +111,11 @@ stimNoticeDataANum <- data.frame()
 stimNoticeDataANum <- cbind(stimNoticeDataA[, 'Stimulus'],
                             stimNoticeDataA[, which(colnames(stimNoticeDataA)=="UASLAeq"):
                                               which(colnames(stimNoticeDataA)=="SNRlevel")],
-                            stimNoticeDataA[, "IntermitRatioMaxLR", drop=F],
+                            stimNoticeDataA[, which(colnames(stimData)=="IntermitRatioC2MaxLR"):
+                                              which(colnames(stimData)=="IntermitRatioC5MaxLR")],
                             stimNoticeDataA[, which(colnames(stimNoticeDataA)=="UASLAeqMaxLR"):
+                                              which(colnames(stimNoticeDataA)=="UASEPNLMaxLR")],
+                            stimNoticeDataA[, which(colnames(stimNoticeDataA)=="UASLoudECMAPowAvgBin"):
                                               which(colnames(stimNoticeDataA)=="UASImpulsSHM05ExMaxLR")],
                             stimNoticeDataA[, which(colnames(stimNoticeDataA)=="LAeqLAF90diff"):
                                               which(colnames(stimNoticeDataA)=="dImpulsSHM05ExMaxLR")],
@@ -462,10 +465,9 @@ resNoticePermImp <- list()
 ```{r}
 
 iVars <- names(stimNoticeDataANum)[which(names(stimNoticeDataANum) == 'AmbientLAeq'):which(names(stimNoticeDataANum) == 'UASImpulsSHM05ExMaxLR')]
-iVars <- iVars[! iVars %in% 'SNRlevel']
 iVars <- c(iVars,
            names(stimNoticeDataANum)[which(colnames(stimNoticeDataANum)=="LAeqLAF90diff"):
-                               which(colnames(stimNoticeDataANum)=="dImpulsSHM05ExMaxLR")], "SNRlevel")
+                               which(colnames(stimNoticeDataANum)=="dImpulsSHM05ExMaxLR")])
 dVar <- "NoticedPcFilt"
 
 seeds <- c(2, 312, 1897, 465978, 821659)
@@ -486,8 +488,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 501
-mtry <- as.integer(length(iVars)/3.5)
+ntree <- 1501
+mtry <- as.integer(length(iVars)/2.25)
 
 ```
 
@@ -497,7 +499,7 @@ Train preliminary model
 
 ```{r}
 
-nperm <- 10
+nperm <- 5
 
 resultsOutAbsDiffs <- crfReg(dataIn=stimNoticeDataANum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
 
@@ -600,7 +602,7 @@ if (saveplots){
 ```{r}
 
 iVars <- names(stimNoticeDataANum)[which(names(stimNoticeDataANum) == 'AmbientLAeq'):which(names(stimNoticeDataANum) == 'UASImpulsSHM05ExMaxLR')]
-iVars <- iVars[! iVars %in% c('SNRlevel', 'IntermitRatioMaxLR')]
+iVars <- iVars[! iVars %in% c('SNRlevel', 'IntermitRatioC2MaxLR', 'IntermitRatioC3MaxLR', 'IntermitRatioC5MaxLR')]
 dVar <- "NoticedPcFilt"
 
 seeds <- c(578312, 544, 84894, 54654, 153157)
@@ -1535,7 +1537,7 @@ resultsOutSQMs2$Rsquared
 
 # store results
 resNoticeFit['Abs SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_RMSE
-resNoticeFit['Abs SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_MAE
+resNoticeFit['Abs SQMs no tonal loud', 'MAE'] <- resultsOutSQMs2$OOB_MAE
 resNoticeFit['Abs SQMs no tonal loud', 'Rsquared'] <- resultsOutSQMs2$Rsquared
 resNoticePermImp$AbsSQMs2 <- resultsOutSQMs2$conditional_permimp
 
@@ -1572,7 +1574,7 @@ Next, the difference metrics are analysed
 
 iVars <- c(names(stimNoticeDataANum)[which(colnames(stimNoticeDataANum)=="LAeqLAF90diff"):
                                which(colnames(stimNoticeDataANum)=="dImpulsSHM05ExMaxLR")],
-           "SNRlevel")
+           "SNRlevel", "IntermitRatioC2MaxLR", "IntermitRatioC3MaxLR", "IntermitRatioC5MaxLR")
 dVar <- "NoticedPcFilt"
 
 seeds <- c(568392, 498, 4089, 78132, 741809)
@@ -1593,8 +1595,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1501
-mtry <- as.integer(length(iVars)/2.75)
+ntree <- 2501
+mtry <- as.integer(length(iVars)/2.25)
 
 ```
 
@@ -1605,7 +1607,7 @@ Train preliminary model
 
 ```{r}
 
-nperm <- 30
+nperm <- 5
 
 resultsOutDiffs <- crfReg(dataIn=stimNoticeDataANum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
 
@@ -1653,7 +1655,7 @@ pBar
 if (saveplots){
   ggsave(filename="PtANoticeDiffVarsConPermimp.svg", width=8, height=10, path=file.path(outFigPath, "svg"))
   unlink("PtANoticeDiffVarsConPermimp.svg")
-  
+
   ggsave(filename="PtANoticeDiffVarsConPermimp.pdf", width=8, height=10, path=file.path(outFigPath, "pdf"))
   unlink("PtANoticeDiffVarsConPermimp.pdf")
 }
@@ -2499,7 +2501,7 @@ resultsOutSQMs2$Rsquared
 
 # store results
 resNoticeFit['Diff SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_RMSE
-resNoticeFit['Diff SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_MAE
+resNoticeFit['Diff SQMs no tonal loud', 'MAE'] <- resultsOutSQMs2$OOB_MAE
 resNoticeFit['Diff SQMs no tonal loud', 'Rsquared'] <- resultsOutSQMs2$Rsquared
 resNoticePermImp$DiffSQMs2 <- resultsOutSQMs2$conditional_permimp
 

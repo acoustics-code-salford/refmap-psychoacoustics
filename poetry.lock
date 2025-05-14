@@ -5206,6 +5206,21 @@ files = [
 ]
 
 [[package]]
+name = "scienceplots"
+version = "2.1.1"
+description = "Format Matplotlib for scientific plotting"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "SciencePlots-2.1.1-py3-none-any.whl", hash = "sha256:2e64d2e93b4f98702f30145dbb70d238f5dc315e227fec331489631232dfc9e0"},
+    {file = "SciencePlots-2.1.1.tar.gz", hash = "sha256:d8d197e3410f87ebdad0b9c265eaab596094fb082d97123e835f6bc32800ab54"},
+]
+
+[package.dependencies]
+matplotlib = "*"
+
+[[package]]
 name = "scikit-learn"
 version = "1.6.1"
 description = "A set of python modules for machine learning and data mining"
@@ -6643,4 +6658,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "893a5e7ee3347c3d2021c5db718ded1dfb289a902f507c7ed4104e7cb1fe0712"
+content-hash = "1207cce1fe2fd5c709bde2c4ca08526198ef6a736724aa8e5f46e8e49523afe3"

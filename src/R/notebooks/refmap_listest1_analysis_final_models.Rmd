@@ -629,7 +629,9 @@ subjData <- subjData |> dplyr::mutate(EPNLLAeqdiffScl = datawizard::standardise(
 subjData <- subjData |> dplyr::mutate(UASDisc0p5LAEMaxLRScl = datawizard::standardise(UASDisc0p5LAEMaxLR, scale=FALSE))
 subjData <- subjData |> dplyr::mutate(UASDisc0p5PAEMaxLR = 2e-5*10^(UASDisc0p5LAEMaxLR/20))
 subjData <- subjData |> dplyr::mutate(UASLoudECMAPowAvgBinScl = datawizard::standardise(UASLoudECMAPowAvgBin, scale=FALSE))
-subjData <- subjData |> dplyr::mutate(IntermitRatioMaxLRScl = IntermitRatioMaxLR/100)
+subjData <- subjData |> dplyr::mutate(IntermitRatioC2MaxLRScl = IntermitRatioC2MaxLR/100)
+subjData <- subjData |> dplyr::mutate(IntermitRatioC3MaxLRScl = IntermitRatioC3MaxLR/100)
+subjData <- subjData |> dplyr::mutate(IntermitRatioC5MaxLRScl = IntermitRatioC5MaxLR/100)
 
 stimData <- stimData |> dplyr::mutate(UASLAeqMaxLRScl = datawizard::standardise(UASLAeqMaxLR, scale=FALSE))
 stimData <- stimData |> dplyr::mutate(UASLAEMaxLRScl = datawizard::standardise(UASLAEMaxLR, scale=FALSE))
@@ -640,7 +642,9 @@ stimData <- stimData |> dplyr::mutate(EPNLLAeqdiffScl = datawizard::standardise(
 stimData <- stimData |> dplyr::mutate(UASDisc0p5LAEMaxLRScl = datawizard::standardise(UASDisc0p5LAEMaxLR, scale=FALSE))
 stimData <- stimData |> dplyr::mutate(UASDisc0p5PAEMaxLR = 2e-5*10^(UASDisc0p5LAEMaxLR/20))
 stimData <- stimData |> dplyr::mutate(UASLoudECMAPowAvgBinScl = datawizard::standardise(UASLoudECMAPowAvgBin, scale=FALSE))
-stimData <- stimData |> dplyr::mutate(IntermitRatioMaxLRScl = IntermitRatioMaxLR/100)
+stimData <- stimData |> dplyr::mutate(IntermitRatioC2MaxLRScl = IntermitRatioC2MaxLR/100)
+stimData <- stimData |> dplyr::mutate(IntermitRatioC3MaxLRScl = IntermitRatioC3MaxLR/100)
+stimData <- stimData |> dplyr::mutate(IntermitRatioC5MaxLRScl = IntermitRatioC5MaxLR/100)
 
 # convert detectability dB to log variables
 subjData <- subjData |> dplyr::mutate(Detect0p1IntMaxLRLog = Detect0p1dBIntMaxLR/10)
@@ -5088,7 +5092,7 @@ model1 <- mABdHSxTnDt1i2IrlgQSq.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ I(log10(U
                                                      Detect0p1IntMaxLRLogScl +
                                                        UASTonLdECMAPowAvgBin*UASSharpAurSHM05ExMaxLR +
                                                    I(Detect0p1IntMaxLRLogScl^2) +
-                                                     IntermitRatioMaxLRScl +
+                                                     IntermitRatioC3MaxLRScl +
                                                      TrialNumberCntScl,
                                               data=subjDataNoAmb,
                                               family=binomial(link='logit'),
@@ -5138,29 +5142,29 @@ if (saveplots){
 
 
 model1predictEvt <- ggeffects::predict_response(model1, terms=c("Detect0p1IntMaxLRLogScl [all]",
-                                                                "IntermitRatioMaxLRScl [0:0.9, by=0.3]"),
+                                                                "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictDLxTn <- ggeffects::predict_response(model1, terms=c("Detect0p1IntMaxLRLogScl [all]",
                                                                  "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
-                                                                 "IntermitRatioMaxLRScl [0.5]"),
+                                                                 "IntermitRatioC3MaxLRScl [0.5]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictTnxIr <- ggeffects::predict_response(model1, terms=c("UASTonLdECMAPowAvgBin [all]",
-                                                                 "IntermitRatioMaxLRScl [0:0.9, by=0.3]",
+                                                                 "IntermitRatioC3MaxLRScl [0:0.9, by=0.3]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictSxTn <- ggeffects::predict_response(model1, terms=c("UASSharpAurSHM05ExMaxLR [all]",
                                                                  "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
-                                                                 "IntermitRatioMaxLRScl [0.5]"),
+                                                                 "IntermitRatioC3MaxLRScl [0.5]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
-model1predictIr <- ggeffects::predict_response(model1, terms=c("IntermitRatioMaxLRScl [all]",
+model1predictIr <- ggeffects::predict_response(model1, terms=c("IntermitRatioC3MaxLRScl [all]",
                                                                  "UASEvents [all]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
@@ -5184,7 +5188,7 @@ p1 <- ggplot(data=model1predictEvt) +
               ggnewscale::new_scale_colour() +
             
               geom_point(data=stimDataNoAmb, aes(x=Detect0p1IntMaxLRLogScl, y=dHighAnnoyProp,
-                                                 colour=IntermitRatioMaxLRScl, shape=factor(UASEvents)),
+                                                 colour=IntermitRatioC3MaxLRScl, shape=factor(UASEvents)),
                          alpha=0.55, size=2) +
   
               scale_color_viridis(option='viridis', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -5245,7 +5249,7 @@ p3 <- ggplot(data=model1predictTnxIr) +
               
               geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin,
                                                  y=dHighAnnoyProp,
-                                                 colour=IntermitRatioMaxLRScl),
+                                                 colour=IntermitRatioC3MaxLRScl),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.1, end = 0.8) +
@@ -5293,7 +5297,7 @@ p5 <- ggplot(data=model1predictIr) +
               
               geom_line(aes(x=x, y=predicted, colour=group), alpha=0.5, linewidth=1) +
             
-              geom_point(data=stimDataNoAmb, aes(x=IntermitRatioMaxLRScl, y=dHighAnnoyProp,
+              geom_point(data=stimDataNoAmb, aes(x=IntermitRatioC3MaxLRScl, y=dHighAnnoyProp,
                                                  colour=factor(UASEvents), shape=factor(UASEvents)),
                          alpha=0.55, size=2) +
                 
@@ -5305,7 +5309,7 @@ p5 <- ggplot(data=model1predictIr) +
                      fill=guide_legend(title="UAS events", reverse=TRUE),
                      shape=guide_legend(title="UAS events", reverse=TRUE)) +
   
-              rescaleTicks(stimDataNoAmb$IntermitRatioMaxLR, stimDataNoAmb$IntermitRatioMaxLRScl, sep=1) +
+              rescaleTicks(stimDataNoAmb$IntermitRatioMaxLR, stimDataNoAmb$IntermitRatioC3MaxLRScl, sep=1) +
               scale_y_continuous(breaks=seq(0, 1, by=0.1), limits=c(0, 1), labels=seq(0, 100, by=10)) +
               
               labs(x=expression(paste(UAS~IR~","~"%")),

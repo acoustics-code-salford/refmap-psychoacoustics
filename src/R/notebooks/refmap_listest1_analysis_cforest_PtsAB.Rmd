@@ -109,17 +109,20 @@ stimDataNum <- data.frame()
 stimDataNum <- cbind(stimData[, 'Stimulus'],
                      stimData[, which(colnames(stimData)=="UASEvents"):
                                 which(colnames(stimData)=="UASEventPerMin")],
-                      stimData[, which(colnames(stimData)=="UASLAeq"):
-                                  which(colnames(stimData)=="SNRlevel")],
-                      stimData[, "IntermitRatioMaxLR", drop=F],
-                      stimData[, which(colnames(stimData)=="UASLAeqMaxLR"):
-                                  which(colnames(stimData)=="UASImpulsSHM05ExMaxLR")],
-                      stimData[, which(colnames(stimData)=="LAeqLAF90diff"):
-                                  which(colnames(stimData)=="dImpulsSHM05ExMaxLR")],
-                      stimData[, which(colnames(stimData)=="ValenceMedian"):
-                                 which(colnames(stimData)=="dHighAnnoyProp")],
-                      stimData[, which(colnames(stimData)=="HighAnnoyPc"):
-                                  which(colnames(stimData)=="dHighAnnoyPc")])
+                    stimData[, which(colnames(stimData)=="UASLAeq"):
+                                which(colnames(stimData)=="SNRlevel")],
+                    stimData[, which(colnames(stimData)=="IntermitRatioC2MaxLR"):
+                                which(colnames(stimData)=="IntermitRatioC5MaxLR")],
+                    stimData[, which(colnames(stimData)=="UASLAeqMaxLR"):
+                                which(colnames(stimData)=="UASEPNLMaxLR")],
+                    stimData[, which(colnames(stimData)=="UASLoudECMAPowAvgBin"):
+                                which(colnames(stimData)=="UASImpulsSHM05ExMaxLR")],
+                    stimData[, which(colnames(stimData)=="LAeqLAF90diff"):
+                                which(colnames(stimData)=="dImpulsSHM05ExMaxLR")],
+                    stimData[, which(colnames(stimData)=="ValenceMedian"):
+                               which(colnames(stimData)=="dHighAnnoyProp")],
+                    stimData[, which(colnames(stimData)=="HighAnnoyPc"):
+                                which(colnames(stimData)=="dHighAnnoyPc")])
 
 # remove duplicated variables
 stimDataNum <- subset(stimDataNum, select = -c(UASLAeq))
@@ -522,8 +525,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
-mtry <- as.integer(length(iVars)/1.25)
+ntree <- 1501
+mtry <- as.integer(length(iVars)/2.25)
 
 ```
 
@@ -637,7 +640,8 @@ if (saveplots){
 ```{r}
 
 iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEvents'):which(names(stimDataNum) == 'UASImpulsSHM05ExMaxLR')]
-iVars <- iVars[! iVars %in% c('SNRlevel', 'IntermitRatioMaxLR')]
+iVars <- iVars[! iVars %in% c('SNRlevel', 'IntermitRatioC2MaxLR', 'IntermitRatioC3MaxLR', 'IntermitRatioC5MaxLR')]
+
 dVar <- "dAnnoyMean"
 
 seeds <- c(578312, 544, 84894, 54654, 153157)
@@ -1574,7 +1578,7 @@ resultsOutSQMs2$Rsquared
 
 # store results
 resdAnnoyMnFitAB['Abs SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_RMSE
-resdAnnoyMnFitAB['Abs SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_MAE
+resdAnnoyMnFitAB['Abs SQMs no tonal loud', 'MAE'] <- resultsOutSQMs2$OOB_MAE
 resdAnnoyMnFitAB['Abs SQMs no tonal loud', 'Rsquared'] <- resultsOutSQMs2$Rsquared
 resdAnnoyMnPermImpAB$AbsSQMs2 <- resultsOutSQMs2$conditional_permimp
 
@@ -1621,7 +1625,7 @@ Here, the 'ambient only' stimuli are removed, as the analysis cannot handle miss
 
 iVars <- c(names(stimDataNum)[which(colnames(stimDataNum)=="LAeqLAF90diff"):
                                which(colnames(stimDataNum)=="dImpulsSHM05ExMaxLR")],
-           "UASEvents", "SNRlevel", "IntermitRatioMaxLR")
+           "UASEvents", "SNRlevel", "IntermitRatioC2MaxLR", "IntermitRatioC3MaxLR", "IntermitRatioC5MaxLR")
 dVar <- "dAnnoyMean"
 
 seeds <- c(568392, 498, 4089, 78132, 741809)
@@ -1642,8 +1646,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 2501
-mtry <- as.integer(length(iVars)/1.75)
+ntree <- 501
+mtry <- as.integer(length(iVars)/1.5)
 
 ```
 
@@ -1653,7 +1657,7 @@ Train preliminary model
 
 ```{r}
 
-nperm <- 5
+nperm <- 10
 
 resultsOutDiffs <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
 
@@ -2567,7 +2571,7 @@ resultsOutSQMs2$Rsquared
 
 # store results
 resdAnnoyMnFitAB['Diff SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_RMSE
-resdAnnoyMnFitAB['Diff SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_MAE
+resdAnnoyMnFitAB['Diff SQMs no tonal loud', 'MAE'] <- resultsOutSQMs2$OOB_MAE
 resdAnnoyMnFitAB['Diff SQMs no tonal loud', 'Rsquared'] <- resultsOutSQMs2$Rsquared
 resdAnnoyMnPermImpAB$DiffSQMs2 <- resultsOutSQMs2$conditional_permimp
 
@@ -2774,7 +2778,7 @@ if (saveplots){
 ```{r}
 
 iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEvents'):which(names(stimDataNum) == 'UASImpulsSHM05ExMaxLR')]
-iVars <- iVars[! iVars %in% c('SNRlevel', 'IntermitRatioMaxLR')]
+iVars <- iVars[! iVars %in% c('SNRlevel', 'IntermitRatioC2MaxLR', 'IntermitRatioC3MaxLR', 'IntermitRatioC5MaxLR')]
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(578312, 544, 84894, 54654, 153157)
@@ -3730,7 +3734,7 @@ resultsOutSQMs2$Rsquared
 
 # store results
 resdHiAnnoyFitAB['Abs SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_RMSE
-resdHiAnnoyFitAB['Abs SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_MAE
+resdHiAnnoyFitAB['Abs SQMs no tonal loud', 'MAE'] <- resultsOutSQMs2$OOB_MAE
 resdHiAnnoyFitAB['Abs SQMs no tonal loud', 'Rsquared'] <- resultsOutSQMs2$Rsquared
 resdHiAnnoyPermImpAB$AbsSQMs2 <- resultsOutSQMs2$conditional_permimp
 
@@ -3767,7 +3771,7 @@ Next, the difference metrics are analysed
 
 iVars <- c(names(stimDataNum)[which(colnames(stimDataNum)=="LAeqLAF90diff"):
                                which(colnames(stimDataNum)=="dImpulsSHM05ExMaxLR")],
-           "UASEvents", "SNRlevel", "IntermitRatioMaxLR")
+           "UASEvents", "SNRlevel", "IntermitRatioC2MaxLR", "IntermitRatioC3MaxLR", "IntermitRatioC5MaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(568392, 498, 4089, 78132, 741809)
@@ -3788,7 +3792,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1001
+ntree <- 4001
 mtry <- as.integer(length(iVars)/2.25)
 
 ```
@@ -4692,7 +4696,7 @@ resultsOutSQMs2$Rsquared
 
 # store results
 resdHiAnnoyFitAB['Diff SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_RMSE
-resdHiAnnoyFitAB['Diff SQMs no tonal loud', 'RMSE'] <- resultsOutSQMs2$OOB_MAE
+resdHiAnnoyFitAB['Diff SQMs no tonal loud', 'MAE'] <- resultsOutSQMs2$OOB_MAE
 resdHiAnnoyFitAB['Diff SQMs no tonal loud', 'Rsquared'] <- resultsOutSQMs2$Rsquared
 resdHiAnnoyPermImpAB$DiffSQMs2 <- resultsOutSQMs2$conditional_permimp
 
