@@ -15,7 +15,7 @@ function acousticSHMValidation(savePlots)
 % Institution: University of Salford
 %
 % Date created: 19/08/2024
-% Date last modified: 19/03/2025
+% Date last modified: 14/05/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -115,10 +115,10 @@ BusyStreet1_0530_0600.RoughnessBin = validation_ECMA_418_2_2_2022_Bin{2, 3};
 
 % concatenate results
 
-signalLabs = string({validation_ECMA_418_2_2_2022_LR{:, 1}}) + " " + string({validation_ECMA_418_2_2_2022_LR{:, 2}});
+signalLabs = string(validation_ECMA_418_2_2_2022_LR(:, 1)) + " " + string(validation_ECMA_418_2_2_2022_LR(:, 2));
 signalLabs = signalLabs(2:end);
 signalLabs = eraseBetween(signalLabs, " ", "Ch");
-signalLabs = [signalLabs, extractBefore(signalLabs(end), " ") + " Bin"];
+signalLabs = [signalLabs; extractBefore(signalLabs(end), " ") + " Bin"];
 
 loudSingles = horzcat([sine_1kHz_40dB.Loudness, sine_1kHz_70Hz_60dB.Loudness],...
                       BusyStreet1_0530_0600.Loudness, BusyStreet1_0530_0600.LoudnessBin);
@@ -137,17 +137,17 @@ roughSingles = horzcat([sine_1kHz_40dB.Roughness, sine_1kHz_70Hz_60dB.Roughness]
 
 %% Calculate sound qualities
 
-tonalitySHM1 = acousticSHMTonality(signal1, fs1, 1, 'free-frontal',...
+tonalitySHM1 = acousticSHMTonality(signal1, fs1, 1, 'freeFrontal',...
                                    true, false);
-tonalitySHM2 = acousticSHMTonality(signal2, fs2, 1, 'free-frontal',...
+tonalitySHM2 = acousticSHMTonality(signal2, fs2, 1, 'freeFrontal',...
                                    true, false);
-tonalitySHM3 = acousticSHMTonality(signal3, fs3, 1, 'free-frontal',...
+tonalitySHM3 = acousticSHMTonality(signal3, fs3, 1, 'freeFrontal',...
                                    true, false);
 
 loudnessSHM1 = acousticSHMLoudnessFromComponent(tonalitySHM1.specTonalLoudness,...
                                                 tonalitySHM1.specNoiseLoudness,...
                                                 false, false);
-loudnessSHM1full = acousticSHMLoudness(signal1, fs1, 1, 'free-frontal',...
+loudnessSHM1full = acousticSHMLoudness(signal1, fs1, 1, 'freeFrontal',...
                                        true, false, false);
 loudnessSHM2 = acousticSHMLoudnessFromComponent(tonalitySHM2.specTonalLoudness,...
                                                 tonalitySHM2.specNoiseLoudness,...
@@ -156,11 +156,11 @@ loudnessSHM3 = acousticSHMLoudnessFromComponent(tonalitySHM3.specTonalLoudness,.
                                                 tonalitySHM3.specNoiseLoudness,...
                                                 false, true);
 
-roughnessSHM1 = acousticSHMRoughness(signal1, fs1, 1, 'free-frontal',...
+roughnessSHM1 = acousticSHMRoughness(signal1, fs1, 1, 'freeFrontal',...
                                      true, false, false);
-roughnessSHM2 = acousticSHMRoughness(signal2, fs2, 1, 'free-frontal',...
+roughnessSHM2 = acousticSHMRoughness(signal2, fs2, 1, 'freeFrontal',...
                                      true, false, false);
-roughnessSHM3 = acousticSHMRoughness(signal3, fs3, 1, 'free-frontal',...
+roughnessSHM3 = acousticSHMRoughness(signal3, fs3, 1, 'freeFrontal',...
                                      true, false, true);
 
 loudSinglesAll = vertcat(loudSingles, horzcat([loudnessSHM1.loudnessPowAvg,...
@@ -321,8 +321,11 @@ for bb = 1:length(br)
         'HorizontalAlignment','center',...
         'VerticalAlignment','bottom', 'FontSize', 7)
 end
-exportgraphics(fg, fullfile(figpath, "loudSHMsingles.pdf"), 'ContentType', 'vector')
-exportgraphics(fg, fullfile(figpath, "loudSHMsingles.png"), 'Resolution', 300)
+
+if savePlots
+    exportgraphics(fg, fullfile(figpath, "loudSHMsingles.pdf"), 'ContentType', 'vector')
+    exportgraphics(fg, fullfile(figpath, "loudSHMsingles.png"), 'Resolution', 300)
+end
 
 % Roughness
 % ---------
@@ -375,8 +378,11 @@ for bb = 1:length(br)
         'HorizontalAlignment','center',...
         'VerticalAlignment','bottom', 'FontSize', 7)
 end
-exportgraphics(fg, fullfile(figpath, "roughSHMsingles.pdf"), 'ContentType', 'vector')
-exportgraphics(fg, fullfile(figpath, "roughSHMsingles.png"), 'Resolution', '300')
+
+if savePlots
+    exportgraphics(fg, fullfile(figpath, "roughSHMsingles.pdf"), 'ContentType', 'vector')
+    exportgraphics(fg, fullfile(figpath, "roughSHMsingles.png"), 'Resolution', '300')
+end
 
 %% Plotting functions
 

@@ -1,8 +1,6 @@
-function loudnessSHM = acousticSHMLoudness(p, sampleRatein, axisn,...
-                                           fieldtype, waitBar, ...
-                                           outplot, binaural)
-% loudnessSHM = acousticSHMLoudness(p, sampleRatein, axisn, fieldtype,
-%                                   outplot, binaural)
+function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, waitBar, outPlot, binaural)
+% loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField,
+%                                   outPlot, binaural)
 %
 % Returns loudness values according to ECMA-418-2:2024 (using the Sottek
 % Hearing Model) for an input calibrated single mono or single stereo
@@ -16,21 +14,26 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRatein, axisn,...
 %     the input signal as single mono or stereo audio (sound
 %     pressure) signals
 %
-% sampleRatein : integer
+% sampleRateIn : integer
 %                the sample rate (frequency) of the input signal(s)
 %
-% axisn : integer (1 or 2, default: 1)
+% axisN : integer (1 or 2, default: 1)
 %         the time axis along which to calculate the tonality
 %
 % waitBar : keyword string (default: true)
 %           determines whether a progress bar displays during processing
 %           (set waitBar to false for doing multi-file parallel calculations)
 %
-% fieldtype : keyword string (default: 'free-frontal')
-%             determines whether the 'free-frontal' or 'diffuse' field stages
-%             are applied in the outer-middle ear filter
+% soundField : keyword string (default: 'freeFrontal')
+%              determines whether the 'freeFrontal' or 'diffuse' field stages
+%              are applied in the outer-middle ear filter, or 'noOuter' uses
+%              only the middle ear stage, or 'noEar' omits ear filtering.
+%              Note: these last two options are beyond the scope of the
+%              standard, but may be useful if recordings made using
+%              artificial outer/middle ear are to be processed using the
+%              specific recorded responses.
 %
-% outplot : Boolean true/false (default: false)
+% outPlot : Boolean true/false (default: false)
 %           flag indicating whether to generate a figure from the output
 %
 % binaural : Boolean true/false (default: true)
@@ -71,8 +74,7 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRatein, axisn,...
 %           time (seconds) corresponding with time-dependent outputs
 %
 % soundField : string
-%              identifies the soundfield type applied (the input argument
-%              fieldtype)
+%              identifies the soundfield type applied (= input argument)
 %
 % If binaural=true, a corresponding set of outputs for the binaural
 % loudness are also contained in loudnessSHM
@@ -101,7 +103,7 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRatein, axisn,...
 % Institution: University of Salford
 %
 % Date created: 22/09/2023
-% Date last modified: 18/03/2025
+% Date last modified: 14/05/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -125,13 +127,15 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRatein, axisn,...
 %% Arguments validation
     arguments (Input)
         p (:, :) double {mustBeReal}
-        sampleRatein (1, 1) double {mustBePositive, mustBeInteger}
-        axisn (1, 1) {mustBeInteger, mustBeInRange(axisn, 1, 2)} = 1
-        fieldtype (1, :) string {mustBeMember(fieldtype,...
-                                                       {'free-frontal',...
-                                                        'diffuse'})} = 'free-frontal'
+        sampleRateIn (1, 1) double {mustBePositive, mustBeInteger}
+        axisN (1, 1) {mustBeInteger, mustBeInRange(axisN, 1, 2)} = 1
+        soundField (1, :) string {mustBeMember(soundField,...
+                                               {'freeFrontal',...
+                                                'diffuse', ...
+                                                'noOuter', ...
+                                                'noEar'})} = 'freeFrontal'
         waitBar {mustBeNumericOrLogical} = true
-        outplot {mustBeNumericOrLogical} = false
+        outPlot {mustBeNumericOrLogical} = false
         binaural {mustBeNumericOrLogical} = true
     end
 
@@ -140,12 +144,12 @@ addpath(genpath(fullfile("refmap-psychoacoustics", "src", "mlab")))
 
 %% Input checks
 % Orient input matrix
-if axisn == 2
+if axisN == 2
     p = p.';
 end
 
 % Check the length of the input data (must be longer than 300 ms)
-if size(p, 1) <  300/1000*sampleRatein
+if size(p, 1) <  300/1000*sampleRateIn
     error('Error: Input signal is too short along the specified axis to calculate loudness (must be longer than 300 ms)')
 end
 
@@ -187,7 +191,7 @@ sampleRate1875 = 48e3/256;
 % ------------------------------------------------------------
 
 % Obtain tonal and noise component specific loudnesses from Sections 5 & 6 ECMA-418-2:2024
-tonalitySHM = acousticSHMTonality(p, sampleRatein, 1, fieldtype, waitBar,...
+tonalitySHM = acousticSHMTonality(p, sampleRateIn, 1, soundField, waitBar,...
                                   false);
 
 specTonalLoudness = tonalitySHM.specTonalLoudness;  % [N'_tonal(l,z)]
@@ -252,7 +256,7 @@ if outchans == 3
     loudnessSHM.loudnessPowAvgBin = loudnessPowAvg(:, 3);
     loudnessSHM.bandCentreFreqs = bandCentreFreqs;
     loudnessSHM.timeOut = timeOut;
-    loudnessSHM.soundField = fieldtype;
+    loudnessSHM.soundField = soundField;
 else
     loudnessSHM.specLoudness = specLoudness;
     loudnessSHM.specLoudnessPowAvg = specLoudnessPowAvg;
@@ -260,13 +264,13 @@ else
     loudnessSHM.loudnessPowAvg = loudnessPowAvg;
     loudnessSHM.bandCentreFreqs = bandCentreFreqs;
     loudnessSHM.timeOut = timeOut;
-    loudnessSHM.soundField = fieldtype;
+    loudnessSHM.soundField = soundField;
 end
 
 
 %% Output plotting
 
-if outplot
+if outPlot
     % Plot figures
     % ------------
     for chan = outchans:-1:1
@@ -297,7 +301,7 @@ if outplot
         chan_lab = chans(chan);
 
         % Create A-weighting filter
-        weightFilt = weightingFilter('A-weighting', sampleRatein);
+        weightFilt = weightingFilter('A-weighting', sampleRateIn);
         % Filter signal to determine A-weighted time-averaged level
         if chan == 3
             pA = weightFilt(p);

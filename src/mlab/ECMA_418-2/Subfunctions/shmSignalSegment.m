@@ -1,6 +1,5 @@
-function [signalSegmented, iBlocksOut] = shmSignalSegment(signal, axisn, blockSize, overlap,...
-                                                          i_start, endShrink)
-% [signalSegmented, iBlocksOut] = shmSignalSegment(signal, axisn, blockSize, overlap,
+function [signalSegmented, iBlocksOut] = shmSignalSegment(signal, axisN, blockSize, overlap, i_start, endShrink)
+% [signalSegmented, iBlocksOut] = shmSignalSegment(signal, axisN, blockSize, overlap,
 %                                    i_start, endShrink)
 %
 % Returns input signal segmented into blocks for processing.
@@ -10,7 +9,7 @@ function [signalSegmented, iBlocksOut] = shmSignalSegment(signal, axisn, blockSi
 % signal : vector or 2D matrix
 %          the input signal/s
 %
-% axisn : integer (1 or 2, default: 1)
+% axisN : integer (1 or 2, default: 1)
 %         the axis along which to apply block segmentation
 %
 % blockSize : integer
@@ -58,7 +57,7 @@ function [signalSegmented, iBlocksOut] = shmSignalSegment(signal, axisn, blockSi
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 27/09/2023
-% Date last modified: 23/04/2025
+% Date last modified: 14/05/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -80,7 +79,7 @@ function [signalSegmented, iBlocksOut] = shmSignalSegment(signal, axisn, blockSi
 %% Arguments validation
     arguments (Input)
         signal (:, :) double {mustBeReal}
-        axisn (1, 1) {mustBeInteger, mustBeInRange(axisn, 1, 2)} = 1
+        axisN (1, 1) {mustBeInteger, mustBeInRange(axisN, 1, 2)} = 1
         blockSize (1, 1) {mustBePositive, mustBeInteger} = false
         overlap (1, 1) {mustBeReal, mustBeGreaterThanOrEqual(overlap, 0),...
                         mustBeLessThan(overlap, 1)} = 0
@@ -91,7 +90,7 @@ function [signalSegmented, iBlocksOut] = shmSignalSegment(signal, axisn, blockSi
 %% Signal pre-processing
 
 % Orient input
-if axisn == 2
+if axisN == 2
     signal = signal.';
     axisFlip = true;
 else

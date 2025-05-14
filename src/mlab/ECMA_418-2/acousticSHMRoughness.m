@@ -1,7 +1,5 @@
-function roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn,...
-                                             fieldtype, waitBar, outplot,...
-                                             binaural)
-% roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn, fieldtype, waitBar, outplot, binaural)
+function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField, waitBar, outPlot, binaural)
+% roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField, waitBar, outPlot, binaural)
 %
 % Returns roughness values **and frequencies** according to ECMA-418-2:2024
 % (using the Sottek Hearing Model) for an input calibrated single mono
@@ -15,21 +13,26 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn,...
 %     the input signal as single mono or stereo audio (sound
 %     pressure) signals
 %
-% sampleRatein : integer
+% sampleRateIn : integer
 %                the sample rate (frequency) of the input signal(s)
 %
-% axisn : integer (1 or 2, default: 1)
+% axisN : integer (1 or 2, default: 1)
 %         the time axis along which to calculate the tonality
 %
-% fieldtype : keyword string (default: 'free-frontal')
-%             determines whether the 'free-frontal' or 'diffuse' field stages
-%             are applied in the outer-middle ear filter
+% soundField : keyword string (default: 'freeFrontal')
+%              determines whether the 'freeFrontal' or 'diffuse' field stages
+%              are applied in the outer-middle ear filter, or 'noOuter' uses
+%              only the middle ear stage, or 'noEar' omits ear filtering.
+%              Note: these last two options are beyond the scope of the
+%              standard, but may be useful if recordings made using
+%              artificial outer/middle ear are to be processed using the
+%              specific recorded responses.
 %
 % waitBar : keyword string (default: true)
 %           determines whether a progress bar displays during processing
 %           (set waitBar to false for doing multi-file parallel calculations)
 %
-% outplot : Boolean true/false (default: false)
+% outPlot : Boolean true/false (default: false)
 %           flag indicating whether to generate a figure from the output
 %
 % binaural : Boolean true/false (default: true)
@@ -100,7 +103,7 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn,...
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 14/04/2025
+% Date last modified: 14/05/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -124,13 +127,15 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRatein, axisn,...
 %% Arguments validation
     arguments (Input)
         p (:, :) double {mustBeReal}
-        sampleRatein (1, 1) double {mustBePositive, mustBeInteger}
-        axisn (1, 1) {mustBeInteger, mustBeInRange(axisn, 1, 2)} = 1
-        fieldtype (1, :) string {mustBeMember(fieldtype,...
-                                                       {'free-frontal',...
-                                                        'diffuse'})} = 'free-frontal'
+        sampleRateIn (1, 1) double {mustBePositive, mustBeInteger}
+        axisN (1, 1) {mustBeInteger, mustBeInRange(axisN, 1, 2)} = 1
+        soundField (1, :) string {mustBeMember(soundField,...
+                                               {'freeFrontal',...
+                                                'diffuse', ...
+                                                'noOuter', ...
+                                                'noEar'})} = 'freeFrontal'
         waitBar {mustBeNumericOrLogical} = true
-        outplot {mustBeNumericOrLogical} = false
+        outPlot {mustBeNumericOrLogical} = false
         binaural {mustBeNumericOrLogical} = true
     end
 
@@ -139,12 +144,12 @@ addpath(genpath(fullfile("refmap-psychoacoustics", "src", "mlab")))
 
 %% Input checks
 % Orient input matrix
-if axisn == 2
+if axisN == 2
     p = p.';
 end
 
 % Check the length of the input data (must be longer than 300 ms)
-if size(p, 1) <=  300/1000*sampleRatein
+if size(p, 1) <=  300/1000*sampleRateIn
     error("Error: Input signal is too short along the specified axis to calculate roughness (must be longer than 300 ms)")
 end
 
@@ -163,7 +168,7 @@ end
 
 %% Define constants
 
-signalT = size(p, 1)/sampleRatein;  % duration of input signal
+signalT = size(p, 1)/sampleRateIn;  % duration of input signal
 sampleRate48k = 48e3;  % Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2024 [r_s]
 deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2024 [deltaf(f=0)]
 c = 0.1618;  % Half-Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2024 [c]
@@ -237,8 +242,8 @@ cal_Rx = 1/1.0011565;  % calibration adjustment factor
 
 % Input pre-processing
 % --------------------
-if sampleRatein ~= sampleRate48k  % Resample signal
-    [p_re, ~] = shmResample(p, sampleRatein);
+if sampleRateIn ~= sampleRate48k  % Resample signal
+    [p_re, ~] = shmResample(p, sampleRateIn);
 else  % don't resample
     p_re = p;
 end
@@ -254,7 +259,7 @@ pn = shmPreProc(p_re, max(blockSize), max(hopSize), true, false);
 % -------------------------------
 %
 % Section 5.1.3.2 ECMA-418-2:2024 Outer and middle/inner ear signal filtering
-pn_om = shmOutMidEarFilter(pn, fieldtype);
+pn_om = shmOutMidEarFilter(pn, soundField);
 
 n_steps = 270;  % approximate number of calculation steps
 
@@ -684,7 +689,7 @@ if outchans == 3
     roughnessSHM.roughness90PcBin = roughness90Pc(:, 3);
     roughnessSHM.bandCentreFreqs = bandCentreFreqs;
     roughnessSHM.timeOut = timeOut;
-    roughnessSHM.soundField = fieldtype;
+    roughnessSHM.soundField = soundField;
 else
     roughnessSHM.specRoughness = specRoughness;
     roughnessSHM.specRoughnessAvg = specRoughnessAvg;
@@ -692,12 +697,12 @@ else
     roughnessSHM.roughness90Pc = roughness90Pc;
     roughnessSHM.bandCentreFreqs = bandCentreFreqs;
     roughnessSHM.timeOut = timeOut;
-    roughnessSHM.soundField = fieldtype;
+    roughnessSHM.soundField = soundField;
 end
 
 %% Output plotting
 
-if outplot
+if outPlot
     % Plot figures
     % ------------
     for chan = outchans:-1:1
@@ -727,7 +732,7 @@ if outplot
         chan_lab = chans(chan);
 
         % Create A-weighting filter
-        weightFilt = weightingFilter('A-weighting', sampleRatein);
+        weightFilt = weightingFilter('A-weighting', sampleRateIn);
         % Filter signal to determine A-weighted time-averaged level
         if chan == 3
             pA = weightFilt(p);

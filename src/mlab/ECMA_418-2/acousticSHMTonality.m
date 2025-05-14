@@ -1,6 +1,5 @@
-function tonalitySHM = acousticSHMTonality(p, sampleRatein, axisn,...
-                                           fieldtype, waitBar, outplot)
-% tonalitySHM = acousticSHMTonality(p, sampleRatein, axisn, outplot)
+function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, waitBar, outPlot)
+% tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, waitBar, outPlot)
 %
 % Returns tonality values and frequencies according to ECMA-418-2:2024
 % (using the Sottek Hearing Model) for an input calibrated single mono
@@ -12,15 +11,20 @@ function tonalitySHM = acousticSHMTonality(p, sampleRatein, axisn,...
 %     the input signal as single mono or stereo audio (sound
 %     pressure) signals
 %
-% sampleRatein : integer
+% sampleRateIn : integer
 %                the sample rate (frequency) of the input signal(s)
 %
-% axisn : integer (1 or 2, default: 1)
+% axisN : integer (1 or 2, default: 1)
 %         the time axis along which to calculate the tonality
 %
-% fieldtype : keyword string (default: 'free-frontal')
-%             determines whether the 'free-frontal' or 'diffuse' field stages
-%             are applied in the outer-middle ear filter
+% soundField : keyword string (default: 'freeFrontal')
+%              determines whether the 'freeFrontal' or 'diffuse' field stages
+%              are applied in the outer-middle ear filter, or 'noOuter' uses
+%              only the middle ear stage, or 'noEar' omits ear filtering.
+%              Note: these last two options are beyond the scope of the
+%              standard, but may be useful if recordings made using
+%              artificial outer/middle ear are to be processed using the
+%              specific recorded responses.
 %
 % waitBar : keyword string (default: true)
 %           determines whether a progress bar displays during processing
@@ -120,7 +124,7 @@ function tonalitySHM = acousticSHMTonality(p, sampleRatein, axisn,...
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 07/08/2023
-% Date last modified: 19/03/2025
+% Date last modified: 14/05/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -148,13 +152,15 @@ function tonalitySHM = acousticSHMTonality(p, sampleRatein, axisn,...
 %% Arguments validation
     arguments (Input)
         p (:, :) double {mustBeReal}
-        sampleRatein (1, 1) double {mustBePositive, mustBeInteger}
-        axisn (1, 1) {mustBeInteger, mustBeInRange(axisn, 1, 2)} = 1
-        fieldtype (1,:) string {mustBeMember(fieldtype,...
-                                                       {'free-frontal',...
-                                                        'diffuse'})} = 'free-frontal'
+        sampleRateIn (1, 1) double {mustBePositive, mustBeInteger}
+        axisN (1, 1) {mustBeInteger, mustBeInRange(axisN, 1, 2)} = 1
+        soundField (1, :) string {mustBeMember(soundField,...
+                                               {'freeFrontal',...
+                                                'diffuse', ...
+                                                'noOuter', ...
+                                                'noEar'})} = 'freeFrontal'
         waitBar {mustBeNumericOrLogical} = true
-        outplot {mustBeNumericOrLogical} = false
+        outPlot {mustBeNumericOrLogical} = false
     end
 
 %% Load path
@@ -162,12 +168,12 @@ addpath(genpath(fullfile("refmap-psychoacoustics", "src", "mlab")))
 
 %% Input checks
 % Orient input matrix
-if axisn == 2
+if axisN == 2
     p = p.';
 end
 
 % Check the length of the input data (must be longer than 300 ms)
-if size(p, 1) <=  300/1000*sampleRatein
+if size(p, 1) <=  300/1000*sampleRateIn
     error('Error: Input signal is too short along the specified axis to calculate tonality (must be longer than 300 ms)')
 end
 
@@ -237,8 +243,8 @@ cal_Tx = 1/0.9999043734252;  % Adjustment to calibration factor (Footnote 22 ECM
 
 % Input pre-processing
 % --------------------
-if sampleRatein ~= sampleRate48k  % Resample signal
-    [p_re, ~] = shmResample(p, sampleRatein);
+if sampleRateIn ~= sampleRate48k  % Resample signal
+    [p_re, ~] = shmResample(p, sampleRateIn);
 else  % don't resample
     p_re = p;
 end
@@ -250,7 +256,7 @@ pn = shmPreProc(p_re, max(blockSize), max(hopSize));
 % -------------------------------
 %
 % Section 5.1.3.2 ECMA-418-2:2024 Outer and middle/inner ear signal filtering
-pn_om = shmOutMidEarFilter(pn, fieldtype);
+pn_om = shmOutMidEarFilter(pn, soundField);
 
 n_steps = 115;  % approximate number of calculation steps
 
@@ -525,7 +531,7 @@ for chan = size(pn_om, 2):-1:1
 
     % Plot figures
     % ------------
-    if outplot
+    if outPlot
         cmap_plasma = load('cmap_plasma.txt');
         % Plot results
         chan_lab = chans(chan);
@@ -609,6 +615,6 @@ tonalitySHM.tonalityAvg = tonalityAvg;
 tonalitySHM.tonalityTDepFreqs = tonalityTDepFreqs;
 tonalitySHM.bandCentreFreqs = bandCentreFreqs;
 tonalitySHM.timeOut = timeOut;
-tonalitySHM.soundField = fieldtype;
+tonalitySHM.soundField = soundField;
 
 % end of function

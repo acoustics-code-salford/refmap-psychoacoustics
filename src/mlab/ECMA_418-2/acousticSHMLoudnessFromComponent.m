@@ -1,9 +1,7 @@
-function loudnessSHM = acousticSHMLoudnessFromComponent(specTonalLoudness,...
-                                                        specNoiseLoudness,...
-                                                        outplot, binaural)
+function loudnessSHM = acousticSHMLoudnessFromComponent(specTonalLoudness, specNoiseLoudness, outPlot, binaural)
 % loudnessSHM = acousticSHMLoudnessFromComponent(specTonalLoudness,
 %                                                specNoiseLoudness,
-%                                                outplot, binaural)
+%                                                outPlot, binaural)
 %
 % Returns loudness values according to ECMA-418-2:2024 (using the Sottek
 % Hearing Model) for input component specific tonal loudness and specific
@@ -30,7 +28,7 @@ function loudnessSHM = acousticSHMLoudnessFromComponent(specTonalLoudness,...
 %                     stereo audio)
 %                     arranged as [time, bands(, chans)]
 %
-% outplot : Boolean true/false (default: false)
+% outPlot : Boolean true/false (default: false)
 %           flag indicating whether to generate a figure from the output
 %
 % binaural : Boolean true/false (default: true)
@@ -95,7 +93,7 @@ function loudnessSHM = acousticSHMLoudnessFromComponent(specTonalLoudness,...
 % Institution: University of Salford
 %
 % Date created: 22/08/2023
-% Date last modified: 09/01/2025
+% Date last modified: 14/05/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -120,7 +118,7 @@ function loudnessSHM = acousticSHMLoudnessFromComponent(specTonalLoudness,...
     arguments (Input)
         specTonalLoudness (:, :, :) double {mustBeReal}
         specNoiseLoudness (:, :, :) double {mustBeReal}
-        outplot {mustBeNumericOrLogical} = false
+        outPlot {mustBeNumericOrLogical} = false
         binaural {mustBeNumericOrLogical} = true
     end
 
@@ -237,7 +235,7 @@ end
 
 %% Output plotting
 
-if outplot
+if outPlot
     % Plot figures
     % ------------
     for chan = outchans:-1:1

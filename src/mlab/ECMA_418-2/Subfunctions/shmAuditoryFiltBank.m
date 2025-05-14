@@ -1,5 +1,5 @@
-function signalFiltered = shmAuditoryFiltBank(signal, outplot)
-% signalFiltered = shmAuditoryFiltBank(signal, outplot)
+function signalFiltered = shmAuditoryFiltBank(signal, outPlot)
+% signalFiltered = shmAuditoryFiltBank(signal, outPlot)
 %
 % Returns a set of signals, bandpass filtered for the inner ear response
 % in each half-Bark critical band rate scale width, according to
@@ -11,7 +11,7 @@ function signalFiltered = shmAuditoryFiltBank(signal, outplot)
 % signal : vector
 %          the input signal as single audio (sound pressure) signal
 %
-% outplot : Boolean true/false (default: false)
+% outPlot : Boolean true/false (default: false)
 %           flag indicating whether to generate a figure a frequency and phase
 %           response figure for the filter bank
 % 
@@ -38,7 +38,7 @@ function signalFiltered = shmAuditoryFiltBank(signal, outplot)
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 27/09/2023
-% Date last modified: 11/04/2025
+% Date last modified: 14/05/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -60,7 +60,7 @@ function signalFiltered = shmAuditoryFiltBank(signal, outplot)
 %% Arguments validation
     arguments (Input)
         signal (:, 1) double {mustBeReal}
-        outplot {mustBeNumericOrLogical} = false
+        outPlot {mustBeNumericOrLogical} = false
     end
 
 %% Define constants
@@ -109,7 +109,7 @@ for zBand = 53:-1:1
 
     %% Plot figures
 
-    if outplot
+    if outPlot
         [H, f] = freqz(b_m, a_m, 10e3, 'whole', sampleRate48k);
         phir = angle(H);
         phirUnwrap = unwrap(phir,[], 1);
