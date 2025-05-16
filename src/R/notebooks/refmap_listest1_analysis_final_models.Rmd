@@ -923,7 +923,7 @@ model1predictEvt2lg <- ggeffects::predict_response(model1lgQ, terms=c("UASEvents
                                                                    "AmbientEnv [Park]",
                                                                    "UASOperation [Flyover]"),
                                                margin='marginalmeans', type='fixed', 
-                                              vcov=vcov(model1, type="bias-corrected"))
+                                              vcov=vcov(model1lgQ, type="bias-corrected"))
 
 model1predictType$AmbientEnv <- model1predictType$facet
 model1predictOp$AmbientEnv <- model1predictOp$facet
