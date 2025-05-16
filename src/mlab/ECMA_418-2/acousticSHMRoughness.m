@@ -316,8 +316,6 @@ for chan = size(pn_om, 2):-1:1
         % Sections 7.1.2 ECMA-418-2:2024
         % magnitude of Hilbert transform with downsample - Equation 65
         % [p(ntilde)_E,l,z]
-        % Notefigure; imagesc: prefiltering is not needed because the output from the
-        % Hilbert transform is a form of low-pass filtering
         envelopes(:, :, zBand) = downsample(abs(hilbert(pn_lz)), downSample, 0);
 
     end  % end of for loop for obtaining low frequency signal envelopes
