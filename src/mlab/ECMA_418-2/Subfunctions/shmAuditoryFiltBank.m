@@ -8,8 +8,9 @@ function signalFiltered = shmAuditoryFiltBank(signal, outPlot)
 %
 % Inputs
 % ------
-% signal : vector
-%          the input signal as single audio (sound pressure) signal
+% signal : vector or 2D matrix
+%          the input signal as single or two-channel audio (sound pressure)
+%          signal
 %
 % outPlot : Boolean true/false (default: false)
 %           flag indicating whether to generate a figure a frequency and phase
@@ -18,8 +19,9 @@ function signalFiltered = shmAuditoryFiltBank(signal, outPlot)
 % Returns
 % -------
 % 
-% signalFiltered : 2D matrix
-%                  the filtered signals 
+% signalFiltered : 2D or 3D matrix
+%                  the filtered signals with dimensions
+%                  [time, bands(, chans)]
 %
 % Assumptions
 % -----------
@@ -38,7 +40,7 @@ function signalFiltered = shmAuditoryFiltBank(signal, outPlot)
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 27/09/2023
-% Date last modified: 14/05/2025
+% Date last modified: 16/05/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -59,7 +61,7 @@ function signalFiltered = shmAuditoryFiltBank(signal, outPlot)
 %
 %% Arguments validation
     arguments (Input)
-        signal (:, 1) double {mustBeReal}
+        signal (:, 2) double {mustBeReal}
         outPlot {mustBeNumericOrLogical} = false
     end
 
@@ -105,7 +107,7 @@ for zBand = 53:-1:1
     % Recursive filter Section 5.1.4.2 Equation 13 ECMA-418-2:2024
     % Note, the results are complex so 2x the real-valued band-pass signal
     % is required.
-    signalFiltered(:, zBand) = 2*real(filter(b_m, a_m, signal));
+    signalFiltered(:, zBand, :) = 2*real(filter(b_m, a_m, signal));
 
     %% Plot figures
 
