@@ -55,7 +55,7 @@ function [signalSegmented, iBlocksOut] = signalSegment(signal, axisn, blockSize,
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 27/09/2023
-% Date last modified: 23/04/2025
+% Date last modified: 25/05/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -85,7 +85,7 @@ function [signalSegmented, iBlocksOut] = signalSegment(signal, axisn, blockSize,
 % Hop size
 hopSize = (1 - overlap)*blockSize;
 if mod(hopSize, 1) ~= 0
-    error("Block size and overlap are not compatible: overlap must yield an integer proportion of the block size.")
+    error("Block size and overlap are not compatible: overlap must yield an integer hop size as a proportion of the block size.")
 end
 
 %% Signal pre-processing

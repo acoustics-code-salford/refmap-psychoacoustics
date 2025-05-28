@@ -93,7 +93,7 @@ function loudnessSHM = acousticSHMLoudnessFromComponent(specTonalLoudness, specN
 % Institution: University of Salford
 %
 % Date created: 22/08/2023
-% Date last modified: 14/05/2025
+% Date last modified: 26/05/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -150,7 +150,7 @@ deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2024 [deltaf(f=0)
 c = 0.1618;  % Half-Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2024
 
 dz = 0.5;  % critical band resolution [deltaz]
-halfBark = dz:dz:26.5;  % half-critical band rate scale [z]
+halfBark = dz:dz:26.5;  % half-overlapping critical band rate scale [z]
 bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2024 [F(z)]
 
 % Section 8.1.1 ECMA-418-2:2024

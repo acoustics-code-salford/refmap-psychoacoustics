@@ -48,7 +48,7 @@ function [signalSegmented, iBlocksOut] = shmSignalSegment(signal, axisN, blockSi
 %
 % Requirements
 % ------------
-% None
+% Signal Processing Toolbox
 %
 % Ownership and Quality Assurance
 % -------------------------------
@@ -57,7 +57,7 @@ function [signalSegmented, iBlocksOut] = shmSignalSegment(signal, axisN, blockSi
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 27/09/2023
-% Date last modified: 14/05/2025
+% Date last modified: 26/05/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -103,7 +103,7 @@ if size(signal(i_start:end, :), 1) <= blockSize
 end
 
 % Assign number of channels
-nchans = size(signal, 2);
+nChans = size(signal, 2);
 
 % Hop size
 hopSize = (1 - overlap)*blockSize;
@@ -112,9 +112,9 @@ hopSize = (1 - overlap)*blockSize;
 % corresponding with the truncated signal length that will fill an
 % integer number of overlapped blocks
 signalTrunc = signal(i_start:end, :);
-n_blocks = floor((size(signalTrunc, 1)...
+nBlocks = floor((size(signalTrunc, 1)...
                  - overlap*blockSize)/hopSize);
-i_end = n_blocks*hopSize + overlap*blockSize;
+i_end = nBlocks*hopSize + overlap*blockSize;
 signalTrunc = signalTrunc(1:i_end, :);
 
 %% Signal segmentation
@@ -126,25 +126,20 @@ signalTrunc = signalTrunc(1:i_end, :);
 % concatenated. The first 6 columns are then discarded as these all
 % contain zeros from the appended zero columns.
 
-for chan = nchans:-1:1
-    signalSegmentedChan = [zeros(hopSize, 3),...
-                           reshape(signalTrunc, hopSize, [])];
-    
-    signalSegmentedChan = cat(1, circshift(signalSegmentedChan, 3, 2),...
-                              circshift(signalSegmentedChan, 2, 2),...
-                              circshift(signalSegmentedChan, 1, 2),...
-                              circshift(signalSegmentedChan, 0, 2));
-    
-    signalSegmentedChan = signalSegmentedChan(:, 7:end);
+for chan = nChans:-1:1
+
+    % segment signal
+    signalSegmentedChan = buffer(signalTrunc(:, chan), blockSize,...
+                                 blockSize - hopSize, 'nodelay');
 
     % if branch to include block of end data with increased overlap
     if endShrink && (size(signal(i_start:end, chan), 1) > size(signalTrunc, 1))
         signalSegmentedChanOut = [signalSegmentedChan, signal(end-blockSize + 1:end, chan)];
-        iBlocksOut = [1:hopSize:n_blocks*hopSize,...
+        iBlocksOut = [1:hopSize:nBlocks*hopSize,...
                       size(signal(i_start:end, chan), 1) - blockSize + 1];
     else
         signalSegmentedChanOut = signalSegmentedChan;
-        iBlocksOut = 1:hopSize:n_blocks*hopSize;
+        iBlocksOut = 1:hopSize:nBlocks*hopSize;
     end
 
     signalSegmented(:, :, chan) = signalSegmentedChanOut;

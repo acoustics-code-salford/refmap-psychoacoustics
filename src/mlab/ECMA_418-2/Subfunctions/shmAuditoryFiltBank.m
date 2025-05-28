@@ -38,7 +38,7 @@ function signalFiltered = shmAuditoryFiltBank(signal, outPlot)
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 27/09/2023
-% Date last modified: 14/05/2025
+% Date last modified: 26/05/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -69,7 +69,8 @@ sampleRate48k = 48e3;  % Signal sample rate prescribed to be 48kHz (to be used f
 deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2024
 c = 0.1618;  % Half-Bark band centre-frequency demoninator constant defined in Section 5.1.4.1 ECMA-418-2:2024
 
-halfBark = 0.5:0.5:26.5;  % half-critical band rate scale
+dz = 0.5;
+halfBark = 0.5:dz:26.5;  % half-overlapping critical band rate scale
 bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2024
 dfz = sqrt(deltaFreq0^2 + (c*bandCentreFreqs).^2);  % Section 5.1.4.1 Equation 10 ECMA-418-2:2024
 
@@ -94,18 +95,18 @@ for zBand = 53:-1:1
     bp = exp((1i.*2.*pi.*bandCentreFreqs(zBand).*(0:k+1))./sampleRate48k);
     
     % Feed-backward coefficients, Section 5.1.4.2 Equation 14 ECMA-418-2:2024
-    m = 1:k;
-    a_m = ([1, ((-d).^m).*arrayfun(@(m_) nchoosek(k, m_), m)]).*bp(1:k+1);
+    m_a = 1:k;
+    a_m = ([1, ((-d).^m_a).*arrayfun(@(m_) nchoosek(k, m_), m_a)]).*bp(1:k+1);
 
     % Feed-forward coefficients, Section 5.1.4.2 Equation 15 ECMA-418-2:2024
-    m = 0:k-1;
+    m_b = 0:k-1;
     i = 1:k-1;
-    b_m = ((((1-d).^k)./sum(e_i(i+1).*(d.^i))).*(d.^m).*e_i).*bp(1:k);
+    b_m = ((((1-d).^k)./sum(e_i(i+1).*(d.^i))).*(d.^m_b).*e_i).*bp(1:k);
 
     % Recursive filter Section 5.1.4.2 Equation 13 ECMA-418-2:2024
     % Note, the results are complex so 2x the real-valued band-pass signal
     % is required.
-    signalFiltered(:, zBand) = 2*real(filter(b_m, a_m, signal));
+    signalFiltered(:, zBand, :) = 2*real(filter(b_m, a_m, signal));
 
     %% Plot figures
 
@@ -154,6 +155,7 @@ for zBand = 53:-1:1
         end
         ax1.XScale = 'log';
         ax2.XScale = 'log';
+        ax1.YLim = [-100, 0];
     end
 
 

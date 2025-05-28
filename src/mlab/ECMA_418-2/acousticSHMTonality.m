@@ -30,9 +30,9 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 %           determines whether a progress bar displays during processing
 %           (set waitBar to false for doing multi-file parallel calculations)
 %
-% outplot : Boolean true/false (default: false)
+% outPlot : Boolean true/false (default: false)
 %           flag indicating whether to generate a figure from the output
-%           (set outplot to false for doing multi-file parallel calculations)
+%           (set outPlot to false for doing multi-file parallel calculations)
 % 
 % Returns
 % -------
@@ -99,10 +99,10 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 %
 % soundField : string
 %              identifies the soundfield type applied (the input argument
-%              fieldtype)
+%              soundField)
 %
 %
-% If outplot=true, a set of plots is returned illustrating the energy
+% If outPlot=true, a set of plots is returned illustrating the energy
 % time-averaged A-weighted sound level, the time-dependent specific and
 % overall tonality, with the latter also indicating the time-aggregated
 % value. A set of plots is returned for each input channel.
@@ -124,7 +124,7 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 07/08/2023
-% Date last modified: 14/05/2025
+% Date last modified: 28/05/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -196,7 +196,7 @@ sampleRate48k = 48e3;  % Signal sample rate prescribed to be 48kHz (to be used f
 deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2024 [deltaf(f=0)]
 c = 0.1618;  % Half-Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2024
 
-halfBark = 0.5:0.5:26.5;  % half-critical band rate scale [z]
+halfBark = 0.5:0.5:26.5;  % half-overlapping critical band rate scale [z]
 bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2024 [F(z)]
 dfz = sqrt(deltaFreq0^2 + (c*bandCentreFreqs).^2);  % Section 5.1.4.1 Equation 10 ECMA-418-2:2024 [deltaf(z)]
 
@@ -278,7 +278,7 @@ for chan = size(pn_om, 2):-1:1
 
     % Filter equalised signal using 53 1/2Bark ERB filters according to 
     % Section 5.1.4.2 ECMA-418-2:2024
-    pn_omz = shmAuditoryFiltBank(pn_om(:, chan), false);
+    pn_omz = shmAuditoryFiltBank(pn_om(:, chan));
 
     % Autocorrelation function analysis
     % ---------------------------------
@@ -327,7 +327,7 @@ for chan = size(pn_om, 2):-1:1
         unscaledACF = ifft(abs(fft(pn_rlz, 2*blockSizeDupe(zBand), 1)).^2,...
                            2*blockSizeDupe(zBand), 1);
         % Section 6.2.2 Equation 29 ECMA-418-2:2024 [phi_l,z(m)]
-        denom = sqrt(cumsum(pn_rlz.^2, 1, 'reverse').*flipud(cumsum(pn_rlz.^2)))...
+        denom = sqrt(cumsum(pn_rlz.^2, 1, 'reverse').*flipud(cumsum(pn_rlz.^2, 1)))...
                 + 1e-12;
 
         % note that the block length is used here, rather than the 2*s_b,
@@ -401,7 +401,6 @@ for chan = size(pn_om, 2):-1:1
         % specific loudness of complete band-pass signal in critical band
         bandLoudness = meanScaledACF(1, :);
         
-        
         % Resampling to common time basis Section 6.2.6 ECMA-418-2:2024
         if i_interp(zBand) > 1
             % Note: use of interpolation function avoids rippling caused by
@@ -415,7 +414,7 @@ for chan = size(pn_om, 2):-1:1
             bandLoudness = interp1(x, bandLoudness, xq);
             bandTonalFreqs = interp1(x, bandTonalFreqs, xq);
 
-        end
+        end  % end of if branch for interpolation
 
         % Remove end zero-padded samples Section 6.2.6 ECMA-418-2:2024
         l_end = ceil(size(p_re, 1)/sampleRate48k*sampleRate1875) + 1;  % Equation 40 ECMA-418-2:2024
@@ -590,7 +589,7 @@ for chan = size(pn_om, 2):-1:1
         lgd.Title.String = "Overall";
     end
 
-end
+end  % end of for loop over channels
 
 %% Output assignment
 
