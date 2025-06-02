@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 
-from acousticSHMSubs import (shmDimensional, shmResample, shmPreProc,
-                             shmOutMidEarFilter, shmAuditoryFiltBank,
-                             shmSignalSegment, shmBasisLoudness)
+__all__ = ["acousticSHMTonality", "acousticSHMLoudness", "acousticSHMSubs"]
+
+from .acousticSHMTonality import acousticSHMTonality
+
+from .acousticSHMLoudness import acousticSHMLoudness
+
+from .acousticSHMSubs import (shmDimensional, shmResample, shmPreProc,
+                              shmOutMidEarFilter, shmAuditoryFiltBank,
+                              shmSignalSegment, shmBasisLoudness,
+                              shmNoiseRedLowPass)

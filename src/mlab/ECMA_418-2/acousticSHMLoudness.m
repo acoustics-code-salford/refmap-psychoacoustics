@@ -37,8 +37,8 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, w
 %           flag indicating whether to generate a figure from the output
 %
 % binaural : Boolean true/false (default: true)
-%            flag indicating whether to output binaural loudness for stereo
-%            input signal.
+%            flag indicating whether to output combined binaural loudness
+%            for stereo input signal.
 % 
 % Returns
 % -------
@@ -49,14 +49,23 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, w
 % loudnessSHM contains the following outputs:
 %
 % specLoudness : matrix
-%                time-dependent specific loudness for each (half) critical
-%                band
+%                time-dependent specific loudness for each critical band
 %                arranged as [time, bands(, channels)]
 %
 % specloudnessPowAvg : matrix
 %                      time-power-averaged specific loudness for each
-%                      (half) critical band
+%                      critical band
 %                      arranged as [bands(, channels)]
+%
+% specTonalLoudness : matrix
+%                     time-dependent specific tonal loudness for each
+%                     (half) critical band
+%                     arranged as [time, bands(, channels)]
+%
+% specNoiseLoudness : matrix
+%                     time-dependent specific noise loudness for each
+%                     (half) critical band
+%                     arranged as [time, bands(, channels)]
 %
 % loudnessTDep : vector or matrix
 %                 time-dependent overall loudness
@@ -67,8 +76,8 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, w
 %                  arranged as [loudness(, channels)]
 %
 % bandCentreFreqs : vector
-%                   centre frequencies corresponding with each (half)
-%                   critical band rate scale width
+%                   centre frequencies corresponding with each critical
+%                   band rate
 %
 % timeOut : vector
 %           time (seconds) corresponding with time-dependent outputs
@@ -76,16 +85,16 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, w
 % soundField : string
 %              identifies the soundfield type applied (= input argument)
 %
-% If binaural=true, a corresponding set of outputs for the binaural
-% loudness are also contained in loudnessSHM
+% If binaural=true, a corresponding set of outputs for the combined
+% binaural loudness are also contained in loudnessSHM
 %
 % If outplot=true, a set of plots is returned illustrating the energy
 % time-averaged A-weighted sound level, the time-dependent specific and
 % overall loudness, with the latter also indicating the time-aggregated
 % value. A set of plots is returned for each input channel, with another
-% set for the binaural loudness, if binaural=true. In that case, the
-% indicated sound level corresponds with the channel with the highest sound
-% level.
+% set for the combined binaural loudness, if binaural=true. In that case,
+% the indicated sound level corresponds with the channel with the highest
+% sound level.
 %
 % Assumptions
 % -----------
@@ -103,7 +112,7 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford
 %
 % Date created: 22/09/2023
-% Date last modified: 26/05/2025
+% Date last modified: 29/05/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -157,8 +166,8 @@ end
 if size(p, 2) > 2
     error('Error: Input signal comprises more than two channels')
 else
-    inchans = size(p, 2);
-    if inchans > 1
+    chansIn = size(p, 2);
+    if chansIn > 1
         chans = ["Stereo left";
                  "Stereo right"];
     else
@@ -168,10 +177,11 @@ end
 
 %% Define constants
 
+sampleRate48k = 48e3;  % Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2024 [r_s]
 deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2024 [deltaf(f=0)]
-c = 0.1618;  % Half-Bark band centre-frequency demoninator constant defined in Section 5.1.4.1 ECMA-418-2:2024
+c = 0.1618;  % Half-overlapping Bark band centre-frequency demoninator constant defined in Section 5.1.4.1 ECMA-418-2:2024
 
-dz = 0.5;  % critical band resolution [deltaz]
+dz = 0.5;  % critical band overlap [deltaz]
 halfBark = 0.5:dz:26.5;  % half-overlapping critical band rate scale [z]
 bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2024 [F(z)]
 
@@ -187,11 +197,19 @@ sampleRate1875 = 48e3/256;
 
 %% Signal processing
 
+% Input pre-processing
+% --------------------
+if sampleRateIn ~= sampleRate48k  % Resample signal
+    [p_re, ~] = shmResample(p, sampleRateIn);
+else  % don't resample
+    p_re = p;
+end
+
 % Calculate specific loudnesses for tonal and noise components
 % ------------------------------------------------------------
 
 % Obtain tonal and noise component specific loudnesses from Sections 5 & 6 ECMA-418-2:2024
-tonalitySHM = acousticSHMTonality(p, sampleRateIn, 1, soundField, waitBar,...
+tonalitySHM = acousticSHMTonality(p_re, sampleRate48k, 1, soundField, waitBar,...
                                   false);
 
 specTonalLoudness = tonalitySHM.specTonalLoudness;  % [N'_tonal(l,z)]
@@ -199,7 +217,7 @@ specNoiseLoudness = tonalitySHM.specNoiseLoudness;  % [N'_noise(l,z)]
 
 % Section 8.1.1 ECMA-418-2:2024
 % Weight and combine component specific loudnesses
-for chan = inchans:-1:1
+for chan = chansIn:-1:1
     % Equation 114 ECMA-418-2:2024 [e(z)]
     maxLoudnessFuncel = a./(max(specTonalLoudness(:, :, chan)...
                                 + specNoiseLoudness(:, :, chan), [],...
@@ -209,15 +227,17 @@ for chan = inchans:-1:1
                                 + abs((weight_n.*specNoiseLoudness(:, :, chan)).^maxLoudnessFuncel)).^(1./maxLoudnessFuncel);
 end
 
-if inchans == 2 && binaural
+if chansIn == 2 && binaural
     % Binaural loudness
     % Section 8.1.5 ECMA-418-2:2024 Equation 118 [N'_B(l,z)]
     specLoudness(:, :, 3) = sqrt(sum(specLoudness.^2, 3)/2);
-    outchans = 3;  % set number of 'channels' to stereo plus single binaural
+    specTonalLoudness(:, :, 3) = sqrt(sum(specTonalLoudness.^2, 3)/2);
+    specNoiseLoudness(:, :, 3) = sqrt(sum(specNoiseLoudness.^2, 3)/2);
+    chansOut = 3;  % set number of 'channels' to stereo plus single binaural
     chans = [chans;
              "Binaural"];
 else
-    outchans = inchans;  % assign number of output channels
+    chansOut = chansIn;  % assign number of output channels
 end
 
 % Section 8.1.2 ECMA-418-2:2024
@@ -227,7 +247,7 @@ specLoudnessPowAvg = (sum(specLoudness((57 + 1):end, :, :).^(1/log10(2)), 1)./si
 % Section 8.1.3 ECMA-418-2:2024
 % Time-dependent loudness Equation 116 [N(l)]
 % Discard singleton dimensions
-if outchans == 1
+if chansOut == 1
     loudnessTDep = sum(specLoudness.*dz, 2);
     specLoudnessPowAvg = transpose(specLoudnessPowAvg);
 else
@@ -242,38 +262,12 @@ loudnessPowAvg = (sum(loudnessTDep((57 + 1):end, :).^(1/log10(2)), 1)./size(loud
 % time (s) corresponding with results output [t]
 timeOut = (0:(size(specLoudness, 1) - 1))/sampleRate1875;
 
-%% Output assignment
-
-% Assign outputs to structure
-if outchans == 3
-    loudnessSHM.specLoudness = specLoudness(:, :, 1:2);
-    loudnessSHM.specLoudnessPowAvg = specLoudnessPowAvg(:, 1:2);
-    loudnessSHM.loudnessTDep = loudnessTDep(:, 1:2);
-    loudnessSHM.loudnessPowAvg = loudnessPowAvg(1:2);
-    loudnessSHM.specLoudnessBin = specLoudness(:, :, 3);
-    loudnessSHM.specLoudnessPowAvgBin = specLoudnessPowAvg(:, 3);
-    loudnessSHM.loudnessTDepBin = loudnessTDep(:, 3);
-    loudnessSHM.loudnessPowAvgBin = loudnessPowAvg(:, 3);
-    loudnessSHM.bandCentreFreqs = bandCentreFreqs;
-    loudnessSHM.timeOut = timeOut;
-    loudnessSHM.soundField = soundField;
-else
-    loudnessSHM.specLoudness = specLoudness;
-    loudnessSHM.specLoudnessPowAvg = specLoudnessPowAvg;
-    loudnessSHM.loudnessTDep = loudnessTDep;
-    loudnessSHM.loudnessPowAvg = loudnessPowAvg;
-    loudnessSHM.bandCentreFreqs = bandCentreFreqs;
-    loudnessSHM.timeOut = timeOut;
-    loudnessSHM.soundField = soundField;
-end
-
-
 %% Output plotting
 
 if outPlot
     % Plot figures
     % ------------
-    for chan = outchans:-1:1
+    for chan = chansOut:-1:1
         cmap_viridis = load('cmap_viridis.txt');
         % Plot results
         fig = figure;
@@ -286,7 +280,7 @@ if outPlot
         view(2);
         ax1.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
         ax1.YLim = [bandCentreFreqs(1), bandCentreFreqs(end)];
-        %ax1.CLim = [0, ceil(max(specificLoudness(:, :, chan), [], 'all')*10)/10];
+        ax1.CLim = [0, ceil(max(specLoudness(:, :, chan), [], 'all')*10)/10];
         ax1.YTick = [63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3]; 
         ax1.YTickLabel = ["63", "125", "250", "500", "1k", "2k", "4k",...
                           "8k", "16k"];
@@ -301,10 +295,10 @@ if outPlot
         chan_lab = chans(chan);
 
         % Create A-weighting filter
-        weightFilt = weightingFilter('A-weighting', sampleRateIn);
+        weightFilt = weightingFilter('A-weighting', sampleRate48k);
         % Filter signal to determine A-weighted time-averaged level
         if chan == 3
-            pA = weightFilt(p);
+            pA = weightFilt(p_re);
             LAeq2 = 20*log10(rms(pA, 1)/2e-5);
             % take the higher channel level as representative (PD ISO/TS
             % 12913-3:2019 Annex D)
@@ -319,7 +313,7 @@ if outPlot
             chan_lab = chan_lab + whichEar;
 
         else
-            pA = weightFilt(p(:, chan));
+            pA = weightFilt(p_re(:, chan));
             LAeq = 20*log10(rms(pA)/2e-5);
         end
         
@@ -352,5 +346,36 @@ if outPlot
         lgd.Title.String = "Overall";
     end  % end of for loop for plotting over channels
 end  % end of if branch for plotting if outplot true
+
+%% Output assignment
+
+% Assign outputs to structure
+if chansOut == 3
+    loudnessSHM.specLoudness = specLoudness(:, :, 1:2);
+    loudnessSHM.specTonalLoudness = specTonalLoudness(:, :, 1:2);
+    loudnessSHM.specNoiseLoudness = specNoiseLoudness(:, :, 1:2);
+    loudnessSHM.specLoudnessPowAvg = specLoudnessPowAvg(:, 1:2);
+    loudnessSHM.loudnessTDep = loudnessTDep(:, 1:2);
+    loudnessSHM.loudnessPowAvg = loudnessPowAvg(1:2);
+    loudnessSHM.specLoudnessBin = specLoudness(:, :, 3);
+    loudnessSHM.specTonalLoudnessBin = specTonalLoudness(:, :, 3);
+    loudnessSHM.specNoiseLoudnessBin = specNoiseLoudness(:, :, 3);
+    loudnessSHM.specLoudnessPowAvgBin = specLoudnessPowAvg(:, 3);
+    loudnessSHM.loudnessTDepBin = loudnessTDep(:, 3);
+    loudnessSHM.loudnessPowAvgBin = loudnessPowAvg(:, 3);
+    loudnessSHM.bandCentreFreqs = bandCentreFreqs;
+    loudnessSHM.timeOut = timeOut;
+    loudnessSHM.soundField = soundField;
+else
+    loudnessSHM.specLoudness = specLoudness;
+    loudnessSHM.specTonalLoudness = specTonalLoudness;
+    loudnessSHM.specNoiseLoudness = specNoiseLoudness;
+    loudnessSHM.specLoudnessPowAvg = specLoudnessPowAvg;
+    loudnessSHM.loudnessTDep = loudnessTDep;
+    loudnessSHM.loudnessPowAvg = loudnessPowAvg;
+    loudnessSHM.bandCentreFreqs = bandCentreFreqs;
+    loudnessSHM.timeOut = timeOut;
+    loudnessSHM.soundField = soundField;
+end
 
 % end of function

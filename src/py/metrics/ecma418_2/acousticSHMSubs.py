@@ -19,7 +19,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 27/10/2023
-Date last modified: 26/05/2025
+Date last modified: 29/05/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -54,7 +54,8 @@ from math import gcd
 # set plot parameters
 mpl.rcParams['font.family'] = 'sans-serif'
 mpl.rcParams['font.sans-serif'] = 'Arial'
-mpl.rcParams.update({'font.size': 14, 'mathtext.fontset': 'stix'})
+mpl.rcParams.update({'font.size': 14})
+mpl.rcParams['mathtext.fontset'] = 'stixsans'
 mpl.rcParams['figure.autolayout'] = True
 
 
@@ -878,4 +879,107 @@ def shmDimensional(ndArray, targetDim=2, where='last'):
         else:
             raise ValueError("Input argument 'where' must either have string values 'first' or 'last', or integer values 0 or -1")
 
-    return targArray
+    return targArray  # end of shmDimensional function
+
+
+# %% shmRoughWeight
+def shmRoughWeight(modRate, modfreqMaxWeight, roughWeightParams):
+    """
+    Returns roughness weighting for high- and low-frequency (modulation
+    rates) according to ECMA-418-2:2024 (the Sottek Hearing Model) for a set
+    of modulation rates and parameters.
+
+    Inputs
+    ------
+
+    modRate : 3D array
+              the estimated modulation rates used to determine the weighting
+              factors
+
+    modfreqMaxWeight : 1D array
+                       the modulation rate at which the weighting reaches its
+                       maximum value (one)
+
+    roughWeightParams : array
+                        the parameters for the each of the weightings (high
+                        or low)
+
+    Returns
+    -------
+    roughWeight : array
+                  the weighting values for the input parameters
+
+    Assumptions
+    -----------
+    Inputs are in compatible parallelised (broadcastable) forms
+
+    Checked by:
+    Date last checked:
+    """
+    # Equation 85 [G_l,z,i(f_p,i(l,z))]
+    roughWeight = 1/(1 + ((modRate/modfreqMaxWeight
+                           - modfreqMaxWeight/modRate)
+                          * roughWeightParams[0, :, :])**2)**roughWeightParams[1, :, :]
+
+    return roughWeight  # end of shmRoughWeight function
+
+
+# %% shmRoughLowPass
+def shmRoughLowPass(specRoughEstTform, sampleRate, riseTime, fallTime):
+    """
+    specRoughness = shmRoughLowPass(specRoughEstTform, sampleRate, riseTime,
+                                    fallTime)
+
+    Returns specific roughness low pass filtered for smoothing according to
+    ECMA-418-2:2024 (the Sottek Hearing Model) for an input transformed
+    estimate of the specific roughnesss.
+
+    Inputs
+    ------
+    specRoughEstTform : 2D array
+                        the input specific roughness estimate (from
+                        Equation 104)
+
+    sampleRate : double
+                 the sample rate (frequency) of the input specific
+                 roughness (NB: this is not the original signal sample
+                 rate; currently it should be set to 50 Hz)
+
+    Returns
+    -------
+    specRoughness : 2D array
+                    the filtered specific roughness
+
+    Assumptions
+    -----------
+    The input specific roughness estimate is orientated with time on axis 0,
+    and critical bands on axis 1.
+
+    Checked by:
+    Date last checked:
+    """
+    riseExponent = np.exp(-1/(sampleRate*riseTime))*np.ones([1, specRoughEstTform.shape[1]])
+    fallExponent = np.exp(-1/(sampleRate*fallTime))*np.ones([1, specRoughEstTform.shape[1]])
+
+    specRoughness = specRoughEstTform.copy()
+
+    for llBlock in range(1, specRoughEstTform.shape[0]):
+
+        riseMask = (specRoughEstTform[llBlock, :]
+                    >= specRoughness[llBlock - 1, :])
+        fallMask = ~riseMask
+
+        if specRoughEstTform[llBlock, riseMask].size != 0:
+            specRoughness[llBlock, riseMask] = (specRoughEstTform[llBlock,
+                                                                  riseMask]*(1 - riseExponent[riseMask])
+                                                + specRoughness[llBlock - 1,
+                                                                riseMask]*riseExponent[riseMask])
+        # end of rise branch
+        if specRoughEstTform[llBlock, fallMask].size != 0:
+            specRoughness[llBlock, fallMask] = (specRoughEstTform[llBlock,
+                                                                  fallMask]*(1 - fallExponent[fallMask])
+                                                + specRoughness[llBlock - 1,
+                                                                fallMask]*fallExponent[fallMask])
+        # end of fall branch
+
+    return specRoughness  # end of shmRoughLowPass function

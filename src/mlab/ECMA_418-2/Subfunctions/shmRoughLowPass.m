@@ -8,8 +8,8 @@ function specRoughness = shmRoughLowPass(specRoughEstTform, sampleRate, riseTime
 % Inputs
 % ------
 % specRoughEstTform : 2D matrix
-%                         the input specific roughness estimate (from
-%                         Equation 104)
+%                     the input specific roughness estimate (from
+%                     Equation 104)
 %
 % sampleRate : double
 %              the sample rate (frequency) of the input specific
@@ -37,7 +37,7 @@ function specRoughness = shmRoughLowPass(specRoughEstTform, sampleRate, riseTime
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 22/09/2023
-% Date last modified: 14/05/2025
+% Date last modified: 29/05/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -79,8 +79,5 @@ for llBlock = 2:size(specRoughEstTform, 1)
         specRoughness(llBlock, fallMask) = specRoughEstTform(llBlock, fallMask).*(1 - fallExponent(fallMask))...
                                            + specRoughness(llBlock - 1, fallMask).*fallExponent(fallMask);
     end
-
-    
-
-end
+end  % end of for loop over blocks
 

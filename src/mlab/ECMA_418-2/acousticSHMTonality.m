@@ -124,7 +124,7 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 07/08/2023
-% Date last modified: 28/05/2025
+% Date last modified: 31/05/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -181,8 +181,8 @@ end
 if size(p, 2) > 2
     error('Error: Input signal comprises more than two channels')
 else
-    inchans = size(p, 2);
-    if inchans > 1
+    chansIn = size(p, 2);
+    if chansIn > 1
         chans = ["Stereo left";
                  "Stereo right"];
     else
@@ -194,7 +194,7 @@ end
 
 sampleRate48k = 48e3;  % Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2024 [r_s]
 deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2024 [deltaf(f=0)]
-c = 0.1618;  % Half-Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2024
+c = 0.1618;  % Half-overlapping Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2024
 
 halfBark = 0.5:0.5:26.5;  % half-overlapping critical band rate scale [z]
 bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2024 [F(z)]
@@ -262,7 +262,7 @@ n_steps = 115;  % approximate number of calculation steps
 
 % Loop through channels in file
 % -----------------------------
-for chan = size(pn_om, 2):-1:1
+for chan = chansIn:-1:1
 
     % Apply auditory filter bank
     % --------------------------
@@ -276,8 +276,8 @@ for chan = size(pn_om, 2):-1:1
     
     end % end of if branch for waitBar
 
-    % Filter equalised signal using 53 1/2Bark ERB filters according to 
-    % Section 5.1.4.2 ECMA-418-2:2024
+    % Filter equalised signal using 53 1/2-overlapping Bark filters
+    % according to Section 5.1.4.2 ECMA-418-2:2024
     pn_omz = shmAuditoryFiltBank(pn_om(:, chan));
 
     % Autocorrelation function analysis
@@ -496,8 +496,8 @@ for chan = size(pn_om, 2):-1:1
             = sum(specTonalityFreqs(mask, zBand, chan), 1)./(nnz(mask) + 1e-12);
     end
 
-    % Calculation of total (non-specific) tonality Section 6.2.10
-    % -----------------------------------------------------------
+    % Calculation of overall tonality Section 6.2.10
+    % ----------------------------------------------
     % Further update can add the user input frequency range to determine
     % total tonality - not yet incorporated
 
@@ -561,10 +561,10 @@ for chan = size(pn_om, 2):-1:1
         weightFilt = weightingFilter('A-weighting', sampleRate48k);
         % Filter signal to determine A-weighted time-averaged level
         pA = weightFilt(p_re(:, chan));
-        LA = 20*log10(rms(pA)/2e-5);
+        LAeq = 20*log10(rms(pA)/2e-5);
         title(strcat(chan_lab,...
                      " signal sound pressure level =", {' '},...
-                     num2str(round(LA,1)), "dB {\itL}_{Aeq}"),...
+                     num2str(round(LAeq,1)), "dB {\itL}_{Aeq}"),...
                      'FontWeight', 'normal', 'FontName', 'Arial');
         
         ax2 = nexttile(2);
@@ -594,7 +594,7 @@ end  % end of for loop over channels
 %% Output assignment
 
 % Discard singleton dimensions
-if inchans > 1
+if chansIn > 1
     specTonalityAvg = squeeze(specTonalityAvg);
     specTonalityAvgFreqs = squeeze(specTonalityAvgFreqs);
 else

@@ -35,9 +35,9 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
 %           flag indicating whether to generate a figure from the output
 %
 % binaural : Boolean true/false (default: true)
-%            flag indicating whether to output binaural roughness for stereo
-%            input signal.
-% 
+%            flag indicating whether to output combined binaural roughness
+%            for stereo input signal.
+%
 % Returns
 % -------
 %
@@ -102,7 +102,7 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 26/05/2025
+% Date last modified: 31/05/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -156,8 +156,8 @@ end
 if size(p, 2) > 2
     error("Error: Input signal comprises more than two channels")
 else
-    inchans = size(p, 2);
-    if inchans == 2
+    chansIn = size(p, 2);
+    if chansIn == 2
         chans = ["Stereo left";
                  "Stereo right"];
     else
@@ -170,7 +170,7 @@ end
 signalT = size(p, 1)/sampleRateIn;  % duration of input signal
 sampleRate48k = 48e3;  % Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2024 [r_s]
 deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2024 [deltaf(f=0)]
-c = 0.1618;  % Half-Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2024 [c]
+c = 0.1618;  % Half-overlapping Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2024 [c]
 
 dz = 0.5;  % critical band resolution [deltaz]
 halfBark = 0.5:dz:26.5;  % half-overlapping critical band rate scale [z]
@@ -252,7 +252,7 @@ n_samples = size(p_re, 1);
 
 % Section 5.1.2 ECMA-418-2:2024 Fade in weighting and zero-padding
 % (only the start is zero-padded)
-pn = shmPreProc(p_re, max(blockSize), max(hopSize), true, false);
+pn = shmPreProc(p_re, blockSize, hopSize, true, false);
 
 % Apply outer & middle ear filter
 % -------------------------------
@@ -264,7 +264,7 @@ n_steps = 270;  % approximate number of calculation steps
 
 % Loop through channels in file
 % -----------------------------
-for chan = size(pn_om, 2):-1:1
+for chan = chansIn:-1:1
 
     % Apply auditory filter bank
     % --------------------------
@@ -277,8 +277,8 @@ for chan = size(pn_om, 2):-1:1
         i_step = i_step + 1;
     end % end of if branch for waitBar
 
-    % Filter equalised signal using 53 1/2Bark ERB filters according to 
-    % Section 5.1.4.2 ECMA-418-2:2024
+    % Filter equalised signal using 53 1/2-overlapping Bark filters
+    % according to Section 5.1.4.2 ECMA-418-2:2024
     pn_omz = shmAuditoryFiltBank(pn_om(:, chan), false);
 
     % Note: At this stage, typical computer RAM limits impose a need to loop
@@ -641,13 +641,13 @@ end  % end of for loop over channels
 
 % Binaural roughness
 % Section 7.1.11 ECMA-418-2:2024 [R'_B(l_50,z)]
-if inchans == 2 && binaural
+if chansIn == 2 && binaural
     specRoughness(:, :, 3) = sqrt(sum(specRoughness.^2, 3)/2);  % Equation 112
-    outchans = 3;  % set number of 'channels' to stereo plus single binaural
+    chansOut = 3;  % set number of 'channels' to stereo plus single binaural
     chans = [chans;
              "Binaural"];
 else
-    outchans = inchans;  % assign number of output channels
+    chansOut = chansIn;  % assign number of output channels
 end
 
 % Section 7.1.8 ECMA-418-2:2024
@@ -657,7 +657,7 @@ specRoughnessAvg = mean(specRoughness(17:end, :, :), 1);
 % Section 7.1.9 ECMA-418-2:2024
 % Time-dependent roughness Equation 111 [R(l_50)]
 % Discard singleton dimensions
-if outchans == 1
+if chansOut == 1
     roughnessTDep = sum(specRoughness.*dz, 2);
     specRoughnessAvg = transpose(specRoughnessAvg);
 else
@@ -672,37 +672,12 @@ roughness90Pc = prctile(roughnessTDep(17:end, :, :), 90, 1);
 % time (s) corresponding with results output [t]
 timeOut = (0:(size(specRoughness, 1) - 1))/sampleRate50;
 
-%% Output assignment
-
-% Assign outputs to structure
-if outchans == 3
-    roughnessSHM.specRoughness = specRoughness(:, :, 1:2);
-    roughnessSHM.specRoughnessAvg = specRoughnessAvg(:, 1:2);
-    roughnessSHM.roughnessTDep = roughnessTDep(:, 1:2);
-    roughnessSHM.roughness90Pc = roughness90Pc(:, 1:2);
-    roughnessSHM.specRoughnessBin = specRoughness(:, :, 3);
-    roughnessSHM.specRoughnessAvgBin = specRoughnessAvg(:, 3);
-    roughnessSHM.roughnessTDepBin = roughnessTDep(:, 3);
-    roughnessSHM.roughness90PcBin = roughness90Pc(:, 3);
-    roughnessSHM.bandCentreFreqs = bandCentreFreqs;
-    roughnessSHM.timeOut = timeOut;
-    roughnessSHM.soundField = soundField;
-else
-    roughnessSHM.specRoughness = specRoughness;
-    roughnessSHM.specRoughnessAvg = specRoughnessAvg;
-    roughnessSHM.roughnessTDep = roughnessTDep;
-    roughnessSHM.roughness90Pc = roughness90Pc;
-    roughnessSHM.bandCentreFreqs = bandCentreFreqs;
-    roughnessSHM.timeOut = timeOut;
-    roughnessSHM.soundField = soundField;
-end
-
 %% Output plotting
 
 if outPlot
     % Plot figures
     % ------------
-    for chan = outchans:-1:1
+    for chan = chansOut:-1:1
         % Plot results
         fig = figure;
         tiledlayout(fig, 2, 1);
@@ -780,5 +755,30 @@ if outPlot
         lgd.Title.String = "Overall";
     end  % end of for loop for plotting over channels
 end  % end of if branch for plotting if outplot true
+
+%% Output assignment
+
+% Assign outputs to structure
+if chansOut == 3
+    roughnessSHM.specRoughness = specRoughness(:, :, 1:2);
+    roughnessSHM.specRoughnessAvg = specRoughnessAvg(:, 1:2);
+    roughnessSHM.roughnessTDep = roughnessTDep(:, 1:2);
+    roughnessSHM.roughness90Pc = roughness90Pc(:, 1:2);
+    roughnessSHM.specRoughnessBin = specRoughness(:, :, 3);
+    roughnessSHM.specRoughnessAvgBin = specRoughnessAvg(:, 3);
+    roughnessSHM.roughnessTDepBin = roughnessTDep(:, 3);
+    roughnessSHM.roughness90PcBin = roughness90Pc(:, 3);
+    roughnessSHM.bandCentreFreqs = bandCentreFreqs;
+    roughnessSHM.timeOut = timeOut;
+    roughnessSHM.soundField = soundField;
+else
+    roughnessSHM.specRoughness = specRoughness;
+    roughnessSHM.specRoughnessAvg = specRoughnessAvg;
+    roughnessSHM.roughnessTDep = roughnessTDep;
+    roughnessSHM.roughness90Pc = roughness90Pc;
+    roughnessSHM.bandCentreFreqs = bandCentreFreqs;
+    roughnessSHM.timeOut = timeOut;
+    roughnessSHM.soundField = soundField;
+end
 
 % end of function

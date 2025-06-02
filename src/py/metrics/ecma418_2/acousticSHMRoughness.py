@@ -1,0 +1,450 @@
+# -*- coding: utf-8 -*-
+# %% Preamble
+"""
+acousticSHMRoughness.py
+----------------------
+
+Returns roughness values according to ECMA-418-2:2024 using the Sottek Hearing
+Model) for an input calibrated single mono or single stereo audio (sound
+pressure) time-series signal, p.
+
+Requirements
+------------
+numpy
+scipy
+matplotlib
+tqdm
+bottleneck
+acoustic-toolbox
+refmap-psychoacoustics (metrics.ecma418_2, dsp.filterFuncs and
+                        utils.formatFuncs)
+
+Ownership and Quality Assurance
+-------------------------------
+Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
+Institution: University of Salford
+
+Date created: 29/05/2023
+Date last modified: 29/05/2025
+Python version: 3.11
+
+Copyright statement: This file and code is part of work undertaken within
+the RefMap project (www.refmap.eu), and is subject to licence as detailed
+in the code repository
+(https://github.com/acoustics-code-salford/refmap-psychoacoustics)
+
+As per the licensing information, please be aware that this code is WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.
+
+Parts of this code were developed from an original MATLAB file
+'SottekTonality.m' authored by Matt Torjussen (14/02/2022), based on
+implementing ECMA-418-2:2020. The original code has been reused and translated
+here with permission.
+
+"""
+
+# %% Import block
+import numpy as np
+from matplotlib import pyplot as plt
+import matplotlib as mpl
+from scipy.fft import (fft, ifft)
+from metrics.ecma418_2.acousticSHMSubs import (shmDimensional, shmResample,
+                                               shmPreProc, shmOutMidEarFilter,
+                                               shmAuditoryFiltBank,
+                                               shmSignalSegment,
+                                               shmBasisLoudness,
+                                               shmRoughWeight,
+                                               shmRoughLowPass)
+from tqdm import tqdm
+import bottleneck as bn
+from dsp.filterFuncs import A_weight_T
+from utils.formatFuncs import roundTrad
+from acoustic_toolbox.signal import rms
+
+# %% Module settings
+mpl.rcParams['font.family'] = 'sans-serif'
+mpl.rcParams['font.sans-serif'] = 'Arial'
+mpl.rcParams['mathtext.fontset'] = 'stixsans'
+
+plt.rc('font', size=16)  # controls default text sizes
+plt.rc('axes', titlesize=22,
+       labelsize=22)  # fontsize of the axes title and x and y labels
+plt.rc('xtick', labelsize=16)  # fontsize of the tick labels
+plt.rc('ytick', labelsize=20)  # fontsize of the tick labels
+plt.rc('legend', fontsize=16)  # legend fontsize
+plt.rc('figure', titlesize=24)  # fontsize of the figure title
+
+
+# %% acousticSHMRoughness
+def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
+                        waitBar=True, outPlot=False, binaural=True):
+    """
+    Inputs
+    ------
+    p : 1D or 2D array
+        the input signal as single mono or stereo audio (sound
+        pressure) signals
+
+    sampleRateIn : integer
+                   the sample rate (frequency) of the input signal(s)
+
+    axisN : integer (0 or 1, default: 0)
+            the time axis along which to calculate the roughness
+
+    soundField : keyword string (default: 'freeFrontal')
+                 determines whether the 'freeFrontal' or 'diffuse' field stages
+                 are applied in the outer-middle ear filter, or 'noOuter' uses
+                 only the middle ear stage, or 'noEar' omits ear filtering.
+                 Note: these last two options are beyond the scope of the
+                 standard, but may be useful if recordings made using
+                 artificial outer/middle ear are to be processed using the
+                 specific recorded responses.
+
+    waitBar : keyword string (default: True)
+              determines whether a progress bar displays during processing
+              (set waitBar to false for doing multi-file parallel calculations)
+
+    outPlot : Boolean (default: False)
+              flag indicating whether to generate a figure from the output
+              (set outplot to false for doing multi-file parallel calculations)
+
+    binaural : Boolean (default: True)
+               flag indicating whether to output combined binaural roughness
+               for stereo input signal
+    Returns
+    -------
+    roughnessSHM : dict
+                  contains the output
+
+    roughnessSHM contains the following outputs:
+
+    specRoughness : 2D or 3D array
+                    time-dependent specific roughness for each critical band
+                    arranged as [time, bands(, channels)]
+
+    specRoughnessAvg : 1D or 2D array
+                      time-averaged specific roughness for each critical band
+                      arranged as [bands(, channels)]
+
+    roughnessTDep : 1D or 2D array
+                   time-dependent overall roughness
+                   arranged as [time(, channels)]
+
+    roughness90pc : 1D or 2D array
+                    time-aggregated (90th percentile) overall roughness
+                    arranged as [roughness(, channels)]
+
+    bandCentreFreqs : 1D array
+                      centre frequencies corresponding with each critical band
+                      rate
+
+    timeOut : 1D array
+              time (seconds) corresponding with time-dependent outputs
+
+    soundField : string
+                 identifies the soundfield type applied (the input argument
+                 soundField)
+
+    If outPlot=True, a set of plots is returned illustrating the energy
+    time-averaged A-weighted sound level, the time-dependent specific and
+    overall roughness, with the latter also indicating the time-aggregated
+    value. A set of plots is returned for each input channel.
+
+    If binaural=true, a corresponding set of outputs for the binaural
+    loudness are also contained in roughnessSHM.
+
+    Assumptions
+    -----------
+    The input signal is calibrated to units of acoustic pressure in Pascals
+    (Pa).
+
+    Checked by:
+    Date last checked:
+
+    """
+    # %% Input checks
+    # Orient input matrix
+    if axisN in [0, 1]:
+        if axisN == 1:
+            p = p.T
+    else:
+        raise ValueError("Input axisN must be an integer 0 or 1")
+
+    # Check the length of the input data (must be longer than 300 ms)
+    if p.shape[0] <= 300/1000*sampleRateIn:
+        raise ValueError('Input signal is too short along the specified axis to calculate tonality (must be longer than 300 ms)')
+
+    # Check the channel number of the input data
+    if p.shape[1] > 2:
+        raise ValueError('Input signal comprises more than two channels')
+
+    chansIn = p.shape[1]
+    if chansIn > 1:
+        chans = ["Stereo left",
+                 "Stereo right"]
+    else:
+        chans = ["Mono"]
+    # end of if branch for channel number check
+
+    # %% Define constants
+
+    signalT = p.shape[0]/sampleRateIn  # duration of input signal
+    # Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2024 [r_s]
+    sampleRate48k = 48e3
+    # defined in Section 5.1.4.1 ECMA-418-2:2024 [deltaf(f=0)]
+    deltaFreq0 = 81.9289
+    # Half-overlapping Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2024
+    c = 0.1618
+
+    dz = 0.5  # critical band overlap
+    # half-overlapping critical band rate scale [z]
+    halfBark = np.arange(0.5, 27, dz)
+    nBands = len(halfBark)  # number of critical bands
+    # Section 5.1.4.1 Equation 9 ECMA-418-2:2024 [F(z)]
+    bandCentreFreqs = (deltaFreq0/c)*np.sinh(c*halfBark)
+
+    # Block and hop sizes Section 6.2.2 Table 4 ECMA-418-2:2024
+    overlap = 0.75  # block overlap proportion
+    # block size [s_b(z)]
+    blockSize = 16384
+    # hop sizes (section 5.1.2 footnote 3 ECMA 418-2:2022) [s_h(z)]
+    hopSize = ((1 - overlap)*blockSize).astype(int)
+
+    # Downsampled block and hop sizes Section 7.1.2 ECMA-418-2:2024
+    downSample = 32  # downsampling factor
+    sampleRate1500 = sampleRate48k/downSample
+    blockSize1500 = blockSize/downSample
+    # hopSize1500 = (1 - overlap)*blockSize1500
+    resDFT1500 = sampleRate1500/blockSize1500  # DFT resolution (section 7.1.5.1) [deltaf]
+
+    # Modulation rate error correction values Table 8, Section 7.1.5.1
+    # ECMA-418-2:2024 [E(theta)]
+    errorCorrection = np.array([0.0000, 0.0457, 0.0907, 0.1346, 0.1765, 0.2157, 0.2515,
+                                0.2828, 0.3084, 0.3269, 0.3364, 0.3348, 0.3188, 0.2844,
+                                0.2259, 0.1351, 0.0000])
+    errorCorrection = np.hstack((errorCorrection, np.flip(-errorCorrection[0:-1]), 0))
+    
+    # High modulation rate roughness perceptual scaling function
+    # (section 7.1.5.2 ECMA-418-2:2024)
+    # Table 11 ECMA-418-2:2024 [r_1; r_2]
+    roughScaleParams = np.vstack(([0.3560, 0.8024], [0.8049, 0.9333]))
+    roughScaleParams = np.vstack((roughScaleParams[:, 0]*np.ones([np.sum(bandCentreFreqs < 1e3), 2]),
+                                  roughScaleParams[:, 1]*np.ones([np.sum(bandCentreFreqs >= 1e3), 2]))).T
+    # Equation 84 ECMA-418-2:2024 [r_max(z)]
+    roughScale = 1/(1 + roughScaleParams[0, :]
+                    * np.abs(np.log2(bandCentreFreqs/1000))
+                    ** roughScaleParams[1, :])
+    # Note: this is to ease parallelised calculations
+    roughScale = shmDimensional(roughScale, targetDim=3, where='first')
+
+    # High/low modulation rate roughness perceptual weighting function parameters
+    # (section 7.1.5.2 ECMA-418-2:2024)
+    # Equation 86 ECMA-418-2:2024 [f_max(z)]
+    modfreqMaxWeight = 72.6937*(1 - 1.1739*np.exp(-5.4583*bandCentreFreqs/1000))
+
+    # Equation 87 ECMA-418-2:2024 [q_1; q_2(z)]
+    roughHiWeightParams = np.vstack((1.2822*np.ones(bandCentreFreqs.size),
+                                     0.2471*np.ones(bandCentreFreqs.size)))
+    mask = bandCentreFreqs/1000 >= 2**-3.4253
+    roughHiWeightParams[1, mask] = 0.2471 + 0.0129*(np.log2(bandCentreFreqs[mask]/1000) + 3.4253)**2
+    # Note: this is to ease parallelised calculations
+    roughHiWeightParams = np.expand_dims(roughHiWeightParams, axis=1)
+
+    # %% Signal processing
+
+    # Input pre-processing
+    # --------------------
+    if sampleRateIn != sampleRate48k:  # Resample signal
+        p_re, _ = shmResample(p, sampleRateIn)
+    else:  # don't resample
+        p_re = p
+    # end of if branch for resampling
+
+    # Input signal samples
+    n_samples = p_re.shape[0]
+
+    # Section 5.1.2 ECMA-418-2:2024 Fade in weighting and zero-padding
+    pn = shmPreProc(p_re, blockSize=blockSize, hopSize=hopSize, padStart=True,
+                    padEnd=False)
+
+    # Apply outer & middle ear filter
+    # -------------------------------
+    #
+    # Section 5.1.3.2 ECMA-418-2:2024 Outer and middle/inner ear signal filtering
+    pn_om = shmOutMidEarFilter(pn, soundField)
+
+    # Loop through channels in file
+    # -----------------------------
+    if waitBar:
+        chanIter = tqdm(range(chansIn), desc="Channels")
+    else:
+        chanIter = range(chansIn)
+
+    for chan in chanIter:
+        # Apply auditory filter bank
+        # --------------------------
+        # Filter equalised signal using 53 1/2Bark ERB filters according to
+        # Section 5.1.4.2 ECMA-418-2:2024
+        pn_omz = shmAuditoryFiltBank(pn_om[:, chan])
+
+        # Note: At this stage, typical computer RAM limits impose a need to
+        # loop through the critical bands rather than continue with a
+        # parallelised approach, until later downsampling is applied
+
+        if waitBar:
+            envIter = tqdm(range(nBands), desc="Envelope extraction")
+        else:
+            envIter = range(nBands)
+
+        for zBand in envIter:
+            # Segmentation into blocks
+            # ------------------------
+    
+            # Section 5.1.5 ECMA-418-2:2024
+            i_start = 0
+            pn_lz, iBlocksOut = shmSignalSegment(pn_omz[:, zBand],
+                                                 blockSize=blockSize,
+                                                 overlap=overlap, axisN=0,
+                                                 i_start=i_start, endShrink=True)
+    
+            # Transformation into Loudness
+            # ----------------------------
+            # Sections 5.1.6 to 5.1.9 ECMA-418-2:2024
+            _, bandBasisLoudness, _ = shmBasisLoudness(pn_lz,
+                                                       bandCentreFreq=bandCentreFreqs[zBand])
+            basisLoudness(:, :, zBand) = bandBasisLoudness;
+        
+            % Envelope power spectral analysis
+            % --------------------------------
+            if waitBar
+                i_step = i_step + 1;
+            end
+            % Sections 7.1.2 ECMA-418-2:2024
+            % magnitude of Hilbert transform with downsample - Equation 65
+            % [p(ntilde)_E,l,z]
+            envelopes(:, :, zBand) = downsample(abs(hilbert(pn_lz)), downSample, 0);
+    
+        # end of for loop for obtaining low frequency signal envelopes
+    
+        # Note: With downsampled envelope signals, parallelised approach can continue
+
+
+
+        
+    # %% Output plotting
+
+    # Plot figures
+    # ------------
+    if outPlot:
+        if waitBar:
+            plotIter = tqdm(range(chansOut), desc="Channels")
+        else:
+            plotIter = range(chansOut)
+
+        for chan in plotIter:
+            # Plot results
+            cmap_inferno = mpl.colormaps['inferno']
+            chan_lab = chans[chan]
+            fig, axs = plt.subplots(nrows=2, ncols=1, figsize=[10.5, 7.5],
+                                    layout='constrained')
+
+            ax1 = axs[0]
+            pmesh = ax1.pcolormesh(timeOut, bandCentreFreqs,
+                                   np.swapaxes(specLoudness[:, :, chan], 0, 1),
+                                   cmap=cmap_inferno,
+                                   vmin=0,
+                                   vmax=np.ceil(np.max(loudnessTDep[:,
+                                                                    chan])*10)/10,
+                                   shading='gouraud')
+            ax1.set(xlim=[timeOut[1],
+                          timeOut[-1] + (timeOut[1] - timeOut[0])],
+                    xlabel="Time, s",
+                    ylim=[bandCentreFreqs[0], bandCentreFreqs[-1]],
+                    yscale='log',
+                    yticks=[63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],
+                    yticklabels=["63", "125", "250", "500", "1k", "2k", "4k",
+                                 "8k", "16k"],
+                    ylabel="Frequency, Hz")
+            ax1.minorticks_off()
+            cbax = ax1.inset_axes([1.05, 0, 0.05, 1])
+            fig.colorbar(pmesh, ax=ax1,
+                         label=(r"Specific loudness,"
+                                "\n"
+                                r"$\mathregular{tu_{SHM}}/\mathregular{Bark_{SHM}}$"),
+                         aspect=10, cax=cbax)
+
+            ax2 = axs[1]
+            ax2.plot(timeOut, loudnessPowAvg[chan]*np.ones(timeOut.size),
+                     color=cmap_inferno(33/255), linewidth=1,
+                     label=("Time-" + "\n" + "average"))
+            ax2.plot(timeOut, loudnessTDep[:, chan],
+                     color=cmap_inferno(165/255),
+                     linewidth=0.75, label=("Time-" + "\n" + "dependent"))
+            ax2.set(xlim=[timeOut[0], timeOut[-1] + timeOut[1] - timeOut[0]],
+                    xlabel="Time, s",
+                    ylim=[0, 1.1*np.ceil(np.max(loudnessTDep[:, chan])*10)/10],
+                    ylabel=(r"Loudness, $\mathregular{sone_{SHM}}$"))
+            ax2.grid(alpha=0.075, linestyle='--')
+            ax2.legend(bbox_to_anchor=(1, 0.85), title="Overall")
+
+            # Filter signal to determine A-weighted time-averaged level
+            if chan == 3:
+                pA = A_weight_T(p_re, fs=sampleRate48k)
+                LAeq2 = 20*np.log10(np.array([rms(pA[:, 0]),
+                                              rms(pA[:, 1])])/2e-5)
+                # take the higher channel level as representative (PD ISO/TS
+                # 12913-3:2019 Annex D)
+                LAeq = np.max(LAeq2)
+                lr = np.argmax(LAeq2)
+                # identify which channel is higher
+                if lr == 0:
+                    whichEar = " left ear"
+                else:
+                    whichEar = " right ear"
+                # end of if branch to identify which channel is higher
+
+                chan_lab = chan_lab + whichEar
+            else:
+                pA = A_weight_T(p_re[:, chan], fs=sampleRate48k)
+                LAeq = 20*np.log10(rms(pA)/2e-5)
+
+            fig.suptitle(t=(chan_lab + " signal sound pressure level = " +
+                            str(roundTrad(LAeq, 1)) +
+                            r"dB $\mathregular{\mathit{L}_{Aeq}}$"))
+            fig.show()
+        # end of for loop over channels
+    # end of if branch for plotting
+
+    # %% Output assignment
+
+    # Assign outputs to structure
+    if chansOut == 3:
+        loudnessSHM = dict()
+        loudnessSHM.update({'specLoudness': specLoudness[:, :, 0:2]})
+        loudnessSHM.update({'specTonalLoudness': specTonalLoudness[:, :, 0:2]})
+        loudnessSHM.update({'specNoiseLoudness': specNoiseLoudness[:, :, 0:2]})
+        loudnessSHM.update({'specLoudnessPowAvg': specLoudnessPowAvg[:, 0:2]})
+        loudnessSHM.update({'loudnessTDep': loudnessTDep[:, 0:2]})
+        loudnessSHM.update({'loudnessPowAvg': loudnessPowAvg[0:2]})
+        loudnessSHM.update({'specLoudnessBin': specLoudness[:, :, 3]})
+        loudnessSHM.update({'specTonalLoudnessBin': specTonalLoudness[:, :, 3]})
+        loudnessSHM.update({'specNoiseLoudnessBin': specNoiseLoudness[:, :, 3]})
+        loudnessSHM.update({'specLoudnessPowAvgBin': specLoudnessPowAvg[:, 3]})
+        loudnessSHM.update({'loudnessTDepBin': loudnessTDep[:, 3]})
+        loudnessSHM.update({'loudnessPowAvgBin': loudnessPowAvg[3]})
+        loudnessSHM.update({'bandCentreFreqs': bandCentreFreqs})
+        loudnessSHM.update({'timeOut': timeOut})
+        loudnessSHM.update({'soundField': soundField})
+    else:
+        loudnessSHM.update({'specLoudness': specLoudness})
+        loudnessSHM.update({'specTonalLoudness': specTonalLoudness})
+        loudnessSHM.update({'specNoiseLoudness': specNoiseLoudness})
+        loudnessSHM.update({'specLoudnessPowAvg': specLoudnessPowAvg})
+        loudnessSHM.update({'loudnessTDep': loudnessTDep})
+        loudnessSHM.update({'loudnessPowAvg': loudnessPowAvg})
+        loudnessSHM.update({'bandCentreFreqs': bandCentreFreqs})
+        loudnessSHM.update({'timeOut': timeOut})
+        loudnessSHM.update({'soundField': soundField})
+
+# end of acousticSHRoughness function
