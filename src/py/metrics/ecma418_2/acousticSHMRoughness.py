@@ -311,19 +311,16 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             # Transformation into Loudness
             # ----------------------------
             # Sections 5.1.6 to 5.1.9 ECMA-418-2:2024
-            _, bandBasisLoudness, _ = shmBasisLoudness(pn_lz,
+            _, bandBasisLoudness, _ = shmBasisLoudness(signalSegmented=pn_lz,
                                                        bandCentreFreq=bandCentreFreqs[zBand])
-            basisLoudness(:, :, zBand) = bandBasisLoudness;
+            basisLoudness[:, :, zBand] = bandBasisLoudness
         
-            % Envelope power spectral analysis
-            % --------------------------------
-            if waitBar
-                i_step = i_step + 1;
-            end
-            % Sections 7.1.2 ECMA-418-2:2024
-            % magnitude of Hilbert transform with downsample - Equation 65
-            % [p(ntilde)_E,l,z]
-            envelopes(:, :, zBand) = downsample(abs(hilbert(pn_lz)), downSample, 0);
+            # Envelope power spectral analysis
+            # --------------------------------
+            # Sections 7.1.2 ECMA-418-2:2024
+            # magnitude of Hilbert transform with downsample - Equation 65
+            # [p(ntilde)_E,l,z]
+            envelopes[:, :, zBand] = downsample(abs(hilbert(pn_lz)), downSample, 0)
     
         # end of for loop for obtaining low frequency signal envelopes
     
