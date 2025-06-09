@@ -19,7 +19,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 22/01/2024
-Date last modified: 03/04/2025
+Date last modified: 02/06/2025
 Python version: 3.11.5
 
 Copyright statements: This file and code is part of work undertaken within
@@ -35,7 +35,7 @@ Date last checked:
 import numpy as np
 from scipy.signal import (bilinear, butter, freqz, lfilter, lfilter_zi,
                           resample_poly, sosfilt, sosfreqz)
-from dsp.noct import noctf
+from src.py.dsp.noct import noctf
 from math import gcd
 
 

@@ -1,6 +1,6 @@
-function [signalSegmented, iBlocksOut] = signalSegment(signal, axisn, blockSize, overlap,...
-                                                       i_start, endShrink)
-% [signalSegmented, iBlocksOut] = signalSegment(signal, axisn, blockSize, overlap, i_start)
+function [signalSegmented, iBlocksOut] = signalSegment(signal, axisn, blockSize, overlap, i_start, endShrink)
+% [signalSegmented, iBlocksOut] = signalSegment(signal, axisn, blockSize,
+%                                               overlap, i_start)
 %
 % Returns input signal segmented into blocks for processing.
 %
@@ -55,7 +55,7 @@ function [signalSegmented, iBlocksOut] = signalSegment(signal, axisn, blockSize,
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 27/09/2023
-% Date last modified: 25/05/2025
+% Date last modified: 02/06/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -123,10 +123,10 @@ nReps = blockSize/hopSize - 1;
 
 % Arrange the signal into overlapped blocks - each block reads
 % along first axis, and each column is the succeeding overlapped
-% block. 3 columns of zeros are appended to the left side of the
+% block. Columns of zeros are appended to the left side of the
 % matrix and the column shifted copies of this matrix are
-% concatenated. The first 6 columns are then discarded as these all
-% contain zeros from the appended zero columns.
+% concatenated. Twice the number of appended columns are then discarded,
+% as these all contain zeros from the appended zero columns.
 
 for chan = nchans:-1:1
     

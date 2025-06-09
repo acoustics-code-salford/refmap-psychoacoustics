@@ -19,7 +19,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 27/10/2023
-Date last modified: 29/05/2025
+Date last modified: 06/06/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -597,6 +597,8 @@ def shmPreProc(signal, blockSize, hopSize, padStart=True, padEnd=True):
                                       + hopSize
                                       + n_zeross)/hopSize) - 1))
         n_zerose = n_new - n_samples  # end zero-padding
+    else:
+        n_zerose = 0
 
     # Apply zero-padding
     signalFadePad = np.concatenate([np.zeros((n_zeross, numChans)),
@@ -670,6 +672,101 @@ def shmResample(signal, sampleRateIn):
 
     return resampledSignal, resampledRate  # end of shmResample function
 
+
+#%% shmSignalSegmentBlocks
+def shmSignalSegmentBlocks(signal, blockSize, overlap=0, axisN=0, i_start=0,
+                           endShrink=False):
+    """
+    Returns a truncated signal and the number of blocks to use for segmentation
+    processing. The signal is truncated to ensure a whole number of blocks will
+    be obtained, accounting for overlap.
+
+    Inputs
+    ------
+    signal : 1D or 2D array
+             the input signal/s
+
+    blockSize : integer
+                the block size in samples
+
+    overlap : double (>=0, < 1, default: 0)
+              the proportion of overlap for each successive block
+
+    axisN : integer (0 or 1, default: 0)
+            the (time) axis along which to apply block segmentation
+
+    i_start : integer (optional, default: 0)
+              the sample index from which to start the segmented signal
+
+    endShrink : Boolean (optional, default: false)
+                option to include the end of the signal data in a block using
+                increased overlap with the preceding block
+
+    Returns
+    -------
+    For each channel in the input signal:
+        
+    signalTrunc :  1D or 2D array
+                   the truncated signal/s
+
+    nBlocksTotal : integer
+                   the total number of blocks to use for signal segmentation
+            
+    excessSignal : Boolean
+                   flag indicating whether there is sufficient signal to
+                   accommodate an extra block with increased overlap
+
+    Assumptions
+    -----------
+    None
+
+    """
+
+    # %% Signal pre-processing
+
+    # Orient input
+    if axisN == 1:
+        signal = signal.T
+
+    # ensure i_start is positive integer
+    try:
+        i_start = int(abs(i_start))
+    except TypeError:
+        raise TypeError("Input argument i_start must be a (positive real) number.")
+
+    # Check signal dimensions and add axis if 1D input
+    if signal.ndim == 1:
+        numChans = 1
+        signal = shmDimensional(signal)
+    else:
+        numChans = signal.shape[1]
+
+    # Check sample index start will allow segmentation to proceed
+    if signal[i_start:, :].shape[0] <= blockSize:
+        raise ValueError("Signal is too short to apply segmentation using the selected parameters.")
+    # end
+
+    # Hop size
+    hopSize = int((1 - overlap)*blockSize)
+
+    # Truncate the signal to start from i_start and to end at an index
+    # corresponding with the truncated signal length that will fill an
+    # integer number of overlapped blocks
+    signalTrunc = signal[i_start:, :]
+    nBlocks = int(np.floor((signalTrunc.shape[0]
+                            - overlap*blockSize)/hopSize))
+    i_end = int(nBlocks*hopSize + overlap*blockSize - 1)
+    signalTrunc = signalTrunc[0:i_end + 1, :]
+
+    # Determine total number of blocks including an extra block if adding a
+    # frame with an increased overlap
+    nBlocksTotal = nBlocks
+    if signal[i_start:, :].shape[0] > signalTrunc.shape[0]:
+        excessSignal = True
+        if endShrink:
+            nBlocksTotal = nBlocks + 1
+    
+    return signalTrunc, nBlocksTotal, excessSignal
 
 #%% shmSignalSegment
 def shmSignalSegment(signal, blockSize, overlap=0, axisN=0, i_start=0,
@@ -757,11 +854,12 @@ def shmSignalSegment(signal, blockSize, overlap=0, axisN=0, i_start=0,
     # Truncate the signal to start from i_start and to end at an index
     # corresponding with the truncated signal length that will fill an
     # integer number of overlapped blocks
-    signalTrunc = signal[i_start:, :]
-    nBlocks = int(np.floor((signalTrunc.shape[0]
-                            - overlap*blockSize)/hopSize))
-    i_end = int(nBlocks*hopSize + overlap*blockSize - 1)
-    signalTrunc = signalTrunc[0:i_end + 1, :]
+    signalTrunc, nBlocksTotal, excessSignal = shmSignalSegmentBlocks(signal,
+                                                                     blockSize,
+                                                                     overlap=overlap,
+                                                                     axisN=0,
+                                                                     i_start=i_start,
+                                                                     endShrink=endShrink)
 
     # %% Signal segmentation
 
@@ -771,12 +869,6 @@ def shmSignalSegment(signal, blockSize, overlap=0, axisN=0, i_start=0,
     # matrix and the column shifted copies of this matrix are
     # concatenated. The first 6 columns are then discarded as these all
     # contain zeros from the appended zero columns.
-    nBlocksTotal = nBlocks
-    if signal[i_start:, :].shape[0] > signalTrunc.shape[0]:
-        excessSignal = True
-        if endShrink:
-            nBlocksTotal = nBlocks + 1
-
     signalSegmented = np.zeros((blockSize, nBlocksTotal, numChans))
 
     for chan in range(0, numChans):
@@ -804,11 +896,11 @@ def shmSignalSegment(signal, blockSize, overlap=0, axisN=0, i_start=0,
             signalSegmentedChanOut = np.concatenate((signalSegmentedChan,
                                                      signalChan[:, np.newaxis]),
                                                     axis=1)
-            iBlocksOut = np.append(np.arange(0, nBlocks*hopSize, hopSize),
+            iBlocksOut = np.append(np.arange(0, (nBlocksTotal - 1)*hopSize, hopSize),
                                    signal[i_start:, chan].size - blockSize)
         else:
             signalSegmentedChanOut = signalSegmentedChan
-            iBlocksOut = np.arange(0, nBlocks*hopSize, hopSize)
+            iBlocksOut = np.arange(0, nBlocksTotal*hopSize, hopSize)
         # end of if branch for end data with increased overlap
 
         signalSegmented[:, :, chan] = signalSegmentedChanOut
@@ -829,6 +921,67 @@ def shmSignalSegment(signal, blockSize, overlap=0, axisN=0, i_start=0,
     return (signalSegmented, iBlocksOut)  # end of shmSignalSegment function
 
 
+# %% shmDownsample
+def shmDownsample(ndArray, axisN=0, downSample=32):
+    """
+    Return array downsampled by keeping every value at downSample indices
+    after the first.
+
+    Parameters
+    ----------
+    ndArray : array_like
+              Input array
+
+    axisN : integer (0 or 1, default: 0)
+            the (time) axis along which to apply the downsampling
+
+    downSample : integer
+                 The downsampleing factor
+
+    Returns
+    -------
+    targArray : nD array
+                Output numpy array downsampled.
+                
+    Assumptions
+    -----------
+    Input ndArray is 1D or 2D
+
+    """
+
+    # check input type and try to convert to numpy array
+    if type(ndArray) is np.ndarray:
+        pass
+    else:
+        try:
+            ndArray = np.array(ndArray)
+        except TypeError:
+            raise TypeError("Input ndArray must be an array-like object.")
+
+    # %% Input array pre-processing
+
+    # Orient input
+    if axisN == 1:
+        ndArray = ndArray.T
+        axisFlip = True
+    elif axisN == 0:
+        axisFlip = False
+    else:
+        raise ValueError("Input argument 'axisN' can take values 0 (default) or 1.")
+
+    # %% Downsampling
+    # remove every value in between the values to be retained
+    if ndArray.ndim == 2:
+        targArray = ndArray[0:-1:downSample, :]
+        if axisFlip:
+            targArray = np.swapaxes(targArray, 0, 1)
+    elif ndArray.ndim == 1:
+        targArray = ndArray[0:-1:downSample]
+    else:
+        raise ValueError("Input ndArray must be 1D or 2D")
+
+    return targArray
+
 # %% shmDimensional
 def shmDimensional(ndArray, targetDim=2, where='last'):
     """
@@ -839,12 +992,14 @@ def shmDimensional(ndArray, targetDim=2, where='last'):
     Parameters
     ----------
     ndArray : array_like
-        Input array.
+              Input array
+
     targetDim : TYPE, optional
         The target number of dimensions. The default is 2.
+
     where : keyword string or corresponding integer (0, -1), optional
-        Where the added dimensions are to be placed.
-        The default is 'last' (-1). The altgernative is 'first' (0).
+            Where the added dimensions are to be placed.
+            The default is 'last' (-1). The altgernative is 'first' (0).
 
     Returns
     -------

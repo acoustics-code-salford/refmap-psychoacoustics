@@ -25,7 +25,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 29/05/2023
-Date last modified: 29/05/2025
+Date last modified: 07/06/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -49,17 +49,20 @@ import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib as mpl
 from scipy.fft import (fft, ifft)
-from metrics.ecma418_2.acousticSHMSubs import (shmDimensional, shmResample,
+from scipy.signal import hilbert, windows
+from src.py.metrics.ecma418_2.acousticSHMSubs import (shmDimensional, shmResample,
                                                shmPreProc, shmOutMidEarFilter,
                                                shmAuditoryFiltBank,
+                                               shmSignalSegmentBlocks,
                                                shmSignalSegment,
                                                shmBasisLoudness,
+                                               shmDownsample,
                                                shmRoughWeight,
                                                shmRoughLowPass)
 from tqdm import tqdm
 import bottleneck as bn
-from dsp.filterFuncs import A_weight_T
-from utils.formatFuncs import roundTrad
+from src.py.dsp.filterFuncs import A_weight_T
+from src.py.utils.formatFuncs import roundTrad
 from acoustic_toolbox.signal import rms
 
 # %% Module settings
@@ -78,7 +81,7 @@ plt.rc('figure', titlesize=24)  # fontsize of the figure title
 
 # %% acousticSHMRoughness
 def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
-                        waitBar=True, outPlot=False, binaural=True):
+                         waitBar=True, outPlot=False, binaural=True):
     """
     Inputs
     ------
@@ -209,12 +212,12 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # block size [s_b(z)]
     blockSize = 16384
     # hop sizes (section 5.1.2 footnote 3 ECMA 418-2:2022) [s_h(z)]
-    hopSize = ((1 - overlap)*blockSize).astype(int)
+    hopSize = int(((1 - overlap)*blockSize))
 
     # Downsampled block and hop sizes Section 7.1.2 ECMA-418-2:2024
     downSample = 32  # downsampling factor
     sampleRate1500 = sampleRate48k/downSample
-    blockSize1500 = blockSize/downSample
+    blockSize1500 = int(blockSize/downSample)
     # hopSize1500 = (1 - overlap)*blockSize1500
     resDFT1500 = sampleRate1500/blockSize1500  # DFT resolution (section 7.1.5.1) [deltaf]
 
@@ -297,35 +300,66 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         else:
             envIter = range(nBands)
 
+        # pre-allocate output arrays
+        i_start = 0  # index to start segmentation block processing from
+        _, nBlocksTotal, _ = shmSignalSegmentBlocks(pn_omz[:, 0],
+                                                    blockSize=blockSize,
+                                                    overlap=overlap, axisN=0,
+                                                    i_start=i_start,
+                                                    endShrink=True)
+        basisLoudness = np.zeros([nBlocksTotal, nBands])
+        envelopes = np.zeros([blockSize1500, nBlocksTotal, nBands])
         for zBand in envIter:
             # Segmentation into blocks
             # ------------------------
     
             # Section 5.1.5 ECMA-418-2:2024
-            i_start = 0
             pn_lz, iBlocksOut = shmSignalSegment(pn_omz[:, zBand],
                                                  blockSize=blockSize,
                                                  overlap=overlap, axisN=0,
-                                                 i_start=i_start, endShrink=True)
-    
+                                                 i_start=i_start,
+                                                 endShrink=True)
+
             # Transformation into Loudness
             # ----------------------------
             # Sections 5.1.6 to 5.1.9 ECMA-418-2:2024
-            _, bandBasisLoudness, _ = shmBasisLoudness(signalSegmented=pn_lz,
+            _, bandBasisLoudness, _ = shmBasisLoudness(signalSegmented=pn_lz.copy(),
                                                        bandCentreFreq=bandCentreFreqs[zBand])
-            basisLoudness[:, :, zBand] = bandBasisLoudness
+            basisLoudness[:, zBand] = bandBasisLoudness
         
             # Envelope power spectral analysis
             # --------------------------------
             # Sections 7.1.2 ECMA-418-2:2024
             # magnitude of Hilbert transform with downsample - Equation 65
             # [p(ntilde)_E,l,z]
-            envelopes[:, :, zBand] = downsample(abs(hilbert(pn_lz)), downSample, 0)
+            envelopes[:, :, zBand] = shmDownsample(np.abs(hilbert(pn_lz,
+                                                                  axis=0)),
+                                                   axisN=0, downSample=32)
     
         # end of for loop for obtaining low frequency signal envelopes
     
         # Note: With downsampled envelope signals, parallelised approach can continue
 
+        # Section 7.1.3 equation 66 ECMA-418-2:2024 [Phi(k)_E,l,z]
+        modSpectra = np.zeros(envelopes.shape)
+        envelopeWin = envelopes*np.tile(shmDimensional(windows.hann(blockSize1500,
+                                                                    sym=False),
+                                                       targetDim=3),
+                                        reps=[1, envelopes.shape[1],
+                                              nBands])/np.sqrt(0.375)
+        denom = shmDimensional(np.max(basisLoudness, 1))*np.sum(envelopeWin**2,
+                                                                0)  # Equation 66 & 67
+        mask = denom != 0  # Equation 66 criteria for masking
+        maskRep = np.broadcast_to(mask, modSpectra.shape)  # broadcast mask
+        scaling = np.divide(basisLoudness**2, denom, out=np.zeros_like(denom),
+                            where=denom != 0)  # Equation 66 factor
+        scalingRep = np.broadcast_to(scaling, maskRep.shape)  # broadcast scaling
+        modSpectra[maskRep] = np.ravel((np.reshape(scalingRep[maskRep],
+                                                   (blockSize1500, -1, nBands))
+                                        * np.abs(fft(np.reshape(envelopeWin[maskRep],
+                                                                (blockSize1500,
+                                                                 -1, nBands)),
+                                                     axis=0))**2))
 
 
         

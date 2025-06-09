@@ -336,7 +336,8 @@ for chan = chansIn:-1:1
                   blockSize1500,...
                   [], nBands).*abs(fft(reshape(envelopeWin(maskRep),...
                                                blockSize1500, [], nBands))).^2;
-
+    modSpectra(maskRep)...
+        = scalingRep(maskRep).*abs(fft(envelopeWin(maskRep))).^2;
     % Envelope noise reduction
     % ------------------------
     % section 7.1.4 ECMA-418-2:2024

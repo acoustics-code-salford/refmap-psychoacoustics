@@ -25,7 +25,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 25/05/2023
-Date last modified: 29/05/2025
+Date last modified: 02/06/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -49,16 +49,16 @@ import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib as mpl
 from scipy.fft import (fft, ifft)
-from metrics.ecma418_2.acousticSHMSubs import (shmResample, shmPreProc,
-                                               shmOutMidEarFilter,
-                                               shmAuditoryFiltBank,
-                                               shmSignalSegment,
-                                               shmBasisLoudness,
-                                               shmNoiseRedLowPass)
+from src.py.metrics.ecma418_2.acousticSHMSubs import (shmResample, shmPreProc,
+                                                      shmOutMidEarFilter,
+                                                      shmAuditoryFiltBank,
+                                                      shmSignalSegment,
+                                                      shmBasisLoudness,
+                                                      shmNoiseRedLowPass)
 from tqdm import tqdm
 import bottleneck as bn
-from dsp.filterFuncs import A_weight_T
-from utils.formatFuncs import roundTrad
+from src.py.dsp.filterFuncs import A_weight_T
+from src.py.utils.formatFuncs import roundTrad
 from acoustic_toolbox.signal import rms
 
 # %% Module settings
