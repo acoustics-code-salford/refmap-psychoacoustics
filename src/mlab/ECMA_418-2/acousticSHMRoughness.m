@@ -102,7 +102,7 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 31/05/2025
+% Date last modified: 09/06/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -336,8 +336,7 @@ for chan = chansIn:-1:1
                   blockSize1500,...
                   [], nBands).*abs(fft(reshape(envelopeWin(maskRep),...
                                                blockSize1500, [], nBands))).^2;
-    modSpectra(maskRep)...
-        = scalingRep(maskRep).*abs(fft(envelopeWin(maskRep))).^2;
+
     % Envelope noise reduction
     % ------------------------
     % section 7.1.4 ECMA-418-2:2024

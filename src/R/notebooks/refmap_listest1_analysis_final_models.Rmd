@@ -632,6 +632,9 @@ subjData <- subjData |> dplyr::mutate(UASLoudECMAPowAvgBinScl = datawizard::stan
 subjData <- subjData |> dplyr::mutate(IntermitRatioC2MaxLRScl = IntermitRatioC2MaxLR/100)
 subjData <- subjData |> dplyr::mutate(IntermitRatioC3MaxLRScl = IntermitRatioC3MaxLR/100)
 subjData <- subjData |> dplyr::mutate(IntermitRatioC5MaxLRScl = IntermitRatioC5MaxLR/100)
+subjData <- subjData |> dplyr::mutate(AmbLAeqMaxLRScl = datawizard::standardise(AmbLAeqMaxLR, scale=FALSE))
+subjData <- subjData |> dplyr::mutate(AmbLAF50ExMaxLRScl = datawizard::standardise(AmbLAF50ExMaxLR, scale=FALSE))
+
 
 stimData <- stimData |> dplyr::mutate(UASLAeqMaxLRScl = datawizard::standardise(UASLAeqMaxLR, scale=FALSE))
 stimData <- stimData |> dplyr::mutate(UASLAEMaxLRScl = datawizard::standardise(UASLAEMaxLR, scale=FALSE))
@@ -645,6 +648,9 @@ stimData <- stimData |> dplyr::mutate(UASLoudECMAPowAvgBinScl = datawizard::stan
 stimData <- stimData |> dplyr::mutate(IntermitRatioC2MaxLRScl = IntermitRatioC2MaxLR/100)
 stimData <- stimData |> dplyr::mutate(IntermitRatioC3MaxLRScl = IntermitRatioC3MaxLR/100)
 stimData <- stimData |> dplyr::mutate(IntermitRatioC5MaxLRScl = IntermitRatioC5MaxLR/100)
+stimData <- stimData |> dplyr::mutate(AmbLAeqMaxLRScl = datawizard::standardise(AmbLAeqMaxLR, scale=FALSE))
+stimData <- stimData |> dplyr::mutate(AmbLAF50ExMaxLRScl = datawizard::standardise(AmbLAF50ExMaxLR, scale=FALSE))
+
 
 # convert detectability dB to log variables
 subjData <- subjData |> dplyr::mutate(Detect0p1IntMaxLRLog = Detect0p1dBIntMaxLR/10)
@@ -4148,32 +4154,32 @@ if (saveplots){
 ```{r}
 
 
-mABdHLAExTypexOpxEnvxLAElgQ.GEE.resD <- residuals(mABdHLAExTypexOpxEnvxLAElgQ.GEE,
+mABdHTypexOpxLAExEnvlgQxLAE.GEE.resD <- residuals(mABdHTypexOpxLAExEnvlgQxLAE.GEE,
                                                      type="deviance", plot.it=TRUE,
                                                      pch=1, col=mycolours[1],identify=10)
-mABdHLAExTypexOpxEnvxLAElgQ.GEE.resM <- residuals(mABdHLAExTypexOpxEnvxLAElgQ.GEE,
+mABdHTypexOpxLAExEnvlgQxLAE.GEE.resM <- residuals(mABdHTypexOpxLAExEnvlgQxLAE.GEE,
                                                      type="mahalanobis", plot.it=TRUE,
                                                      col=mycolours[2], identify=10)
-mABdHLAExTypexOpxEnvxLAElgQ.GEE.resP <- residuals(mABdHLAExTypexOpxEnvxLAElgQ.GEE,
+mABdHTypexOpxLAExEnvlgQxLAE.GEE.resP <- residuals(mABdHTypexOpxLAExEnvlgQxLAE.GEE,
                                                      type="pearson", plot.it=TRUE,
                                                      pch=1, col=mycolours[3], identify=10)
 
-hist(mABdHLAExTypexOpxEnvxLAElgQ.GEE.resD, breaks=20, main="Deviance residuals")
-hist(mABdHLAExTypexOpxEnvxLAElgQ.GEE.resP, breaks=20, main="Pearson residuals")
+hist(mABdHTypexOpxLAExEnvlgQxLAE.GEE.resD, breaks=20, main="Deviance residuals")
+hist(mABdHTypexOpxLAExEnvlgQxLAE.GEE.resP, breaks=20, main="Pearson residuals")
 
 par(mar = rep(2, 4))
 
-mABdHLAExTypexOpxEnvxLAElgQ.GEE.DfBc <- dfbeta(mABdHLAExTypexOpxEnvxLAElgQ.GEE,
+mABdHTypexOpxLAExEnvlgQxLAE.GEE.DfBc <- dfbeta(mABdHTypexOpxLAExEnvlgQxLAE.GEE,
                                                   level='clusters',
                                          coefs=c('UASLAEMaxLRScl'))
-mABdHLAExTypexOpxEnvxLAElgQ.GEE.DfBo <- dfbeta(mABdHLAExTypexOpxEnvxLAElgQ.GEE,
+mABdHTypexOpxLAExEnvlgQxLAE.GEE.DfBo <- dfbeta(mABdHTypexOpxLAExEnvlgQxLAE.GEE,
                                                   level='observations',
                                          coefs=c('UASLAEMaxLRScl'))
 
-mABdHLAExTypexOpxEnvxLAElgQ.GEE.Cook <- cooks.distance(mABdHLAExTypexOpxEnvxLAElgQ.GEE,
+mABdHTypexOpxLAExEnvlgQxLAE.GEE.Cook <- cooks.distance(mABdHTypexOpxLAExEnvlgQxLAE.GEE,
                                                           plot.it=TRUE)
 
-performance::check_collinearity(mABdHLAExTypexOpxEnvxLAElgQ.GEE)
+performance::check_collinearity(mABdHTypexOpxLAExEnvlgQxLAE.GEE)
 
 ```
 
@@ -4183,7 +4189,7 @@ performance::check_collinearity(mABdHLAExTypexOpxEnvxLAElgQ.GEE)
 
 ```{r}
 
-model1 <- mABHLAElgQ.GEE <- glmtoolbox::glmgee(HighAnnoy ~ I(log10(UASEvents)) +
+model1 <- mABdHLAElgQ.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ I(log10(UASEvents)) +
                                                         UASLAEMaxLRScl,
                                                         data=subjDataNoAmb,
                                                         family=binomial(link='logit'),
@@ -4195,10 +4201,10 @@ geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=
 geeParams(model1, ci=0.843, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 geeParams(model1, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 
-geeModelPerformance(mABHLAElgQ.GEE)
+geeModelPerformance(mABdHLAElgQ.GEE)
 
 predictProbs <- predictNew(model=model1, newData=stimDataNoAmb,
-                           response=stimDataNoAmb$HighAnnoyProp,
+                           response=stimDataNoAmb$dHighAnnoyProp,
                            fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
 
 R2probs <- cor(predictProbs$response, predictProbs$fit)^2
@@ -4217,7 +4223,8 @@ ggplot(data=predictProbs) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 0.5)) +
   scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 0.5)) +
   
-  labs(x="% Highly annoyed (test)", y="Predicted % highly annoyed")
+  labs(x=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb]~"("~test~")")),
+       y=expression(paste(Predicted~"%"~highly~annoyed~"|"~HA~"'"[amb])))
 
 
 model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl [-12:13]",
@@ -4231,7 +4238,7 @@ p1 <- ggplot(data=model1predictEvt) +
                     axis.text=element_text(family = "serif", size=14)) +
               
               geom_point(data=stimDataNoAmb[stimDataNoAmb$AmbientEnv=='Park',],
-                         aes(x=UASLAEMaxLRScl, y=HighAnnoyProp, colour=factor(UASEvents), shape=factor(UASEvents)),
+                         aes(x=UASLAEMaxLRScl, y=dHighAnnoyProp, colour=factor(UASEvents), shape=factor(UASEvents)),
                          alpha=0.55, size=2) +
               
               geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.1) +
@@ -4250,7 +4257,8 @@ p1 <- ggplot(data=model1predictEvt) +
                              stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
               
-              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="% Highly annoyed")
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)),
+                   y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
 
 p1
@@ -4261,7 +4269,7 @@ p1
 
 ```{r}
 
-model1 <- mABHNlgQ.GEE <- glmtoolbox::glmgee(HighAnnoy ~ I(log10(UASEvents)) +
+model1 <- mABdHNlgQ.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ I(log10(UASEvents)) +
                                                     UASLoudECMAPowAvgBin,
                                                 data=subjDataNoAmb,
                                                 family=binomial(link='logit'),
@@ -4273,10 +4281,10 @@ geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=
 geeParams(model1, ci=0.843, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 geeParams(model1, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 
-geeModelPerformance(mABHLAElgQ.GEE, mABHNlgQ.GEE)
+geeModelPerformance(mABdHLAElgQ.GEE, mABdHNlgQ.GEE)
 
 predictProbs <- predictNew(model=model1, newData=stimDataNoAmb,
-                           response=stimDataNoAmb$HighAnnoyProp,
+                           response=stimDataNoAmb$dHighAnnoyProp,
                            fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
 
 R2means <- cor(predictProbs$response, predictProbs$fit)^2
@@ -4295,7 +4303,8 @@ ggplot(data=predictProbs) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 0.5)) +
   scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 0.5)) +
   
-  labs(x="% Highly annoyed (test)", y="Predicted % highly annoyed")
+  labs(x=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb]~"("~test~")")),
+       y=expression(paste(Predicted~"%"~highly~annoyed~"|"~HA~"'"[amb])))
 
 
 
@@ -4308,7 +4317,7 @@ p1 <- ggplot(data=model1predictEvt) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_point(data=stimDataNoAmb, aes(x=UASLoudECMAPowAvgBin, y=HighAnnoyProp, colour=factor(UASEvents), shape=factor(UASEvents)),
+              geom_point(data=stimDataNoAmb, aes(x=UASLoudECMAPowAvgBin, y=dHighAnnoyProp, colour=factor(UASEvents), shape=factor(UASEvents)),
                          alpha=0.55, size=2) +
               
               geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.05) +
@@ -4326,7 +4335,8 @@ p1 <- ggplot(data=model1predictEvt) +
               scale_x_continuous(breaks=seq(1, 6, by=1)) +
               scale_y_continuous(breaks=seq(0, 1, by=0.1), limits=c(0, 1), labels=seq(0, 100, by=10)) +
               
-              labs(x=expression(paste(UAS~italic(N)^"*"~","~sone[SHM])), y="% Highly annoyed")
+              labs(x=expression(paste(UAS~italic(N)^"*"~","~sone[SHM])),
+                   y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
 p1
 
@@ -4515,7 +4525,8 @@ p4 <- ggplot(data=model1predictTnxS) +
               geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=UASSharpAurSHM05ExMaxLR, shape=factor(UASEvents)),
                          alpha=0.55, size=2) +
   
-              labs(x=expression(paste(UAS~italic(T)[italic(N)]^"*"~","~sone[SHM])), y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
+              labs(x=expression(paste(UAS~italic(T)[italic(N)]^"*"~","~sone[SHM])),
+                   y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
 p1 + p2 + p3 + p4
 
@@ -5127,8 +5138,8 @@ ggplot(data=predictProbs) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 0.7)) +
   scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 0.7)) +
   
-  labs(x="% Highly annoyed (test)", y="Predicted % highly annoyed")
-
+  labs(x=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb]~"("~test~")")),
+        y=expression(paste(Predicted~"%"~highly~annoyed~"|"~HA~"'"[amb])))
 
 filename <- "PtsABdHiAnnoyMnDetectPred"
 
@@ -5309,7 +5320,7 @@ p5 <- ggplot(data=model1predictIr) +
                      fill=guide_legend(title="UAS events", reverse=TRUE),
                      shape=guide_legend(title="UAS events", reverse=TRUE)) +
   
-              rescaleTicks(stimDataNoAmb$IntermitRatioMaxLR, stimDataNoAmb$IntermitRatioC3MaxLRScl, sep=1) +
+              rescaleTicks(stimDataNoAmb$IntermitRatioC3MaxLR, stimDataNoAmb$IntermitRatioC3MaxLRScl, sep=1) +
               scale_y_continuous(breaks=seq(0, 1, by=0.1), limits=c(0, 1), labels=seq(0, 100, by=10)) +
               
               labs(x=expression(paste(UAS~IR~","~"%")),
