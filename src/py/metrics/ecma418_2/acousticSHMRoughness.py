@@ -25,7 +25,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 29/05/2023
-Date last modified: 07/06/2025
+Date last modified: 10/06/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -50,15 +50,17 @@ from matplotlib import pyplot as plt
 import matplotlib as mpl
 from scipy.fft import (fft, ifft)
 from scipy.signal import hilbert, windows
-from src.py.metrics.ecma418_2.acousticSHMSubs import (shmDimensional, shmResample,
-                                               shmPreProc, shmOutMidEarFilter,
-                                               shmAuditoryFiltBank,
-                                               shmSignalSegmentBlocks,
-                                               shmSignalSegment,
-                                               shmBasisLoudness,
-                                               shmDownsample,
-                                               shmRoughWeight,
-                                               shmRoughLowPass)
+from src.py.metrics.ecma418_2.acousticSHMSubs import (shmDimensional,
+                                                      shmResample,
+                                                      shmPreProc,
+                                                      shmOutMidEarFilter,
+                                                      shmAuditoryFiltBank,
+                                                      shmSignalSegmentBlocks,
+                                                      shmSignalSegment,
+                                                      shmBasisLoudness,
+                                                      shmDownsample,
+                                                      shmRoughWeight,
+                                                      shmRoughLowPass)
 from tqdm import tqdm
 import bottleneck as bn
 from src.py.dsp.filterFuncs import A_weight_T
@@ -326,7 +328,7 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             _, bandBasisLoudness, _ = shmBasisLoudness(signalSegmented=pn_lz.copy(),
                                                        bandCentreFreq=bandCentreFreqs[zBand])
             basisLoudness[:, zBand] = bandBasisLoudness
-        
+
             # Envelope power spectral analysis
             # --------------------------------
             # Sections 7.1.2 ECMA-418-2:2024
@@ -335,9 +337,9 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             envelopes[:, :, zBand] = shmDownsample(np.abs(hilbert(pn_lz,
                                                                   axis=0)),
                                                    axisN=0, downSample=32)
-    
+
         # end of for loop for obtaining low frequency signal envelopes
-    
+
         # Note: With downsampled envelope signals, parallelised approach can continue
 
         # Section 7.1.3 equation 66 ECMA-418-2:2024 [Phi(k)_E,l,z]
@@ -347,8 +349,9 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                                                        targetDim=3),
                                         reps=[1, envelopes.shape[1],
                                               nBands])/np.sqrt(0.375)
+        # Equation 66 & 67
         denom = shmDimensional(np.max(basisLoudness, 1))*np.sum(envelopeWin**2,
-                                                                0)  # Equation 66 & 67
+                                                                0)
         mask = denom != 0  # Equation 66 criteria for masking
         maskRep = np.broadcast_to(mask, modSpectra.shape)  # broadcast mask
         scaling = np.divide(basisLoudness**2, denom, out=np.zeros_like(denom),
@@ -361,8 +364,43 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                                                                  -1, nBands)),
                                                      axis=0))**2))
 
+        # Envelope noise reduction
+        # ------------------------
+        # section 7.1.4 ECMA-418-2:2024
+        modSpectraAvg = bn.move_mean(modSpectra, window=3, min_count=3, axis=2)
+        modSpectraAvg = np.concatenate((shmDimensional(modSpectra[:, :, 0],
+                                                       targetDim=3,
+                                                       where='last'),
+                                        modSpectraAvg[:, :, 2:],
+                                        shmDimensional(modSpectra[:, :, -1],
+                                        targetDim=3, where='last')), axis=2)
 
-        
+        modSpectraAvgSum = np.sum(modSpectraAvg, axis=2)  # Equation 68 [s(l,k)]
+
+        # Equation 71 ECMA-418-2:2024 [wtilde(l,k)]
+        clipWeight = (0.0856*modSpectraAvgSum[0:int(modSpectraAvg.shape[0]/2) + 1, :]
+                      / (np.median(modSpectraAvgSum[2:int(modSpectraAvg.shape[0]/2), :],
+                                   axis=0) + 1e-10)
+                      * shmDimensional(np.minimum(np.maximum(0.1891*np.exp(0.012*np.arange(0, int(modSpectraAvg.shape[0]/2)
+                                                                                           + 1)),
+                                                             0),
+                                                  1)))
+
+        # Equation 70 ECMA-418-2:2024 [w(l,k)]
+        weightingFactor1 = np.zeros(modSpectraAvgSum[0:257, :].shape)
+        mask = clipWeight >= 0.05*np.max(clipWeight[2:256, :], axis=0)
+        weightingFactor1[mask] = np.minimum(np.maximum(clipWeight[mask] - 0.1407, 0), 1)
+        weightingFactor = np.concatenate((weightingFactor1,
+                                          np.flipud(weightingFactor1[1:256,
+                                                                     :])),
+                                         axis=0)
+
+        # Calculate noise-reduced, scaled, weighted modulation power spectra
+        # Equation 69 [Phihat(k)_E,l,z]
+        modWeightSpectraAvg = modSpectraAvg*shmDimensional(weightingFactor,
+                                                           targetDim=3)
+
+
     # %% Output plotting
 
     # Plot figures
