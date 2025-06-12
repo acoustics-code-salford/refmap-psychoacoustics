@@ -1,5 +1,5 @@
-function [loudness, fm, fn] = acousticLoudQuasiZwicker(spectrL, fLim, axisF, fieldType, adjustEQL, ecmaEar)
-% loudLevel = acousticLoudQuasiZwicker(spectrL, fLim, axisF,
+function [loudness, fm, fn] = acousticQuasiLoudZwicker(spectrL, fLim, axisF, fieldType, adjustEQL, ecmaEar)
+% loudLevel = acousticQuasiLoudZwicker(spectrL, fLim, axisF,
 %                                      fieldType, adjustEQL, ecmaEar)
 %
 % Returns quasi-loudness using spectral elements of ISO 532-1 Zwicker
@@ -106,7 +106,7 @@ function [loudness, fm, fn] = acousticLoudQuasiZwicker(spectrL, fLim, axisF, fie
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 05/05/2025
+% Date last modified: 12/06/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -628,4 +628,4 @@ loudness.specLoud = specLoud;
 loudness.barkAxis = barkAxis;
 loudness.fieldType = fieldType;
 
-end  % end of acousticLoudQuasiZwicker function
+end  % end of acousticQuasiLoudZwicker function

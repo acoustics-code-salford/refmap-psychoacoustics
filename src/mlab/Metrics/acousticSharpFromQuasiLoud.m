@@ -1,9 +1,9 @@
-function sharpness = acousticSharpFromQuasiZwicker(loudQZTDep, specQZLoudness, timeStep, method, outPlot)
-% sharpness = acousticSharpFromQuasiZwicker(loudQZTDep, specQZLoudness,
+function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, timeStep, method, outPlot)
+% sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness,
 %                                             method, outPlot)
 %
 % Returns quasi-sharpness values using quasi-loudness results obtained using
-% acousticLoudQuasiZwicker.m or acousticLoudQuasiZwickerWav.m.
+% acousticQuasiLoudZwicker.m or acousticQuasiLoudZwickerWav.m.
 %
 % The sharpness model used can be specified using the 'method' input
 % argument. Options comprise 'aures', 'vonBismarck', or 'widmann' (which
@@ -100,7 +100,7 @@ function sharpness = acousticSharpFromQuasiZwicker(loudQZTDep, specQZLoudness, t
 % Institution: University of Salford
 %
 % Date created: 30/04/2025
-% Date last modified: 05/05/2025
+% Date last modified: 12/06/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -285,4 +285,4 @@ if outPlot
     end  % end of for loop for plotting over channels
 end  % end of if branch for plotting if outplot true
 
-end % end of acousticSharpFromQuasiZwicker function
+end % end of acousticSharpFromQuasiLoud function

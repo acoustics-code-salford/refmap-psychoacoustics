@@ -1,5 +1,5 @@
-function [loudness, fm, fn] = acousticLoudQuasiZwickerWav(p, sampleRatein, timeStep, axisN, fieldType, adjustEQL, ecmaEar)
-% loudLevel = acousticLoudQuasiZwickerWav((p, sampleRatein, timeStep, axisN,
+function [loudness, fm, fn] = acousticQuasiLoudZwickerWav(p, sampleRatein, timeStep, axisN, fieldType, adjustEQL, ecmaEar)
+% loudLevel = acousticQuasiLoudZwickerWav((p, sampleRatein, timeStep, axisN,
 %                                         fieldType, adjustEQL, ecmaEar)
 %
 % Returns quasi-loudness using spectral elements of ISO 532-1 Zwicker
@@ -110,7 +110,7 @@ function [loudness, fm, fn] = acousticLoudQuasiZwickerWav(p, sampleRatein, timeS
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 05/05/2025
+% Date last modified: 12/06/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -182,4 +182,4 @@ Leq = 10*log10(pxx/4e-10);
 [loudness, fm, fn] = acousticLoudQuasiZwicker(Leq, [25, 12500], 2, fieldType, adjustEQL, ecmaEar);
 loudness.timeOut = linspace(0, size(loudness.loudTDep, 1)*timeStep - timeStep, size(loudness.loudTDep, 1)).';
 
-end  % end of acousticLoudQuasiZwickerWav function
+end  % end of acousticQuasiLoudZwickerWav function
