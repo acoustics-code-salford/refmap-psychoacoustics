@@ -124,7 +124,7 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 07/08/2023
-% Date last modified: 31/05/2025
+% Date last modified: 12/06/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -196,7 +196,8 @@ sampleRate48k = 48e3;  % Signal sample rate prescribed to be 48kHz (to be used f
 deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2024 [deltaf(f=0)]
 c = 0.1618;  % Half-overlapping Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2024
 
-halfBark = 0.5:0.5:26.5;  % half-overlapping critical band rate scale [z]
+dz = 0.5;  % critical band overlap [deltaz]
+halfBark = 0.5:dz:26.5;  % half-overlapping critical band rate scale [z]
 bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2024 [F(z)]
 dfz = sqrt(deltaFreq0^2 + (c*bandCentreFreqs).^2);  % Section 5.1.4.1 Equation 10 ECMA-418-2:2024 [deltaf(z)]
 
@@ -362,7 +363,7 @@ for chan = chansIn:-1:1
         % Average the ACF over adjacent time blocks [phibar_z'(m)]
         if zBand <= 16 
             meanScaledACF(:, 2:end-1) = movmean(meanScaledACF, 3, 2, 'omitnan',...
-                                    'EndPoints', 'discard');
+                                                'EndPoints', 'discard');
         end
         
         % Application of ACF lag window Section 6.2.4 ECMA-418-2:2024

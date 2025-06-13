@@ -70,7 +70,7 @@ function loudnessSHM = acousticSHMLoudnessFromComponent(specTonalLoudness, specN
 % If binaural=true, a corresponding set of outputs for the combined
 % binaural loudness are also contained in loudnessSHM
 %
-% If outplot=true, a set of plots is returned illustrating the
+% If outPlot=true, a set of plots is returned illustrating the
 % time-dependent specific and overall loudness, with the latter also
 % indicating the time-aggregated value. A set of plots is returned for each
 % input channel, with another set for the combined binaural loudness, if
@@ -92,7 +92,7 @@ function loudnessSHM = acousticSHMLoudnessFromComponent(specTonalLoudness, specN
 % Institution: University of Salford
 %
 % Date created: 22/08/2023
-% Date last modified: 29/05/2025
+% Date last modified: 12/06/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -145,6 +145,7 @@ end
 
 %% Define constants
 
+sampleRate48k = 48e3;  % Signal sample rate prescribed to be 48kHz, Section 5.1.1 ECMA-418-2:2024 [r_s]
 deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2024 [deltaf(f=0)]
 c = 0.1618;  % Half-overlapping Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2024
 
@@ -160,7 +161,7 @@ b = 0.5459;
 
 % Output sample rate based on tonality hop sizes (Section 6.2.6
 % ECMA-418-2:2024) [r_sd]
-sampleRate1875 = 48e3/256;
+sampleRate1875 = sampleRate48k/256;
 
 %% Signal processing
 

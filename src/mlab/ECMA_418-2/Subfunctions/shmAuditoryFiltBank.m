@@ -67,7 +67,7 @@ function signalFiltered = shmAuditoryFiltBank(signal, outPlot)
 
 sampleRate48k = 48e3;  % Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2024
 deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2024
-c = 0.1618;  % Half-Bark band centre-frequency demoninator constant defined in Section 5.1.4.1 ECMA-418-2:2024
+c = 0.1618;  % critical band centre-frequency demoninator constant defined in Section 5.1.4.1 ECMA-418-2:2024
 
 dz = 0.5;
 halfBark = 0.5:dz:26.5;  % half-overlapping critical band rate scale

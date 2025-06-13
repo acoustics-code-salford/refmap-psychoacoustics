@@ -112,7 +112,7 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford
 %
 % Date created: 22/09/2023
-% Date last modified: 29/05/2025
+% Date last modified: 12/06/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -193,7 +193,7 @@ b = 0.5459;
 
 % Output sample rate based on tonality hop sizes (Section 6.2.6
 % ECMA-418-2:2024) [r_sd]
-sampleRate1875 = 48e3/256;
+sampleRate1875 = sampleRate48k/256;
 
 %% Signal processing
 
@@ -218,10 +218,12 @@ specNoiseLoudness = tonalitySHM.specNoiseLoudness;  % [N'_noise(l,z)]
 % Section 8.1.1 ECMA-418-2:2024
 % Weight and combine component specific loudnesses
 for chan = chansIn:-1:1
+
     % Equation 114 ECMA-418-2:2024 [e(z)]
     maxLoudnessFuncel = a./(max(specTonalLoudness(:, :, chan)...
                                 + specNoiseLoudness(:, :, chan), [],...
                                 2, "omitnan") + 1e-12) + b;
+
     % Equation 113 ECMA-418-2:2024 [N'(l,z)]
     specLoudness(:, :, chan) = (specTonalLoudness(:, :, chan).^maxLoudnessFuncel...
                                 + abs((weight_n.*specNoiseLoudness(:, :, chan)).^maxLoudnessFuncel)).^(1./maxLoudnessFuncel);

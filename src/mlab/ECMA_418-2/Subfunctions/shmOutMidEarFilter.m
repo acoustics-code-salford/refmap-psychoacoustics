@@ -46,7 +46,7 @@ function signalFiltered  = shmOutMidEarFilter(signal, soundField, outPlot)
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 26/09/2023
-% Date last modified: 14/05/2025
+% Date last modified: 12/06/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -78,7 +78,7 @@ function signalFiltered  = shmOutMidEarFilter(signal, soundField, outPlot)
 
 %% Signal processing
 
-if soundField == 'noEar'
+if strcmp(soundField, "noEar")
     signalFiltered = signal;
 else
 
@@ -116,13 +116,13 @@ else
             0.727599221415107, -0.284120167620817, 0.805837815618546,...
             0.914160847411739, 0.284243574266175];
     
-    if soundField == "freeFrontal"
+    if strcmp(soundField, "freeFrontal")
         sos = [b_0k.', b_1k.', b_2k.', a_0k.', a_1k.', a_2k.'];
-    elseif soundField == "diffuse"
+    elseif strcmp(soundField, "diffuse")
         % omit free field filter stages
         sos = [b_0k(3:end).', b_1k(3:end).', b_2k(3:end).',...
                a_0k(3:end).', a_1k(3:end).', a_2k(3:end).'];
-    elseif soundField == "noOuter"
+    elseif strcmp(soundField, "noOuter")
         % omit outer ear stages
         sos = [b_0k(6:end).', b_1k(6:end).', b_2k(6:end).',...
                a_0k(6:end).', a_1k(6:end).', a_2k(6:end).'];

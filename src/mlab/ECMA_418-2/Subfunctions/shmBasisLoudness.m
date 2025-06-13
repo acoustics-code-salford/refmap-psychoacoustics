@@ -43,7 +43,7 @@ function [signalRectSeg, basisLoudness, blockRMS] = shmBasisLoudness(signalSegme
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 27/09/2023
-% Date last modified: 26/05/2025
+% Date last modified: 12/06/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -90,9 +90,6 @@ bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9
 
 cal_N = 0.0211668;  % Calibration factor from Section 5.1.8 Equation 23 ECMA-418-2:2024
 cal_Nx = 1.00132;  % Calibration multiplier (Footnote 8 ECMA-418-2:2024)
-%cal_N*cal_Nx = 0.021194740176;  % Adjusted calibration factor
-%cal_Nx = 1.001398416387928;  % Calibration multiplier (Footnote 8 ECMA-418-2:2024)
-%cal_N*cal_Nx = 0.0211964;  % Adjusted calibration factor
 
 a = 1.5;  % Constant (alpha) from Section 5.1.8 Equation 23 ECMA-418-2:2024
 
