@@ -25,7 +25,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 29/05/2023
-Date last modified: 10/06/2025
+Date last modified: 14/06/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -304,13 +304,13 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
         # pre-allocate output arrays
         i_start = 0  # index to start segmentation block processing from
-        _, nBlocksTotal, _ = shmSignalSegmentBlocks(pn_omz[:, 0],
+        _, nBlocks, _ = shmSignalSegmentBlocks(pn_omz[:, 0],
                                                     blockSize=blockSize,
                                                     overlap=overlap, axisN=0,
                                                     i_start=i_start,
                                                     endShrink=True)
-        basisLoudness = np.zeros([nBlocksTotal, nBands])
-        envelopes = np.zeros([blockSize1500, nBlocksTotal, nBands])
+        basisLoudness = np.zeros([nBlocks, nBands])
+        envelopes = np.zeros([blockSize1500, nBlocks, nBands])
         for zBand in envIter:
             # Segmentation into blocks
             # ------------------------
@@ -399,6 +399,121 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         # Equation 69 [Phihat(k)_E,l,z]
         modWeightSpectraAvg = modSpectraAvg*shmDimensional(weightingFactor,
                                                            targetDim=3)
+
+        # Spectral weighting
+        # ------------------
+        # Section 7.1.5 ECMA-418-2:2024
+        # theta used in equation 79, including additional index for
+        # errorCorrection terms from table 10
+        theta = range(0, 34)
+        modAmp = np.zeros([10, nBlocks, nBands])
+        modRate = np.zeros([10, nBlocks, nBands])
+        
+        if waitBar:
+            rateIter = tqdm(range(nBands), desc="Modulation rates")
+        else:
+            rateIter = range(nBands)
+
+        for zBand in rateIter:
+            # Section 7.1.5.1 ECMA-418-2:2024
+            for lBlock in range(0, nBlocks):
+                # identify peaks in each block (for each band)
+                # NOTE: here, the search starts from k=1 so that a peak at k=2
+                # can be detected
+                [PhiPks, kLocs, ~, proms] = findpeaks(modWeightSpectraAvg(1 + mlabIndex:256 + mlabIndex,...
+                                                                          lBlock,...
+                                                                          zBand));
+    
+                % reindex kLocs to match spectral start index used in findpeaks
+                % for indexing into modulation spectra matrices
+                kLocs = kLocs + mlabIndex;
+    
+                % we cannot have a peak at k=1 or k=256
+                mask = and((kLocs ~= 1 + mlabIndex), (kLocs ~= 256 + mlabIndex));
+                kLocs = kLocs(mask);
+                PhiPks = PhiPks(mask);
+    
+                % consider 10 highest prominence peaks only
+                if length(proms) > 10
+                    [promsSorted, iiSort] = sort(proms, 'descend');
+                    mask = proms >= promsSorted(10);
+                    
+                    % if branch to deal with duplicated peak prominences
+                    if sum(mask) > 10
+                       mask = mask(iiSort <= 10); 
+                    end  % end of if branch for duplicated peak prominences
+    
+                    PhiPks = PhiPks(mask);
+                    kLocs = kLocs(mask);
+    
+                end  % end of if branch to select 10 highest prominence peaks
+    
+                % consider peaks meeting criterion
+                if ~isempty(PhiPks)
+                    mask = PhiPks > 0.05*max(PhiPks);  % Equation 72 criterion
+                    PhiPks = PhiPks(mask);  % [Phihat(k_p,i(l,z))]
+                    kLocs = kLocs(mask);
+                    % loop over peaks to obtain modulation rates
+                    for iPeak = length(PhiPks):-1:1
+                        % Equation 74 ECMA-418-2:2024
+                        % Note: here, the kLoc values are used as indices for
+                        % the modulation spectral matrix, so MATLAB indexing
+                        % is correctly addressed (see Equation 75 below)
+                        % [Phihat_E,l,z]
+                        modAmpMat = [modWeightSpectraAvg(kLocs(iPeak) - 1, lBlock, zBand);
+                                     modWeightSpectraAvg(kLocs(iPeak), lBlock, zBand);
+                                     modWeightSpectraAvg(kLocs(iPeak) + 1, lBlock, zBand)];
+                        
+                        % Equation 82 [A_i(l,z)]
+                        modAmp(iPeak, lBlock, zBand) = sum(modAmpMat);
+    
+                        % Equation 75 ECMA-418-2:2024
+                        % Note: because the kLoc index values are used directly
+                        % in the calculation, MATLAB indexing needs to be
+                        % compensated for by subtracting 1 from kLocs
+                        % [K]
+                        modIndexMat = [(kLocs(iPeak) - mlabIndex - 1)^2, kLocs(iPeak) - mlabIndex - 1, 1;
+                                       (kLocs(iPeak) - mlabIndex)^2, kLocs(iPeak) - mlabIndex, 1;
+                                       (kLocs(iPeak) - mlabIndex + 1)^2, kLocs(iPeak) - mlabIndex + 1, 1];
+    
+                        coeffVec = modIndexMat\modAmpMat;  % Equation 73 solution [C]
+    
+                        % Equation 76 ECMA-418-2:2024 [ftilde_p,i(l,z)]
+                        modRateEst = -(coeffVec(2)/(2*coeffVec(1)))*resDFT1500;
+    
+                        % Equation 79 ECMA-418-2:2024 [beta(theta)]
+                        errorBeta = (floor(modRateEst/resDFT1500) + theta(1:33)/32)*resDFT1500...
+                                    - (modRateEst + errorCorrection(theta(1:33) + mlabIndex)); % compensated theta value for MATLAB-indexing
+    
+                        % Equation 80 ECMA-418-2:2024 [theta_min]
+                        [~, i_minError] = min(abs(errorBeta));
+                        thetaMinError = theta(i_minError);  % the result here is 0-indexed
+    
+                        % Equation 81 ECMA-418-2:2024 [theta_corr]
+                        if thetaMinError > 0 && errorBeta(i_minError)*errorBeta(i_minError - 1) < 0 % (0-indexed)
+                            thetaCorr = thetaMinError;  % 0-indexed
+                        else
+                            thetaCorr = thetaMinError + 1;  % 0-indexed
+                        end  % end of eq 81 if-branch
+    
+                        % Equation 78 ECMA-418-2:2024
+                        % thetaCorr is 0-indexed so needs adjusting when
+                        % indexing
+                        % [rho(ftilde_p,i(l,z))]
+                        biasAdjust = errorCorrection(thetaCorr + mlabIndex - 1)...
+                                     - (errorCorrection(thetaCorr + mlabIndex)...
+                                        - errorCorrection(thetaCorr + mlabIndex - 1))...
+                                        *errorBeta(thetaCorr + mlabIndex - 1)...
+                                        /(errorBeta(thetaCorr + mlabIndex)...
+                                          - errorBeta(thetaCorr + mlabIndex - 1));
+    
+                        % Equation 77 ECMA-418-2:2024 [f_p,i(l,z)]
+                        modRate(iPeak, lBlock, zBand) = modRateEst + biasAdjust;
+    
+                    # end of for loop over peaks in block per band
+                # end of if branch for detected peaks in modulation spectrum
+            # end of for loop over blocks for peak detection      
+        # end  of for loop over bands for modulation spectral weighting
 
 
     # %% Output plotting
