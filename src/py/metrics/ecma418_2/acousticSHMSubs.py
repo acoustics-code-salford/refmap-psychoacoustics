@@ -19,7 +19,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 27/10/2023
-Date last modified: 06/06/2025
+Date last modified: 20/06/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -1072,9 +1072,13 @@ def shmRoughWeight(modRate, modfreqMaxWeight, roughWeightParams):
     Date last checked:
     """
     # Equation 85 [G_l,z,i(f_p,i(l,z))]
-    roughWeight = 1/(1 + ((modRate/modfreqMaxWeight
-                           - modfreqMaxWeight/modRate)
-                          * roughWeightParams[0, :, :])**2)**roughWeightParams[1, :, :]
+    roughWeight = np.divide(1, (1 + ((modRate/modfreqMaxWeight
+                                      - np.divide(modfreqMaxWeight, modRate,
+                                                  out=np.zeros_like(modRate),
+                                                  where=modRate != 0))
+                                     * roughWeightParams[0, :, :])**2)**roughWeightParams[1, :, :],
+                            out=np.zeros_like(modRate),
+                            where=modRate != 0)
 
     return roughWeight  # end of shmRoughWeight function
 
