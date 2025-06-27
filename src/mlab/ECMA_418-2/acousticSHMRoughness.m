@@ -391,7 +391,8 @@ for chan = chansIn:-1:1
             kLocs = kLocs + startIdx;
 
             % we cannot have peaks at k = 1, 2, 255 or 256
-            mask = ~ismember(kLocs, [startIdx, startIdx + 1, endIdx, endIdx + 1]);
+            mask = ~ismember(kLocs, [startIdx - 1, startIdx,...
+                                     endIdx, endIdx + 1]);
             kLocs = kLocs(mask);
             PhiPks = PhiPks(mask);
 
