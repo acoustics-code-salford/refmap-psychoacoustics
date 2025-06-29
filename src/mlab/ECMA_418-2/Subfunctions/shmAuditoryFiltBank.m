@@ -8,8 +8,9 @@ function signalFiltered = shmAuditoryFiltBank(signal, outPlot)
 %
 % Inputs
 % ------
-% signal : vector
-%          the input signal as single audio (sound pressure) signal
+% signal : vector or 2D matrix
+%          the input signal as single or two-channel audio (sound pressure)
+%          signal
 %
 % outPlot : Boolean true/false (default: false)
 %           flag indicating whether to generate a figure a frequency and phase
@@ -18,8 +19,9 @@ function signalFiltered = shmAuditoryFiltBank(signal, outPlot)
 % Returns
 % -------
 % 
-% signalFiltered : 2D matrix
-%                  the filtered signals 
+% signalFiltered : 2D or 3D matrix
+%                  the filtered signals with dimensions
+%                  [time, bands(, chans)]
 %
 % Assumptions
 % -----------
@@ -59,7 +61,7 @@ function signalFiltered = shmAuditoryFiltBank(signal, outPlot)
 %
 %% Arguments validation
     arguments (Input)
-        signal (:, 1) double {mustBeReal}
+        signal (:, 2) double {mustBeReal}
         outPlot {mustBeNumericOrLogical} = false
     end
 
