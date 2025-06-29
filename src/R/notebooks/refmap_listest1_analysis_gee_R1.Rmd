@@ -638,6 +638,9 @@ subjData <- subjData |> dplyr::mutate(UASLoudECMAPowAvgBinScl = datawizard::stan
 subjData <- subjData |> dplyr::mutate(IntermitRatioC2MaxLRScl = IntermitRatioC2MaxLR/100)
 subjData <- subjData |> dplyr::mutate(IntermitRatioC3MaxLRScl = IntermitRatioC3MaxLR/100)
 subjData <- subjData |> dplyr::mutate(IntermitRatioC5MaxLRScl = IntermitRatioC5MaxLR/100)
+subjData <- subjData |> dplyr::mutate(AmbLAeqMaxLRScl = datawizard::standardise(AmbLAeqMaxLR, scale=FALSE))
+subjData <- subjData |> dplyr::mutate(AmbLAF50ExMaxLRScl = datawizard::standardise(AmbLAF50ExMaxLR, scale=FALSE))
+
 
 stimData <- stimData |> dplyr::mutate(UASLAeqMaxLRScl = datawizard::standardise(UASLAeqMaxLR, scale=FALSE))
 stimData <- stimData |> dplyr::mutate(UASLAEMaxLRScl = datawizard::standardise(UASLAEMaxLR, scale=FALSE))
@@ -651,6 +654,8 @@ stimData <- stimData |> dplyr::mutate(UASLoudECMAPowAvgBinScl = datawizard::stan
 stimData <- stimData |> dplyr::mutate(IntermitRatioC2MaxLRScl = IntermitRatioC2MaxLR/100)
 stimData <- stimData |> dplyr::mutate(IntermitRatioC3MaxLRScl = IntermitRatioC3MaxLR/100)
 stimData <- stimData |> dplyr::mutate(IntermitRatioC5MaxLRScl = IntermitRatioC5MaxLR/100)
+stimData <- stimData |> dplyr::mutate(AmbLAeqMaxLRScl = datawizard::standardise(AmbLAeqMaxLR, scale=FALSE))
+stimData <- stimData |> dplyr::mutate(AmbLAF50ExMaxLRScl = datawizard::standardise(AmbLAF50ExMaxLR, scale=FALSE))
 
 # convert detectability dB to log variables
 subjData <- subjData |> dplyr::mutate(Detect0p1IntMaxLRLog = Detect0p1dBIntMaxLR/10)
