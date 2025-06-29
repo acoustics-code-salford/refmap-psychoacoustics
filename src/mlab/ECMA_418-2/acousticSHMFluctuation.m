@@ -1,10 +1,11 @@
-function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField, waitBar, outPlot, binaural)
-% roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField, waitBar, outPlot, binaural)
+function fluctuationSHM = acousticSHMFluctuation(p, sampleRateIn, axisN, soundField, waitBar, outPlot, binaural)
+% fluctuationSHM = acousticSHMFluctuation(p, sampleRateIn, axisN, soundField, waitBar, outPlot, binaural)
 %
-% Returns roughness values according to ECMA-418-2:2025 (using the Sottek
-% Hearing Model) for an input calibrated single mono or single stereo audio
-% (sound pressure) time-series signal, p. For stereo signals, the binaural
-% roughness can be calculated, and each channel is also analysed separately.
+% Returns fluctuation strength values according to ECMA-418-2:2025
+% (using the Sottek Hearing Model) for an input calibrated single mono
+% or single stereo audio (sound pressure) time-series signal, p. For stereo
+% signals, the binaural fluctuation strength can be calculated, and each
+% channel is also analysed separately.
 %
 % Inputs
 % ------
@@ -31,20 +32,20 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
 %           determines whether a progress bar displays during processing
 %           (set waitBar to false for doing multi-file parallel calculations)
 %
-% outPlot : Boolean true/false (default: false)
+% outplot : Boolean true/false (default: false)
 %           flag indicating whether to generate a figure from the output
 %
 % binaural : Boolean true/false (default: true)
-%            flag indicating whether to output combined binaural roughness
-%            for stereo input signal.
-%
+%            flag indicating whether to output binaural roughness for stereo
+%            input signal.
+% 
 % Returns
 % -------
 %
-% roughnessSHM : structure
+% fluctuationSHM : structure
 %                contains the output
 %
-% roughnessSHM contains the following outputs:
+% fluctuationSHM contains the following outputs:
 %
 % specRoughness : matrix
 %                 time-dependent specific roughness for each (half)
@@ -101,8 +102,8 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
 % Authors: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 % Institution: University of Salford
 %
-% Date created: 12/10/2023
-% Date last modified: 27/06/2025
+% Date created: 16/05/2025
+% Date last modified: 16/05/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -129,10 +130,10 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
         sampleRateIn (1, 1) double {mustBePositive, mustBeInteger}
         axisN (1, 1) {mustBeInteger, mustBeInRange(axisN, 1, 2)} = 1
         soundField (1, :) string {mustBeMember(soundField,...
-                                               {'freeFrontal',...
-                                                'diffuse', ...
-                                                'noOuter', ...
-                                                'noEar'})} = 'freeFrontal'
+                                                       {'freeFrontal',...
+                                                        'diffuse', ...
+                                                        'noOuter', ...
+                                                        'noEar'})} = 'freeFrontal'
         waitBar {mustBeNumericOrLogical} = true
         outPlot {mustBeNumericOrLogical} = false
         binaural {mustBeNumericOrLogical} = true
@@ -156,8 +157,8 @@ end
 if size(p, 2) > 2
     error("Error: Input signal comprises more than two channels")
 else
-    chansIn = size(p, 2);
-    if chansIn == 2
+    inchans = size(p, 2);
+    if inchans == 2
         chans = ["Stereo left";
                  "Stereo right"];
     else
@@ -170,24 +171,34 @@ end
 signalT = size(p, 1)/sampleRateIn;  % duration of input signal
 sampleRate48k = 48e3;  % Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2025 [r_s]
 deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2025 [deltaf(f=0)]
-c = 0.1618;  % Half-overlapping Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2025 [c]
+c = 0.1618;  % Half-Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2025 [c]
 
-dz = 0.5;  % critical band overlap [deltaz]
-halfBark = 0.5:dz:26.5;  % half-overlapping critical band rate scale [z]
+dz = 0.5;  % critical band resolution [deltaz]
+halfBark = 0.5:dz:26.5;  % half-critical band rate scale [z]
 nBands = length(halfBark);  % number of bands
 bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2025 [F(z)]
 
-% Block and hop sizes Section 7.1.1 ECMA-418-2:2025
+% Block and hop sizes Section 9.1.1 ECMA-418-2:2025
 overlap = 0.75;  % block overlap proportion
-blockSize = 16384;  % block size [s_b]
+blockSize = 65536;  % block size [s_b]
 hopSize = (1 - overlap)*blockSize;  % hop size [s_h]
 
-% Downsampled block and hop sizes Section 7.1.2 ECMA-418-2:2025
+% Downsampled block and hop sizes Section 9.1.2 ECMA-418-2:2025
 downSample = 32;  % downsampling factor
 sampleRate1500 = sampleRate48k/downSample;
 blockSize1500 = blockSize/downSample;
 % hopSize1500 = (1 - overlap)*blockSize1500;
-resDFT1500 = sampleRate1500/blockSize1500;  % DFT resolution (section 7.1.5.1) [deltaf]
+% resDFT1500 = sampleRate1500/blockSize1500;  % DFT resolution (section 7.1.5.1) [deltaf]
+
+% Determination of envelope analysis windows Section 9.1.3 ECMA-418-2:2025
+num0WinStart = blockSize1500/32;  % start number of zeros
+num0WinEnd = num0WinStart;  % end number of zeros
+envWindow = zeros([blockSize1500, 1]);  % default envelope analysis window [w_Elz(ntilde)]
+envWindow(num0WinStart + 1:end - num0WinEnd) = 1;
+movMedLen = blockSize1500/64 + 1;  % moving median filter length
+quietZerosMin = blockSize1500*5/32;  % minimum number of zeros in quieter periods (section 9.1.3.4) [ntilde_zeros,min]
+winEndLim = blockSize/4;  % constraint on end index of envelope analysis window (section 9.1.3.6)
+linRegIdxShift = blockSize*5/1024;  % shift on window indices for linear regression analysis (section 9.1.3.6)
 
 % Modulation rate error correction values Table 8, Section 7.1.5.1
 % ECMA-418-2:2025 [E(theta)]
@@ -252,7 +263,7 @@ n_samples = size(p_re, 1);
 
 % Section 5.1.2 ECMA-418-2:2025 Fade in weighting and zero-padding
 % (only the start is zero-padded)
-pn = shmPreProc(p_re, blockSize, hopSize, true, false);
+pn = shmPreProc(p_re, max(blockSize), max(hopSize), true, false);
 
 % Apply outer & middle ear filter
 % -------------------------------
@@ -262,24 +273,24 @@ pn_om = shmOutMidEarFilter(pn, soundField);
 
 n_steps = 270;  % approximate number of calculation steps
 
+% Apply auditory filter bank
+% --------------------------
+
+if waitBar
+    w = waitbar(0, "Initialising...");
+    i_step = 1;
+
+    waitbar(i_step/n_steps, w, 'Applying auditory filters...');
+    i_step = i_step + 1;
+end % end of if branch for waitBar
+
+% Filter equalised signal using 53 critical band filters according to 
+% Section 5.1.4.2 ECMA-418-2:2025
+pn_omz = shmAuditoryFiltBank(pn_om, false);
+
 % Loop through channels in file
 % -----------------------------
-for chan = chansIn:-1:1
-
-    % Apply auditory filter bank
-    % --------------------------
-    
-    if waitBar
-        w = waitbar(0, "Initialising...");
-        i_step = 1;
-    
-        waitbar(i_step/n_steps, w, 'Applying auditory filters...');
-        i_step = i_step + 1;
-    end % end of if branch for waitBar
-
-    % Filter equalised signal using 53 1/2-overlapping Bark filters
-    % according to Section 5.1.4.2 ECMA-418-2:2025
-    pn_omz = shmAuditoryFiltBank(pn_om(:, chan), false);
+for chan = size(pn_omz, 2):-1:1
 
     % Note: At this stage, typical computer RAM limits impose a need to loop
     % through the critical bands rather than continue with a parallelised
@@ -295,7 +306,7 @@ for chan = chansIn:-1:1
 
         % Section 5.1.5 ECMA-418-2:2025
         i_start = 1;
-        [pn_lz, iBlocksOut] = shmSignalSegment(pn_omz(:, zBand), 1,...
+        [pn_lz, iBlocksOut] = shmSignalSegment(pn_omz(:, zBand, chan), 1,...
                                                blockSize, overlap,...
                                                i_start, true);
 
@@ -304,9 +315,9 @@ for chan = chansIn:-1:1
         if waitBar
             i_step = i_step + 1;
         end
-        % Sections 5.1.6 to 5.1.9 ECMA-418-2:2025
-        [~, bandBasisLoudness, ~] = shmBasisLoudness(pn_lz, bandCentreFreqs(zBand));
-        basisLoudness(:, :, zBand) = bandBasisLoudness;
+        % % Sections 5.1.6 to 5.1.9 ECMA-418-2:2025
+        % [~, bandBasisLoudness, ~] = shmBasisLoudness(pn_lz, bandCentreFreqs(zBand));
+        % basisLoudness(:, :, zBand) = bandBasisLoudness;
     
         % Envelope power spectral analysis
         % --------------------------------
@@ -321,6 +332,128 @@ for chan = chansIn:-1:1
     end  % end of for loop for obtaining low frequency signal envelopes
 
     % Note: With downsampled envelope signals, parallelised approach can continue
+
+    % Section 9.1.3 Envelope analysis windows
+    nBlocks = size(envelopes, 2);
+    num0WinStartMat = repmat(num0WinStart, nBlocks, nBands);
+    num0WinEndMat = repmat(num0WinEnd, nBlocks, nBands);
+    envWindowMat = repmat(envWindow, 1, nBlocks, nBands);
+    % Section 9.1.3.2 Envelope smoothing and first quieter period weighting  
+    envMedWeight = envWindow.*round(movmedian(envelopes, movMedLen, 1), 8);
+    envMedWghtMax = max(envMedWeight, [], 1);
+    envWindowMat(:, envMedWghtMax <= 5e-6) = 0;
+
+    
+    if any(envWindowMat, 'all')
+        % Section 9.1.3.3 Further quieter period detection
+        quietThreshold = round(0.01*envMedWghtMax, 8);
+        quietPeriods = envMedWeight < quietThreshold;
+
+        % get the first and last indices for periods that are not quiet
+        [iRows, jCols, kPages] = ind2sub([blockSize1500, nBlocks, nBands], find(~quietPeriods));
+        totalBlocks = nBlocks*nBands;
+        blockBandIdx = sub2ind([nBlocks, nBands], jCols, kPages);
+        startIdx = reshape(accumarray(blockBandIdx, iRows, [totalBlocks, 1], @min, NaN), [nBlocks, nBands]);
+        endIdx = reshape(accumarray(blockBandIdx, iRows, [totalBlocks, 1], @max, NaN), [nBlocks, nBands]);
+
+        % update number of zeros
+        num0WinStartMatNew = max(num0WinStartMat, startIdx - 1, 'omitmissing');
+        num0WinEndMatNew = max(num0WinEndMat, blockSize1500 - endIdx,'omitmissing');
+        startIdxNew = num0WinStartMatNew + 1;
+        endIdxNew = blockSize1500 - num0WinEndMatNew;
+
+        % Section 9.1.3.4 Search for the longest quieter periods in the
+        % updated block interval
+
+        % initialise final parameter arrays
+        num0WinStartMatFinal = num0WinStartMatNew;
+        num0WinEndMatFinal = num0WinEndMatNew;
+        startIdxNewFinal = startIdxNew;
+        endIdxNewFinal = endIdxNew;
+        linRegStdChk = ones(nBlocks, nBands) == 1;
+        for zBand = 1:nBands
+            for nBlock = 1:nBlocks
+                % assign updated interval
+                quietPeriodsNew = quietPeriods(startIdxNew(nBlock, zBand):endIdxNew(nBlock, zBand),...
+                                               nBlock, zBand);
+                
+                % pad to identify start and end quieter periods
+                quietPeriodsPad = [0; quietPeriodsNew; 0];
+
+                quietPeriodStartsNew = find(diff(quietPeriodsPad(1:end - 1), 1) == 1);
+                % Note: the subtraction of one is to identify the last
+                % index of each quieter period, which is one before the
+                % difference of -1 occurs
+                quietPeriodEndsNew = find(diff(quietPeriodsPad(2:end), 1) == -1) - 1;
+
+                quietPeriodLengths = quietPeriodEndsNew - quietPeriodStartsNew + 1;
+
+                % apply minimum length criterion mask
+                mask = quietPeriodLengths > quietZerosMin;
+                if max(mask)
+                    quietPeriodStartsNew = quietPeriodStartsNew(mask);
+                    quietPeriodEndsNew = quietPeriodEndsNew(mask);
+                    quietPeriodLengths = quietPeriodLengths(mask);
+
+                    [~, qpLongestIdx] = max(quietPeriodLengths);
+
+                    % get the start and end indices for the longest quieter
+                    % period, adjusting for the updated start index
+                    quietPeriodStartsMax = quietPeriodStartsNew(qpLongestIdx) + startIdxNew(nBlock, zBand) - 1;
+                    quietPeriodEndsMax = quietPeriodEndsNew(qpLongestIdx) + startIdxNew(nBlock, zBand) - 1;
+
+                    num0WinStartsMax = quietPeriodStartsMax - 1;
+                    num0WinEndsMax = blockSize1500 - quietPeriodEndsMax;
+
+                    % determine which end of the window gets modified
+                    if (num0WinStartsMax - num0WinStartMatNew(nBlock, zBand) + 64)...
+                        > (num0WinEndsMax - num0WinEndMatNew(nBlock, zBand) - 64)
+                        num0WinEndMatFinal(nBlock, zBand) = num0WinEndsMax + 64;
+                    else
+                        num0WinStartMatFinal(nBlock, zBand) = num0WinStartsMax + 64;
+                    end  % end of if branch to determine which window end is modified
+                end  % end of if branch for minimum quieter period length
+
+                 % assign zeros to window start and end
+                startIdxNewFinal(nBlock, zBand) = num0WinStartMatFinal(nBlock, zBand) + 1;
+                endIdxNewFinal(nBlock, zBand) = blockSize1500 - num0WinEndMatFinal(nBlock, zBand);
+        
+                envWindowMat(1:num0WinStartMatFinal(nBlock, zBand), nBlock, zBand) = 0;
+                envWindowMat(endIdxNewFinal(nBlock, zBand) + 1:end, nBlock, zBand) = 0;
+        
+                % Section 9.1.3.6 window interval validity checks
+                % linear regression analysis check
+                linReg = polyfit(startIdxNewFinal(nBlock, zBand) + linRegIdxShift:endIdxNewFinal(nBlock, zBand) - linRegIdxShift,...
+                                 envMedWeight(startIdxNewFinal(nBlock, zBand) + linRegIdxShift:endIdxNewFinal(nBlock, zBand) - linRegIdxShift,...
+                                            nBlock, zBand), 1);
+                pred = polyval(linReg, startIdxNewFinal(nBlock, zBand) + linRegIdxShift:endIdxNewFinal(nBlock, zBand) - linRegIdxShift);
+                resid = pred.' - envMedWeight(startIdxNewFinal(nBlock, zBand) + linRegIdxShift:endIdxNewFinal(nBlock, zBand) - linRegIdxShift,...
+                                            nBlock, zBand);
+                stdresid = std(resid);
+                linRegStdChk(nBlock, zBand) = stdresid/mean(envMedWeight(startIdxNewFinal(nBlock, zBand) + linRegIdxShift:endIdxNewFinal(nBlock, zBand) - linRegIdxShift,...
+                                                            nBlock, zBand)) >= 0.1/100;
+            end  % end of for loop over blocks for quieter periods
+        end  % end of for loop over bands for quieter periods
+
+        % Section 9.1.3.6 window interval validity checks
+        % length of window
+        winLengthChk = (endIdxNewFinal - startIdxNewFinal + 1) >= quietZerosMin;
+        
+        % window end is far enough into block
+        winEndChk = endIdxNewFinal >= winEndLim;
+        
+        % all checks
+        quietBlock = ~(linRegStdChk.*winLengthChk.*winEndChk);
+
+        num0WinStartMatFinal(quietBlock) = blockSize1500/2;
+        num0WinEndMatFinal(quietBlock) = blockSize1500/2;
+
+        envWindowMat(:, quietBlock) = 0;
+    end  % end of if branch for further quieter period analysis
+
+envSpectrum = fft(envelopes.*envWindowMat, blockSize1500, 1);
+envPwrSpectr = abs(envSpectrum).^2;
+
 
     % Section 7.1.3 equation 66 ECMA-418-2:2025 [Phi(k)_E,l,z]
     modSpectra = zeros(size(envelopes));
@@ -380,19 +513,18 @@ for chan = chansIn:-1:1
         % Section 7.1.5.1 ECMA-418-2:2025
         for lBlock = nBlocks:-1:1
             % identify peaks in each block (for each band)
-            startIdx = 2;
-            endIdx = 255;
-            [PhiPks, kLocs, ~, proms] = findpeaks(modWeightSpectraAvg(startIdx + mlabIndex:endIdx + mlabIndex,...
+            % NOTE: here, the search starts from k=1 so that a peak at k=2
+            % can be detected
+            [PhiPks, kLocs, ~, proms] = findpeaks(modWeightSpectraAvg(1 + mlabIndex:256 + mlabIndex,...
                                                                       lBlock,...
                                                                       zBand));
 
             % reindex kLocs to match spectral start index used in findpeaks
             % for indexing into modulation spectra matrices
-            kLocs = kLocs + startIdx;
+            kLocs = kLocs + mlabIndex;
 
-            % we cannot have peaks at k = 1, 2, 255 or 256
-            mask = ~ismember(kLocs, [startIdx - 1, startIdx,...
-                                     endIdx, endIdx + 1]);
+            % we cannot have a peak at k=1 or k=256
+            mask = and((kLocs ~= 1 + mlabIndex), (kLocs ~= 256 + mlabIndex));
             kLocs = kLocs(mask);
             PhiPks = PhiPks(mask);
 
@@ -642,13 +774,13 @@ end  % end of for loop over channels
 
 % Binaural roughness
 % Section 7.1.11 ECMA-418-2:2025 [R'_B(l_50,z)]
-if chansIn == 2 && binaural
+if inchans == 2 && binaural
     specRoughness(:, :, 3) = sqrt(sum(specRoughness.^2, 3)/2);  % Equation 112
-    chansOut = 3;  % set number of 'channels' to stereo plus single binaural
+    outchans = 3;  % set number of 'channels' to stereo plus single binaural
     chans = [chans;
              "Binaural"];
 else
-    chansOut = chansIn;  % assign number of output channels
+    outchans = inchans;  % assign number of output channels
 end
 
 % Section 7.1.8 ECMA-418-2:2025
@@ -658,7 +790,7 @@ specRoughnessAvg = mean(specRoughness(17:end, :, :), 1);
 % Section 7.1.9 ECMA-418-2:2025
 % Time-dependent roughness Equation 111 [R(l_50)]
 % Discard singleton dimensions
-if chansOut == 1
+if outchans == 1
     roughnessTDep = sum(specRoughness.*dz, 2);
     specRoughnessAvg = transpose(specRoughnessAvg);
 else
@@ -673,12 +805,37 @@ roughness90Pc = prctile(roughnessTDep(17:end, :, :), 90, 1);
 % time (s) corresponding with results output [t]
 timeOut = (0:(size(specRoughness, 1) - 1))/sampleRate50;
 
+%% Output assignment
+
+% Assign outputs to structure
+if outchans == 3
+    fluctuationSHM.specRoughness = specRoughness(:, :, 1:2);
+    fluctuationSHM.specRoughnessAvg = specRoughnessAvg(:, 1:2);
+    fluctuationSHM.roughnessTDep = roughnessTDep(:, 1:2);
+    fluctuationSHM.roughness90Pc = roughness90Pc(:, 1:2);
+    fluctuationSHM.specRoughnessBin = specRoughness(:, :, 3);
+    fluctuationSHM.specRoughnessAvgBin = specRoughnessAvg(:, 3);
+    fluctuationSHM.roughnessTDepBin = roughnessTDep(:, 3);
+    fluctuationSHM.roughness90PcBin = roughness90Pc(:, 3);
+    fluctuationSHM.bandCentreFreqs = bandCentreFreqs;
+    fluctuationSHM.timeOut = timeOut;
+    fluctuationSHM.soundField = soundField;
+else
+    fluctuationSHM.specRoughness = specRoughness;
+    fluctuationSHM.specRoughnessAvg = specRoughnessAvg;
+    fluctuationSHM.roughnessTDep = roughnessTDep;
+    fluctuationSHM.roughness90Pc = roughness90Pc;
+    fluctuationSHM.bandCentreFreqs = bandCentreFreqs;
+    fluctuationSHM.timeOut = timeOut;
+    fluctuationSHM.soundField = soundField;
+end
+
 %% Output plotting
 
 if outPlot
     % Plot figures
     % ------------
-    for chan = chansOut:-1:1
+    for chan = outchans:-1:1
         % Plot results
         fig = figure;
         tiledlayout(fig, 2, 1);
@@ -756,30 +913,5 @@ if outPlot
         lgd.Title.String = "Overall";
     end  % end of for loop for plotting over channels
 end  % end of if branch for plotting if outplot true
-
-%% Output assignment
-
-% Assign outputs to structure
-if chansOut == 3
-    roughnessSHM.specRoughness = specRoughness(:, :, 1:2);
-    roughnessSHM.specRoughnessAvg = specRoughnessAvg(:, 1:2);
-    roughnessSHM.roughnessTDep = roughnessTDep(:, 1:2);
-    roughnessSHM.roughness90Pc = roughness90Pc(:, 1:2);
-    roughnessSHM.specRoughnessBin = specRoughness(:, :, 3);
-    roughnessSHM.specRoughnessAvgBin = specRoughnessAvg(:, 3);
-    roughnessSHM.roughnessTDepBin = roughnessTDep(:, 3);
-    roughnessSHM.roughness90PcBin = roughness90Pc(:, 3);
-    roughnessSHM.bandCentreFreqs = bandCentreFreqs;
-    roughnessSHM.timeOut = timeOut;
-    roughnessSHM.soundField = soundField;
-else
-    roughnessSHM.specRoughness = specRoughness;
-    roughnessSHM.specRoughnessAvg = specRoughnessAvg;
-    roughnessSHM.roughnessTDep = roughnessTDep;
-    roughnessSHM.roughness90Pc = roughness90Pc;
-    roughnessSHM.bandCentreFreqs = bandCentreFreqs;
-    roughnessSHM.timeOut = timeOut;
-    roughnessSHM.soundField = soundField;
-end
 
 % end of function
