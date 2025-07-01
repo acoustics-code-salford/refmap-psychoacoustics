@@ -102,7 +102,7 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 27/06/2025
+% Date last modified: 01/07/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -390,9 +390,8 @@ for chan = chansIn:-1:1
             % for indexing into modulation spectra matrices
             kLocs = kLocs + startIdx;
 
-            % we cannot have peaks at k = 1, 2, 255 or 256
-            mask = ~ismember(kLocs, [startIdx - 1, startIdx,...
-                                     endIdx, endIdx + 1]);
+            % we can only have peaks at k = 3:254
+            mask = ismember(kLocs, 3:254);
             kLocs = kLocs(mask);
             PhiPks = PhiPks(mask);
 
