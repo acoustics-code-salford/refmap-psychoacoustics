@@ -40,7 +40,7 @@ function signalFiltered = shmAuditoryFiltBank(signal, outPlot)
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 27/09/2023
-% Date last modified: 27/06/2025
+% Date last modified: 02/07/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -61,7 +61,7 @@ function signalFiltered = shmAuditoryFiltBank(signal, outPlot)
 %
 %% Arguments validation
     arguments (Input)
-        signal (:, 2) double {mustBeReal}
+        signal (:, :) double {mustBeReal}
         outPlot {mustBeNumericOrLogical} = false
     end
 
