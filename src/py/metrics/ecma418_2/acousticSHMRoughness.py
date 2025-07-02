@@ -4,7 +4,7 @@
 acousticSHMRoughness.py
 ----------------------
 
-Returns roughness values according to ECMA-418-2:2024 using the Sottek Hearing
+Returns roughness values according to ECMA-418-2:2025 using the Sottek Hearing
 Model) for an input calibrated single mono or single stereo audio (sound
 pressure) time-series signal, p.
 
@@ -25,7 +25,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 29/05/2023
-Date last modified: 20/06/2025
+Date last modified: 01/07/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -195,28 +195,28 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # %% Define constants
 
     signalT = p.shape[0]/sampleRateIn  # duration of input signal
-    # Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2024 [r_s]
+    # Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2025 [r_s]
     sampleRate48k = 48e3
-    # defined in Section 5.1.4.1 ECMA-418-2:2024 [deltaf(f=0)]
+    # defined in Section 5.1.4.1 ECMA-418-2:2025 [deltaf(f=0)]
     deltaFreq0 = 81.9289
-    # Half-overlapping Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2024
+    # Half-overlapping Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2025
     c = 0.1618
 
     dz = 0.5  # critical band overlap
     # half-overlapping critical band rate scale [z]
     halfBark = np.arange(0.5, 27, dz)
     nBands = len(halfBark)  # number of critical bands
-    # Section 5.1.4.1 Equation 9 ECMA-418-2:2024 [F(z)]
+    # Section 5.1.4.1 Equation 9 ECMA-418-2:2025 [F(z)]
     bandCentreFreqs = (deltaFreq0/c)*np.sinh(c*halfBark)
 
-    # Block and hop sizes Section 6.2.2 Table 4 ECMA-418-2:2024
+    # Block and hop sizes Section 6.2.2 Table 4 ECMA-418-2:2025
     overlap = 0.75  # block overlap proportion
     # block size [s_b(z)]
     blockSize = 16384
     # hop sizes (section 5.1.2 footnote 3 ECMA 418-2:2022) [s_h(z)]
     hopSize = int(((1 - overlap)*blockSize))
 
-    # Downsampled block and hop sizes Section 7.1.2 ECMA-418-2:2024
+    # Downsampled block and hop sizes Section 7.1.2 ECMA-418-2:2025
     downSample = 32  # downsampling factor
     sampleRate1500 = sampleRate48k/downSample
     blockSize1500 = int(blockSize/downSample)
@@ -224,19 +224,19 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     resDFT1500 = sampleRate1500/blockSize1500  # DFT resolution (section 7.1.5.1) [deltaf]
 
     # Modulation rate error correction values Table 8, Section 7.1.5.1
-    # ECMA-418-2:2024 [E(theta)]
+    # ECMA-418-2:2025 [E(theta)]
     errorCorrection = np.array([0.0000, 0.0457, 0.0907, 0.1346, 0.1765, 0.2157, 0.2515,
                                 0.2828, 0.3084, 0.3269, 0.3364, 0.3348, 0.3188, 0.2844,
                                 0.2259, 0.1351, 0.0000])
     errorCorrection = np.hstack((errorCorrection, np.flip(-errorCorrection[0:-1]), 0))
     
     # High modulation rate roughness perceptual scaling function
-    # (section 7.1.5.2 ECMA-418-2:2024)
-    # Table 11 ECMA-418-2:2024 [r_1; r_2]
+    # (section 7.1.5.2 ECMA-418-2:2025)
+    # Table 11 ECMA-418-2:2025 [r_1; r_2]
     roughScaleParams = np.vstack(([0.3560, 0.8024], [0.8049, 0.9333]))
     roughScaleParams = np.vstack((roughScaleParams[:, 0]*np.ones([np.sum(bandCentreFreqs < 1e3), 2]),
                                   roughScaleParams[:, 1]*np.ones([np.sum(bandCentreFreqs >= 1e3), 2]))).T
-    # Equation 84 ECMA-418-2:2024 [r_max(z)]
+    # Equation 84 ECMA-418-2:2025 [r_max(z)]
     roughScale = 1/(1 + roughScaleParams[0, :]
                     * np.abs(np.log2(bandCentreFreqs/1000))
                     ** roughScaleParams[1, :])
@@ -244,11 +244,11 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     roughScale = shmDimensional(roughScale, targetDim=3, where='first')
 
     # High/low modulation rate roughness perceptual weighting function parameters
-    # (section 7.1.5.2 ECMA-418-2:2024)
-    # Equation 86 ECMA-418-2:2024 [f_max(z)]
+    # (section 7.1.5.2 ECMA-418-2:2025)
+    # Equation 86 ECMA-418-2:2025 [f_max(z)]
     modfreqMaxWeight = 72.6937*(1 - 1.1739*np.exp(-5.4583*bandCentreFreqs/1000))
 
-    # Equation 87 ECMA-418-2:2024 [q_1; q_2(z)]
+    # Equation 87 ECMA-418-2:2025 [q_1; q_2(z)]
     roughHiWeightParams = np.vstack((1.2822*np.ones(bandCentreFreqs.size),
                                      0.2471*np.ones(bandCentreFreqs.size)))
     mask = bandCentreFreqs/1000 >= 2**-3.4253
@@ -269,14 +269,14 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # Input signal samples
     n_samples = p_re.shape[0]
 
-    # Section 5.1.2 ECMA-418-2:2024 Fade in weighting and zero-padding
+    # Section 5.1.2 ECMA-418-2:2025 Fade in weighting and zero-padding
     pn = shmPreProc(p_re, blockSize=blockSize, hopSize=hopSize, padStart=True,
                     padEnd=False)
 
     # Apply outer & middle ear filter
     # -------------------------------
     #
-    # Section 5.1.3.2 ECMA-418-2:2024 Outer and middle/inner ear signal filtering
+    # Section 5.1.3.2 ECMA-418-2:2025 Outer and middle/inner ear signal filtering
     pn_om = shmOutMidEarFilter(pn, soundField)
 
     # Loop through channels in file
@@ -290,7 +290,7 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         # Apply auditory filter bank
         # --------------------------
         # Filter equalised signal using 53 1/2Bark ERB filters according to
-        # Section 5.1.4.2 ECMA-418-2:2024
+        # Section 5.1.4.2 ECMA-418-2:2025
         pn_omz = shmAuditoryFiltBank(pn_om[:, chan])
 
         # Note: At this stage, typical computer RAM limits impose a need to
@@ -315,7 +315,7 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             # Segmentation into blocks
             # ------------------------
     
-            # Section 5.1.5 ECMA-418-2:2024
+            # Section 5.1.5 ECMA-418-2:2025
             pn_lz, iBlocksOut = shmSignalSegment(pn_omz[:, zBand],
                                                  blockSize=blockSize,
                                                  overlap=overlap, axisN=0,
@@ -324,14 +324,14 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
             # Transformation into Loudness
             # ----------------------------
-            # Sections 5.1.6 to 5.1.9 ECMA-418-2:2024
+            # Sections 5.1.6 to 5.1.9 ECMA-418-2:2025
             _, bandBasisLoudness, _ = shmBasisLoudness(signalSegmented=pn_lz.copy(),
                                                        bandCentreFreq=bandCentreFreqs[zBand])
             basisLoudness[:, zBand] = bandBasisLoudness
 
             # Envelope power spectral analysis
             # --------------------------------
-            # Sections 7.1.2 ECMA-418-2:2024
+            # Sections 7.1.2 ECMA-418-2:2025
             # magnitude of Hilbert transform with downsample - Equation 65
             # [p(ntilde)_E,l,z]
             envelopes[:, :, zBand] = shmDownsample(np.abs(hilbert(pn_lz,
@@ -342,7 +342,7 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
         # Note: With downsampled envelope signals, parallelised approach can continue
 
-        # Section 7.1.3 equation 66 ECMA-418-2:2024 [Phi(k)_E,l,z]
+        # Section 7.1.3 equation 66 ECMA-418-2:2025 [Phi(k)_E,l,z]
         modSpectra = np.zeros(envelopes.shape)
         envelopeWin = envelopes*np.tile(shmDimensional(windows.hann(blockSize1500,
                                                                     sym=False),
@@ -366,7 +366,8 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
         # Envelope noise reduction
         # ------------------------
-        # section 7.1.4 ECMA-418-2:2024
+        # section 7.1.4 ECMA-418-2:2025
+        #TODO change this to numpy slide_tricks
         modSpectraAvg = bn.move_mean(modSpectra, window=3, axis=2)
         modSpectraAvg = np.concatenate((shmDimensional(modSpectra[:, :, 0],
                                                        targetDim=3,
@@ -377,7 +378,7 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
         modSpectraAvgSum = np.sum(modSpectraAvg, axis=2)  # Equation 68 [s(l,k)]
 
-        # Equation 71 ECMA-418-2:2024 [wtilde(l,k)]
+        # Equation 71 ECMA-418-2:2025 [wtilde(l,k)]
         clipWeight = (0.0856*modSpectraAvgSum[0:int(modSpectraAvg.shape[0]/2) + 1, :]
                       / (np.median(modSpectraAvgSum[2:int(modSpectraAvg.shape[0]/2), :],
                                    axis=0) + 1e-10)
@@ -386,7 +387,7 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                                                              0),
                                                   1)))
 
-        # Equation 70 ECMA-418-2:2024 [w(l,k)]
+        # Equation 70 ECMA-418-2:2025 [w(l,k)]
         weightingFactor1 = np.zeros(modSpectraAvgSum[0:257, :].shape)
         mask = clipWeight >= 0.05*np.max(clipWeight[2:256, :], axis=0)
         weightingFactor1[mask] = np.minimum(np.maximum(clipWeight[mask] - 0.1407, 0), 1)
@@ -402,7 +403,7 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
         # Spectral weighting
         # ------------------
-        # Section 7.1.5 ECMA-418-2:2024
+        # Section 7.1.5 ECMA-418-2:2025
         # theta used in equation 79, including additional index for
         # errorCorrection terms from table 10
         theta = np.arange(34)
@@ -422,12 +423,12 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             blockIter = range(nBlocks)
 
         for zBand in rateIter:
-            # Section 7.1.5.1 ECMA-418-2:2024
+            # Section 7.1.5.1 ECMA-418-2:2025
             for lBlock in blockIter:
                 # identify peaks in each block (for each band)
-                # NOTE: here, the search starts from k=1 so that a peak at k=2
-                # can be detected
-                modWeightSpectraAvgBandBlock = modWeightSpectraAvg[1:256,
+                startIdx = 2
+                endIdx = 255
+                modWeightSpectraAvgBandBlock = modWeightSpectraAvg[startIdx:endIdx,
                                                                    lBlock,
                                                                    zBand]
                 kLocs, pkProps = find_peaks(modWeightSpectraAvgBandBlock,
@@ -437,10 +438,10 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     
                 # reindex kLocs to match spectral start index used in findpeaks
                 # for indexing into modulation spectra matrices
-                kLocs = kLocs + 1
+                kLocs = kLocs + startIdx
                 
-                # we cannot have a peak at k=1 or k=256
-                mask = np.logical_and((kLocs != 1 ), (kLocs != 256))
+                # we canonly have peaks at k = 3:254
+                mask = np.isin(kLocs, range(3, 255))
                 kLocs = kLocs[mask]
                 PhiPks = PhiPks[mask]
     
@@ -473,7 +474,7 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                         peakIter = range(len(PhiPks))
                     
                     for iPeak in peakIter:
-                        # Equation 74 ECMA-418-2:2024
+                        # Equation 74 ECMA-418-2:2025
                         # [Phihat_E,l,z]
                         modAmpMat = np.vstack((modWeightSpectraAvg[kLocs[iPeak] - 1, lBlock, zBand],
                                                modWeightSpectraAvg[kLocs[iPeak], lBlock, zBand],
@@ -482,7 +483,7 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                         # Equation 82 [A_i(l,z)]
                         modAmp[iPeak, lBlock, zBand] = np.sum(modAmpMat)
     
-                        # Equation 75 ECMA-418-2:2024
+                        # Equation 75 ECMA-418-2:2025
                         # [K]
                         modIndexMat = np.vstack((np.hstack(((kLocs[iPeak] - 1)**2, kLocs[iPeak] - 1, 1)),
                                                  np.hstack(((kLocs[iPeak])**2, kLocs[iPeak], 1)),
@@ -491,25 +492,25 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                         # Equation 73 solution [C]
                         coeffVec = np.linalg.solve(modIndexMat, modAmpMat)
     
-                        # Equation 76 ECMA-418-2:2024 [ftilde_p,i(l,z)]
+                        # Equation 76 ECMA-418-2:2025 [ftilde_p,i(l,z)]
                         modRateEst = (-(coeffVec[1]/(2*coeffVec[0]))*resDFT1500).item(0)
     
-                        # Equation 79 ECMA-418-2:2024 [beta(theta)]
+                        # Equation 79 ECMA-418-2:2025 [beta(theta)]
                         errorBeta = ((np.floor(modRateEst/resDFT1500)
                                       + theta[:33]/32)*resDFT1500
                                       - (modRateEst + errorCorrection[theta[:33]]))
     
-                        # Equation 80 ECMA-418-2:2024 [theta_min]
+                        # Equation 80 ECMA-418-2:2025 [theta_min]
                         thetaMinError = np.argmin(np.abs(errorBeta))
     
-                        # Equation 81 ECMA-418-2:2024 [theta_corr]
+                        # Equation 81 ECMA-418-2:2025 [theta_corr]
                         if (thetaMinError > 0) and (errorBeta[thetaMinError]*errorBeta[thetaMinError - 1] < 0):
                             thetaCorr = thetaMinError
                         else:
                             thetaCorr = thetaMinError + 1
                         # end of eq 81 if-branch
     
-                        # Equation 78 ECMA-418-2:2024
+                        # Equation 78 ECMA-418-2:2025
                         # [rho(ftilde_p,i(l,z))]
                         biasAdjust = (errorCorrection[thetaCorr - 1]
                                       - (errorCorrection[thetaCorr]
@@ -518,7 +519,7 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                                          / (errorBeta[thetaCorr]
                                             - errorBeta[thetaCorr - 1]))
     
-                        # Equation 77 ECMA-418-2:2024 [f_p,i(l,z)]
+                        # Equation 77 ECMA-418-2:2025 [f_p,i(l,z)]
                         modRate[iPeak, lBlock, zBand] = modRateEst + biasAdjust
     
                     # end of for loop over peaks in block per band
@@ -526,7 +527,7 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             # end of for loop over blocks for peak detection      
         # end  of for loop over bands for modulation spectral weighting
 
-        # Section 7.1.5.2 ECMA-418-2:2024 - Weighting for high modulation rates
+        # Section 7.1.5.2 ECMA-418-2:2025 - Weighting for high modulation rates
         # Equation 85 [G_l,z,i(f_p,i(l,z))]
         roughHiWeight = shmRoughWeight(modRate, modfreqMaxWeight,
                                        roughHiWeightParams)
