@@ -5,7 +5,7 @@ acousticSHMSubs.py
 --------------
 
 Acoustic signal analysis subfunctions for implementing the Sottek Hearing
-Model, as defined in the ECMA-418-2 standard (currently 2024).
+Model, as defined in the ECMA-418-2 standard (currently 2025).
 
 Requirements
 ------------
@@ -19,7 +19,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 27/10/2023
-Date last modified: 20/06/2025
+Date last modified: 01/07/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -65,7 +65,7 @@ def shmAuditoryFiltBank(signal, outPlot=False):
 
     Returns a set of signals, bandpass filtered for the inner ear response
     in each half-Bark critical band rate scale width, according to
-    ECMA-418-2:2024 (the Sottek Hearing Model) for an input calibrated
+    ECMA-418-2:2025 (the Sottek Hearing Model) for an input calibrated
     single (sound pressure) time-series signal.
 
     Inputs
@@ -93,15 +93,15 @@ def shmAuditoryFiltBank(signal, outPlot=False):
 
     # %% Define constants
 
-    sampleRate48k = 48e3  # Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2024
-    deltaFreq0 = 81.9289  # defined in Section 5.1.4.1 ECMA-418-2:2024
-    c = 0.1618  # Half-Bark band centre-frequency demoninator constant defined in Section 5.1.4.1 ECMA-418-2:2024
+    sampleRate48k = 48e3  # Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2025
+    deltaFreq0 = 81.9289  # defined in Section 5.1.4.1 ECMA-418-2:2025
+    c = 0.1618  # Half-Bark band centre-frequency demoninator constant defined in Section 5.1.4.1 ECMA-418-2:2025
 
     dz = 0.5  # critical band resolution
     halfBark = np.arange(0.5, 27, dz)  # half-overlapping critical band rate scale
-    # Section 5.1.4.1 Equation 9 ECMA-418-2:2024
+    # Section 5.1.4.1 Equation 9 ECMA-418-2:2025
     bandCentreFreqs = (deltaFreq0/c)*np.sinh(c*halfBark)
-    # Section 5.1.4.1 Equation 10 ECMA-418-2:2024
+    # Section 5.1.4.1 Equation 10 ECMA-418-2:2025
     dfz = np.sqrt(deltaFreq0**2 + (c*bandCentreFreqs)**2)
 
     # %% Signal processing
@@ -109,10 +109,10 @@ def shmAuditoryFiltBank(signal, outPlot=False):
     # Apply auditory filter bank
     # --------------------------
     # Filter equalised signal using 53 1/2Bark ERB filters according to
-    # Section 5.1.4.2 ECMA-418-2:2024
+    # Section 5.1.4.2 ECMA-418-2:2025
 
-    k = 5  # filter order = 5, footnote 5 ECMA-418-2:2024
-    # filter coefficients for Section 5.1.4.2 Equation 15 ECMA-418-2:2024
+    k = 5  # filter order = 5, footnote 5 ECMA-418-2:2025
+    # filter coefficients for Section 5.1.4.2 Equation 15 ECMA-418-2:2025
     e_i = [0, 1, 11, 11, 1]
 
     if signal.ndim == 2:
@@ -124,25 +124,25 @@ def shmAuditoryFiltBank(signal, outPlot=False):
         raise ValueError("Input signal must have no more than two dimensions.")
 
     for zBand in range(53):
-        # Section 5.1.4.1 Equation 8 ECMA-418-2:2024
+        # Section 5.1.4.1 Equation 8 ECMA-418-2:2025
         tau = (1/(2**(2*k - 1)))*comb(2*k - 2, k - 1)*(1/dfz[zBand])
 
-        d = np.exp(-1./(sampleRate48k*tau))  # Section 5.1.4.1 ECMA-418-2:2024
+        d = np.exp(-1./(sampleRate48k*tau))  # Section 5.1.4.1 ECMA-418-2:2025
 
-        # Band-pass modifier Section 5.1.4.2 Equation 16/17 ECMA-418-2:2024
+        # Band-pass modifier Section 5.1.4.2 Equation 16/17 ECMA-418-2:2025
         bp = np.exp((1j*2*np.pi*bandCentreFreqs[zBand]*np.arange(0,
                                                                  k + 2))/sampleRate48k)
 
-        # Feed-backward coefficients, Section 5.1.4.2 Equation 14 ECMA-418-2:2024
+        # Feed-backward coefficients, Section 5.1.4.2 Equation 14 ECMA-418-2:2025
         m_a = range(1, k + 1)
         a_m = np.append(1, ((-d)**m_a)*comb(k, m_a))*bp[0:k + 1]
 
-        # Feed-forward coefficients, Section 5.1.4.2 Equation 15 ECMA-418-2:2024
+        # Feed-forward coefficients, Section 5.1.4.2 Equation 15 ECMA-418-2:2025
         m_b = range(0, k)
         i = range(1, k)
         b_m = ((((1 - d)**k)/np.sum(e_i[1:]*(d**i)))*(d**m_b)*e_i)*bp[0:k]
 
-        # Recursive filter Section 5.1.4.2 Equation 13 ECMA-418-2:2024
+        # Recursive filter Section 5.1.4.2 Equation 13 ECMA-418-2:2025
         # Note, the results are complex so 2x the real-valued band-pass signal
         # is required.
         if signalFiltered.ndim == 3:
@@ -200,7 +200,7 @@ def shmBasisLoudness(signalSegmented, bandCentreFreq=None):
     """Function shmBandBasisLoudness(signalSegmented, bandCentreFreq)
 
     Returns rectified input and basis loudness in specified half-Bark
-    critical band according to ECMA-418-2:2024 (the Sottek Hearing Model)
+    critical band according to ECMA-418-2:2025 (the Sottek Hearing Model)
     for an input band-limited signal, segmented into processing blocks
 
     Inputs
@@ -233,29 +233,29 @@ def shmBasisLoudness(signalSegmented, bandCentreFreq=None):
 
     # %% Define constants
 
-    deltaFreq0 = 81.9289  # defined in Section 5.1.4.1 ECMA-418-2:2024
+    deltaFreq0 = 81.9289  # defined in Section 5.1.4.1 ECMA-418-2:2025
     # Half-Bark band centre-frequency denominator constant defined in Section
-    # 5.1.4.1 ECMA-418-2:2024
+    # 5.1.4.1 ECMA-418-2:2025
     c = 0.1618
 
     halfBark = np.arange(0.5, 27, 0.5)  # half-critical band rate scale
-    # Section 5.1.4.1 Equation 9 ECMA-418-2:2024
+    # Section 5.1.4.1 Equation 9 ECMA-418-2:2025
     bandCentreFreqs = (deltaFreq0/c)*np.sinh(c*halfBark)
 
-    # Calibration factor from Section 5.1.8 Equation 23 ECMA-418-2:2024
+    # Calibration factor from Section 5.1.8 Equation 23 ECMA-418-2:2025
     cal_N = 0.0211668
-    cal_Nx = 1.00132  # Calibration multiplier (Footnote 8 ECMA-418-2:2024)
+    cal_Nx = 1.00132  # Calibration multiplier (Footnote 8 ECMA-418-2:2025)
     # cal_N*cal_Nx = 0.021194740176  # Adjusted calibration factor
-    # cal_Nx = 1.001398416387928  # Calibration multiplier (Footnote 8 ECMA-418-2:2024)
+    # cal_Nx = 1.001398416387928  # Calibration multiplier (Footnote 8 ECMA-418-2:2025)
     # cal_N*cal_Nx = 0.0211964  # Adjusted calibration factor
 
-    a = 1.5  # Constant (alpha) from Section 5.1.8 Equation 23 ECMA-418-2:2024
+    a = 1.5  # Constant (alpha) from Section 5.1.8 Equation 23 ECMA-418-2:2025
 
-    # Values from Section 5.1.8 Table 2 ECMA-418-2:2024
+    # Values from Section 5.1.8 Table 2 ECMA-418-2:2025
     p_threshold = 2e-5*10**(np.arange(15, 95, 10)/20)
     v = [1, 0.6602, 0.0864, 0.6384, 0.0328, 0.4068, 0.2082, 0.3994, 0.6434]
 
-    # Loudness threshold in quiet Section 5.1.9 Table 3 ECMA-418-2:2024
+    # Loudness threshold in quiet Section 5.1.9 Table 3 ECMA-418-2:2025
     LTQz = np.array([0.3310, 0.1625, 0.1051, 0.0757, 0.0576, 0.0453, 0.0365,
                      0.0298, 0.0247, 0.0207, 0.0176, 0.0151, 0.0131, 0.0115,
                      0.0103, 0.0093, 0.0086, 0.0081, 0.0077, 0.0074, 0.0073,
@@ -269,7 +269,7 @@ def shmBasisLoudness(signalSegmented, bandCentreFreq=None):
 
     if bandCentreFreq is not None and ~np.all(np.isin(bandCentreFreq,
                                                       bandCentreFreqs)):
-        raise ValueError("Input critical band centre frequency input does not match ECMA-418-2:2024 values.")
+        raise ValueError("Input critical band centre frequency input does not match ECMA-418-2:2025 values.")
     # end of if branch to check bandCentreFreq is valid
 
     # %% Signal processing
@@ -282,20 +282,20 @@ def shmBasisLoudness(signalSegmented, bandCentreFreq=None):
 
     # Calculation of RMS
     # ------------------
-    # Section 5.1.7 Equation 22 ECMA-418-2:2024
+    # Section 5.1.7 Equation 22 ECMA-418-2:2025
     blockRMS = np.sqrt((2/signalRectSeg.shape[0])*np.sum(signalRectSeg**2,
                                                           axis=0))
 
     # Transformation into Loudness
     # ----------------------------
-    # Section 5.1.8 Equations 23 & 24 ECMA-418-2:2024
+    # Section 5.1.8 Equations 23 & 24 ECMA-418-2:2025
     bandLoudness = cal_N*cal_Nx*(blockRMS/2e-5)*np.prod((1
                                                          + (np.moveaxis(np.broadcast_to(blockRMS,
                                                                                         [p_threshold.size]
                                                                                         + list(blockRMS.shape)),
                                                                         0, -1)/p_threshold)**a)**(np.diff(v)/a), axis=-1)
 
-    # Section 5.1.9 Equation 25 ECMA-418-2:2024
+    # Section 5.1.9 Equation 25 ECMA-418-2:2025
     if bandCentreFreq is not None and signalSegmented.ndim < 3:
         # half-Bark critical band basis loudness
         basisLoudness = bandLoudness - LTQz[bandCentreFreq == bandCentreFreqs]
@@ -316,7 +316,7 @@ def shmNoiseRedLowPass(signal, sampleRateIn):
     signalFiltered = shmNoiseRedLowPass(signal, sampleRateIn)
     
     Returns signal low pass filtered for noise reduction according to
-    ECMA-418-2:2024 (the Sottek Hearing Model) for an input signal.
+    ECMA-418-2:2025 (the Sottek Hearing Model) for an input signal.
     
     Inputs
     ------
@@ -340,24 +340,24 @@ def shmNoiseRedLowPass(signal, sampleRateIn):
     Checked by:
     Date last checked:
     """
-    k = 3 # Footnote 21 ECMA-418-2:2024
-    e_i = [0, 1, 1] # Footnote 21 ECMA-418-2:2024
+    k = 3 # Footnote 21 ECMA-418-2:2025
+    e_i = [0, 1, 1] # Footnote 21 ECMA-418-2:2025
     
-    # Footnote 20 ECMA-418-2:2024
+    # Footnote 20 ECMA-418-2:2025
     tau = 1/32*6/7
     
-    d = np.exp(-1/(sampleRateIn*tau)) # Section 5.1.4.2 ECMA-418-2:2024
+    d = np.exp(-1/(sampleRateIn*tau)) # Section 5.1.4.2 ECMA-418-2:2025
     
-    # Feed-backward coefficients, Equation 14 ECMA-418-2:2024
+    # Feed-backward coefficients, Equation 14 ECMA-418-2:2025
     m_a = range(1, k + 1)
     a = np.append(1, ((-d)**m_a)*comb(k, m_a))
     
-    # Feed-forward coefficients, Equation 15 ECMA-418-2:2024
+    # Feed-forward coefficients, Equation 15 ECMA-418-2:2025
     m_b = range(k)
     i = range(1, k)
     b = (((1 - d)**k)/sum(e_i[1:]*(d**i)))*(d**m_b)*e_i
     
-    # Recursive filter Equation 13 ECMA-418-2:2024
+    # Recursive filter Equation 13 ECMA-418-2:2025
     signalFiltered = lfilter(b, a, signal, axis=0)
     
     return(signalFiltered)
@@ -369,7 +369,7 @@ def shmOutMidEarFilter(signal, soundField='freeFrontal', outPlot=False):
     """shmOutMidEarFilter_(signal, soundField, outPlot)
 
     Returns signal filtered for outer and middle ear response according to
-    ECMA-418-2:2024 (the Sottek Hearing Model) for an input calibrated
+    ECMA-418-2:2025 (the Sottek Hearing Model) for an input calibrated
     audio (sound pressure) time-series signal. Optional plot output shows
     frequency and phase response of the filter.
 
@@ -520,7 +520,7 @@ def shmPreProc(signal, blockSize, hopSize, padStart=True, padEnd=True):
                                            padStart, padEnd)
 
     Returns signal with fade-in and zero-padding pre-processing according to
-    ECMA-418-2:2024 (the Sottek Hearing Model) for an input signal.
+    ECMA-418-2:2025 (the Sottek Hearing Model) for an input signal.
 
     Inputs
     ------
@@ -578,14 +578,14 @@ def shmPreProc(signal, blockSize, hopSize, padStart=True, padEnd=True):
     if numChans > 2:
         raise ValueError("Input signal must be 1- or 2-channel")
 
-    # Fade in weighting function Section 5.1.2 ECMA-418-2:2024
+    # Fade in weighting function Section 5.1.2 ECMA-418-2:2025
 
     fadeWeight = 0.5 - 0.5*np.cos(np.pi*np.arange(0, 240)/240)[:, np.newaxis]
     # Apply fade in
     signalFade = np.concatenate((fadeWeight*signal[0:240, :],
                                  signal[240:, :]), axis=0)
 
-    # Zero-padding Section 5.1.2 ECMA-418-2:2024
+    # Zero-padding Section 5.1.2 ECMA-418-2:2025
     if padStart:
         n_zeross = int(blockSize)  # start zero-padding
     else:
@@ -611,7 +611,7 @@ def shmPreProc(signal, blockSize, hopSize, padStart=True, padEnd=True):
 # %% shmResample
 def shmResample(signal, sampleRateIn):
     """
-    Returns signal resampled to 48 kHz, according to ECMA-418-2:2024
+    Returns signal resampled to 48 kHz, according to ECMA-418-2:2025
     (the Sottek Hearing Model) for an input signal.
 
     Inputs
@@ -646,7 +646,7 @@ def shmResample(signal, sampleRateIn):
 
     # %% Define constants
 
-    # Section 5.1.1 ECMA-418-2:2024
+    # Section 5.1.1 ECMA-418-2:2025
     resampledRate = int(48e3)  # Signal sample rate prescribed to be 48 kHz
 
     # %% Signal processing
@@ -1041,7 +1041,7 @@ def shmDimensional(ndArray, targetDim=2, where='last'):
 def shmRoughWeight(modRate, modfreqMaxWeight, roughWeightParams):
     """
     Returns roughness weighting for high- and low-frequency (modulation
-    rates) according to ECMA-418-2:2024 (the Sottek Hearing Model) for a set
+    rates) according to ECMA-418-2:2025 (the Sottek Hearing Model) for a set
     of modulation rates and parameters.
 
     Inputs
@@ -1090,7 +1090,7 @@ def shmRoughLowPass(specRoughEstTform, sampleRate, riseTime, fallTime):
                                     fallTime)
 
     Returns specific roughness low pass filtered for smoothing according to
-    ECMA-418-2:2024 (the Sottek Hearing Model) for an input transformed
+    ECMA-418-2:2025 (the Sottek Hearing Model) for an input transformed
     estimate of the specific roughnesss.
 
     Inputs

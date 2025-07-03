@@ -4,7 +4,7 @@
 acousticSHMLoudness.py
 ----------------------
 
-Returns loudness values according to ECMA-418-2:2024 (using the Sottek Hearing
+Returns loudness values according to ECMA-418-2:2025 (using the Sottek Hearing
 Model) for an input calibrated single mono or single stereo audio (sound
 pressure) time-series signal, p.
 
@@ -25,7 +25,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 29/05/2023
-Date last modified: 02/06/2025
+Date last modified: 01/07/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -195,29 +195,29 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
     # %% Define constants
 
-    # Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2024 [r_s]
+    # Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2025 [r_s]
     sampleRate48k = 48e3
-    # defined in Section 5.1.4.1 ECMA-418-2:2024 [deltaf(f=0)]
+    # defined in Section 5.1.4.1 ECMA-418-2:2025 [deltaf(f=0)]
     deltaFreq0 = 81.9289
-    # Half-overlapping Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2024
+    # Half-overlapping Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2025
     c = 0.1618
 
     dz = 0.5  # critical band overlap
     # half-overlapping critical band rate scale [z]
     halfBark = np.arange(0.5, 27, dz)
-    # Section 5.1.4.1 Equation 9 ECMA-418-2:2024 [F(z)]
+    # Section 5.1.4.1 Equation 9 ECMA-418-2:2025 [F(z)]
     bandCentreFreqs = (deltaFreq0/c)*np.sinh(c*halfBark)
-    # Section 5.1.4.1 Equation 10 ECMA-418-2:2024 [deltaf(z)]
+    # Section 5.1.4.1 Equation 10 ECMA-418-2:2025 [deltaf(z)]
     dfz = np.sqrt(deltaFreq0**2 + (c*bandCentreFreqs)**2)
 
-    # Section 8.1.1 ECMA-418-2:2024
-    weight_n = 0.5331  # Equations 113 & 114 ECMA-418-2:2024 [w_n]
-    # Table 12 ECMA-418-2:2024
+    # Section 8.1.1 ECMA-418-2:2025
+    weight_n = 0.5331  # Equations 113 & 114 ECMA-418-2:2025 [w_n]
+    # Table 12 ECMA-418-2:2025
     a = 0.2918
     b = 0.5459
 
     # Output sample rate based on tonality hop sizes (Section 6.2.6
-    # ECMA-418-2:2024) [r_sd]
+    # ECMA-418-2:2025) [r_sd]
     sampleRate1875 = 48e3/256
 
     # %% Signal processing
@@ -233,7 +233,7 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # Calculate specific loudnesses for tonal and noise components
     # ------------------------------------------------------------
 
-    # Obtain tonal and noise component specific loudnesses from Sections 5 & 6 ECMA-418-2:2024
+    # Obtain tonal and noise component specific loudnesses from Sections 5 & 6 ECMA-418-2:2025
     tonalitySHM = acousticSHMTonality(p_re, sampleRate48k, axisN=0,
                                       soundField=soundField,
                                       waitBar=waitBar, outPlot=False)
@@ -241,7 +241,7 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     specTonalLoudness = tonalitySHM['specTonalLoudness']  # [N'_tonal(l,z)]
     specNoiseLoudness = tonalitySHM['specNoiseLoudness']  # [N'_noise(l,z)]
 
-    # Section 8.1.1 ECMA-418-2:2024
+    # Section 8.1.1 ECMA-418-2:2025
     # Weight and combine component specific loudnesses
     if waitBar:
         chanIter = tqdm(range(chansIn), desc="Channels")
@@ -251,11 +251,11 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # pre-allocate array
     specLoudness = np.zeros(specTonalLoudness.shape)
     for chan in chanIter:
-        # Equation 114 ECMA-418-2:2024 [e(z)]
+        # Equation 114 ECMA-418-2:2025 [e(z)]
         maxLoudnessFuncel = a/(np.max(specTonalLoudness[:, :, chan]
                                       + specNoiseLoudness[:, :, chan], axis=1)
                                + 1e-12) + b
-        # Equation 113 ECMA-418-2:2024 [N'(l,z)]
+        # Equation 113 ECMA-418-2:2025 [N'(l,z)]
         specLoudness[:, :, chan] = (specTonalLoudness[:, :, chan]**maxLoudnessFuncel
                                     + np.abs((weight_n*specNoiseLoudness[:,
                                                                          :,
@@ -265,7 +265,7 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
     if chansIn == 2 and binaural:
         # Binaural loudness
-        # Section 8.1.5 ECMA-418-2:2024 Equation 118 [N'_B(l,z)]
+        # Section 8.1.5 ECMA-418-2:2025 Equation 118 [N'_B(l,z)]
         specLoudness[:, :, 3] = np.sqrt(np.sum(specLoudness**2, 2)/2)
         specTonalLoudness[:, :, 3] = np.sqrt(np.sum(specTonalLoudness**2, 2)/2)
         specNoiseLoudness[:, :, 3] = np.sqrt(np.sum(specNoiseLoudness**2, 2)/2)
@@ -275,16 +275,16 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         chansOut = chansIn  # assign number of output channels
     # end of if branch for channels
 
-    # Section 8.1.2 ECMA-418-2:2024
+    # Section 8.1.2 ECMA-418-2:2025
     # Time-averaged specific loudness Equation 115 [N'(z)]
     specLoudnessPowAvg = (np.sum(specLoudness[57:, :, :]**(1/np.log10(2)), 0)
                           / specLoudness[57:, :, :].shape[0])**np.log10(2)
 
-    # Section 8.1.3 ECMA-418-2:2024
+    # Section 8.1.3 ECMA-418-2:2025
     # Time-dependent loudness Equation 116 [N(l)]
     loudnessTDep = np.sum(specLoudness**dz, 1)
 
-    # Section 8.1.4 ECMA-418-2:2024
+    # Section 8.1.4 ECMA-418-2:2025
     # Overall loudness Equation 117 [N]
     loudnessPowAvg = (np.sum(loudnessTDep[57:, :]**(1/np.log10(2)), 0)
                       / loudnessTDep[57:, :].shape[0])**np.log10(2)
