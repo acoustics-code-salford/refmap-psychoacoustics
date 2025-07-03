@@ -1546,6 +1546,10 @@ p1 <- ggplot(data=model1predictEvt) +
 
 p1
 
+# save the model
+filename = "1A_dA_LAE_noEnv"
+saveRDS(model1, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+
 ```
 
 ### fit and examine final model
@@ -3056,6 +3060,135 @@ performance::check_heteroskedasticity(mABISxTnxdLAEL501_QSq.GEE)
 
 ```
 
+## with env LAeq and UAS LAE
+
+### fit and examine final model
+
+```{r}
+
+model1 <- mABEnvLAeqxLAEx1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~
+                                                         UASLAEMaxLRScl*AmbLAeqMaxLRScl +
+                                                         UASLAEMaxLRScl*I(UASEvents^-1) +
+                                                         TrialNumberCntScl,
+                                                        data=subjDataNoAmb,
+                                                        family=gaussian(link='identity'),
+                                                        id=ID.,
+                                                        corstr='exchangeable')
+
+geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+
+parameters::standardise_parameters(model1, method='refit', ci=0.843,
+                                   robust=FALSE, two_sd=TRUE, include_response=FALSE)
+parameters::standardise_parameters(model1, method='refit', ci=0.95,
+                                   robust=FALSE, two_sd=TRUE, include_response=FALSE)
+
+geeModelPerformance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABLAEx1_QSq.GEE,
+                    mABEnvLAeqxLAEx1_QSq.GEE)
+
+predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
+                           response=stimDataNoAmb$dAnnoyMean,
+                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+
+R2means <- cor(predictMeans$response, predictMeans$fit)^2
+R2means
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=predictMeans) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=12),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_point(mapping=aes(x=response, y=fit), size=2.5, shape=1, colour=mycolours[1], alpha=0.5) +
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  scale_x_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 7)) +
+  scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 7)) +
+  
+  labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance")
+
+
+# filename <- "PtsABdAnnoyMnLAEPred"
+
+# if (saveplots){
+#   ggsave(filename=paste(filename, ".svg", sep=""), width=3.5, height=3.5, path=file.path(outFigPath, "svg"))
+#   unlink(paste(filename, ".svg", sep=""))
+# 
+#   ggsave(filename=paste(filename, ".pdf", sep=""), width=3.5, height=3.5, path=file.path(outFigPath, "pdf"))
+#   unlink(paste(filename, ".pdf", sep=""))
+# }
+
+model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl [-12:13]",
+                                                                "UASEvents [all]"),
+                                             margin='marginalmeans', type='fixed', 
+                                            vcov=vcov(model1, type="bias-corrected"))
+
+p1 <- ggplot(data=model1predictEvt) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_point(data=stimDataNoAmb, aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
+                                                 colour=factor(UASEvents),
+                                                 shape=factor(UASEvents)),
+                         alpha=0.35, size=2) +
+              
+              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.1) +
+              
+              geom_line(aes(x=x, y=predicted, colour=group), linewidth=1) +
+              
+              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              scale_shape_manual(values=c(4, 5, 7, 8)) +
+              
+              guides(colour=guide_legend(title="UAS events", reverse=TRUE),
+                     fill=guide_legend(title="UAS events", reverse=TRUE),
+                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
+            
+              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-2, 8)) +
+
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
+
+p1
+
+# save the model
+filename = "1B_dA_LAE_EnvLAeq"
+saveRDS(model1, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+
+
+```
+
+### Model diagnostics
+
+```{r}
+
+mABEnvLAeqxLAEx1_QSq.GEE.resD <- residuals(mABEnvLAeqxLAEx1_QSq.GEE,
+                                                     type="deviance", plot.it=TRUE,
+                                                     pch=1, col=mycolours[1],identify=10)
+mABEnvLAeqxLAEx1_QSq.GEE.resM <- residuals(mABEnvLAeqxLAEx1_QSq.GEE,
+                                                     type="mahalanobis", plot.it=TRUE,
+                                                     col=mycolours[2], identify=10)
+mABEnvLAeqxLAEx1_QSq.GEE.resP <- residuals(mABEnvLAeqxLAEx1_QSq.GEE,
+                                                     type="pearson", plot.it=TRUE,
+                                                     pch=1, col=mycolours[3], identify=10)
+
+hist(mABEnvLAeqxLAEx1_QSq.GEE.resD, breaks=20, main="Deviance residuals")
+hist(mABEnvLAeqxLAEx1_QSq.GEE.resP, breaks=20, main="Pearson residuals")
+
+mABEnvLAeqxLAEx1_QSq.GEE.DfBc <- dfbeta(mABEnvLAeqxLAEx1_QSq.GEE,
+                                                  level='clusters', coefs=c('UASLAEMaxLRScl'))
+mABEnvLAeqxLAEx1_QSq.GEE.DfBo <- dfbeta(mABEnvLAeqxLAEx1_QSq.GEE,
+                                                  level='observations', coefs=c('UASLAEMaxLRScl'))
+
+mABEnvLAeqxLAEx1_QSq.GEE.Cook <- cooks.distance(mABEnvLAeqxLAEx1_QSq.GEE,
+                                                          plot.it=TRUE)
+
+performance::check_collinearity(mABEnvLAeqxLAEx1_QSq.GEE)
+performance::check_heteroskedasticity(mABEnvLAeqxLAEx1_QSq.GEE)
+
+```
+
 ## UAS detectability
 
 ### fit and examine final model
@@ -4200,7 +4333,7 @@ performance::check_collinearity(mABdHTypexOpxLAExEnvlgQxLAE.GEE)
 
 ## UAS info only
 
-### LAE only with events and trial sequence
+### LAE only with events
 
 ```{r}
 
@@ -4277,6 +4410,11 @@ p1 <- ggplot(data=model1predictEvt) +
 
 
 p1
+
+# save the model
+filename = "2A_dHA_LAE_noEnv"
+saveRDS(model1, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+
 
 ```
 
@@ -5105,6 +5243,128 @@ mABdHSxTndLAELAeq2lgQSq.GEE.Cook <- cooks.distance(mABdHSxTndLAELAeq2lgQSq.GEE,
                                           plot.it=TRUE)
 
 performance::check_collinearity(mABdHSxTndLAELAeq2lgQSq.GEE)
+
+```
+
+## with env LAeq and UAS LAE
+
+### fit and examine final model
+
+```{r}
+
+model1 <- mABdHLAExEnvLAeqlgQ.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ I(log10(UASEvents)) +
+                                                        UASLAEMaxLRScl*AmbLAeqMaxLRScl,
+                                                        data=subjDataNoAmb,
+                                                        family=binomial(link='logit'),
+                                                        id=ID.,
+                                                        corstr='exchangeable')
+
+geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+geeParams(model1, ci=0.843, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(model1, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+
+geeModelPerformance(mABdHTypexOpxLAExEnvlgQxLAE.GEE, mABdHLAElgQ.GEE,
+                    mABdHLAExEnvLAeqlgQ.GEE)
+
+predictProbs <- predictNew(model=model1, newData=stimDataNoAmb,
+                           response=stimDataNoAmb$dHighAnnoyProp,
+                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+
+R2probs <- cor(predictProbs$response, predictProbs$fit)^2
+R2probs
+
+
+# using ggplot, plot the predicted fit against the responses in predictProbs
+ggplot(data=predictProbs) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=12),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_point(mapping=aes(x=response, y=fit), size=2.5, shape=1, colour=mycolours[1], alpha=0.5) +
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  scale_x_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 0.5)) +
+  scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 0.5)) +
+  
+  labs(x=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb]~"("~test~")")),
+       y=expression(paste(Predicted~"%"~highly~annoyed~"|"~HA~"'"[amb])))
+
+
+model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl [-12:13]",
+                                                                "UASEvents [all]"),
+                                             margin='marginalmeans', type='fixed', 
+                                            vcov=vcov(model1, type="bias-corrected"))
+
+
+p1 <- ggplot(data=model1predictEvt) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_point(data=stimDataNoAmb[stimDataNoAmb$AmbientEnv=='Park',],
+                         aes(x=UASLAEMaxLRScl, y=dHighAnnoyProp, colour=factor(UASEvents), shape=factor(UASEvents)),
+                         alpha=0.55, size=2) +
+              
+              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.1) +
+              
+              geom_line(aes(x=x, y=predicted, colour=group), linewidth=1) +
+              
+              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_shape_manual(values=c(4, 5, 7, 8)) +
+              
+              guides(colour=guide_legend(title="UAS events", reverse=TRUE),
+                     fill=guide_legend(title="UAS events", reverse=TRUE),
+                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
+            
+              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
+              
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)),
+                   y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
+
+
+p1
+
+# save the model
+filename = "2B_dHA_LAE_EnvLAeq"
+saveRDS(model1, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+
+
+```
+
+### Model diagnostics
+
+```{r}
+
+
+mABdHLAExEnvLAeqlgQ.GEE.resD <- residuals(mABdHLAExEnvLAeqlgQ.GEE,
+                                     type="deviance", plot.it=TRUE,
+                                     pch=1, col=mycolours[1],identify=10)
+mABdHLAExEnvLAeqlgQ.GEE.resM <- residuals(mABdHLAExEnvLAeqlgQ.GEE,
+                                     type="mahalanobis", plot.it=TRUE,
+                                     col=mycolours[2], identify=10)
+mABdHLAExEnvLAeqlgQ.GEE.resP <- residuals(mABdHLAExEnvLAeqlgQ.GEE,
+                                     type="pearson", plot.it=TRUE,
+                                     pch=1, col=mycolours[3], identify=10)
+
+hist(mABdHLAExEnvLAeqlgQ.GEE.resD, breaks=20, main="Deviance residuals")
+hist(mABdHLAExEnvLAeqlgQ.GEE.resP, breaks=20, main="Pearson residuals")
+
+par(mar = rep(2, 4))
+
+mABdHLAExEnvLAeqlgQ.GEE.DfBc <- dfbeta(mABdHLAExEnvLAeqlgQ.GEE,
+                                  level='clusters',
+                                 coefs=c('UASLAEMaxLRScl'))
+mABdHLAExEnvLAeqlgQ.GEE.DfBo <- dfbeta(mABdHLAExEnvLAeqlgQ.GEE,
+                                level='observations',
+                               coefs=c('UASLAEMaxLRScl'))
+
+mABdHLAExEnvLAeqlgQ.GEE.Cook <- cooks.distance(mABdHLAExEnvLAeqlgQ.GEE,
+                                          plot.it=TRUE)
+
+performance::check_collinearity(mABdHLAExEnvLAeqlgQ.GEE)
 
 ```
 
