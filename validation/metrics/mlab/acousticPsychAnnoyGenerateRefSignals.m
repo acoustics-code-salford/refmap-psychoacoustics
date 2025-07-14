@@ -5,7 +5,7 @@ function acousticPsychAnnoyGenerateRefSignals
 % calibrating and testing the validity of Widmann Psychoacoustic Annoyance
 % (also misattributed as Zwicker PA). The 'reference signal' for the model
 % was defined as a 1 kHz sinusoid at 40 dB Lp in free-field conditions. The
-% signals generated here correspond with Table 4.1 of Widmann (1992), which
+% signals generated here correspond with Table 4.2 of Widmann (1992), which
 % offer a wider range of sound characteristics to compare with calculated
 % PA values.
 %
@@ -29,7 +29,7 @@ function acousticPsychAnnoyGenerateRefSignals
 % Institution: University of Salford
 %
 % Date created: 10/07/2025
-% Date last modified: 11/07/2025
+% Date last modified: 13/07/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -50,55 +50,162 @@ addpath(genpath(fullfile("refmap-psychoacoustics")))
 
 %% Input parameters
 
-seed = 808;
-fs = 48e3;
-dt = 1/fs;
-T = 10;
-N = T*fs;
-t = linspace(0, T - dt, N);
-f_mod32 = 32;
-f_mod1 = 1;
+fs = 48e3;  % sampling frequency
+dt = 1/fs;  % time step
+T = 10;  % total time
+N = T*fs;  % total sample length
+t = linspace(0, T - dt, N).';  % time vector
+f_mod32 = 32;  % modulation frequency
+m_mod = 0.98;  % modulation factor
 outpath = fullfile("validation",...
                    "metrics", "audio");
 
 %% Generate signals
 
-% signal parameters are assigned according to Table 4.1
-% white noise-based
+% signal parameters are assigned according to Section 4.3 Table 4.2
+% high-pass white noise (HPR)
 whiteNoise = dsp.ColoredNoise('white', N, 1);
-whiteNoiseSig = bandpass(whiteNoise(), [20, 20e3], fs);
+whiteNoiseSig = bandpass(whiteNoise(), [4e3, 20e3], fs);
 
-% pink noise-based
-pinkNoise = dsp.ColoredNoise('pink', N, 1);
-pinkNoiseSig = bandpass(pinkNoise(), [20, 20e3], fs);
-
-% blue noise-based
+% blue noise
 blueNoise = dsp.ColoredNoise('blue', N, 1);
 blueNoiseSig = bandpass(blueNoise(), [20, 20e3], fs);
 
-sine_1kHz_40dB = A_tone*sin(2*pi*f_tone.*t);
+% uniform masking noise
+[unifMaskNoise, ~] = audioread("uniform_masking_noise.wav");
 
-% reference modulated sinusoid for roughness
+% modulation signal
 
-sine_70Hz_mod = sin(2*pi*f_mod70.*t - pi/2);
-sine_1kHz_70Hz_60dB = (1 + sine_70Hz_mod).*sin(2*pi*f_tone.*t);
-A_adjust = rms(sine_1kHz_70Hz_60dB)/0.02;
-sine_1kHz_70Hz_60dB = sine_1kHz_70Hz_60dB/A_adjust;
+sine_mod_32Hz_40dB = m_mod*sin(2*pi*f_mod32.*t);
 
-% reference modulated sinusoid for fluctuation strength
+%% Generate signals and save as wav files
+% (assumes current folder is refmap-psychoacoustics root)
 
-sine_4Hz_mod = sin(2*pi*f_mod4.*t - pi/2);
-sine_1kHz_4Hz_60dB = (1 + sine_4Hz_mod).*sin(2*pi*f_tone.*t);
-A_adjust = rms(sine_1kHz_4Hz_60dB)/0.02;
-sine_1kHz_4Hz_60dB = sine_1kHz_4Hz_60dB/A_adjust;
+% high-pass noise
+% unmodulated signals
+whiteUnModLoud = [4.4, 10.5, 22.6];
+hprUnMod = zeros(N, length(whiteUnModLoud));
+for ii = 1:length(whiteUnModLoud)
+    
+    hprUnMod(:, ii) = setLoudness(whiteNoiseSig, fs, whiteUnModLoud(ii),...
+                                  1, "freeFrontal", "5PcEx",...
+                                  "ISO 532-1", false, 0.01, 15);
+    filename = "hpassWNoise_4kHz_N" + num2str(round(whiteUnModLoud(ii))) + ".wav";
 
-%% Save signals as wav files (assumes current folder is
-% refmap-psychoacoustics root)
-audiowrite(fullfile(outpath, "sine_1kHz_40dB.wav"), sine_1kHz_40dB, fs,...
-           "BitsPerSample", 24)
-audiowrite(fullfile(outpath, "sine_1kHz_70Hz_60dB.wav"), sine_1kHz_70Hz_60dB, fs,...
-           "BitsPerSample", 24)
-audiowrite(fullfile(outpath, "sine_1kHz_4Hz_60dB.wav"), sine_1kHz_4Hz_60dB, fs,...
-           "BitsPerSample", 24)
+    % select required bit depth
+    if max(abs(hprUnMod(:, ii))) > 1
+        bitsRequired = 32;
+    else
+        bitsRequired = 24;
+    end
+
+    audiowrite(fullfile(outpath, filename), hprUnMod(:, ii), fs,...
+               "BitsPerSample", bitsRequired)
+end
+
+% modulated signals
+whiteNoiseSigMod = (1 + sine_mod_32Hz_40dB).*whiteNoiseSig;
+whiteModLoud = [4.4, 10.6, 22.8];
+hprMod = zeros(N, length(whiteModLoud));
+for ii = 1:length(whiteModLoud)
+    hprMod(:, ii) = setLoudness(whiteNoiseSigMod, fs, whiteModLoud(ii),...
+                                1, "freeFrontal", "5PcEx",...
+                                "ISO 532-1", false, 0.01, 15);
+    filename = "hpassWNoise_4kHz_N" + num2str(round(whiteModLoud(ii))) + "_mod_" + num2str(f_mod32) + "Hz.wav";
+
+    % select required bit depth
+    if max(abs(hprUnMod(:, ii))) > 1
+        bitsRequired = 32;
+    else
+        bitsRequired = 24;
+    end
+
+    audiowrite(fullfile(outpath, filename), hprMod(:, ii), fs,...
+               "BitsPerSample", bitsRequired)
+end
+
+% blue noise
+% unmodulated signals
+blueUnModLoud = [4.2, 9.4, 19.9];
+blrUnMod = zeros(N, length(blueUnModLoud));
+for ii = 1:length(blueUnModLoud)
+    blrUnMod(:, ii) = setLoudness(blueNoiseSig, fs, blueUnModLoud(ii),...
+                                  1, "freeFrontal", "5PcEx",...
+                                  "ISO 532-1", false, 0.01, 15);
+    filename = "blueNoise_N" + num2str(round(blueUnModLoud(ii))) + ".wav";
+
+    % select required bit depth
+    if max(abs(hprUnMod(:, ii))) > 1
+        bitsRequired = 32;
+    else
+        bitsRequired = 24;
+    end
+
+    audiowrite(fullfile(outpath, filename), blrUnMod(:, ii), fs,...
+               "BitsPerSample", bitsRequired)
+end
+
+% modulated signals
+blueNoiseSigMod = (1 + sine_mod_32Hz_40dB).*blueNoiseSig;
+blueModLoud = [4.3, 9.5, 20.5];
+blrMod = zeros(N, length(blueModLoud));
+for ii = 1:length(blueModLoud)
+    blrMod(:, ii) = setLoudness(blueNoiseSigMod, fs, blueModLoud(ii),...
+                                1, "freeFrontal", "5PcEx",...
+                                "ISO 532-1", false, 0.01, 15);
+    filename = "blueNoise_N" + num2str(round(blueModLoud(ii))) + "_mod_" + num2str(f_mod32) + "Hz.wav";
+
+    % select required bit depth
+    if max(abs(hprUnMod(:, ii))) > 1
+        bitsRequired = 32;
+    else
+        bitsRequired = 24;
+    end
+
+    audiowrite(fullfile(outpath, filename), blrMod(:, ii), fs,...
+               "BitsPerSample", bitsRequired)
+end
+
+% uniform masking noise
+% unmodulated signals
+unifMaskUnModLoud = [4.5, 10.8, 23];
+gvrUnMod = zeros(N, length(unifMaskUnModLoud));
+for ii = 1:length(unifMaskUnModLoud)
+    gvrUnMod(:, ii) = setLoudness(unifMaskNoise, fs, unifMaskUnModLoud(ii),...
+                                  1, "freeFrontal", "5PcEx",...
+                                  "ISO 532-1", false, 0.01, 15);
+    filename = "unifMaskNoise_N" + num2str(round(unifMaskUnModLoud(ii))) + ".wav";
+
+    % select required bit depth
+    if max(abs(hprUnMod(:, ii))) > 1
+        bitsRequired = 32;
+    else
+        bitsRequired = 24;
+    end
+
+    audiowrite(fullfile(outpath, filename), gvrUnMod(:, ii), fs,...
+               "BitsPerSample", bitsRequired)
+end
+
+% modulated signals
+unifMaskNoiseSigMod = (1 + sine_mod_32Hz_40dB).*unifMaskNoise;
+unifMaskModLoud = [4.6, 10.9, 22.8];
+gvrMod = zeros(N, length(unifMaskModLoud));
+for ii = 1:length(unifMaskModLoud)
+    gvrMod(:, ii) = setLoudness(unifMaskNoiseSigMod, fs, unifMaskModLoud(ii),...
+                                1, "freeFrontal", "5PcEx",...
+                                "ISO 532-1", false, 0.01, 15);
+    filename = "unifMaskNoise_N" + num2str(round(unifMaskModLoud(ii))) + "_mod_" + num2str(f_mod32) + "Hz.wav";
+
+    % select required bit depth
+    if max(abs(hprUnMod(:, ii))) > 1
+        bitsRequired = 32;
+    else
+        bitsRequired = 24;
+    end
+
+    audiowrite(fullfile(outpath, filename), gvrMod(:, ii), fs,...
+               "BitsPerSample", bitsRequired)
+end
 
 % end of function
