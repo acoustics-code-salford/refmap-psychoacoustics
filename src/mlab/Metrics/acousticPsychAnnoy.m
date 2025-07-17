@@ -263,19 +263,52 @@ psychAnnoyFrom5Pc = PA(N5, S5, F5, R5);
 
 % time-aggregated psychoacoustic annoyance from alternative values
 NPwAvg = mean(loudness(startSkipNSF:end - endSkipNSF, :).^(1/log10(2)), 1).^(log10(2));
+SPwAvg = mean(sharpness(startSkipNSF:end - endSkipNSF, :).^(1/log10(2)), 1).^(log10(2));
 F10 = prctile(fluctuation(startSkipNSF:end - endSkipNSF, :), 90, 1);
 R10 = prctile(roughness(startSkipR:end - endSkipR, :), 90, 1);
-psychAnnoyFromAlt = PA(NPwAvg, S5, F10, R10);
+psychAnnoyFromAlt = PA(NPwAvg, SPwAvg, F10, R10);
+
+%% Output plotting
+
+if outPlot
+    cmap_plasma = load('cmap_plasma.txt');
+    cmap_inferno = load('cmap_inferno.txt');
+    cmap_magma = load('cmap_magma.txt');
+    cmap_viridis = load('cmap_viridis.txt');
+    cmap_cividis = load('cmap_cividis.txt');
+
+    % Plot figures
+    % ------------
+    for chan = chansIn:-1:1
+        % Plot results
+        fig = figure;
+        set(fig, 'position', [300, 200, 1300, 600])
+        tiledlayout(fig, 2, 3);
+        movegui(fig, 'center');
+        ax1 = nexttile(1);
+    end
+end
 
 %% Output assignment
 
 annoyance.loudness.loudnessTDep = loudness;
 annoyance.loudness.specLoudness = specLoudness;
+annoyance.loudness.N5 = N5;
+annoyance.loudness.NPwAvg = NPwAvg;
+
 annoyance.sharpness.sharpnessTDep = sharpness;
+annoyance.sharpness.S5 = S5;
+annoyance.sharpness.SPwAvg = SPwAvg;
+
 annoyance.fluctuation.fluctuationTDep = fluctuation;
 annoyance.fluctuation.specFluctuation = specFluctuation;
+annoyance.fluctuation.F5 = F5;
+annoyance.fluctuation.F10 = F10;
+
 annoyance.roughness.roughnessTDep = roughness;
 annoyance.roughness.specRoughness = specRoughness;
+annoyance.roughness.R5 = R5;
+annoyance.roughness.R10 = R10;
 
 annoyance.psychAnnoyTDep = psychAnnoyTDep;
 annoyance.psychAnnoyFrom5Pc = psychAnnoyFrom5Pc;
@@ -284,15 +317,14 @@ annoyance.psychAnnoyFromAlt = psychAnnoyFromAlt;
 annoyance.timeOut.timeOutNSF = timeOutNSF;
 annoyance.timeOut.timeOutRPA = timeOutRPA;
 
-    % nested function to calculate psychoacoustic annoyance
-    function pa = PA(N, S, F, R)
-        wS = zeros(size(S));
-        wS(S > 1.75) = 0.25*log10(N(S > 1.75) + 10).*(S(S > 1.75) - 1.75);
-        wFR = 2.18./N.^0.4.*(0.4*F + 0.6*R);
+%% nested function to calculate psychoacoustic annoyance
+function pa = PA(N, S, F, R)
+    wS = zeros(size(S));
+    wS(S > 1.75) = 0.25*log10(N(S > 1.75) + 10).*(S(S > 1.75) - 1.75);
+    wFR = 2.18./N.^0.4.*(0.4*F + 0.6*R);
 
-        pa = N.*(1 + sqrt(wS.^2 + wFR.^2));
-
-    end
+    pa = N.*(1 + sqrt(wS.^2 + wFR.^2));
+end  % end of nested function for psychoacoustic annoyance
 
 end
 
