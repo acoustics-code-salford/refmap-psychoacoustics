@@ -583,7 +583,7 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
         if waitBar:
             rateIter = tqdm(range(nBands),
-                            desc="Fundamental rates")
+                            desc="Modulation weightings")
         else:
             rateIter = range(nBands)
 
@@ -883,5 +883,7 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         roughnessSHM.update({'bandCentreFreqs': bandCentreFreqs})
         roughnessSHM.update({'timeOut': timeOut})
         roughnessSHM.update({'soundField': soundField})
+
+    return roughnessSHM
 
 # end of acousticSHRoughness function

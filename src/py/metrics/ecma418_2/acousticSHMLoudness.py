@@ -208,8 +208,6 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     halfBark = np.arange(0.5, 27, dz)
     # Section 5.1.4.1 Equation 9 ECMA-418-2:2025 [F(z)]
     bandCentreFreqs = (deltaFreq0/c)*np.sinh(c*halfBark)
-    # Section 5.1.4.1 Equation 10 ECMA-418-2:2025 [deltaf(z)]
-    dfz = np.sqrt(deltaFreq0**2 + (c*bandCentreFreqs)**2)
 
     # Section 8.1.1 ECMA-418-2:2025
     weight_n = 0.5331  # Equations 113 & 114 ECMA-418-2:2025 [w_n]
@@ -244,8 +242,10 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     
     # expand dimensions to ease processing
     if chansIn == 1:
-        specTonalLoudness = shmDimensional(specTonalLoudness)
-        specNoiseLoudness = shmDimensional(specNoiseLoudness)
+        specTonalLoudness = shmDimensional(specTonalLoudness, targetDim=3,
+                                           where='last')
+        specNoiseLoudness = shmDimensional(specNoiseLoudness, targetDim=3,
+                                           where='last')
 
     # Section 8.1.1 ECMA-418-2:2025
     # Weight and combine component specific loudnesses
@@ -266,9 +266,12 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     if chansIn == 2 and binaural:
         # Binaural loudness
         # Section 8.1.5 ECMA-418-2:2025 Equation 118 [N'_B(l,z)]
-        specLoudness[:, :, 3] = np.sqrt(np.sum(specLoudness**2, 2)/2)
-        specTonalLoudness[:, :, 3] = np.sqrt(np.sum(specTonalLoudness**2, 2)/2)
-        specNoiseLoudness[:, :, 3] = np.sqrt(np.sum(specNoiseLoudness**2, 2)/2)
+        specLoudness[:, :, 3] = np.sqrt(np.sum(specLoudness[:, :, 0:2]**2,
+                                               axis=2)/2)
+        specTonalLoudness[:, :, 3] = np.sqrt(np.sum(specTonalLoudness[:, :, 0:2]**2,
+                                                    axis=2)/2)
+        specNoiseLoudness[:, :, 3] = np.sqrt(np.sum(specNoiseLoudness[:, :, 0:2]**2,
+                                                    axis=2)/2)
         chansOut = 3  # set number of 'channels' to stereo plus single binaural
         chans = chans + ["Binaural"]
     else:
@@ -411,5 +414,300 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         loudnessSHM.update({'bandCentreFreqs': bandCentreFreqs})
         loudnessSHM.update({'timeOut': timeOut})
         loudnessSHM.update({'soundField': soundField})
+
+    return loudnessSHM
+
+# end of acousticSHLoudness function
+
+
+# %% acousticSHMLoudnessFromComponent
+def acousticSHMLoudnessFromComponent(specTonalLoudness, specNoiseLoudness,
+                                     outPlot=False, binaural=True):
+    """
+    Inputs
+    ------
+    specTonalLoudness : 2D or 3D array
+                        the specific tonal loudness values calculated for
+                        a sound pressure signal (single mono or single
+                        stereo audio) arranged as [time, bands(, chans)]
+
+    specNoiseLoudness : 2D or 3D array
+                        the specific noise loudness values calculated for
+                        a sound pressure signal (single mono or single
+                        stereo audio) arranged as [time, bands(, chans)]
+
+    outPlot : Boolean (default: False)
+              flag indicating whether to generate a figure from the output
+              (set outplot to false for doing multi-file parallel calculations)
+
+    binaural : Boolean (default: True)
+               flag indicating whether to output combined binaural loudness for
+               stereo input signal
+
+    Returns
+    -------
+    loudnessSHM : dict
+                  contains the output
+
+    loudnessSHM contains the following outputs:
+
+    specLoudness : 2D or 3D array
+                   time-dependent specific loudness for each critical band
+                   arranged as [time, bands(, channels)]
+
+    specLoudnessPowAvg : 1D or 2D array
+                         time-averaged specific loudness for each critical band
+                         arranged as [bands(, channels)]
+
+    specTonalLoudness : 2D or 3D array
+                        time-dependent specific tonal loudness for each
+                        critical band
+                        arranged as [time, bands(, channels)]
+    
+    specNoiseLoudness : 2D or 3D array
+                        time-dependent specific noise loudness for each
+                        critical band
+                        arranged as [time, bands(, channels)]
+
+    loudnessTDep : 1D or 2D array
+                   time-dependent overall loudness
+                   arranged as [time(, channels)]
+
+    loudnessPowAvg : 1D or 2D array
+                     time-averaged overall loudness
+                     arranged as [loudness(, channels)]
+
+    bandCentreFreqs : 1D array
+                      centre frequencies corresponding with each critical band
+                      rate
+
+    timeOut : 1D array
+              time (seconds) corresponding with time-dependent outputs
+
+    soundField : string
+                 identifies the soundfield type applied (the input argument
+                 soundField)
+
+    If outPlot=True, a set of plots is returned illustrating the energy
+    time-averaged A-weighted sound level, the time-dependent specific and
+    overall loudness, with the latter also indicating the time-aggregated
+    value. A set of plots is returned for each input channel.
+    
+    If binaural=true, a corresponding set of outputs for the binaural
+    loudness are also contained in loudnessSHM.
+
+    Assumptions
+    -----------
+    The input arrays are ECMA-418-2:2025 specific tonal and specific noise
+    loudness, with dimensions orientated as [critical bands, time blocks,
+    signal channels]
+
+    Checked by:
+    Date last checked:
+
+    """
+    # %% Input checks
+    
+    # ensure inputs are arrays
+    try:
+        specTonalLoudness = np.asarray(specTonalLoudness)
+        specNoiseLoudness = np.asarray(specNoiseLoudness)
+    except TypeError:
+        raise TypeError("Inputs must be arrays or capable of being cast to arrays.")
+    
+    # Check the size of the input matrices (must match)
+    if ~(specTonalLoudness.shape == specNoiseLoudness.shape):
+        raise ValueError('Error: Input loudness array shapes must match')
+    # end
+    
+    # ensure that inputs are 3D
+    specTonalLoudness = shmDimensional(specTonalLoudness, targetDim=3,
+                                       where='last')
+    specNoiseLoudness = shmDimensional(specNoiseLoudness, targetDim=3,
+                                       where='last')
+
+    if specTonalLoudness.shape[2] > 2:
+        raise ValueError('Error: Input matrices cannot comprise more than two channels.')
+    else:
+        chansIn = specTonalLoudness.shape[2]
+        if chansIn > 1:
+            chans = ["Stereo left",
+                     "Stereo right"]
+        else:
+            chans = ["Mono"]
+        # end of if branch for more than one channel
+    # end of if branch for maximum channel number check
+
+    # %% Define constants
+
+    # Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2025 [r_s]
+    sampleRate48k = 48e3
+    # defined in Section 5.1.4.1 ECMA-418-2:2025 [deltaf(f=0)]
+    deltaFreq0 = 81.9289
+    # Half-overlapping Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2025
+    c = 0.1618
+
+    dz = 0.5  # critical band overlap
+    # half-overlapping critical band rate scale [z]
+    halfBark = np.arange(0.5, 27, dz)
+    # Section 5.1.4.1 Equation 9 ECMA-418-2:2025 [F(z)]
+    bandCentreFreqs = (deltaFreq0/c)*np.sinh(c*halfBark)
+
+    # Section 8.1.1 ECMA-418-2:2025
+    weight_n = 0.5331  # Equations 113 & 114 ECMA-418-2:2025 [w_n]
+    # Table 12 ECMA-418-2:2025
+    a = 0.2918
+    b = 0.5459
+
+    # Output sample rate based on tonality hop sizes (Section 6.2.6
+    # ECMA-418-2:2025) [r_sd]
+    sampleRate1875 = 48e3/256
+
+    # %% Signal processing
+
+    # Section 8.1.1 ECMA-418-2:2025
+    # Weight and combine component specific loudnesses
+    specLoudness = np.zeros(specTonalLoudness.shape)  # pre-allocate array
+    for chan in range(chansIn):
+        # Equation 114 ECMA-418-2:2025 [e(z)]
+        maxLoudnessFuncel = a/(np.max(specTonalLoudness[:, :, chan]
+                                      + specNoiseLoudness[:, :, chan], axis=1)
+                               + 1e-12) + b
+        # Equation 113 ECMA-418-2:2025 [N'(l,z)]
+        specLoudness[:, :, chan] = (specTonalLoudness[:, :, chan]**maxLoudnessFuncel
+                                    + np.abs((weight_n*specNoiseLoudness[:,
+                                                                         :,
+                                                                         chan])
+                                             ** maxLoudnessFuncel))**(1/maxLoudnessFuncel)
+    # end of loudness for loop over channels
+
+    if chansIn == 2 and binaural:
+        # Binaural loudness
+        # Section 8.1.5 ECMA-418-2:2025 Equation 118 [N'_B(l,z)]
+        specLoudness[:, :, 3] = np.sqrt(np.sum(specLoudness[:, :, 0:2]**2,
+                                               axis=2)/2)
+        specTonalLoudness[:, :, 3] = np.sqrt(np.sum(specTonalLoudness[:, :, 0:2]**2,
+                                                    axis=2)/2)
+        specNoiseLoudness[:, :, 3] = np.sqrt(np.sum(specNoiseLoudness[:, :, 0:2]**2,
+                                                    axis=2)/2)
+        chansOut = 3  # set number of 'channels' to stereo plus single binaural
+        chans = chans + ["Binaural"]
+    else:
+        chansOut = chansIn  # assign number of output channels
+    # end of if branch for channels
+
+    # Section 8.1.2 ECMA-418-2:2025
+    # Time-averaged specific loudness Equation 115 [N'(z)]
+    specLoudnessPowAvg = (np.sum(specLoudness[57:, :, :]**(1/np.log10(2)), 0)
+                          / specLoudness[57:, :, :].shape[0])**np.log10(2)
+
+    # Section 8.1.3 ECMA-418-2:2025
+    # Time-dependent loudness Equation 116 [N(l)]
+    loudnessTDep = np.sum(specLoudness**dz, 1)
+
+    # Section 8.1.4 ECMA-418-2:2025
+    # Overall loudness Equation 117 [N]
+    loudnessPowAvg = (np.sum(loudnessTDep[57:, :]**(1/np.log10(2)), 0)
+                      / loudnessTDep[57:, :].shape[0])**np.log10(2)
+
+    # time (s) corresponding with results output [t]
+    timeOut = np.arange(0, specLoudness.shape[0])/sampleRate1875
+
+    # %% Output plotting
+
+    # Plot figures
+    # ------------
+    if outPlot:
+        # Plot results
+        for chan in range(chansOut):
+            # Plot results
+            cmap_viridis = mpl.colormaps['viridis']
+            chan_lab = chans[chan]
+            fig, axs = plt.subplots(nrows=2, ncols=1, figsize=[10.5, 7.5],
+                                    layout='constrained')
+
+            ax1 = axs[0]
+            pmesh = ax1.pcolormesh(timeOut, bandCentreFreqs,
+                                   np.swapaxes(specLoudness[:, :, chan], 0, 1),
+                                   cmap=cmap_viridis,
+                                   vmin=0,
+                                   vmax=np.ceil(np.max(loudnessTDep[:,
+                                                                    chan])*10)/10,
+                                   shading='gouraud')
+            ax1.set(xlim=[timeOut[1],
+                          timeOut[-1] + (timeOut[1] - timeOut[0])],
+                    xlabel="Time, s",
+                    ylim=[bandCentreFreqs[0], bandCentreFreqs[-1]],
+                    yscale='log',
+                    yticks=[63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],
+                    yticklabels=["63", "125", "250", "500", "1k", "2k", "4k",
+                                 "8k", "16k"],
+                    ylabel="Frequency, Hz")
+            ax1.minorticks_off()
+            cbax = ax1.inset_axes([1.05, 0, 0.05, 1])
+            fig.colorbar(pmesh, ax=ax1,
+                         label=(r"Specific loudness,"
+                                "\n"
+                                r"$\mathregular{tu_{SHM}}/\mathregular{Bark_{SHM}}$"),
+                         aspect=10, cax=cbax)
+
+            ax2 = axs[1]
+            ax2.plot(timeOut, loudnessPowAvg[chan]*np.ones(timeOut.size),
+                     color=cmap_viridis(33/255), linewidth=1,
+                     label=("Time-" + "\n" + "average"))
+            ax2.plot(timeOut, loudnessTDep[:, chan],
+                     color=cmap_viridis(165/255),
+                     linewidth=0.75, label=("Time-" + "\n" + "dependent"))
+            ax2.set(xlim=[timeOut[0], timeOut[-1] + timeOut[1] - timeOut[0]],
+                    xlabel="Time, s",
+                    ylim=[0, 1.1*np.ceil(np.max(loudnessTDep[:, chan])*10)/10],
+                    ylabel=(r"Loudness, $\mathregular{sone_{SHM}}$"))
+            ax2.grid(alpha=0.075, linestyle='--')
+            ax2.legend(bbox_to_anchor=(1, 0.85), title="Overall")
+
+            fig.suptitle(t=(chan_lab + " signal"))
+            fig.show()
+        # end of for loop over channels
+    # end of if branch for plotting
+
+    # %% Output assignment
+
+    # Discard singleton dimensions
+    if chansOut == 1:
+        specLoudness = np.squeeze(specLoudness)
+        specTonalLoudness = np.squeeze(specTonalLoudness)
+        specNoiseLoudness = np.squeeze(specNoiseLoudness)
+        specLoudnessPowAvg = np.squeeze(specLoudnessPowAvg)
+        loudnessTDep = np.squeeze(loudnessTDep)
+    # end of if branch for singleton dimensions
+
+    # Assign outputs to structure
+    if chansOut == 3:
+        loudnessSHM = dict()
+        loudnessSHM.update({'specLoudness': specLoudness[:, :, 0:2]})
+        loudnessSHM.update({'specTonalLoudness': specTonalLoudness[:, :, 0:2]})
+        loudnessSHM.update({'specNoiseLoudness': specNoiseLoudness[:, :, 0:2]})
+        loudnessSHM.update({'specLoudnessPowAvg': specLoudnessPowAvg[:, 0:2]})
+        loudnessSHM.update({'loudnessTDep': loudnessTDep[:, 0:2]})
+        loudnessSHM.update({'loudnessPowAvg': loudnessPowAvg[0:2]})
+        loudnessSHM.update({'specLoudnessBin': specLoudness[:, :, 2]})
+        loudnessSHM.update({'specTonalLoudnessBin': specTonalLoudness[:, :, 2]})
+        loudnessSHM.update({'specNoiseLoudnessBin': specNoiseLoudness[:, :, 2]})
+        loudnessSHM.update({'specLoudnessPowAvgBin': specLoudnessPowAvg[:, 2]})
+        loudnessSHM.update({'loudnessTDepBin': loudnessTDep[:, 2]})
+        loudnessSHM.update({'loudnessPowAvgBin': loudnessPowAvg[2]})
+        loudnessSHM.update({'bandCentreFreqs': bandCentreFreqs})
+        loudnessSHM.update({'timeOut': timeOut})
+    else:
+        loudnessSHM.update({'specLoudness': specLoudness})
+        loudnessSHM.update({'specTonalLoudness': specTonalLoudness})
+        loudnessSHM.update({'specNoiseLoudness': specNoiseLoudness})
+        loudnessSHM.update({'specLoudnessPowAvg': specLoudnessPowAvg})
+        loudnessSHM.update({'loudnessTDep': loudnessTDep})
+        loudnessSHM.update({'loudnessPowAvg': loudnessPowAvg})
+        loudnessSHM.update({'bandCentreFreqs': bandCentreFreqs})
+        loudnessSHM.update({'timeOut': timeOut})
+
+    return loudnessSHM
 
 # end of acousticSHLoudness function

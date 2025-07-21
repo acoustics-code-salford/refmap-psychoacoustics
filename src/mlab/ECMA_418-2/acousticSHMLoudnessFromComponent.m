@@ -79,7 +79,7 @@ function loudnessSHM = acousticSHMLoudnessFromComponent(specTonalLoudness, specN
 % Assumptions
 % -----------
 % The input matrices are ECMA-418-2:2025 specific tonal and specific noise
-% loudness, with dimensions orientated as [half-Bark bands, time blocks,
+% loudness, with dimensions orientated as [critical bands, time blocks,
 % signal channels]
 %
 % Requirements
