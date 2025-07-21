@@ -40,7 +40,8 @@ function acousticSHMValidation(savePlots)
     end
 
 %% Load path
-addpath(genpath(fullfile("refmap-psychoacoustics")))
+addpath(genpath(fullfile("refmap-psychoacoustics", "src", "mlab")))
+addpath(genpath(fullfile("refmap-psychoacoustics", "validation", "ECMA-418-2")))
 
 %% Import reference data
 refpath = fullfile("refmap-psychoacoustics", "validation", "ECMA-418-2", "reference");
@@ -384,6 +385,18 @@ if savePlots
     exportgraphics(fg, fullfile(figpath, "roughSHMsingles.pdf"), 'ContentType', 'vector')
     exportgraphics(fg, fullfile(figpath, "roughSHMsingles.png"), 'Resolution', '300')
 end
+
+% %% Python implementation
+% 
+% % load path
+% addpath(genpath(fullfile("refmap-psychoacoustics", "src", "py")))
+% addpath(genpath(fullfile("refmap-psychoacoustics", ".venv")))
+% 
+% % activate the environment
+% pythonPath = fullfile("refmap-psychoacoustics", ".venv", "Scripts");
+% terminate(pyenv)
+% pe = pyenv(Version='"C:\Users\m_lot\OneDrive - University of Salford\Code\refmap-psychoacoustics\.venv\Scripts\python.exe"', ExecutionMode='OutOfProcess');
+
 
 %% Plotting functions
 

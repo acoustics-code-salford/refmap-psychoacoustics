@@ -11,7 +11,7 @@ function acousticSHMGenerateRefSignals
 % Institution: University of Salford
 %
 % Date created: 19/08/2024
-% Date last modified: 19/03/2025
+% Date last modified: 21/07/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -28,7 +28,7 @@ function acousticSHMGenerateRefSignals
 %
 
 %% Load path
-addpath(genpath(fullfile("refmap-psychoacoustics")))
+addpath(genpath(fullfile("refmap-psychoacoustics", "validation")))
 
 %% Input parameters
 
