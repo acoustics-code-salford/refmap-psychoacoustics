@@ -19,7 +19,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 27/10/2023
-Date last modified: 01/07/2025
+Date last modified: 20/07/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -1117,8 +1117,8 @@ def shmRoughLowPass(specRoughEstTform, sampleRate, riseTime, fallTime):
     Checked by:
     Date last checked:
     """
-    riseExponent = np.exp(-1/(sampleRate*riseTime))*np.ones([1, specRoughEstTform.shape[1]])
-    fallExponent = np.exp(-1/(sampleRate*fallTime))*np.ones([1, specRoughEstTform.shape[1]])
+    riseExponent = np.exp(-1/(sampleRate*riseTime))*np.ones([specRoughEstTform.shape[1]])
+    fallExponent = np.exp(-1/(sampleRate*fallTime))*np.ones([specRoughEstTform.shape[1]])
 
     specRoughness = specRoughEstTform.copy()
 
@@ -1142,3 +1142,32 @@ def shmRoughLowPass(specRoughEstTform, sampleRate, riseTime, fallTime):
         # end of fall branch
 
     return specRoughness  # end of shmRoughLowPass function
+
+def shmRound(vals, decimals=0):
+    """
+    Returns a set of rounded values to the specified number of decimal places
+    using the traditional approach.
+
+    Inputs
+    ------
+    
+    vals : float or array of floats
+           the values to be rounded.
+
+    decimals : int
+               the number of decimal places to round to (default=0).
+    
+    Returns
+    -------
+
+     : float
+          The rounded value.
+
+    """
+
+    try:
+        vals = np.asarray(vals)
+    except TypeError:
+        raise TypeError
+
+    return np.round(vals+10**(-vals.astype(str).size - 1), decimals)

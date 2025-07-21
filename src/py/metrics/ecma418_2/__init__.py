@@ -8,5 +8,7 @@ from .acousticSHMLoudness import acousticSHMLoudness
 
 from .acousticSHMSubs import (shmDimensional, shmResample, shmPreProc,
                               shmOutMidEarFilter, shmAuditoryFiltBank,
-                              shmSignalSegment, shmBasisLoudness,
-                              shmNoiseRedLowPass)
+                              shmSignalSegment, shmSignalSegmentBlocks,
+                              shmBasisLoudness, shmDownsample,
+                              shmNoiseRedLowPass, shmRoughLowPass,
+                              shmRoughWeight, shmRound)

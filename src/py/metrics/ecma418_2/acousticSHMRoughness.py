@@ -25,7 +25,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 29/05/2023
-Date last modified: 01/07/2025
+Date last modified: 21/07/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -46,10 +46,12 @@ here with permission.
 
 # %% Import block
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 from matplotlib import pyplot as plt
 import matplotlib as mpl
-from scipy.fft import (fft, ifft)
+from scipy.fft import (fft)
 from scipy.signal import (hilbert, windows, find_peaks)
+from scipy.interpolate import PchipInterpolator
 from src.py.metrics.ecma418_2.acousticSHMSubs import (shmDimensional,
                                                       shmResample,
                                                       shmPreProc,
@@ -60,9 +62,9 @@ from src.py.metrics.ecma418_2.acousticSHMSubs import (shmDimensional,
                                                       shmBasisLoudness,
                                                       shmDownsample,
                                                       shmRoughWeight,
-                                                      shmRoughLowPass)
+                                                      shmRoughLowPass,
+                                                      shmRound)
 from tqdm import tqdm
-import bottleneck as bn
 from src.py.dsp.filterFuncs import A_weight_T
 from src.py.utils.formatFuncs import roundTrad
 from acoustic_toolbox.signal import rms
@@ -188,8 +190,14 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     if chansIn > 1:
         chans = ["Stereo left",
                  "Stereo right"]
+        if binaural:
+            chansOut = 3
+            chans += ["Binaural"]
+        else:
+            chansOut = chansIn
     else:
         chans = ["Mono"]
+        chansOut = chansIn
     # end of if branch for channel number check
 
     # %% Define constants
@@ -229,13 +237,14 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                                 0.2828, 0.3084, 0.3269, 0.3364, 0.3348, 0.3188, 0.2844,
                                 0.2259, 0.1351, 0.0000])
     errorCorrection = np.hstack((errorCorrection, np.flip(-errorCorrection[0:-1]), 0))
-    
+
     # High modulation rate roughness perceptual scaling function
     # (section 7.1.5.2 ECMA-418-2:2025)
     # Table 11 ECMA-418-2:2025 [r_1; r_2]
     roughScaleParams = np.vstack(([0.3560, 0.8024], [0.8049, 0.9333]))
     roughScaleParams = np.vstack((roughScaleParams[:, 0]*np.ones([np.sum(bandCentreFreqs < 1e3), 2]),
                                   roughScaleParams[:, 1]*np.ones([np.sum(bandCentreFreqs >= 1e3), 2]))).T
+
     # Equation 84 ECMA-418-2:2025 [r_max(z)]
     roughScale = 1/(1 + roughScaleParams[0, :]
                     * np.abs(np.log2(bandCentreFreqs/1000))
@@ -243,18 +252,38 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # Note: this is to ease parallelised calculations
     roughScale = shmDimensional(roughScale, targetDim=3, where='first')
 
-    # High/low modulation rate roughness perceptual weighting function parameters
-    # (section 7.1.5.2 ECMA-418-2:2025)
+    # High/low modulation rate roughness perceptual weighting function
+    # parameters (section 7.1.5.2 ECMA-418-2:2025)
     # Equation 86 ECMA-418-2:2025 [f_max(z)]
-    modfreqMaxWeight = 72.6937*(1 - 1.1739*np.exp(-5.4583*bandCentreFreqs/1000))
+    modfreqMaxWeight = 72.6937*(1 -
+                                1.1739*np.exp(-5.4583*bandCentreFreqs/1000))
 
     # Equation 87 ECMA-418-2:2025 [q_1; q_2(z)]
     roughHiWeightParams = np.vstack((1.2822*np.ones(bandCentreFreqs.size),
                                      0.2471*np.ones(bandCentreFreqs.size)))
     mask = bandCentreFreqs/1000 >= 2**-3.4253
-    roughHiWeightParams[1, mask] = 0.2471 + 0.0129*(np.log2(bandCentreFreqs[mask]/1000) + 3.4253)**2
+    roughHiWeightParams[1, mask] = 0.2471 + 0.0129*(np.log2(bandCentreFreqs[mask]/1000)
+                                                    + 3.4253)**2
     # Note: this is to ease parallelised calculations
     roughHiWeightParams = np.expand_dims(roughHiWeightParams, axis=1)
+
+    # (section 7.1.5.4 ECMA-418-2:2025)
+    # Equation 96 ECMA-418-2:2025 [q_1; q_2(z)]
+    roughLoWeightParams = np.vstack((0.7066*np.ones(bandCentreFreqs.size),
+                                     1.0967
+                                     - 0.064*np.log2(bandCentreFreqs/1000)))
+    roughLoWeightParams = np.expand_dims(roughLoWeightParams, axis=1)
+
+    # Output sample rate (section 7.1.7 ECMA-418-2:2025) [r_s50]
+    sampleRate50 = 50
+
+    # Calibration constant
+    # calibration factor in Section 7.1.7 Equation 104 ECMA-418-2:2025 [c_R]
+    cal_R = 0.0180909
+    cal_Rx = 1/1.0011565  # calibration adjustment factor
+
+    # Footnote 14 (/0 epsilon)
+    eps = 1e-12
 
     # %% Signal processing
 
@@ -268,6 +297,9 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
     # Input signal samples
     n_samples = p_re.shape[0]
+
+    # Section 7.1.7 Equation 103 [l_50,end]
+    l_50Last = int(np.floor(n_samples/sampleRate48k*sampleRate50) + 1)
 
     # Section 5.1.2 ECMA-418-2:2025 Fade in weighting and zero-padding
     pn = shmPreProc(p_re, blockSize=blockSize, hopSize=hopSize, padStart=True,
@@ -286,6 +318,7 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     else:
         chanIter = range(chansIn)
 
+    specRoughness = np.zeros([l_50Last, nBands, chansOut])
     for chan in chanIter:
         # Apply auditory filter bank
         # --------------------------
@@ -305,18 +338,18 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         # pre-allocate output arrays
         i_start = 0  # index to start segmentation block processing from
         _, nBlocks, _ = shmSignalSegmentBlocks(pn_omz[:, 0],
-                                                    blockSize=blockSize,
-                                                    overlap=overlap, axisN=0,
-                                                    i_start=i_start,
-                                                    endShrink=True)
+                                               blockSize=blockSize,
+                                               overlap=overlap, axisN=0,
+                                               i_start=i_start,
+                                               endShrink=True)
         basisLoudness = np.zeros([nBlocks, nBands])
         envelopes = np.zeros([blockSize1500, nBlocks, nBands])
         for zBand in envIter:
             # Segmentation into blocks
             # ------------------------
-    
+
             # Section 5.1.5 ECMA-418-2:2025
-            pn_lz, iBlocksOut = shmSignalSegment(pn_omz[:, zBand],
+            pn_lz, lBlocksOut = shmSignalSegment(pn_omz[:, zBand],
                                                  blockSize=blockSize,
                                                  overlap=overlap, axisN=0,
                                                  i_start=i_start,
@@ -340,7 +373,8 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
         # end of for loop for obtaining low frequency signal envelopes
 
-        # Note: With downsampled envelope signals, parallelised approach can continue
+        # Note: With downsampled envelope signals,
+        # parallelised approach can continue
 
         # Section 7.1.3 equation 66 ECMA-418-2:2025 [Phi(k)_E,l,z]
         modSpectra = np.zeros(envelopes.shape)
@@ -355,8 +389,9 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         mask = denom != 0  # Equation 66 criteria for masking
         maskRep = np.broadcast_to(mask, modSpectra.shape)  # broadcast mask
         scaling = np.divide(basisLoudness**2, denom, out=np.zeros_like(denom),
-                            where=denom != 0)  # Equation 66 factor
-        scalingRep = np.broadcast_to(scaling, maskRep.shape)  # broadcast scaling
+                            where=mask)  # Equation 66 factor
+        # broadcast scaling
+        scalingRep = np.broadcast_to(scaling, maskRep.shape)
         modSpectra[maskRep] = np.ravel((np.reshape(scalingRep[maskRep],
                                                    (blockSize1500, -1, nBands))
                                         * np.abs(fft(np.reshape(envelopeWin[maskRep],
@@ -367,22 +402,25 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         # Envelope noise reduction
         # ------------------------
         # section 7.1.4 ECMA-418-2:2025
-        #TODO change this to numpy slide_tricks
-        modSpectraAvg = bn.move_mean(modSpectra, window=3, axis=2)
+        modSpectraAvg = sliding_window_view(modSpectra, window_shape=3,
+                                            axis=2).mean(axis=3)
         modSpectraAvg = np.concatenate((shmDimensional(modSpectra[:, :, 0],
                                                        targetDim=3,
                                                        where='last'),
-                                        modSpectraAvg[:, :, 2:],
+                                        modSpectraAvg,
                                         shmDimensional(modSpectra[:, :, -1],
-                                        targetDim=3, where='last')), axis=2)
+                                                       targetDim=3,
+                                                       where='last')), axis=2)
 
-        modSpectraAvgSum = np.sum(modSpectraAvg, axis=2)  # Equation 68 [s(l,k)]
+        # Equation 68 [s(l,k)]
+        modSpectraAvgSum = np.sum(modSpectraAvg, axis=2)
 
         # Equation 71 ECMA-418-2:2025 [wtilde(l,k)]
         clipWeight = (0.0856*modSpectraAvgSum[0:int(modSpectraAvg.shape[0]/2) + 1, :]
                       / (np.median(modSpectraAvgSum[2:int(modSpectraAvg.shape[0]/2), :],
                                    axis=0) + 1e-10)
-                      * shmDimensional(np.minimum(np.maximum(0.1891*np.exp(0.012*np.arange(0, int(modSpectraAvg.shape[0]/2)
+                      * shmDimensional(np.minimum(np.maximum(0.1891*np.exp(0.012*np.arange(0,
+                                                                                           int(modSpectraAvg.shape[0]/2)
                                                                                            + 1)),
                                                              0),
                                                   1)))
@@ -390,7 +428,8 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         # Equation 70 ECMA-418-2:2025 [w(l,k)]
         weightingFactor1 = np.zeros(modSpectraAvgSum[0:257, :].shape)
         mask = clipWeight >= 0.05*np.max(clipWeight[2:256, :], axis=0)
-        weightingFactor1[mask] = np.minimum(np.maximum(clipWeight[mask] - 0.1407, 0), 1)
+        weightingFactor1[mask] = np.minimum(np.maximum(clipWeight[mask]
+                                                       - 0.1407, 0), 1)
         weightingFactor = np.concatenate((weightingFactor1,
                                           np.flipud(weightingFactor1[1:256,
                                                                      :])),
@@ -412,19 +451,13 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
         if waitBar:
             rateIter = tqdm(range(nBands),
-                            desc="Critical band modulation rates")
+                            desc="Modulation rates")
         else:
             rateIter = range(nBands)
 
-        if waitBar:
-            blockIter = tqdm(range(nBlocks),
-                             desc="Time block modulation rates")
-        else:
-            blockIter = range(nBlocks)
-
         for zBand in rateIter:
             # Section 7.1.5.1 ECMA-418-2:2025
-            for lBlock in blockIter:
+            for lBlock in range(nBlocks):
                 # identify peaks in each block (for each band)
                 startIdx = 2
                 endIdx = 255
@@ -435,96 +468,99 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                                             prominence=0)
                 PhiPks = modWeightSpectraAvgBandBlock[kLocs]
                 proms = pkProps['prominences']
-    
+
                 # reindex kLocs to match spectral start index used in findpeaks
                 # for indexing into modulation spectra matrices
                 kLocs = kLocs + startIdx
-                
+
                 # we canonly have peaks at k = 3:254
                 mask = np.isin(kLocs, range(3, 255))
                 kLocs = kLocs[mask]
                 PhiPks = PhiPks[mask]
-    
+
                 # consider 10 highest prominence peaks only
                 if len(proms) > 10:
                     promsSorted = np.sort(proms)[::-1]
                     iiSort = np.argsort(proms)[::-1]
                     mask = proms >= promsSorted[9]
-                    
+
                     # if branch to deal with duplicated peak prominences
                     if sum(mask) > 10:
-                       mask = mask[iiSort <= 9]
+                        mask = mask[iiSort <= 9]
                     # end of if branch for duplicated peak prominences
-    
+
                     PhiPks = PhiPks[mask]
                     kLocs = kLocs[mask]
-    
+
                 # end of if branch to select 10 highest prominence peaks
-    
+
                 # consider peaks meeting criterion
                 if PhiPks.size != 0:
                     mask = PhiPks > 0.05*np.max(PhiPks)  # Equation 72 criterion
                     PhiPks = PhiPks[mask]  # [Phihat(k_p,i(l,z))]
                     kLocs = kLocs[mask]
                     # loop over peaks to obtain modulation rates
-                    
-                    if waitBar:
-                        peakIter = tqdm(range(len(PhiPks)))
-                    else:
-                        peakIter = range(len(PhiPks))
-                    
-                    for iPeak in peakIter:
+                    for iPeak in range(len(PhiPks)):
                         # Equation 74 ECMA-418-2:2025
                         # [Phihat_E,l,z]
-                        modAmpMat = np.vstack((modWeightSpectraAvg[kLocs[iPeak] - 1, lBlock, zBand],
-                                               modWeightSpectraAvg[kLocs[iPeak], lBlock, zBand],
-                                               modWeightSpectraAvg[kLocs[iPeak] + 1, lBlock, zBand]))
-                        
+                        modAmpMat = np.vstack((modWeightSpectraAvg[kLocs[iPeak] - 1,
+                                                                   lBlock, zBand],
+                                               modWeightSpectraAvg[kLocs[iPeak],
+                                                                   lBlock, zBand],
+                                               modWeightSpectraAvg[kLocs[iPeak] + 1,
+                                                                   lBlock, zBand]))
+
                         # Equation 82 [A_i(l,z)]
                         modAmp[iPeak, lBlock, zBand] = np.sum(modAmpMat)
-    
+
                         # Equation 75 ECMA-418-2:2025
                         # [K]
-                        modIndexMat = np.vstack((np.hstack(((kLocs[iPeak] - 1)**2, kLocs[iPeak] - 1, 1)),
-                                                 np.hstack(((kLocs[iPeak])**2, kLocs[iPeak], 1)),
-                                                 np.hstack(((kLocs[iPeak] + 1)**2, kLocs[iPeak] + 1, 1))))
-    
+                        modIndexMat = np.vstack((np.hstack(((kLocs[iPeak] - 1)**2,
+                                                            kLocs[iPeak] - 1, 1)),
+                                                 np.hstack(((kLocs[iPeak])**2,
+                                                            kLocs[iPeak], 1)),
+                                                 np.hstack(((kLocs[iPeak] + 1)**2,
+                                                            kLocs[iPeak] + 1, 1))))
+
                         # Equation 73 solution [C]
                         coeffVec = np.linalg.solve(modIndexMat, modAmpMat)
-    
+
                         # Equation 76 ECMA-418-2:2025 [ftilde_p,i(l,z)]
                         modRateEst = (-(coeffVec[1]/(2*coeffVec[0]))*resDFT1500).item(0)
-    
+
                         # Equation 79 ECMA-418-2:2025 [beta(theta)]
                         errorBeta = ((np.floor(modRateEst/resDFT1500)
                                       + theta[:33]/32)*resDFT1500
-                                      - (modRateEst + errorCorrection[theta[:33]]))
-    
+                                     - (modRateEst
+                                        + errorCorrection[theta[:33]]))
+
                         # Equation 80 ECMA-418-2:2025 [theta_min]
                         thetaMinError = np.argmin(np.abs(errorBeta))
-    
+
                         # Equation 81 ECMA-418-2:2025 [theta_corr]
-                        if (thetaMinError > 0) and (errorBeta[thetaMinError]*errorBeta[thetaMinError - 1] < 0):
+                        if (thetaMinError > 0) and (errorBeta[thetaMinError]*errorBeta[thetaMinError
+                                                                                       - 1]
+                                                    < 0):
                             thetaCorr = thetaMinError
                         else:
                             thetaCorr = thetaMinError + 1
                         # end of eq 81 if-branch
-    
+
                         # Equation 78 ECMA-418-2:2025
                         # [rho(ftilde_p,i(l,z))]
                         biasAdjust = (errorCorrection[thetaCorr - 1]
                                       - (errorCorrection[thetaCorr]
                                          - errorCorrection[thetaCorr - 1])
-                                         * errorBeta[thetaCorr - 1]
-                                         / (errorBeta[thetaCorr]
-                                            - errorBeta[thetaCorr - 1]))
-    
+                                      * errorBeta[thetaCorr - 1]
+                                      / (errorBeta[thetaCorr]
+                                         - errorBeta[thetaCorr - 1]))
+
                         # Equation 77 ECMA-418-2:2025 [f_p,i(l,z)]
                         modRate[iPeak, lBlock, zBand] = modRateEst + biasAdjust
-    
+
                     # end of for loop over peaks in block per band
                 # end of if branch for detected peaks in modulation spectrum
-            # end of for loop over blocks for peak detection      
+            # end of for loop over blocks for peak detection
         # end  of for loop over bands for modulation spectral weighting
 
         # Section 7.1.5.2 ECMA-418-2:2025 - Weighting for high modulation rates
@@ -532,25 +568,217 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         roughHiWeight = shmRoughWeight(modRate, modfreqMaxWeight,
                                        roughHiWeightParams)
 
-    # Equation 83 [Atilde_i(l,z)]
-    modAmpHiWeight = modAmp*roughScale
-    mask = modRate <= resDFT1500
-    modAmpHiWeight[mask] = 0
-    mask = modRate > modfreqMaxWeight
-    modAmpHiWeight[mask] = modAmpHiWeight[mask]*roughHiWeight[mask]
+        # Equation 83 [Atilde_i(l,z)]
+        modAmpHiWeight = modAmp*roughScale
+        mask = modRate <= resDFT1500
+        modAmpHiWeight[mask] = 0
+        mask = modRate > modfreqMaxWeight
+        modAmpHiWeight[mask] = modAmpHiWeight[mask]*roughHiWeight[mask]
 
+        # Section 7.1.5.3 ECMA-418-2:2025 - Estimation of fundamental modulation rate
+        # TODO: replace the loop approach with a parallelised approach!
+        # matrix initialisation to ensure zero rates do not cause missing bands in output
+        modFundRate = np.zeros([nBlocks, nBands])
+        modMaxWeight = np.zeros([10, nBlocks, nBands])
+
+        if waitBar:
+            rateIter = tqdm(range(nBands),
+                            desc="Fundamental rates")
+        else:
+            rateIter = range(nBands)
+
+        for zBand in rateIter:
+            for lBlock in range(nBlocks):
+                # Proceed with rate detection if non-zero modulation rates
+                if np.max(modRate[:, lBlock, zBand]) > 0:
+                    modRateForLoop = modRate[modRate[:, lBlock, zBand] > 0,
+                                             lBlock, zBand]
+
+                    nPeaks = len(modRateForLoop)
+
+                    # initialise empty list for equation 90
+                    indSetiPeak = np.empty([nPeaks,], dtype=object)
+                    # initialise empty matrix for equation 91
+                    harmCompEnergy = np.empty([nPeaks,], dtype=object)
+
+                    for iPeak in range(nPeaks):
+                        # Equation 88 [R_i_0(i)]
+                        modRateRatio = shmRound(modRateForLoop/modRateForLoop[iPeak])
+                        uniqRatios, startGroupInds, countDupes = np.unique(modRateRatio,
+                                                                           return_index=True,
+                                                                           return_counts=True)
+
+                        # add any non-duplicated ratio indices
+                        testIndices = -np.ones([10,]).astype(int)
+                        if len(startGroupInds[countDupes == 1]) > 0:
+                            testIndices[0:len(startGroupInds[countDupes == 1])] = startGroupInds[countDupes == 1]
+                        # end of non-duplicated ratio if branch
+
+                        # loop over duplicated values to select single index
+                        if np.max(countDupes) > 1:
+                            dupeRatioVals = uniqRatios[countDupes > 1]
+                            for jDupe in range(len(dupeRatioVals)):
+
+                                # Equation 89 [i]
+                                dupeGroupInds = (modRateRatio == dupeRatioVals[jDupe]).nonzero()[0]
+                                denom = modRateRatio[dupeGroupInds]*modRateForLoop[iPeak]
+                                testDupe = np.abs(np.divide(modRateForLoop[dupeGroupInds],
+                                                            denom,
+                                                            out=np.zeros_like(denom),
+                                                            where=denom != 0) - 1)
+
+                                # discard if no testDupes
+                                if len(testDupe) > 0:
+                                    testDupeMin = np.argmin(testDupe)
+                                    # append selected index
+                                    testIndices[len(startGroupInds[countDupes == 1])
+                                                + jDupe] = dupeGroupInds[testDupeMin]
+                                # end of if branch for testDupes
+                            # end of for loop over duplicated ratios
+                        # end of if branch for duplicated ratios
+
+                        # discard negative indices
+                        testIndices = testIndices[testIndices >= 0]
+
+                        # Equation 90 [I_i_0]
+                        denom = modRateRatio[testIndices]*modRateForLoop[iPeak]
+                        harmComplexTest = np.abs(np.divide(modRateForLoop[testIndices],
+                                                           denom,
+                                                           out=np.zeros_like(denom),
+                                                           where=denom != 0) - 1)
+                        indSetiPeak[iPeak] = testIndices[harmComplexTest < 0.04]
+
+                        # Equation 91 [E_i_0]
+                        harmCompEnergy[iPeak] = np.sum(modAmpHiWeight[indSetiPeak[iPeak],
+                                                                      lBlock,
+                                                                      zBand])
+
+                    # end of loop over peaks
+
+                    harmCompEnergy = harmCompEnergy.astype(float)
+                    iMaxEnergy = np.argmax(harmCompEnergy)
+                    indSetMax = indSetiPeak[iMaxEnergy]
+                    modFundRate[lBlock, zBand] = modRateForLoop[iMaxEnergy]
+                    # Equation 94 [i_peak]
+                    iPeakAmp = np.argmax(modAmpHiWeight[indSetMax, lBlock, zBand])
+                    iPeak = indSetMax[iPeakAmp]
+
+                    # Equation 93 [w_peak]
+                    gravityWeight = 1 + 0.1*np.abs(np.sum(modRateForLoop[indSetMax]
+                                                          * modAmpHiWeight[indSetMax,
+                                                                           lBlock,
+                                                                           zBand],
+                                                          axis=0)
+                                                   / np.sum(modAmpHiWeight[indSetMax,
+                                                                           lBlock,
+                                                                           zBand]
+                                                            + eps, axis=0)
+                                                   - modRateForLoop[iPeak])**0.749
+
+                    # Equation 92 [Ahat(i)]
+                    modMaxWeight[indSetMax,
+                                 lBlock,
+                                 zBand] = gravityWeight*modAmpHiWeight[indSetMax,
+                                                                       lBlock,
+                                                                       zBand]
+
+                # end of if branch for non-zero modulation rates
+            # end of for loop over blocks
+        # end of for loop over bands
+
+        # Equation 95 [A(l,z)]
+        roughLoWeight = shmRoughWeight(modFundRate, modfreqMaxWeight,
+                                       roughLoWeightParams)
+        modMaxWeightSum = np.sum(modMaxWeight, axis=0)
+        modMaxLoWeight = np.sum(roughLoWeight*modMaxWeight, axis=0)
+        mask = modFundRate <= resDFT1500
+        modMaxLoWeight[mask] = 0
+        mask = modFundRate > modfreqMaxWeight
+        modMaxLoWeight[mask] = modMaxWeightSum[mask]
+        modAmpMax = modMaxLoWeight
+        modAmpMax[modAmpMax < 0.074376] = 0
+
+        # Time-dependent specific roughness
+        # ---------------------------------
+        # Section 7.1.7 ECMA-418-2:2025
+
+        # Section 7.1.7 interpolation to 50 Hz sampling rate    
+        t = lBlocksOut/sampleRate48k
+        t50 = np.linspace(0, signalT, l_50Last)
+        # TODO: check the 2025 version redefinition of t(l) makes sense
+
+        if waitBar:
+            interpIter = tqdm(range(nBands),
+                              desc="Interpolation")
+        else:
+            interpIter = range(nBands)
+
+        specRoughEst = np.zeros([l_50Last, nBands])
+        for zBand in interpIter:
+            interpolator = PchipInterpolator(t, modAmpMax[:, zBand], axis=0)
+            specRoughEst[:, zBand] = interpolator(t50)
+        # end of for loop for interpolation
+        specRoughEst[specRoughEst < 0] = 0  # [R'_est(l_50,z)]
+
+        # Section 7.1.7 Equation 107 [Rtilde'_est(l_50)]
+        specRoughEstRMS = np.sqrt(np.mean(specRoughEst**2, axis=1))
+
+        # Section 7.1.7 Equation 108 [Rbar'_est(l_50)]
+        specRoughEstAvg = np.mean(specRoughEst, axis=1)
+
+        # Section 7.1.7 Equation 106 [B(l_50)]
+        Bl50 = np.zeros(specRoughEstAvg.size)
+        mask = specRoughEstAvg != 0
+        Bl50[mask] = specRoughEstRMS[mask]/specRoughEstAvg[mask]
+
+        # Section 7.1.7 Equation 105 [E(l_50)]
+        El50 = (0.95555 - 0.58449)*(np.tanh(1.6407*(Bl50 - 2.5804)) + 1)*0.5 + 0.58449
+
+        # Section 7.1.7 Equation 104 [Rhat'(l_50,z)]
+        specRoughEstTform = cal_R*cal_Rx*(specRoughEst.T**El50).T
+
+        # Section 7.1.7 Equation 109-110 [R'(l_50,z)]
+        riseTime = 0.0625
+        fallTime = 0.5
+        specRoughness[:, :, chan] = shmRoughLowPass(specRoughEstTform, sampleRate50,
+                                                    riseTime, fallTime)
+
+    # end of for loop over channels
+
+    # Binaural roughness
+    # Section 7.1.11 ECMA-418-2:2025 [R'_B(l_50,z)]
+    if chansIn == 2 and binaural:
+        # Equation 112
+        specRoughness[:, :, 2] = np.sqrt(np.sum(specRoughness[:, :, 0:2]**2, axis=2)/2)
+    # end of if branch for combined binaural
+
+    # Section 7.1.8 ECMA-418-2:2025
+    # Time-averaged specific roughness [R'(z)]
+    specRoughnessAvg = np.mean(specRoughness[16:, :, :], axis=0)
+
+    # Section 7.1.9 ECMA-418-2:2025
+    # Time-dependent roughness Equation 111 [R(l_50)]
+    roughnessTDep = np.sum(specRoughness*dz, axis=1)
+
+    # ensure channel dimension is retained (to ease plotting)
+    if chansOut == 1:
+        specRoughnessAvg = shmDimensional(specRoughnessAvg)
+        roughnessTDep = shmDimensional(roughnessTDep)
+
+    # Section 7.1.10 ECMA-418-2:2025
+    # Overall roughness [R]
+    roughness90Pc = np.percentile(roughnessTDep[16:, :], 90, axis=0)
+
+    # time (s) corresponding with results output [t]
+    timeOut = np.arange(0, (specRoughness.shape[0]))/sampleRate50
 
     # %% Output plotting
 
     # Plot figures
     # ------------
     if outPlot:
-        if waitBar:
-            plotIter = tqdm(range(chansOut), desc="Channels")
-        else:
-            plotIter = range(chansOut)
-
-        for chan in plotIter:
+        # Plot results
+        for chan in range(chansOut):
             # Plot results
             cmap_inferno = mpl.colormaps['inferno']
             chan_lab = chans[chan]
@@ -559,11 +787,11 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
             ax1 = axs[0]
             pmesh = ax1.pcolormesh(timeOut, bandCentreFreqs,
-                                   np.swapaxes(specLoudness[:, :, chan], 0, 1),
+                                   np.swapaxes(specRoughness[:, :, chan], 0, 1),
                                    cmap=cmap_inferno,
                                    vmin=0,
-                                   vmax=np.ceil(np.max(loudnessTDep[:,
-                                                                    chan])*10)/10,
+                                   vmax=np.ceil(np.max(specRoughness[:, :,
+                                                                     chan])*500)/500,
                                    shading='gouraud')
             ax1.set(xlim=[timeOut[1],
                           timeOut[-1] + (timeOut[1] - timeOut[0])],
@@ -577,27 +805,27 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             ax1.minorticks_off()
             cbax = ax1.inset_axes([1.05, 0, 0.05, 1])
             fig.colorbar(pmesh, ax=ax1,
-                         label=(r"Specific loudness,"
+                         label=(r"Specific roughness,"
                                 "\n"
-                                r"$\mathregular{tu_{SHM}}/\mathregular{Bark_{SHM}}$"),
+                                r"$\mathregular{asper_{SHM}}/\mathregular{Bark_{SHM}}$"),
                          aspect=10, cax=cbax)
 
             ax2 = axs[1]
-            ax2.plot(timeOut, loudnessPowAvg[chan]*np.ones(timeOut.size),
+            ax2.plot(timeOut, roughness90Pc[chan]*np.ones(timeOut.size),
                      color=cmap_inferno(33/255), linewidth=1,
-                     label=("Time-" + "\n" + "average"))
-            ax2.plot(timeOut, loudnessTDep[:, chan],
+                     label=("90th-" + "\n" + "percentile"))
+            ax2.plot(timeOut, roughnessTDep[:, chan],
                      color=cmap_inferno(165/255),
                      linewidth=0.75, label=("Time-" + "\n" + "dependent"))
             ax2.set(xlim=[timeOut[0], timeOut[-1] + timeOut[1] - timeOut[0]],
                     xlabel="Time, s",
-                    ylim=[0, 1.1*np.ceil(np.max(loudnessTDep[:, chan])*10)/10],
-                    ylabel=(r"Loudness, $\mathregular{sone_{SHM}}$"))
+                    ylim=[0, 1.1*np.ceil(np.max(roughnessTDep[:, chan])*10)/10],
+                    ylabel=(r"Roughness, $\mathregular{asper_{SHM}}$"))
             ax2.grid(alpha=0.075, linestyle='--')
             ax2.legend(bbox_to_anchor=(1, 0.85), title="Overall")
 
             # Filter signal to determine A-weighted time-averaged level
-            if chan == 3:
+            if chan == 2:
                 pA = A_weight_T(p_re, fs=sampleRate48k)
                 LAeq2 = 20*np.log10(np.array([rms(pA[:, 0]),
                                               rms(pA[:, 1])])/2e-5)
@@ -626,33 +854,34 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
     # %% Output assignment
 
+    # Discard singleton dimensions
+    if chansOut == 1:
+        specRoughness = np.squeeze(specRoughness)
+        specRoughnessAvg = np.squeeze(specRoughnessAvg)
+        roughnessTDep = np.squeeze(roughnessTDep)
+    # end of if branch for singleton dimensions
+
     # Assign outputs to structure
     if chansOut == 3:
-        loudnessSHM = dict()
-        loudnessSHM.update({'specLoudness': specLoudness[:, :, 0:2]})
-        loudnessSHM.update({'specTonalLoudness': specTonalLoudness[:, :, 0:2]})
-        loudnessSHM.update({'specNoiseLoudness': specNoiseLoudness[:, :, 0:2]})
-        loudnessSHM.update({'specLoudnessPowAvg': specLoudnessPowAvg[:, 0:2]})
-        loudnessSHM.update({'loudnessTDep': loudnessTDep[:, 0:2]})
-        loudnessSHM.update({'loudnessPowAvg': loudnessPowAvg[0:2]})
-        loudnessSHM.update({'specLoudnessBin': specLoudness[:, :, 3]})
-        loudnessSHM.update({'specTonalLoudnessBin': specTonalLoudness[:, :, 3]})
-        loudnessSHM.update({'specNoiseLoudnessBin': specNoiseLoudness[:, :, 3]})
-        loudnessSHM.update({'specLoudnessPowAvgBin': specLoudnessPowAvg[:, 3]})
-        loudnessSHM.update({'loudnessTDepBin': loudnessTDep[:, 3]})
-        loudnessSHM.update({'loudnessPowAvgBin': loudnessPowAvg[3]})
-        loudnessSHM.update({'bandCentreFreqs': bandCentreFreqs})
-        loudnessSHM.update({'timeOut': timeOut})
-        loudnessSHM.update({'soundField': soundField})
+        roughnessSHM = dict()
+        roughnessSHM.update({'specRoughness': specRoughness[:, :, 0:2]})
+        roughnessSHM.update({'specRoughnessAvg': specRoughnessAvg[:, 0:2]})
+        roughnessSHM.update({'roughnessTDep': roughnessTDep[:, 0:2]})
+        roughnessSHM.update({'roughness90Pc': roughness90Pc[0:2]})
+        roughnessSHM.update({'specRoughness': specRoughness[:, :, 2]})
+        roughnessSHM.update({'specRoughnessAvgBin': specRoughnessAvg[:, 2]})
+        roughnessSHM.update({'roughnessTDepBin': roughnessTDep[:, 2]})
+        roughnessSHM.update({'roughness90PcBin': roughness90Pc[2]})
+        roughnessSHM.update({'bandCentreFreqs': bandCentreFreqs})
+        roughnessSHM.update({'timeOut': timeOut})
+        roughnessSHM.update({'soundField': soundField})
     else:
-        loudnessSHM.update({'specLoudness': specLoudness})
-        loudnessSHM.update({'specTonalLoudness': specTonalLoudness})
-        loudnessSHM.update({'specNoiseLoudness': specNoiseLoudness})
-        loudnessSHM.update({'specLoudnessPowAvg': specLoudnessPowAvg})
-        loudnessSHM.update({'loudnessTDep': loudnessTDep})
-        loudnessSHM.update({'loudnessPowAvg': loudnessPowAvg})
-        loudnessSHM.update({'bandCentreFreqs': bandCentreFreqs})
-        loudnessSHM.update({'timeOut': timeOut})
-        loudnessSHM.update({'soundField': soundField})
+        roughnessSHM.update({'specRoughness': specRoughness})
+        roughnessSHM.update({'specRoughnessAvg': specRoughnessAvg})
+        roughnessSHM.update({'roughnessTDep': roughnessTDep})
+        roughnessSHM.update({'roughness90Pc': roughness90Pc})
+        roughnessSHM.update({'bandCentreFreqs': bandCentreFreqs})
+        roughnessSHM.update({'timeOut': timeOut})
+        roughnessSHM.update({'soundField': soundField})
 
 # end of acousticSHRoughness function

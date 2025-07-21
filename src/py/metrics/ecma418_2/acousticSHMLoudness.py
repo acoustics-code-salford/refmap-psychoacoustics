@@ -25,7 +25,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 29/05/2023
-Date last modified: 01/07/2025
+Date last modified: 21/07/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -49,7 +49,8 @@ from src.py.metrics.ecma418_2.acousticSHMSubs import (shmResample, shmPreProc,
                                                       shmAuditoryFiltBank,
                                                       shmSignalSegment,
                                                       shmBasisLoudness,
-                                                      shmNoiseRedLowPass)
+                                                      shmNoiseRedLowPass,
+                                                      shmDimensional)
 from src.py.metrics.ecma418_2.acousticSHMTonality import acousticSHMTonality
 from tqdm import tqdm
 import bottleneck as bn
@@ -240,17 +241,16 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
     specTonalLoudness = tonalitySHM['specTonalLoudness']  # [N'_tonal(l,z)]
     specNoiseLoudness = tonalitySHM['specNoiseLoudness']  # [N'_noise(l,z)]
+    
+    # expand dimensions to ease processing
+    if chansIn == 1:
+        specTonalLoudness = shmDimensional(specTonalLoudness)
+        specNoiseLoudness = shmDimensional(specNoiseLoudness)
 
     # Section 8.1.1 ECMA-418-2:2025
     # Weight and combine component specific loudnesses
-    if waitBar:
-        chanIter = tqdm(range(chansIn), desc="Channels")
-    else:
-        chanIter = range(chansIn)
-
-    # pre-allocate array
-    specLoudness = np.zeros(specTonalLoudness.shape)
-    for chan in chanIter:
+    specLoudness = np.zeros(specTonalLoudness.shape)  # pre-allocate array
+    for chan in range(chansIn):
         # Equation 114 ECMA-418-2:2025 [e(z)]
         maxLoudnessFuncel = a/(np.max(specTonalLoudness[:, :, chan]
                                       + specNoiseLoudness[:, :, chan], axis=1)
@@ -297,12 +297,8 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # Plot figures
     # ------------
     if outPlot:
-        if waitBar:
-            plotIter = tqdm(range(chansOut), desc="Channels")
-        else:
-            plotIter = range(chansOut)
-
-        for chan in plotIter:
+        # Plot results
+        for chan in range(chansOut):
             # Plot results
             cmap_viridis = mpl.colormaps['viridis']
             chan_lab = chans[chan]
@@ -349,7 +345,7 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             ax2.legend(bbox_to_anchor=(1, 0.85), title="Overall")
 
             # Filter signal to determine A-weighted time-averaged level
-            if chan == 3:
+            if chan == 2:
                 pA = A_weight_T(p_re, fs=sampleRate48k)
                 LAeq2 = 20*np.log10(np.array([rms(pA[:, 0]),
                                               rms(pA[:, 1])])/2e-5)
@@ -378,6 +374,15 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
     # %% Output assignment
 
+    # Discard singleton dimensions
+    if chansOut == 1:
+        specLoudness = np.squeeze(specLoudness)
+        specTonalLoudness = np.squeeze(specTonalLoudness)
+        specNoiseLoudness = np.squeeze(specNoiseLoudness)
+        specLoudnessPowAvg = np.squeeze(specLoudnessPowAvg)
+        loudnessTDep = np.squeeze(loudnessTDep)
+    # end of if branch for singleton dimensions
+
     # Assign outputs to structure
     if chansOut == 3:
         loudnessSHM = dict()
@@ -387,12 +392,12 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         loudnessSHM.update({'specLoudnessPowAvg': specLoudnessPowAvg[:, 0:2]})
         loudnessSHM.update({'loudnessTDep': loudnessTDep[:, 0:2]})
         loudnessSHM.update({'loudnessPowAvg': loudnessPowAvg[0:2]})
-        loudnessSHM.update({'specLoudnessBin': specLoudness[:, :, 3]})
-        loudnessSHM.update({'specTonalLoudnessBin': specTonalLoudness[:, :, 3]})
-        loudnessSHM.update({'specNoiseLoudnessBin': specNoiseLoudness[:, :, 3]})
-        loudnessSHM.update({'specLoudnessPowAvgBin': specLoudnessPowAvg[:, 3]})
-        loudnessSHM.update({'loudnessTDepBin': loudnessTDep[:, 3]})
-        loudnessSHM.update({'loudnessPowAvgBin': loudnessPowAvg[3]})
+        loudnessSHM.update({'specLoudnessBin': specLoudness[:, :, 2]})
+        loudnessSHM.update({'specTonalLoudnessBin': specTonalLoudness[:, :, 2]})
+        loudnessSHM.update({'specNoiseLoudnessBin': specNoiseLoudness[:, :, 2]})
+        loudnessSHM.update({'specLoudnessPowAvgBin': specLoudnessPowAvg[:, 2]})
+        loudnessSHM.update({'loudnessTDepBin': loudnessTDep[:, 2]})
+        loudnessSHM.update({'loudnessPowAvgBin': loudnessPowAvg[2]})
         loudnessSHM.update({'bandCentreFreqs': bandCentreFreqs})
         loudnessSHM.update({'timeOut': timeOut})
         loudnessSHM.update({'soundField': soundField})

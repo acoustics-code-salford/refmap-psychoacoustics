@@ -102,7 +102,7 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 01/07/2025
+% Date last modified: 21/07/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -642,7 +642,8 @@ end  % end of for loop over channels
 % Binaural roughness
 % Section 7.1.11 ECMA-418-2:2025 [R'_B(l_50,z)]
 if chansIn == 2 && binaural
-    specRoughness(:, :, 3) = sqrt(sum(specRoughness.^2, 3)/2);  % Equation 112
+    % Equation 112
+    specRoughness(:, :, 3) = sqrt(sum(specRoughness(:, :, 1:2).^2, 3)/2);
     chansOut = 3;  % set number of 'channels' to stereo plus single binaural
     chans = [chans;
              "Binaural"];
@@ -667,7 +668,7 @@ end
 
 % Section 7.1.10 ECMA-418-2:2025
 % Overall roughness [R]
-roughness90Pc = prctile(roughnessTDep(17:end, :, :), 90, 1);
+roughness90Pc = prctile(roughnessTDep(17:end, :), 90, 1);
 
 % time (s) corresponding with results output [t]
 timeOut = (0:(size(specRoughness, 1) - 1))/sampleRate50;
@@ -689,6 +690,7 @@ if outPlot
         view(2);
         ax1.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
         ax1.YLim = [bandCentreFreqs(1), bandCentreFreqs(end)];
+        ax1.CLim = [0, ceil(max(specRoughness(:, :, chan), [], 'all')*500)/500];
         ax1.YTick = [63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3]; 
         ax1.YTickLabel = ["63", "125", "250", "500", "1k", "2k", "4k",...
                           "8k", "16k"];

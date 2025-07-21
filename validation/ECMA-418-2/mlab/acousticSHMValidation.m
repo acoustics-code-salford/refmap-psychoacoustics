@@ -1,8 +1,9 @@
 function acousticSHMValidation(savePlots)
 % acousticSHMValidation
 %
-% Compares ECMA-418-2 (Sottek Hearing Model) implementation with values
-% obtained using commercially-available software for reference signals.
+% Compares ECMA-418-2:2025 (Sottek Hearing Model) implementation with
+% values obtained using commercially-available software for reference
+% signals.
 %
 % Inputs
 % ------
@@ -15,7 +16,7 @@ function acousticSHMValidation(savePlots)
 % Institution: University of Salford
 %
 % Date created: 19/08/2024
-% Date last modified: 14/05/2025
+% Date last modified: 21/07/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -89,33 +90,33 @@ BusyStreet1_0530_0600.RoughSpecBin = readmatrix(fullfile(refpath, "BusyStreet1_0
 BusyStreet1_0530_0600.RoughSpecTDepBin = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.RoughSpec_HMS_TDep_Bin.asc"), 'FileType', 'text');
 
 % single values
-validation_ECMA_418_2_2_2022_LR = readcell(fullfile(refpath, "validation_ECMA-418-2_2022_LR.xlsx"),...
+validation_ECMA_418_2_3_2024_LR = readcell(fullfile(refpath, "validation_ECMA-418-2_2024_LR.xlsx"),...
                                             'NumHeaderLines', 0);
 
-sine_1kHz_40dB.Loudness = validation_ECMA_418_2_2_2022_LR{2, 3};
-sine_1kHz_70Hz_60dB.Loudness = validation_ECMA_418_2_2_2022_LR{3, 3};
-BusyStreet1_0530_0600.Loudness = [validation_ECMA_418_2_2_2022_LR{4, 3},...
-                                  validation_ECMA_418_2_2_2022_LR{5, 3}];
+sine_1kHz_40dB.Loudness = validation_ECMA_418_2_3_2024_LR{2, 3};
+sine_1kHz_70Hz_60dB.Loudness = validation_ECMA_418_2_3_2024_LR{3, 3};
+BusyStreet1_0530_0600.Loudness = [validation_ECMA_418_2_3_2024_LR{4, 3},...
+                                  validation_ECMA_418_2_3_2024_LR{5, 3}];
 
-sine_1kHz_40dB.Tonality = validation_ECMA_418_2_2_2022_LR{2, 5};
-sine_1kHz_70Hz_60dB.Tonality = validation_ECMA_418_2_2_2022_LR{3, 5};
-BusyStreet1_0530_0600.Tonality = [validation_ECMA_418_2_2_2022_LR{4, 5},...
-                                  validation_ECMA_418_2_2_2022_LR{5, 5}];
+sine_1kHz_40dB.Tonality = validation_ECMA_418_2_3_2024_LR{2, 5};
+sine_1kHz_70Hz_60dB.Tonality = validation_ECMA_418_2_3_2024_LR{3, 5};
+BusyStreet1_0530_0600.Tonality = [validation_ECMA_418_2_3_2024_LR{4, 5},...
+                                  validation_ECMA_418_2_3_2024_LR{5, 5}];
 
-sine_1kHz_40dB.Roughness = validation_ECMA_418_2_2_2022_LR{2, 4};
-sine_1kHz_70Hz_60dB.Roughness = validation_ECMA_418_2_2_2022_LR{3, 4};
-BusyStreet1_0530_0600.Roughness = [validation_ECMA_418_2_2_2022_LR{4, 4},...
-                                   validation_ECMA_418_2_2_2022_LR{5, 4}];
+sine_1kHz_40dB.Roughness = validation_ECMA_418_2_3_2024_LR{2, 4};
+sine_1kHz_70Hz_60dB.Roughness = validation_ECMA_418_2_3_2024_LR{3, 4};
+BusyStreet1_0530_0600.Roughness = [validation_ECMA_418_2_3_2024_LR{4, 4},...
+                                   validation_ECMA_418_2_3_2024_LR{5, 4}];
 
-validation_ECMA_418_2_2_2022_Bin = readcell(fullfile(refpath, "validation_ECMA-418-2_2022_Bin.xlsx"),...
+validation_ECMA_418_2_3_2024_Bin = readcell(fullfile(refpath, "validation_ECMA-418-2_2022_Bin.xlsx"),...
                                             'NumHeaderLines', 0);
 
-BusyStreet1_0530_0600.LoudnessBin = validation_ECMA_418_2_2_2022_Bin{2, 2};
-BusyStreet1_0530_0600.RoughnessBin = validation_ECMA_418_2_2_2022_Bin{2, 3};
+BusyStreet1_0530_0600.LoudnessBin = validation_ECMA_418_2_3_2024_Bin{2, 2};
+BusyStreet1_0530_0600.RoughnessBin = validation_ECMA_418_2_3_2024_Bin{2, 3};
 
 % concatenate results
 
-signalLabs = string(validation_ECMA_418_2_2_2022_LR(:, 1)) + " " + string(validation_ECMA_418_2_2_2022_LR(:, 2));
+signalLabs = string(validation_ECMA_418_2_3_2024_LR(:, 1)) + " " + string(validation_ECMA_418_2_3_2024_LR(:, 2));
 signalLabs = signalLabs(2:end);
 signalLabs = eraseBetween(signalLabs, " ", "Ch");
 signalLabs = [signalLabs; extractBefore(signalLabs(end), " ") + " Bin"];

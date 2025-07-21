@@ -25,7 +25,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 25/05/2023
-Date last modified: 01/07/2025
+Date last modified: 21/07/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -560,13 +560,7 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
         # Calculation of time-averaged specific tonality Section 6.2.9
         # ECMA-418-2:2025 [T'(z)]
-        if waitBar:
-            bandSpecTIter = tqdm(range(nBands),
-                                 desc="Specific tonality aggregation")
-        else:
-            bandSpecTIter = range(nBands)
-
-        for zBand in bandSpecTIter:
+        for zBand in range(nBands):
             # criterion Section 6.2.9 point 2
             mask = specTonality[:, zBand, chan] > 0.02
             mask[0:57] = False  # criterion Section 6.2.9 point 1
@@ -598,12 +592,7 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         tonalityTDep[:, chan] = np.max(specTonality[:, :, chan], 1)
         zmax = np.argmax(specTonality[:, :, chan], 1)
 
-        if waitBar:
-            bandTIter = tqdm(range(l_end + 1),
-                             desc="Critical band autocorrelation averaging")
-        else:
-            bandTIter = range(l_end + 1)
-        for ll in bandTIter:
+        for ll in range(l_end + 1):
             tonalityTDepFreqs[ll, chan] = specTonalityFreqs[ll, zmax[ll], chan]
         # end of total tonality for loop over blocks
 
@@ -678,6 +667,16 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # end of for loop over channels
 
     # %% Output assignment
+
+    # Discard singleton dimensions
+    if chansIn == 1:
+        specTonality = np.squeeze(specTonality)
+        specTonalityAvg = np.squeeze(specTonalityAvg)
+        specTonalityFreqs = np.squeeze(specTonalityFreqs)
+        specTonalityAvgFreqs = np.squeeze(specTonalityAvgFreqs)
+        tonalityTDep = np.squeeze(tonalityTDep)
+        tonalityTDepFreqs = np.squeeze(tonalityTDepFreqs)
+    # end of if branch for singleton dimensions
 
     # Assign outputs to structure
     tonalitySHM = dict()
