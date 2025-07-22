@@ -94,12 +94,12 @@ The verification results presented here comprise sound quality magnitude *differ
 
 ### Tonality
 
-![Signal 3 time-dependent specific tonality differences](results/tonalSHMSpecTDepPyDiff.png)
+<img src='results/tonalSHMSpecTDepPyDiff.png' width=400>
 
 ### Loudness
 
-![Signal 3 time-dependent specific loudness differences](results/loudSHMSpecTDepPyDiff.png)
+<img src='results/loudSHMSpecTDepPyDiff.png' width=400>
 
 ### Roughness
 
-![Signal 3 time-dependent specific roughness differences](results/roughSHMSpecTDepPyDiff.png)
+<img src='results/roughSHMSpecTDepPyDiff.png' width=400>
