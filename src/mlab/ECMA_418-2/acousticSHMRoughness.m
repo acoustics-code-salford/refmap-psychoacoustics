@@ -102,7 +102,7 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 01/07/2025
+% Date last modified: 22/07/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -138,8 +138,8 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
         binaural {mustBeNumericOrLogical} = true
     end
 
-%% Load path
-addpath(genpath(fullfile("refmap-psychoacoustics", "src", "mlab")))
+%% Load path (assumes root directory is refmap-psychoacoustics)
+addpath(genpath(fullfile("src", "mlab")))
 
 %% Input checks
 % Orient input matrix
@@ -236,6 +236,9 @@ cal_R = 0.0180909;   % calibration factor in Section 7.1.7 Equation 104 ECMA-418
 %cal_Rx = 1/1.00123972659601;  % calibration adjustment factor
 %cal_R*cal_Rx = 0.0180685; adjusted calibration value
 cal_Rx = 1/1.0011565;  % calibration adjustment factor
+
+% standardised epsilon
+epsilon = 1e-12;
 
 %% Signal processing
 
@@ -370,6 +373,7 @@ for chan = chansIn:-1:1
     nBlocks = size(modWeightSpectraAvg, 2);
     modAmp = zeros(10, nBlocks, nBands);
     modRate = zeros(10, nBlocks, nBands);
+
     for zBand = nBands:-1:1
         if waitBar
             waitbar(i_step/n_steps, w, strcat("Calculating spectral weightings in 53 bands, ",...
@@ -571,7 +575,7 @@ for chan = chansIn:-1:1
                 % Equation 93 [w_peak]
                 gravityWeight = 1 + 0.1*abs(sum(modRateForLoop(indSetMax)...
                                             .*modAmpHiWeight(indSetMax, lBlock, zBand))...
-                                            /sum(modAmpHiWeight(indSetMax, lBlock, zBand) + eps)...
+                                            /sum(modAmpHiWeight(indSetMax, lBlock, zBand) + epsilon)...
                                             - modRateForLoop(iPeak)).^0.749;
 
                 % Equation 92 [Ahat(i)]
@@ -642,7 +646,8 @@ end  % end of for loop over channels
 % Binaural roughness
 % Section 7.1.11 ECMA-418-2:2025 [R'_B(l_50,z)]
 if chansIn == 2 && binaural
-    specRoughness(:, :, 3) = sqrt(sum(specRoughness.^2, 3)/2);  % Equation 112
+    % Equation 112
+    specRoughness(:, :, 3) = sqrt(sum(specRoughness(:, :, 1:2).^2, 3)/2);
     chansOut = 3;  % set number of 'channels' to stereo plus single binaural
     chans = [chans;
              "Binaural"];
@@ -667,7 +672,7 @@ end
 
 % Section 7.1.10 ECMA-418-2:2025
 % Overall roughness [R]
-roughness90Pc = prctile(roughnessTDep(17:end, :, :), 90, 1);
+roughness90Pc = prctile(roughnessTDep(17:end, :), 90, 1);
 
 % time (s) corresponding with results output [t]
 timeOut = (0:(size(specRoughness, 1) - 1))/sampleRate50;
@@ -689,6 +694,7 @@ if outPlot
         view(2);
         ax1.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
         ax1.YLim = [bandCentreFreqs(1), bandCentreFreqs(end)];
+        ax1.CLim = [0, ceil(max(specRoughness(:, :, chan), [], 'all')*500)/500];
         ax1.YTick = [63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3]; 
         ax1.YTickLabel = ["63", "125", "250", "500", "1k", "2k", "4k",...
                           "8k", "16k"];

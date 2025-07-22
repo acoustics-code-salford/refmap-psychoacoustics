@@ -124,7 +124,7 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 07/08/2023
-% Date last modified: 27/06/2025
+% Date last modified: 22/07/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -163,8 +163,8 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
         outPlot {mustBeNumericOrLogical} = false
     end
 
-%% Load path
-addpath(genpath(fullfile("refmap-psychoacoustics", "src", "mlab")))
+%% Load path (assumes root directory is refmap-psychoacoustics)
+addpath(genpath(fullfile("src", "mlab")))
 
 %% Input checks
 % Orient input matrix
@@ -239,6 +239,9 @@ B = 0.003;
 
 cal_T = 2.8758615;  % calibration factor in Section 6.2.8 Equation 51 ECMA-418-2:2025 [c_T]
 cal_Tx = 1/0.9999043734252;  % Adjustment to calibration factor (Footnote 22 ECMA-418-2:2025)
+
+% standardised epsilon
+epsilon = 1e-12;
 
 %% Signal processing
 
@@ -329,7 +332,7 @@ for chan = chansIn:-1:1
                            2*blockSizeDupe(zBand), 1);
         % Section 6.2.2 Equation 29 ECMA-418-2:2025 [phi_l,z(m)]
         denom = sqrt(cumsum(pn_rlz.^2, 1, 'reverse').*flipud(cumsum(pn_rlz.^2, 1)))...
-                + 1e-12;
+                + epsilon;
 
         % note that the block length is used here, rather than the 2*s_b,
         % for compatability with the remaining code - beyond 0.75*s_b is
@@ -428,7 +431,7 @@ for chan = chansIn:-1:1
         % Equation 42 ECMA-418-2:2025 signal-noise-ratio first approximation
         % (ratio of tonal component loudness to non-tonal component loudness in critical band)
         % [SNRhat(l,z)]
-        SNRlz1 = bandTonalLoudness./((bandLoudness - bandTonalLoudness) + 1e-12);
+        SNRlz1 = bandTonalLoudness./((bandLoudness - bandTonalLoudness) + epsilon);
 
         % Equation 43 ECMA-418-2:2025 low pass filtered specific loudness
         % of non-tonal component in critical band [Ntilde'_tonal(l,z)]
@@ -474,7 +477,7 @@ for chan = chansIn:-1:1
     % Calculation of specific tonality
     % --------------------------------
     % Section 6.2.8 Equation 49 ECMA-418-2:2025 [SNR(l)]
-    overallSNR = max(specTonalLoudness, [], 2)./(1e-12 + sum(specNoiseLoudness, 2));  % loudness signal-noise-ratio
+    overallSNR = max(specTonalLoudness, [], 2)./(sum(specNoiseLoudness, 2) + epsilon);  % loudness signal-noise-ratio
     
     % Section 6.2.8 Equation 50 ECMA-418-2:2025 [q(l)]
     crit = exp(-A*(overallSNR - B));
@@ -492,9 +495,9 @@ for chan = chansIn:-1:1
 
         % Section 6.2.9 Equation 53 ECMA-418-2:2025
         specTonalityAvg(1, zBand, chan)...
-            = sum(specTonality(mask, zBand, chan), 1)./(nnz(mask) + 1e-12);
+            = sum(specTonality(mask, zBand, chan), 1)./(nnz(mask) + epsilon);
         specTonalityAvgFreqs(1, zBand, chan)...
-            = sum(specTonalityFreqs(mask, zBand, chan), 1)./(nnz(mask) + 1e-12);
+            = sum(specTonalityFreqs(mask, zBand, chan), 1)./(nnz(mask) + epsilon);
     end
 
     % Calculation of overall tonality Section 6.2.10

@@ -106,7 +106,7 @@ function [loudness, fm, fn] = acousticQuasiLoudZwicker(spectrL, fLim, axisF, fie
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 12/06/2025
+% Date last modified: 22/07/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -134,8 +134,8 @@ function [loudness, fm, fn] = acousticQuasiLoudZwicker(spectrL, fLim, axisF, fie
         ecmaEar (1, 1) {mustBeNumericOrLogical} = false
     end
 
-%% Load path
-addpath(genpath(fullfile("refmap-psychoacoustics", "src", "mlab")))
+%% Load path (assumes root directory is refmap-psychoacoustics)
+addpath(genpath(fullfile("src", "mlab")))
 
 %% Input checks
 if ndims(spectrL) == 3

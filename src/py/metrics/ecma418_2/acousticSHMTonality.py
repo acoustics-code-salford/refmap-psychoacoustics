@@ -4,7 +4,7 @@
 acousticSHMTonality.py
 ----------------------
 
-Returns tonality values and frequencies according to ECMA-418-2:2024
+Returns tonality values and frequencies according to ECMA-418-2:2025
 (using the Sottek Hearing Model) for an input calibrated single mono
 or single stereo audio (sound pressure) time-series signal, p.
 
@@ -25,7 +25,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 25/05/2023
-Date last modified: 02/06/2025
+Date last modified: 22/07/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -141,7 +141,7 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                         time-dependent specific tonal loudness for each
                         critical band
                         arranged as [time, bands(, channels)]
-    
+
     specNoiseLoudness : 2D or 3D array
                         time-dependent specific noise loudness for each
                         critical band
@@ -212,23 +212,23 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
     # %% Define constants
 
-    # Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2024 [r_s]
+    # Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2025 [r_s]
     sampleRate48k = 48e3
-    # defined in Section 5.1.4.1 ECMA-418-2:2024 [deltaf(f=0)]
+    # defined in Section 5.1.4.1 ECMA-418-2:2025 [deltaf(f=0)]
     deltaFreq0 = 81.9289
-    # Half-overlapping Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2024
+    # Half-overlapping Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2025
     c = 0.1618
 
     dz = 0.5  # critical band overlap
     # half-overlapping critical band rate scale [z]
     halfBark = np.arange(0.5, 27, dz)
     nBands = len(halfBark)  # number of critical bands
-    # Section 5.1.4.1 Equation 9 ECMA-418-2:2024 [F(z)]
+    # Section 5.1.4.1 Equation 9 ECMA-418-2:2025 [F(z)]
     bandCentreFreqs = (deltaFreq0/c)*np.sinh(c*halfBark)
-    # Section 5.1.4.1 Equation 10 ECMA-418-2:2024 [deltaf(z)]
+    # Section 5.1.4.1 Equation 10 ECMA-418-2:2025 [deltaf(z)]
     dfz = np.sqrt(deltaFreq0**2 + (c*bandCentreFreqs)**2)
 
-    # Block and hop sizes Section 6.2.2 Table 4 ECMA-418-2:2024
+    # Block and hop sizes Section 6.2.2 Table 4 ECMA-418-2:2025
     overlap = 0.75  # block overlap proportion
     # block sizes [s_b(z)]
     blockSize = np.hstack((8192*np.ones([3,]), 4096*np.ones([13,]),
@@ -238,11 +238,11 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     hopSize = ((1 - overlap)*blockSize).astype(int)
 
     # Output sample rate based on hop sizes - Resampling to common time basis
-    # Section 6.2.6 ECMA-418-2:2024 [r_sd]
+    # Section 6.2.6 ECMA-418-2:2025 [r_sd]
     sampleRate1875 = sampleRate48k/np.min(hopSize)
 
     # Number of bands that need averaging. Section 6.2.3 Table 5
-    # ECMA-418-2:2024 [NB]
+    # ECMA-418-2:2025 [NB]
     # NBandsAvg = np.vstack((np.hstack((np.zeros([1, 1]), np.ones([1, 1]),
     #                                   2*np.ones([1, 14]), np.ones([1, 9]),
     #                                   np.zeros([1, 28]))),
@@ -251,14 +251,14 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     #                                   np.zeros([1, 28]))))).astype(int)
 
     # Critical band interpolation factors from Section 6.2.6 Table 6
-    # ECMA-418-2:2024 [i]
+    # ECMA-418-2:2025 [i]
     i_interp = blockSize/np.min(blockSize)
 
-    # Noise reduction constants from Section 6.2.7 Table 7 ECMA-418-2:2024
+    # Noise reduction constants from Section 6.2.7 Table 7 ECMA-418-2:2025
     alpha = 20
     beta = 0.07
 
-    # Sigmoid function factor parameters Section 6.2.7 Table 8 ECMA-418-2:2024
+    # Sigmoid function factor parameters Section 6.2.7 Table 8 ECMA-418-2:2025
     # [c(s_b(z))]
     csz_b = np.hstack((18.21*np.ones([3,]), 12.14*np.ones([13,]),
                        417.54*np.ones([9,]), 962.68*np.ones([28,])))
@@ -266,14 +266,17 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     dsz_b = np.hstack((0.36*np.ones([3,]), 0.36*np.ones([13,]),
                        0.71*np.ones([9,]), 0.69*np.ones([28,])))
 
-    # Scaling factor constants from Section 6.2.8 Table 9 ECMA-418-2:2024
+    # Scaling factor constants from Section 6.2.8 Table 9 ECMA-418-2:2025
     A = 35
     B = 0.003
 
-    # calibration factor in Section 6.2.8 Equation 51 ECMA-418-2:2024 [c_T]
+    # calibration factor in Section 6.2.8 Equation 51 ECMA-418-2:2025 [c_T]
     cal_T = 2.8758615
-    # Adjustment to calibration factor (Footnote 22 ECMA-418-2:2024)
+    # Adjustment to calibration factor (Footnote 22 ECMA-418-2:2025)
     cal_Tx = 1/0.9999043734252
+    
+    # Footnote 14 (/0 epsilon)
+    epsilon = 1e-12
 
     # %% Signal processing
 
@@ -285,13 +288,13 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         p_re = p
     # end of if branch for resampling
 
-    # Section 5.1.2 ECMA-418-2:2024 Fade in weighting and zero-padding
+    # Section 5.1.2 ECMA-418-2:2025 Fade in weighting and zero-padding
     pn = shmPreProc(p_re, np.max(blockSize), np.max(hopSize))
 
     # Apply outer & middle ear filter
     # -------------------------------
     #
-    # Section 5.1.3.2 ECMA-418-2:2024 Outer and middle/inner ear signal filtering
+    # Section 5.1.3.2 ECMA-418-2:2025 Outer and middle/inner ear signal filtering
     pn_om = shmOutMidEarFilter(pn, soundField)
 
     # Loop through channels in file
@@ -301,7 +304,7 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     else:
         chanIter = range(chansIn)
 
-    # Equation 40 ECMA-418-2:2024
+    # Equation 40 ECMA-418-2:2025
     l_end = int(np.ceil(p_re.shape[0]/sampleRate48k*sampleRate1875))
     # pre-allocate results arrays
     # specSNR = np.zeros([l_end + 1, nBands, chansIn])  # dev only
@@ -319,7 +322,7 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         # Apply auditory filter bank
         # --------------------------
         # Filter equalised signal using 53 1/2Bark ERB filters according to
-        # Section 5.1.4.2 ECMA-418-2:2024
+        # Section 5.1.4.2 ECMA-418-2:2025
         pn_omz = shmAuditoryFiltBank(pn_om[:, chan])
 
         # Autocorrelation function analysis
@@ -360,7 +363,7 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
             # Segmentation into blocks
             # ------------------------
-            # Section 5.1.5 ECMA-418-2:2024
+            # Section 5.1.5 ECMA-418-2:2025
             i_start = blockSizeDupe[0] - blockSizeDupe[zBand]
             pn_lz, _ = shmSignalSegment(pn_omzDupe[:, zBand],
                                         blockSizeDupe[zBand], overlap=overlap,
@@ -368,7 +371,7 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
             # Transformation into Loudness
             # ----------------------------
-            # Sections 5.1.6 to 5.1.9 ECMA-418-2:2024 [N'_basis(z)]
+            # Sections 5.1.6 to 5.1.9 ECMA-418-2:2025 [N'_basis(z)]
             pn_rlz, bandBasisLoudness, _ = shmBasisLoudness(signalSegmented=pn_lz,
                                                             bandCentreFreq=bandCentreFreqsDupe[zBand])
 
@@ -376,15 +379,15 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
             # Apply ACF
             # ACF implementation using DFT
-            # Section 6.2.2 Equations 27 & 28 ECMA-418-2:2024
+            # Section 6.2.2 Equations 27 & 28 ECMA-418-2:2025
             # [phi_unscaled,l,z(m)]
             unscaledACF = np.real(ifft(np.abs(fft(pn_rlz, 2*blockSizeDupe[zBand], axis=0))**2, 2*blockSizeDupe[zBand], axis=0))
-            # Section 6.2.2 Equation 29 ECMA-418-2:2024 [phi_l,z(m)]
+            # Section 6.2.2 Equation 29 ECMA-418-2:2025 [phi_l,z(m)]
             denom = (np.sqrt(np.flip(np.cumsum(np.flip(pn_rlz, axis=0)**2,
                                                axis=0),
                                      axis=0) *np.flip(np.cumsum(pn_rlz**2,
                                                                 axis=0),
-                             axis=0)) + 1e-12)
+                             axis=0)) + epsilon)
 
             # note that the block length is used here, rather than the 2*s_b,
             # for compatability with the remaining code - beyond 0.75*s_b is
@@ -392,12 +395,12 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             unbiasedNormACF = unscaledACF[0:blockSizeDupe[zBand], :]/denom
             unbiasedNormACF[int(0.75*blockSizeDupe[zBand]):blockSizeDupe[zBand], :] = 0
 
-            # Section 6.2.2 Equation 30 ECMA-418-2:2024 [phi_z'(m)
+            # Section 6.2.2 Equation 30 ECMA-418-2:2025 [phi_z'(m)
             unbiasedNormACFDupe[zBand] = basisLoudnessArray[zBand]*unbiasedNormACF
 
-        # Average the ACF over nB bands - Section 6.2.3 ECMA-418-2:2024
+        # Average the ACF over nB bands - Section 6.2.3 ECMA-418-2:2025
         if waitBar:
-            bandACFAvgIter = tqdm(range(nBands), desc="Critical band autocorrelation averaging")
+            bandACFAvgIter = tqdm(range(nBands), desc="Component loudness estimation")
         else:
             bandACFAvgIter = range(nBands)
 
@@ -420,14 +423,14 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                                         shift=-1, axis=1)
             # end of if branch for moving mean over time blocks
 
-            # Application of ACF lag window Section 6.2.4 ECMA-418-2:2024
-            tauz_start = max(0.5/dfz[zBand], 2e-3)  # Equation 31 ECMA-418-2:2024 [tau_start(z)]
-            tauz_end = max(4/dfz[zBand], tauz_start + 1e-3)  # Equation 32 ECMA-418-2:2024 [tau_end(z)]
-            # Equations 33 & 34 ECMA-418-2:2024
+            # Application of ACF lag window Section 6.2.4 ECMA-418-2:2025
+            tauz_start = max(0.5/dfz[zBand], 2e-3)  # Equation 31 ECMA-418-2:2025 [tau_start(z)]
+            tauz_end = max(4/dfz[zBand], tauz_start + 1e-3)  # Equation 32 ECMA-418-2:2025 [tau_end(z)]
+            # Equations 33 & 34 ECMA-418-2:2025
             mz_start = int(np.ceil(tauz_start*sampleRate48k) - 1)  # Starting lag window index [m_start(z)]
             mz_end = int(np.floor(tauz_end*sampleRate48k) - 1)  # Ending lag window index [m_end(z)]
             M = mz_end - mz_start + 1
-            # Equation 35 ECMA-418-2:2024
+            # Equation 35 ECMA-418-2:2025
             # lag-windowed, detrended ACF [phi'_z,tau(m)]
             lagWindowACF = np.zeros(meanScaledACF.shape)
             lagWindowACF[mz_start:mz_end + 1, :] = (meanScaledACF[mz_start:mz_end
@@ -439,7 +442,7 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
             # Estimation of tonal loudness
             # ----------------------------
-            # Section 6.2.5 Equation 36 ECMA-418-2:2024
+            # Section 6.2.5 Equation 36 ECMA-418-2:2025
             # ACF spectrum in the lag window [Phi'_z,tau(k)]
             magFFTlagWindowACF = np.nan_to_num(np.abs(fft(lagWindowACF,
                                                           2*np.max(blockSize),
@@ -447,9 +450,9 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                                                copy=False)
             # added to avoid spurious tiny results affecting tonal frequency
             # identification
-            magFFTlagWindowACF[magFFTlagWindowACF <= 1e-12] = 0.0
+            magFFTlagWindowACF[magFFTlagWindowACF <= epsilon] = 0.0
 
-            # Section 6.2.5 Equation 37 ECMA-418-2:2024 [Nhat'_tonal(z)]
+            # Section 6.2.5 Equation 37 ECMA-418-2:2025 [Nhat'_tonal(z)]
             # first estimation of specific loudness of tonal component in critical band
             bandTonalLoudness = meanScaledACF[0, :].copy()
             mask = (2*np.max(magFFTlagWindowACF, axis=0)/(M/2)
@@ -457,17 +460,17 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             bandTonalLoudness[mask] = 2*np.max(magFFTlagWindowACF[:, mask],
                                                axis=0)/(M/2)
 
-            # Section 6.2.5 Equation 38 & 39 ECMA-418-2:2024
+            # Section 6.2.5 Equation 38 & 39 ECMA-418-2:2025
             # [k_max(z)]
             kz_max = np.argmax(magFFTlagWindowACF, axis=0)
             # frequency of maximum tonal component in critical band [f_ton(z)]
             bandTonalFreqs = kz_max*(sampleRate48k/(2*np.max(blockSize)))
 
-            # Section 6.2.7 Equation 41 ECMA-418-2:2024 [N'_signal(l,z)]
+            # Section 6.2.7 Equation 41 ECMA-418-2:2025 [N'_signal(l,z)]
             # specific loudness of complete band-pass signal in critical band
             bandLoudness = meanScaledACF[0, :].copy()
 
-            # Resampling to common time basis Section 6.2.6 ECMA-418-2:2024
+            # Resampling to common time basis Section 6.2.6 ECMA-418-2:2025
             if i_interp[zBand] > 1:
                 # Note: use of interpolation function avoids rippling caused by
                 # resample function, which otherwise affects specific loudness 
@@ -482,39 +485,39 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
             # end of if branch for interpolation
 
-            # Remove end zero-padded samples Section 6.2.6 ECMA-418-2:2024
+            # Remove end zero-padded samples Section 6.2.6 ECMA-418-2:2025
             bandTonalLoudness = bandTonalLoudness[0:l_end + 1]
             bandLoudness = bandLoudness[0:l_end + 1]
             bandTonalFreqs = bandTonalFreqs[0:l_end + 1]
 
             # Noise reduction Section 6.2.7 ECMA-418-2:2020
             # ---------------------------------------------
-            # Equation 42 ECMA-418-2:2024 signal-noise-ratio first approximation
+            # Equation 42 ECMA-418-2:2025 signal-noise-ratio first approximation
             # (ratio of tonal component loudness to non-tonal component
             # loudness in critical band)
             # [SNRhat(l,z)]
-            SNRlz1 = bandTonalLoudness/((bandLoudness - bandTonalLoudness) + 1e-12)
+            SNRlz1 = bandTonalLoudness/((bandLoudness - bandTonalLoudness) + epsilon)
 
-            # Equation 43 ECMA-418-2:2024 low pass filtered specific loudness
+            # Equation 43 ECMA-418-2:2025 low pass filtered specific loudness
             # of non-tonal component in critical band [Ntilde'_tonal(l,z)]
             bandTonalLoudness = shmNoiseRedLowPass(bandTonalLoudness, sampleRate1875)
 
-            # Equation 44 ECMA-418-2:2024 lowpass filtered SNR (improved estimation)
+            # Equation 44 ECMA-418-2:2025 lowpass filtered SNR (improved estimation)
             # [SNRtilde(l,z)]
             SNRlz = shmNoiseRedLowPass(SNRlz1, sampleRate1875)
 
-            # Equation 46 ECMA-418-2:2024 [g(z)]
+            # Equation 46 ECMA-418-2:2025 [g(z)]
             gz = csz_b[zBand]/(bandCentreFreqs[zBand]**dsz_b[zBand])
 
-            # Equation 45 ECMA-418-2:2024 [nr(l,z)]
+            # Equation 45 ECMA-418-2:2025 [nr(l,z)]
             crit = np.exp(-alpha*((SNRlz/gz) - beta))
             nrlz = 1 - crit  # sigmoidal weighting function
             nrlz[crit >= 1] = 0
 
-            # Equation 47 ECMA-418-2:2024 [N'_tonal(l,z)]
+            # Equation 47 ECMA-418-2:2025 [N'_tonal(l,z)]
             bandTonalLoudness = nrlz*bandTonalLoudness
 
-            # Section 6.2.8 Equation 48 ECMA-418-2:2024 [N'_noise(l,z)]
+            # Section 6.2.8 Equation 48 ECMA-418-2:2025 [N'_noise(l,z)]
             # specific loudness of non-tonal component in critical band
             bandNoiseLoudness = (shmNoiseRedLowPass(bandLoudness,
                                                     sampleRate1875)
@@ -542,46 +545,40 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
         # Calculation of specific tonality
         # --------------------------------
-        # Section 6.2.8 Equation 49 ECMA-418-2:2024 [SNR(l)]
+        # Section 6.2.8 Equation 49 ECMA-418-2:2025 [SNR(l)]
         # loudness signal-noise-ratio
         overallSNR = (np.max(specTonalLoudness, 1)
-                      / (1e-12 + np.sum(specNoiseLoudness, 1)))
+                      / (np.sum(specNoiseLoudness, 1) + epsilon))
 
-        # Section 6.2.8 Equation 50 ECMA-418-2:2024 [q(l)]
+        # Section 6.2.8 Equation 50 ECMA-418-2:2025 [q(l)]
         crit = np.exp(-A*(overallSNR - B))
         ql = 1 - crit  # sigmoidal scaling factor
         ql[crit >= 1] = 0
 
-        # Section 6.2.8 Equation 51 ECMA-418-2:2024 [T'(l,z)]
+        # Section 6.2.8 Equation 51 ECMA-418-2:2025 [T'(l,z)]
         # time-dependent specific tonality
         specTonality = cal_T*cal_Tx*np.swapaxes(np.tile(ql,
                                                         [53, 1, 1]),
                                                 0, 1)*specTonalLoudness
 
         # Calculation of time-averaged specific tonality Section 6.2.9
-        # ECMA-418-2:2024 [T'(z)]
-        if waitBar:
-            bandSpecTIter = tqdm(range(nBands),
-                                 desc="Specific tonality aggregation")
-        else:
-            bandSpecTIter = range(nBands)
-
-        for zBand in bandSpecTIter:
+        # ECMA-418-2:2025 [T'(z)]
+        for zBand in range(nBands):
             # criterion Section 6.2.9 point 2
             mask = specTonality[:, zBand, chan] > 0.02
             mask[0:57] = False  # criterion Section 6.2.9 point 1
 
-            # Section 6.2.9 Equation 53 ECMA-418-2:2024
+            # Section 6.2.9 Equation 53 ECMA-418-2:2025
             specTonalityAvg[zBand, chan] = np.sum(specTonality[mask,
                                                                zBand,
                                                                chan],
                                                   0)/(np.count_nonzero(mask)
-                                                      + 1e-12)
+                                                      + epsilon)
             specTonalityAvgFreqs[zBand, chan] = np.sum(specTonalityFreqs[mask,
                                                                          zBand,
                                                                          chan],
                                                        0)/(np.count_nonzero(mask)
-                                                           + 1e-12)
+                                                           + epsilon)
         # end of specific tonality for loop over bands
 
         # Calculation of total (non-specific) tonality Section 6.2.10
@@ -589,33 +586,28 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         # Further update can add the user input frequency range to determine
         # total tonality - not yet incorporated
 
-        # Section 6.2.8 Equation 52 ECMA-418-2:2024
+        # Section 6.2.8 Equation 52 ECMA-418-2:2025
         # time (s) corresponding with results output [t]
         timeOut = np.arange(0, specTonality.shape[0])/sampleRate1875
 
-        # Section 6.2.10 Equation 61 ECMA-418-2:2024
+        # Section 6.2.10 Equation 61 ECMA-418-2:2025
         # Time-dependent total tonality [T(l)]
         tonalityTDep[:, chan] = np.max(specTonality[:, :, chan], 1)
         zmax = np.argmax(specTonality[:, :, chan], 1)
 
-        if waitBar:
-            bandTIter = tqdm(range(l_end + 1),
-                             desc="Critical band autocorrelation averaging")
-        else:
-            bandTIter = range(l_end + 1)
-        for ll in bandTIter:
+        for ll in range(l_end + 1):
             tonalityTDepFreqs[ll, chan] = specTonalityFreqs[ll, zmax[ll], chan]
         # end of total tonality for loop over blocks
 
-        # Calculation of representative values Section 6.2.11 ECMA-418-2:2024
+        # Calculation of representative values Section 6.2.11 ECMA-418-2:2025
         # Time-averaged total tonality
         mask = tonalityTDep[:, chan] > 0.02  # criterion Section 6.2.9 point 2
         mask[0:57] = False    # criterion Section 6.2.9 point 1
 
-        # Section 6.2.11 Equation 63 ECMA-418-2:2024
+        # Section 6.2.11 Equation 63 ECMA-418-2:2025
         # Time-averaged total tonality [T]
         tonalityAvg[chan] = np.sum(tonalityTDep[mask, chan],
-                                   axis=0)/(np.count_nonzero(mask) + 1e-12)
+                                   axis=0)/(np.count_nonzero(mask) + epsilon)
 
         # %% Output plotting
 
@@ -678,6 +670,16 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # end of for loop over channels
 
     # %% Output assignment
+
+    # Discard singleton dimensions
+    if chansIn == 1:
+        specTonality = np.squeeze(specTonality)
+        specTonalityAvg = np.squeeze(specTonalityAvg)
+        specTonalityFreqs = np.squeeze(specTonalityFreqs)
+        specTonalityAvgFreqs = np.squeeze(specTonalityAvgFreqs)
+        tonalityTDep = np.squeeze(tonalityTDep)
+        tonalityTDepFreqs = np.squeeze(tonalityTDepFreqs)
+    # end of if branch for singleton dimensions
 
     # Assign outputs to structure
     tonalitySHM = dict()
