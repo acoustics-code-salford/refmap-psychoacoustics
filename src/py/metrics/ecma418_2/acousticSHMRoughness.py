@@ -14,7 +14,6 @@ numpy
 scipy
 matplotlib
 tqdm
-bottleneck
 acoustic-toolbox
 refmap-psychoacoustics (metrics.ecma418_2, dsp.filterFuncs and
                         utils.formatFuncs)
@@ -25,7 +24,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 29/05/2023
-Date last modified: 21/07/2025
+Date last modified: 22/07/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -283,7 +282,7 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     cal_Rx = 1/1.0011565  # calibration adjustment factor
 
     # Footnote 14 (/0 epsilon)
-    eps = 1e-12
+    epsilon = 1e-12
 
     # %% Signal processing
 
@@ -672,7 +671,7 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                                                    / np.sum(modAmpHiWeight[indSetMax,
                                                                            lBlock,
                                                                            zBand]
-                                                            + eps, axis=0)
+                                                            + epsilon, axis=0)
                                                    - modRateForLoop[iPeak])**0.749
 
                     # Equation 92 [Ahat(i)]
@@ -707,14 +706,8 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         t50 = np.linspace(0, signalT, l_50Last)
         # TODO: check the 2025 version redefinition of t(l) makes sense
 
-        if waitBar:
-            interpIter = tqdm(range(nBands),
-                              desc="Interpolation")
-        else:
-            interpIter = range(nBands)
-
         specRoughEst = np.zeros([l_50Last, nBands])
-        for zBand in interpIter:
+        for zBand in range(nBands):
             interpolator = PchipInterpolator(t, modAmpMax[:, zBand], axis=0)
             specRoughEst[:, zBand] = interpolator(t50)
         # end of for loop for interpolation
@@ -749,7 +742,8 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # Section 7.1.11 ECMA-418-2:2025 [R'_B(l_50,z)]
     if chansIn == 2 and binaural:
         # Equation 112
-        specRoughness[:, :, 2] = np.sqrt(np.sum(specRoughness[:, :, 0:2]**2, axis=2)/2)
+        specRoughness[:, :, 2] = np.sqrt(np.sum(specRoughness[:, :, 0:2]**2,
+                                                axis=2)/2)
     # end of if branch for combined binaural
 
     # Section 7.1.8 ECMA-418-2:2025
@@ -868,10 +862,10 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         roughnessSHM.update({'specRoughnessAvg': specRoughnessAvg[:, 0:2]})
         roughnessSHM.update({'roughnessTDep': roughnessTDep[:, 0:2]})
         roughnessSHM.update({'roughness90Pc': roughness90Pc[0:2]})
-        roughnessSHM.update({'specRoughness': specRoughness[:, :, 2]})
+        roughnessSHM.update({'specRoughnessBin': specRoughness[:, :, 2]})
         roughnessSHM.update({'specRoughnessAvgBin': specRoughnessAvg[:, 2]})
         roughnessSHM.update({'roughnessTDepBin': roughnessTDep[:, 2]})
-        roughnessSHM.update({'roughness90PcBin': roughness90Pc[2]})
+        roughnessSHM.update({'roughness90PcBin': np.array(roughness90Pc[2])})
         roughnessSHM.update({'bandCentreFreqs': bandCentreFreqs})
         roughnessSHM.update({'timeOut': timeOut})
         roughnessSHM.update({'soundField': soundField})

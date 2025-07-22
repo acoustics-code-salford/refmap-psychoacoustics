@@ -102,7 +102,7 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 21/07/2025
+% Date last modified: 22/07/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -138,8 +138,8 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
         binaural {mustBeNumericOrLogical} = true
     end
 
-%% Load path
-addpath(genpath(fullfile("refmap-psychoacoustics", "src", "mlab")))
+%% Load path (assumes root directory is refmap-psychoacoustics)
+addpath(genpath(fullfile("src", "mlab")))
 
 %% Input checks
 % Orient input matrix
@@ -236,6 +236,9 @@ cal_R = 0.0180909;   % calibration factor in Section 7.1.7 Equation 104 ECMA-418
 %cal_Rx = 1/1.00123972659601;  % calibration adjustment factor
 %cal_R*cal_Rx = 0.0180685; adjusted calibration value
 cal_Rx = 1/1.0011565;  % calibration adjustment factor
+
+% standardised epsilon
+epsilon = 1e-12;
 
 %% Signal processing
 
@@ -370,6 +373,7 @@ for chan = chansIn:-1:1
     nBlocks = size(modWeightSpectraAvg, 2);
     modAmp = zeros(10, nBlocks, nBands);
     modRate = zeros(10, nBlocks, nBands);
+
     for zBand = nBands:-1:1
         if waitBar
             waitbar(i_step/n_steps, w, strcat("Calculating spectral weightings in 53 bands, ",...
@@ -571,7 +575,7 @@ for chan = chansIn:-1:1
                 % Equation 93 [w_peak]
                 gravityWeight = 1 + 0.1*abs(sum(modRateForLoop(indSetMax)...
                                             .*modAmpHiWeight(indSetMax, lBlock, zBand))...
-                                            /sum(modAmpHiWeight(indSetMax, lBlock, zBand) + eps)...
+                                            /sum(modAmpHiWeight(indSetMax, lBlock, zBand) + epsilon)...
                                             - modRateForLoop(iPeak)).^0.749;
 
                 % Equation 92 [Ahat(i)]

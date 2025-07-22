@@ -100,7 +100,7 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, time
 % Institution: University of Salford
 %
 % Date created: 30/04/2025
-% Date last modified: 12/06/2025
+% Date last modified: 22/07/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -133,8 +133,8 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, time
         outPlot {mustBeNumericOrLogical} = false
     end
 
-%% Load path
-addpath(genpath(fullfile("refmap-psychoacoustics", "src", "mlab")))
+%% Load path (assumes root directory is refmap-psychoacoustics)
+addpath(genpath(fullfile("src", "mlab")))
 
 %% Input checks
 

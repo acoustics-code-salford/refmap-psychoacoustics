@@ -13,8 +13,6 @@ Requirements
 numpy
 scipy
 matplotlib
-tqdm
-bottleneck
 acoustic-toolbox
 refmap-psychoacoustics (metrics.ecma418_2, dsp.filterFuncs and
                         utils.formatFuncs)
@@ -25,7 +23,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 29/05/2023
-Date last modified: 21/07/2025
+Date last modified: 22/07/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -43,17 +41,9 @@ PARTICULAR PURPOSE.
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib as mpl
-from scipy.fft import (fft, ifft)
-from src.py.metrics.ecma418_2.acousticSHMSubs import (shmResample, shmPreProc,
-                                                      shmOutMidEarFilter,
-                                                      shmAuditoryFiltBank,
-                                                      shmSignalSegment,
-                                                      shmBasisLoudness,
-                                                      shmNoiseRedLowPass,
+from src.py.metrics.ecma418_2.acousticSHMSubs import (shmResample,
                                                       shmDimensional)
 from src.py.metrics.ecma418_2.acousticSHMTonality import acousticSHMTonality
-from tqdm import tqdm
-import bottleneck as bn
 from src.py.dsp.filterFuncs import A_weight_T
 from src.py.utils.formatFuncs import roundTrad
 from acoustic_toolbox.signal import rms
@@ -219,6 +209,9 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # ECMA-418-2:2025) [r_sd]
     sampleRate1875 = 48e3/256
 
+    # Footnote 14 (/0 epsilon)
+    epsilon = 1e-12
+
     # %% Signal processing
 
     # Input pre-processing
@@ -254,7 +247,8 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         # Equation 114 ECMA-418-2:2025 [e(z)]
         maxLoudnessFuncel = a/(np.max(specTonalLoudness[:, :, chan]
                                       + specNoiseLoudness[:, :, chan], axis=1)
-                               + 1e-12) + b
+                               + epsilon) + b
+        maxLoudnessFuncel = shmDimensional(maxLoudnessFuncel)
         # Equation 113 ECMA-418-2:2025 [N'(l,z)]
         specLoudness[:, :, chan] = (specTonalLoudness[:, :, chan]**maxLoudnessFuncel
                                     + np.abs((weight_n*specNoiseLoudness[:,
@@ -264,13 +258,20 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # end of loudness for loop over channels
 
     if chansIn == 2 and binaural:
+        expandZeros = shmDimensional(np.zeros(specTonalLoudness[:, :, 0].shape),
+                                     targetDim=3, where='last')
+        specLoudness = np.concatenate((specLoudness, expandZeros), axis=2)
+        specTonalLoudness = np.concatenate((specTonalLoudness, expandZeros),
+                                           axis=2)
+        specNoiseLoudness = np.concatenate((specNoiseLoudness, expandZeros),
+                                           axis=2)
         # Binaural loudness
         # Section 8.1.5 ECMA-418-2:2025 Equation 118 [N'_B(l,z)]
-        specLoudness[:, :, 3] = np.sqrt(np.sum(specLoudness[:, :, 0:2]**2,
+        specLoudness[:, :, 2] = np.sqrt(np.sum(specLoudness[:, :, 0:2]**2,
                                                axis=2)/2)
-        specTonalLoudness[:, :, 3] = np.sqrt(np.sum(specTonalLoudness[:, :, 0:2]**2,
+        specTonalLoudness[:, :, 2] = np.sqrt(np.sum(specTonalLoudness[:, :, 0:2]**2,
                                                     axis=2)/2)
-        specNoiseLoudness[:, :, 3] = np.sqrt(np.sum(specNoiseLoudness[:, :, 0:2]**2,
+        specNoiseLoudness[:, :, 2] = np.sqrt(np.sum(specNoiseLoudness[:, :, 0:2]**2,
                                                     axis=2)/2)
         chansOut = 3  # set number of 'channels' to stereo plus single binaural
         chans = chans + ["Binaural"]
@@ -285,7 +286,7 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
     # Section 8.1.3 ECMA-418-2:2025
     # Time-dependent loudness Equation 116 [N(l)]
-    loudnessTDep = np.sum(specLoudness**dz, 1)
+    loudnessTDep = np.sum(specLoudness*dz, axis=1)
 
     # Section 8.1.4 ECMA-418-2:2025
     # Overall loudness Equation 117 [N]
@@ -400,7 +401,7 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         loudnessSHM.update({'specNoiseLoudnessBin': specNoiseLoudness[:, :, 2]})
         loudnessSHM.update({'specLoudnessPowAvgBin': specLoudnessPowAvg[:, 2]})
         loudnessSHM.update({'loudnessTDepBin': loudnessTDep[:, 2]})
-        loudnessSHM.update({'loudnessPowAvgBin': loudnessPowAvg[2]})
+        loudnessSHM.update({'loudnessPowAvgBin': np.array(loudnessPowAvg[2])})
         loudnessSHM.update({'bandCentreFreqs': bandCentreFreqs})
         loudnessSHM.update({'timeOut': timeOut})
         loudnessSHM.update({'soundField': soundField})
@@ -516,7 +517,7 @@ def acousticSHMLoudnessFromComponent(specTonalLoudness, specNoiseLoudness,
         raise TypeError("Inputs must be arrays or capable of being cast to arrays.")
     
     # Check the size of the input matrices (must match)
-    if ~(specTonalLoudness.shape == specNoiseLoudness.shape):
+    if specTonalLoudness.shape != specNoiseLoudness.shape:
         raise ValueError('Error: Input loudness array shapes must match')
     # end
     
@@ -563,6 +564,9 @@ def acousticSHMLoudnessFromComponent(specTonalLoudness, specNoiseLoudness,
     # ECMA-418-2:2025) [r_sd]
     sampleRate1875 = 48e3/256
 
+    # Footnote 14 (/0 epsilon)
+    epsilon = 1e-12
+
     # %% Signal processing
 
     # Section 8.1.1 ECMA-418-2:2025
@@ -572,7 +576,8 @@ def acousticSHMLoudnessFromComponent(specTonalLoudness, specNoiseLoudness,
         # Equation 114 ECMA-418-2:2025 [e(z)]
         maxLoudnessFuncel = a/(np.max(specTonalLoudness[:, :, chan]
                                       + specNoiseLoudness[:, :, chan], axis=1)
-                               + 1e-12) + b
+                               + epsilon) + b
+        maxLoudnessFuncel = shmDimensional(maxLoudnessFuncel)
         # Equation 113 ECMA-418-2:2025 [N'(l,z)]
         specLoudness[:, :, chan] = (specTonalLoudness[:, :, chan]**maxLoudnessFuncel
                                     + np.abs((weight_n*specNoiseLoudness[:,
@@ -582,13 +587,20 @@ def acousticSHMLoudnessFromComponent(specTonalLoudness, specNoiseLoudness,
     # end of loudness for loop over channels
 
     if chansIn == 2 and binaural:
+        expandZeros = shmDimensional(np.zeros(specTonalLoudness[:, :, 0].shape),
+                                     targetDim=3, where='last')
+        specLoudness = np.concatenate((specLoudness, expandZeros), axis=2)
+        specTonalLoudness = np.concatenate((specTonalLoudness, expandZeros),
+                                           axis=2)
+        specNoiseLoudness = np.concatenate((specNoiseLoudness, expandZeros),
+                                           axis=2)
         # Binaural loudness
         # Section 8.1.5 ECMA-418-2:2025 Equation 118 [N'_B(l,z)]
-        specLoudness[:, :, 3] = np.sqrt(np.sum(specLoudness[:, :, 0:2]**2,
+        specLoudness[:, :, 2] = np.sqrt(np.sum(specLoudness[:, :, 0:2]**2,
                                                axis=2)/2)
-        specTonalLoudness[:, :, 3] = np.sqrt(np.sum(specTonalLoudness[:, :, 0:2]**2,
+        specTonalLoudness[:, :, 2] = np.sqrt(np.sum(specTonalLoudness[:, :, 0:2]**2,
                                                     axis=2)/2)
-        specNoiseLoudness[:, :, 3] = np.sqrt(np.sum(specNoiseLoudness[:, :, 0:2]**2,
+        specNoiseLoudness[:, :, 2] = np.sqrt(np.sum(specNoiseLoudness[:, :, 0:2]**2,
                                                     axis=2)/2)
         chansOut = 3  # set number of 'channels' to stereo plus single binaural
         chans = chans + ["Binaural"]
@@ -603,7 +615,7 @@ def acousticSHMLoudnessFromComponent(specTonalLoudness, specNoiseLoudness,
 
     # Section 8.1.3 ECMA-418-2:2025
     # Time-dependent loudness Equation 116 [N(l)]
-    loudnessTDep = np.sum(specLoudness**dz, 1)
+    loudnessTDep = np.sum(specLoudness*dz, axis=1)
 
     # Section 8.1.4 ECMA-418-2:2025
     # Overall loudness Equation 117 [N]
@@ -685,8 +697,6 @@ def acousticSHMLoudnessFromComponent(specTonalLoudness, specNoiseLoudness,
     if chansOut == 3:
         loudnessSHM = dict()
         loudnessSHM.update({'specLoudness': specLoudness[:, :, 0:2]})
-        loudnessSHM.update({'specTonalLoudness': specTonalLoudness[:, :, 0:2]})
-        loudnessSHM.update({'specNoiseLoudness': specNoiseLoudness[:, :, 0:2]})
         loudnessSHM.update({'specLoudnessPowAvg': specLoudnessPowAvg[:, 0:2]})
         loudnessSHM.update({'loudnessTDep': loudnessTDep[:, 0:2]})
         loudnessSHM.update({'loudnessPowAvg': loudnessPowAvg[0:2]})
@@ -695,13 +705,11 @@ def acousticSHMLoudnessFromComponent(specTonalLoudness, specNoiseLoudness,
         loudnessSHM.update({'specNoiseLoudnessBin': specNoiseLoudness[:, :, 2]})
         loudnessSHM.update({'specLoudnessPowAvgBin': specLoudnessPowAvg[:, 2]})
         loudnessSHM.update({'loudnessTDepBin': loudnessTDep[:, 2]})
-        loudnessSHM.update({'loudnessPowAvgBin': loudnessPowAvg[2]})
+        loudnessSHM.update({'loudnessPowAvgBin': np.array(loudnessPowAvg[2])})
         loudnessSHM.update({'bandCentreFreqs': bandCentreFreqs})
         loudnessSHM.update({'timeOut': timeOut})
     else:
         loudnessSHM.update({'specLoudness': specLoudness})
-        loudnessSHM.update({'specTonalLoudness': specTonalLoudness})
-        loudnessSHM.update({'specNoiseLoudness': specNoiseLoudness})
         loudnessSHM.update({'specLoudnessPowAvg': specLoudnessPowAvg})
         loudnessSHM.update({'loudnessTDep': loudnessTDep})
         loudnessSHM.update({'loudnessPowAvg': loudnessPowAvg})

@@ -19,7 +19,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 27/10/2023
-Date last modified: 20/07/2025
+Date last modified: 22/07/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -245,9 +245,6 @@ def shmBasisLoudness(signalSegmented, bandCentreFreq=None):
     # Calibration factor from Section 5.1.8 Equation 23 ECMA-418-2:2025
     cal_N = 0.0211668
     cal_Nx = 1.00132  # Calibration multiplier (Footnote 8 ECMA-418-2:2025)
-    # cal_N*cal_Nx = 0.021194740176  # Adjusted calibration factor
-    # cal_Nx = 1.001398416387928  # Calibration multiplier (Footnote 8 ECMA-418-2:2025)
-    # cal_N*cal_Nx = 0.0211964  # Adjusted calibration factor
 
     a = 1.5  # Constant (alpha) from Section 5.1.8 Equation 23 ECMA-418-2:2025
 
@@ -284,7 +281,7 @@ def shmBasisLoudness(signalSegmented, bandCentreFreq=None):
     # ------------------
     # Section 5.1.7 Equation 22 ECMA-418-2:2025
     blockRMS = np.sqrt((2/signalRectSeg.shape[0])*np.sum(signalRectSeg**2,
-                                                          axis=0))
+                                                         axis=0))
 
     # Transformation into Loudness
     # ----------------------------
@@ -293,7 +290,8 @@ def shmBasisLoudness(signalSegmented, bandCentreFreq=None):
                                                          + (np.moveaxis(np.broadcast_to(blockRMS,
                                                                                         [p_threshold.size]
                                                                                         + list(blockRMS.shape)),
-                                                                        0, -1)/p_threshold)**a)**(np.diff(v)/a), axis=-1)
+                                                                        0, -1)/p_threshold)**a)**(np.diff(v)/a),
+                                                        axis=-1)
 
     # Section 5.1.9 Equation 25 ECMA-418-2:2025
     if bandCentreFreq is not None and signalSegmented.ndim < 3:
@@ -765,6 +763,8 @@ def shmSignalSegmentBlocks(signal, blockSize, overlap=0, axisN=0, i_start=0,
         excessSignal = True
         if endShrink:
             nBlocksTotal = nBlocks + 1
+    else:
+        excessSignal = False
     
     return signalTrunc, nBlocksTotal, excessSignal
 

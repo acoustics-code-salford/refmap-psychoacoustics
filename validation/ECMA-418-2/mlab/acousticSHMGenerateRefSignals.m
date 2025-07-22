@@ -27,8 +27,8 @@ function acousticSHMGenerateRefSignals
 % Date last checked:
 %
 
-%% Load path
-addpath(genpath(fullfile("refmap-psychoacoustics", "validation")))
+%% Load path (assumes root directory is refmap-psychoacoustics)
+addpath(genpath(fullfile("validation")))
 
 %% Input parameters
 

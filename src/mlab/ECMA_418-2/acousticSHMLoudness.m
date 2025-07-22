@@ -112,7 +112,7 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford
 %
 % Date created: 22/09/2023
-% Date last modified: 21/07/2025
+% Date last modified: 22/07/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -148,8 +148,8 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, w
         binaural {mustBeNumericOrLogical} = true
     end
 
-%% Load path
-addpath(genpath(fullfile("refmap-psychoacoustics", "src", "mlab")))
+%% Load path (assumes root directory is refmap-psychoacoustics)
+addpath(genpath(fullfile("src", "mlab")))
 
 %% Input checks
 % Orient input matrix
@@ -195,6 +195,9 @@ b = 0.5459;
 % ECMA-418-2:2025) [r_sd]
 sampleRate1875 = sampleRate48k/256;
 
+% standardised epsilon
+epsilon = 1e-12;
+
 %% Signal processing
 
 % Input pre-processing
@@ -222,7 +225,7 @@ for chan = chansIn:-1:1
     % Equation 114 ECMA-418-2:2025 [e(z)]
     maxLoudnessFuncel = a./(max(specTonalLoudness(:, :, chan)...
                                 + specNoiseLoudness(:, :, chan), [],...
-                                2, "omitnan") + 1e-12) + b;
+                                2, "omitnan") + epsilon) + b;
 
     % Equation 113 ECMA-418-2:2025 [N'(l,z)]
     specLoudness(:, :, chan) = (specTonalLoudness(:, :, chan).^maxLoudnessFuncel...

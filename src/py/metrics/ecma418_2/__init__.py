@@ -6,6 +6,8 @@ from .acousticSHMTonality import acousticSHMTonality
 
 from .acousticSHMLoudness import acousticSHMLoudness
 
+from .acousticSHMLoudness import acousticSHMLoudnessFromComponent
+
 from .acousticSHMRoughness import acousticSHMRoughness
 
 from .acousticSHMSubs import (shmDimensional, shmResample, shmPreProc,
