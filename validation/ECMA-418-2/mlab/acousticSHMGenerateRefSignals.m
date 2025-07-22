@@ -34,11 +34,12 @@ addpath(genpath(fullfile("validation")))
 
 fs = 48e3;
 dt = 1/fs;
-T = 5;
+T = 10;
 n = T*fs;
 t = linspace(0, T-dt, n);
 f_tone = 1000;
-f_mod = 70;
+f_mod70 = 70;
+f_mod4 = 4;
 A_tone = sqrt(2)*2e-5*10^(40/20);
 outpath = fullfile("validation",...
                    "ECMA-418-2", "audio");
@@ -50,16 +51,25 @@ sine_1kHz_40dB = A_tone*sin(2*pi*f_tone.*t);
 
 % reference modulated sinusoid for roughness
 
-sine_70Hz_mod = sin(2*pi*f_mod.*t - pi/2);
+sine_70Hz_mod = sin(2*pi*f_mod70.*t - pi/2);
 sine_1kHz_70Hz_60dB = (1 + sine_70Hz_mod).*sin(2*pi*f_tone.*t);
 A_adjust = rms(sine_1kHz_70Hz_60dB)/0.02;
 sine_1kHz_70Hz_60dB = sine_1kHz_70Hz_60dB/A_adjust;
+
+% reference modulated sinusoid for fluctuation strength
+
+sine_4Hz_mod = sin(2*pi*f_mod4.*t - pi/2);
+sine_1kHz_4Hz_60dB = (1 + sine_4Hz_mod).*sin(2*pi*f_tone.*t);
+A_adjust = rms(sine_1kHz_4Hz_60dB)/0.02;
+sine_1kHz_4Hz_60dB = sine_1kHz_4Hz_60dB/A_adjust;
 
 %% Save signals as wav files (assumes current folder is
 % refmap-psychoacoustics root)
 audiowrite(fullfile(outpath, "sine_1kHz_40dB.wav"), sine_1kHz_40dB, fs,...
            "BitsPerSample", 24)
 audiowrite(fullfile(outpath, "sine_1kHz_70Hz_60dB.wav"), sine_1kHz_70Hz_60dB, fs,...
+           "BitsPerSample", 24)
+audiowrite(fullfile(outpath, "sine_1kHz_4Hz_60dB.wav"), sine_1kHz_4Hz_60dB, fs,...
            "BitsPerSample", 24)
 
 % end of function
