@@ -79,7 +79,7 @@ function loudnessSHM = acousticSHMLoudnessFromComponent(specTonalLoudness, specN
 % Assumptions
 % -----------
 % The input matrices are ECMA-418-2:2025 specific tonal and specific noise
-% loudness, with dimensions orientated as [half-Bark bands, time blocks,
+% loudness, with dimensions orientated as [critical bands, time blocks,
 % signal channels]
 %
 % Requirements
@@ -92,7 +92,7 @@ function loudnessSHM = acousticSHMLoudnessFromComponent(specTonalLoudness, specN
 % Institution: University of Salford
 %
 % Date created: 22/08/2023
-% Date last modified: 27/06/2025
+% Date last modified: 22/07/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -121,8 +121,8 @@ function loudnessSHM = acousticSHMLoudnessFromComponent(specTonalLoudness, specN
         binaural {mustBeNumericOrLogical} = true
     end
 
-%% Load path
-addpath(genpath(fullfile("refmap-psychoacoustics", "src", "mlab")))
+%% Load path (assumes root directory is refmap-psychoacoustics)
+addpath(genpath(fullfile("src", "mlab")))
 
 %% Input checks
 % Check the size of the input matrices (must match)
@@ -163,6 +163,9 @@ b = 0.5459;
 % ECMA-418-2:2025) [r_sd]
 sampleRate1875 = sampleRate48k/256;
 
+% standardised epsilon
+epsilon = 1e-12;
+
 %% Signal processing
 
 % Section 8.1.1 ECMA-418-2:2025
@@ -171,7 +174,7 @@ for chan = chansIn:-1:1
     % Equation 114 ECMA-418-2:2025 [e(z)]
     maxLoudnessFuncel = a./(max(specTonalLoudness(:, :, chan)...
                                 + specNoiseLoudness(:, :, chan), [],...
-                                2, "omitnan") + 1e-12) + b;
+                                2, "omitnan") + epsilon) + b;
     % Equation 113 ECMA-418-2:2025 [N'(l,z)]
     specLoudness(:, :, chan) = (specTonalLoudness(:, :, chan).^maxLoudnessFuncel...
                                     + abs((weight_n.*specNoiseLoudness(:, :, chan)).^maxLoudnessFuncel)).^(1./maxLoudnessFuncel);
@@ -180,9 +183,9 @@ end
 if chansIn == 2 && binaural
     % Binaural loudness
     % Section 8.1.5 ECMA-418-2:2025 Equation 118 [N'_B(l,z)]
-    specLoudness(:, :, 3) = sqrt(sum(specLoudness.^2, 3)/2);
-    specTonalLoudness(:, :, 3) = sqrt(sum(specTonalLoudness.^2, 3)/2);
-    specNoiseLoudness(:, :, 3) = sqrt(sum(specNoiseLoudness.^2, 3)/2);
+    specLoudness(:, :, 3) = sqrt(sum(specLoudness(:, :, 1:2).^2, 3)/2);
+    specTonalLoudness(:, :, 3) = sqrt(sum(specTonalLoudness(:, :, 1:2).^2, 3)/2);
+    specNoiseLoudness(:, :, 3) = sqrt(sum(specNoiseLoudness(:, :, 1:2).^2, 3)/2);
     chansOut = 3;  % set number of 'channels' to stereo plus single binaural
     chans = [chans;
              "Binaural"];
