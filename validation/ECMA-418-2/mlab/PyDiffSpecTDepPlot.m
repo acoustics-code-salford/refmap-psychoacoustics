@@ -24,8 +24,8 @@ function PyDiffSpecTDepPlot(pyMetric, mlabMetric, metricType, titleStr,...
 
     metricDiff = metricPy - metricMlab;
 
-    fig = figure('Position', [200, 200, 500, 700]);
-    tl = tiledlayout(fig, 2, 1);
+    fig = figure('Position', [200, 200, 1000, 300]);
+    tl = tiledlayout(fig, 1, 2);
     axTitleStr = ["Left channel", "Right channel"];
 
     movegui(fig, 'center');
@@ -40,7 +40,7 @@ function PyDiffSpecTDepPlot(pyMetric, mlabMetric, metricType, titleStr,...
         ax.XLim = [pyMetric.timeOut(1), pyMetric.timeOut(end)...
                    + (pyMetric.timeOut(2) - pyMetric.timeOut(1))];
         ax.YLim = [pyMetric.bandCentreFreqs(1), pyMetric.bandCentreFreqs(end)];
-        % ax.CLim = [-0.005, 0.005];
+        % ax.CLim = [0, ceil(max(metricPy, [], 'all')*10)/10];
         ax.YTick = [63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3]; 
         ax.YTickLabel = ["63", "125", "250", "500", "1k", "2k", "4k",...
                          "8k", "16k"]; 
