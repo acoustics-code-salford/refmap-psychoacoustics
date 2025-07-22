@@ -95,7 +95,6 @@ The verification results presented here comprise sound quality magnitude *differ
 ### Tonality
 
 ![Signal 3 time-dependent specific tonality differences](results/tonalSHMSpecTDepPyDiff.png)
-<img src='results/tonalSHMSpecTDepPyDiff.png' width=400>
 
 ### Loudness
 
