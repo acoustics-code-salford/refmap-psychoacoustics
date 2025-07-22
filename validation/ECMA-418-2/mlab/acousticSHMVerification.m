@@ -746,8 +746,8 @@ function PyDiffSpecTDepPlot(pyMetric, mlabMetric, metricType, titleStr,...
 
     metricDiff = metricPy - metricMlab;
 
-    fig = figure('Position', [200, 200, 500, 700]);
-    tl = tiledlayout(fig, 2, 1);
+    fig = figure('Position', [200, 200, 1000, 300]);
+    tl = tiledlayout(fig, 1, 2);
     axTitleStr = ["Left channel", "Right channel"];
 
     movegui(fig, 'center');
