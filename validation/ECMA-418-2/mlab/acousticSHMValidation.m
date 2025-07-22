@@ -3,7 +3,7 @@ function acousticSHMValidation(savePlots)
 %
 % Compares ECMA-418-2:2025 (Sottek Hearing Model) implementation with
 % values obtained using commercially-available software for reference
-% signals.
+% signals (currently ArtemiS 16.7 with ECMA-418-2:2024 3rd edition).
 %
 % Inputs
 % ------
@@ -109,7 +109,7 @@ sine_1kHz_70Hz_60dB.Roughness = validation_ECMA_418_2_3_2024_LR{3, 4};
 BusyStreet1_0530_0600.Roughness = [validation_ECMA_418_2_3_2024_LR{4, 4},...
                                    validation_ECMA_418_2_3_2024_LR{5, 4}];
 
-validation_ECMA_418_2_3_2024_Bin = readcell(fullfile(refpath, "validation_ECMA-418-2_2022_Bin.xlsx"),...
+validation_ECMA_418_2_3_2024_Bin = readcell(fullfile(refpath, "validation_ECMA-418-2_2024_Bin.xlsx"),...
                                             'NumHeaderLines', 0);
 
 BusyStreet1_0530_0600.LoudnessBin = validation_ECMA_418_2_3_2024_Bin{2, 2};
