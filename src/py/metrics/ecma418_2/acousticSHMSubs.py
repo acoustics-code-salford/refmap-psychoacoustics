@@ -19,7 +19,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 27/10/2023
-Date last modified: 22/07/2025
+Date last modified: 23/07/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -1143,6 +1143,8 @@ def shmRoughLowPass(specRoughEstTform, sampleRate, riseTime, fallTime):
 
     return specRoughness  # end of shmRoughLowPass function
 
+
+# %% shmRound
 def shmRound(vals, decimals=0):
     """
     Returns a set of rounded values to the specified number of decimal places
@@ -1160,8 +1162,8 @@ def shmRound(vals, decimals=0):
     Returns
     -------
 
-     : float
-          The rounded value.
+     : array of floats
+          The rounded values.
 
     """
 
@@ -1170,4 +1172,38 @@ def shmRound(vals, decimals=0):
     except TypeError:
         raise TypeError
 
-    return np.round(vals+10**(-vals.astype(str).size - 1), decimals)
+    return np.round(vals + 10**(-vals.astype(str).size - 1), decimals)
+
+
+# %% shmRMS
+def shmRMS(vals, axis=0, keepdims=False):
+    """
+    Returns the root-mean-square for values contained in an array.
+
+    Inputs
+    ------
+
+    vals : float or array of floats
+           the values to be rounded.
+
+    axis : integer
+           the axis along which to calculate the RMS.
+
+    keepdims : Boolean
+               flag to indicate whether to retain dimensions along the mean
+               axis (with size of one), for broadcasting compatibility.
+
+    Returns
+    -------
+
+     : array of floats
+          The root-mean-squared values.
+
+    """
+
+    try:
+        vals = np.asarray(vals)
+    except TypeError:
+        raise TypeError
+
+    return np.sqrt(np.mean(np.square(vals), axis=axis, keepdims=keepdims))

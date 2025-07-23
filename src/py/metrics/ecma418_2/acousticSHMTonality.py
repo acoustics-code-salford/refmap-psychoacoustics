@@ -15,7 +15,6 @@ scipy
 matplotlib
 tqdm
 bottleneck
-acoustic-toolbox
 refmap-psychoacoustics (metrics.ecma418_2, dsp.filterFuncs and
                         utils.formatFuncs)
 
@@ -25,7 +24,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 25/05/2023
-Date last modified: 22/07/2025
+Date last modified: 23/07/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -54,12 +53,12 @@ from src.py.metrics.ecma418_2.acousticSHMSubs import (shmResample, shmPreProc,
                                                       shmAuditoryFiltBank,
                                                       shmSignalSegment,
                                                       shmBasisLoudness,
-                                                      shmNoiseRedLowPass)
+                                                      shmNoiseRedLowPass,
+                                                      shmRMS)
 from tqdm import tqdm
 import bottleneck as bn
 from src.py.dsp.filterFuncs import A_weight_T
 from src.py.utils.formatFuncs import roundTrad
-from acoustic_toolbox.signal import rms
 
 # %% Module settings
 mpl.rcParams['font.family'] = 'sans-serif'
@@ -660,7 +659,7 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
             # Filter signal to determine A-weighted time-averaged level
             pA = A_weight_T(p_re[:, chan], fs=sampleRate48k)
-            LAeq = 20*np.log10(rms(pA)/2e-5)
+            LAeq = 20*np.log10(shmRMS(pA)/2e-5)
             fig.suptitle(t=(chan_lab + " signal sound pressure level = " +
                             str(roundTrad(LAeq, 1)) +
                             r"dB $\mathregular{\mathit{L}_{Aeq}}$"))

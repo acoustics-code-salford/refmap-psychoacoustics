@@ -13,7 +13,6 @@ Requirements
 numpy
 scipy
 matplotlib
-acoustic-toolbox
 refmap-psychoacoustics (metrics.ecma418_2, dsp.filterFuncs and
                         utils.formatFuncs)
 
@@ -23,7 +22,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 29/05/2023
-Date last modified: 22/07/2025
+Date last modified: 23/07/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -42,7 +41,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib as mpl
 from src.py.metrics.ecma418_2.acousticSHMSubs import (shmResample,
-                                                      shmDimensional)
+                                                      shmDimensional, shmRMS)
 from src.py.metrics.ecma418_2.acousticSHMTonality import acousticSHMTonality
 from src.py.dsp.filterFuncs import A_weight_T
 from src.py.utils.formatFuncs import roundTrad
@@ -351,8 +350,7 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             # Filter signal to determine A-weighted time-averaged level
             if chan == 2:
                 pA = A_weight_T(p_re, fs=sampleRate48k)
-                LAeq2 = 20*np.log10(np.array([rms(pA[:, 0]),
-                                              rms(pA[:, 1])])/2e-5)
+                LAeq2 = np.max(20*np.log10(shmRMS(pA, axis=0)/2e-5))
                 # take the higher channel level as representative (PD ISO/TS
                 # 12913-3:2019 Annex D)
                 LAeq = np.max(LAeq2)
@@ -367,7 +365,7 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                 chan_lab = chan_lab + whichEar
             else:
                 pA = A_weight_T(p_re[:, chan], fs=sampleRate48k)
-                LAeq = 20*np.log10(rms(pA)/2e-5)
+                LAeq = 20*np.log10(shmRMS(pA)/2e-5)
 
             fig.suptitle(t=(chan_lab + " signal sound pressure level = " +
                             str(roundTrad(LAeq, 1)) +
