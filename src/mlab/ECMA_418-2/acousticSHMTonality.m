@@ -124,7 +124,7 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 07/08/2023
-% Date last modified: 22/07/2025
+% Date last modified: 23/07/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -524,7 +524,7 @@ for chan = chansIn:-1:1
 
     % Section 6.2.11 Equation 63 ECMA-418-2:2025
     % Time-averaged total tonality [T]
-    tonalityAvg(chan) = sum(tonalityTDep(mask, chan))/(nnz(mask) + eps);
+    tonalityAvg(chan) = sum(tonalityTDep(mask, chan))/(nnz(mask) + epsilon);
 
     if waitBar
         close(w)  % close waitbar
