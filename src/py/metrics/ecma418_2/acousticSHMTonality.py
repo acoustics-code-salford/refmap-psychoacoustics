@@ -211,11 +211,13 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
     # %% Define constants
 
-    # Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2025 [r_s]
+    # Signal sample rate prescribed to be 48kHz (to be used for resampling),
+    # Section 5.1.1 ECMA-418-2:2025 [r_s]
     sampleRate48k = 48e3
     # defined in Section 5.1.4.1 ECMA-418-2:2025 [deltaf(f=0)]
     deltaFreq0 = 81.9289
-    # Half-overlapping Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2025
+    # Half-overlapping Bark band centre-frequency denominator constant defined
+    # in Section 5.1.4.1 ECMA-418-2:2025
     c = 0.1618
 
     dz = 0.5  # critical band overlap
@@ -273,7 +275,7 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     cal_T = 2.8758615
     # Adjustment to calibration factor (Footnote 22 ECMA-418-2:2025)
     cal_Tx = 1/0.9999043734252
-    
+
     # Footnote 14 (/0 epsilon)
     epsilon = 1e-12
 
@@ -380,13 +382,15 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             # ACF implementation using DFT
             # Section 6.2.2 Equations 27 & 28 ECMA-418-2:2025
             # [phi_unscaled,l,z(m)]
-            unscaledACF = np.real(ifft(np.abs(fft(pn_rlz, 2*blockSizeDupe[zBand], axis=0))**2, 2*blockSizeDupe[zBand], axis=0))
+            unscaledACF = np.real(ifft(np.abs(fft(pn_rlz,
+                                                  2*blockSizeDupe[zBand],
+                                                  axis=0))**2,
+                                       2*blockSizeDupe[zBand], axis=0))
             # Section 6.2.2 Equation 29 ECMA-418-2:2025 [phi_l,z(m)]
             denom = (np.sqrt(np.flip(np.cumsum(np.flip(pn_rlz, axis=0)**2,
-                                               axis=0),
-                                     axis=0) *np.flip(np.cumsum(pn_rlz**2,
-                                                                axis=0),
-                             axis=0)) + epsilon)
+                                               axis=0), axis=0)
+                             * np.flip(np.cumsum(pn_rlz**2, axis=0), axis=0))
+                     + epsilon)
 
             # note that the block length is used here, rather than the 2*s_b,
             # for compatability with the remaining code - beyond 0.75*s_b is
@@ -399,7 +403,8 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
         # Average the ACF over nB bands - Section 6.2.3 ECMA-418-2:2025
         if waitBar:
-            bandACFAvgIter = tqdm(range(nBands), desc="Component loudness estimation")
+            bandACFAvgIter = tqdm(range(nBands),
+                                  desc="Component loudness estimation")
         else:
             bandACFAvgIter = range(nBands)
 
@@ -472,7 +477,7 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             # Resampling to common time basis Section 6.2.6 ECMA-418-2:2025
             if i_interp[zBand] > 1:
                 # Note: use of interpolation function avoids rippling caused by
-                # resample function, which otherwise affects specific loudness 
+                # resample function, which otherwise affects specific loudness
                 # calculation for tonal and noise components
                 l_n = meanScaledACF.shape[1]
                 xp = np.linspace(0, l_n - 1, l_n)
@@ -495,13 +500,16 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             # (ratio of tonal component loudness to non-tonal component
             # loudness in critical band)
             # [SNRhat(l,z)]
-            SNRlz1 = bandTonalLoudness/((bandLoudness - bandTonalLoudness) + epsilon)
+            SNRlz1 = bandTonalLoudness/((bandLoudness - bandTonalLoudness)
+                                        + epsilon)
 
             # Equation 43 ECMA-418-2:2025 low pass filtered specific loudness
             # of non-tonal component in critical band [Ntilde'_tonal(l,z)]
-            bandTonalLoudness = shmNoiseRedLowPass(bandTonalLoudness, sampleRate1875)
+            bandTonalLoudness = shmNoiseRedLowPass(bandTonalLoudness,
+                                                   sampleRate1875)
 
-            # Equation 44 ECMA-418-2:2025 lowpass filtered SNR (improved estimation)
+            # Equation 44 ECMA-418-2:2025 lowpass filtered SNR (improved
+            # estimation)
             # [SNRtilde(l,z)]
             SNRlz = shmNoiseRedLowPass(SNRlz1, sampleRate1875)
 
@@ -531,13 +539,16 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             # specific time-dependent loudness of signal in each critical band
     #         specLoudness[:, zBand, chan] = bandLoudness
 
-            # specific time-dependent loudness of tonal component in each critical band  [N'_tonal(l,z)]
+            # specific time-dependent loudness of tonal component in each
+            # critical band  [N'_tonal(l,z)]
             specTonalLoudness[:, zBand, chan] = bandTonalLoudness
 
-            # specific time-dependent loudness of non-tonal component in each critical band [N'_noise(l,z)]
+            # specific time-dependent loudness of non-tonal component in each
+            # critical band [N'_noise(l,z)]
             specNoiseLoudness[:, zBand, chan] = bandNoiseLoudness
 
-            # time-dependent frequency of tonal component in each critical band [f_ton(z)]
+            # time-dependent frequency of tonal component in each critical band
+            # [f_ton(z)]
             specTonalityFreqs[:, zBand, chan] = bandTonalFreqs
 
         # end of ACF averaging for loop over bands
@@ -624,7 +635,8 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                                    np.swapaxes(specTonality[:, :, chan], 0, 1),
                                    cmap=cmap_plasma,
                                    vmin=0,
-                                   vmax=np.ceil(np.max(tonalityTDep[:, chan])*10)/10,
+                                   vmax=np.ceil(np.max(tonalityTDep[:,
+                                                                    chan])*10)/10,
                                    shading='gouraud')
             ax1.set(xlim=[timeOut[1],
                           timeOut[-1] + (timeOut[1] - timeOut[0])],

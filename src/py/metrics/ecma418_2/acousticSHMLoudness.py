@@ -45,7 +45,6 @@ from src.py.metrics.ecma418_2.acousticSHMSubs import (shmResample,
 from src.py.metrics.ecma418_2.acousticSHMTonality import acousticSHMTonality
 from src.py.dsp.filterFuncs import A_weight_T
 from src.py.utils.formatFuncs import roundTrad
-from acoustic_toolbox.signal import rms
 
 # %% Module settings
 mpl.rcParams['font.family'] = 'sans-serif'
@@ -117,7 +116,7 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                         time-dependent specific tonal loudness for each
                         critical band
                         arranged as [time, bands(, channels)]
-    
+
     specNoiseLoudness : 2D or 3D array
                         time-dependent specific noise loudness for each
                         critical band
@@ -146,7 +145,7 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     time-averaged A-weighted sound level, the time-dependent specific and
     overall loudness, with the latter also indicating the time-aggregated
     value. A set of plots is returned for each input channel.
-    
+
     If binaural=true, a corresponding set of outputs for the binaural
     loudness are also contained in loudnessSHM.
 
@@ -185,11 +184,13 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
     # %% Define constants
 
-    # Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2025 [r_s]
+    # Signal sample rate prescribed to be 48kHz (to be used for resampling),
+    # Section 5.1.1 ECMA-418-2:2025 [r_s]
     sampleRate48k = 48e3
     # defined in Section 5.1.4.1 ECMA-418-2:2025 [deltaf(f=0)]
     deltaFreq0 = 81.9289
-    # Half-overlapping Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2025
+    # Half-overlapping Bark band centre-frequency denominator constant defined
+    # in Section 5.1.4.1 ECMA-418-2:2025
     c = 0.1618
 
     dz = 0.5  # critical band overlap
@@ -231,7 +232,7 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
     specTonalLoudness = tonalitySHM['specTonalLoudness']  # [N'_tonal(l,z)]
     specNoiseLoudness = tonalitySHM['specNoiseLoudness']  # [N'_noise(l,z)]
-    
+
     # expand dimensions to ease processing
     if chansIn == 1:
         specTonalLoudness = shmDimensional(specTonalLoudness, targetDim=3,
@@ -249,10 +250,9 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                                + epsilon) + b
         maxLoudnessFuncel = shmDimensional(maxLoudnessFuncel)
         # Equation 113 ECMA-418-2:2025 [N'(l,z)]
-        specLoudness[:, :, chan] = (specTonalLoudness[:, :, chan]**maxLoudnessFuncel
-                                    + np.abs((weight_n*specNoiseLoudness[:,
-                                                                         :,
-                                                                         chan])
+        specLoudness[:, :, chan] = (specTonalLoudness[:, :,
+                                                      chan]**maxLoudnessFuncel
+                                    + np.abs((weight_n*specNoiseLoudness[:, :, chan])
                                              ** maxLoudnessFuncel))**(1/maxLoudnessFuncel)
     # end of loudness for loop over channels
 
@@ -313,8 +313,7 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                                    np.swapaxes(specLoudness[:, :, chan], 0, 1),
                                    cmap=cmap_viridis,
                                    vmin=0,
-                                   vmax=np.ceil(np.max(loudnessTDep[:,
-                                                                    chan])*10)/10,
+                                   vmax=np.ceil(np.max(specLoudness[:, :, chan])*10)/10,
                                    shading='gouraud')
             ax1.set(xlim=[timeOut[1],
                           timeOut[-1] + (timeOut[1] - timeOut[0])],
@@ -462,7 +461,7 @@ def acousticSHMLoudnessFromComponent(specTonalLoudness, specNoiseLoudness,
                         time-dependent specific tonal loudness for each
                         critical band
                         arranged as [time, bands(, channels)]
-    
+
     specNoiseLoudness : 2D or 3D array
                         time-dependent specific noise loudness for each
                         critical band
@@ -491,7 +490,7 @@ def acousticSHMLoudnessFromComponent(specTonalLoudness, specNoiseLoudness,
     time-averaged A-weighted sound level, the time-dependent specific and
     overall loudness, with the latter also indicating the time-aggregated
     value. A set of plots is returned for each input channel.
-    
+
     If binaural=true, a corresponding set of outputs for the binaural
     loudness are also contained in loudnessSHM.
 
@@ -506,19 +505,19 @@ def acousticSHMLoudnessFromComponent(specTonalLoudness, specNoiseLoudness,
 
     """
     # %% Input checks
-    
+
     # ensure inputs are arrays
     try:
         specTonalLoudness = np.asarray(specTonalLoudness)
         specNoiseLoudness = np.asarray(specNoiseLoudness)
     except TypeError:
         raise TypeError("Inputs must be arrays or capable of being cast to arrays.")
-    
+
     # Check the size of the input matrices (must match)
     if specTonalLoudness.shape != specNoiseLoudness.shape:
         raise ValueError('Error: Input loudness array shapes must match')
     # end
-    
+
     # ensure that inputs are 3D
     specTonalLoudness = shmDimensional(specTonalLoudness, targetDim=3,
                                        where='last')
@@ -539,11 +538,13 @@ def acousticSHMLoudnessFromComponent(specTonalLoudness, specNoiseLoudness,
 
     # %% Define constants
 
-    # Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2025 [r_s]
+    # Signal sample rate prescribed to be 48kHz (to be used for resampling),
+    # Section 5.1.1 ECMA-418-2:2025 [r_s]
     sampleRate48k = 48e3
     # defined in Section 5.1.4.1 ECMA-418-2:2025 [deltaf(f=0)]
     deltaFreq0 = 81.9289
-    # Half-overlapping Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2025
+    # Half-overlapping Bark band centre-frequency denominator constant defined
+    # in Section 5.1.4.1 ECMA-418-2:2025
     c = 0.1618
 
     dz = 0.5  # critical band overlap
@@ -641,8 +642,7 @@ def acousticSHMLoudnessFromComponent(specTonalLoudness, specNoiseLoudness,
                                    np.swapaxes(specLoudness[:, :, chan], 0, 1),
                                    cmap=cmap_viridis,
                                    vmin=0,
-                                   vmax=np.ceil(np.max(loudnessTDep[:,
-                                                                    chan])*10)/10,
+                                   vmax=np.ceil(np.max(specLoudness[:, :, chan])*10)/10,
                                    shading='gouraud')
             ax1.set(xlim=[timeOut[1],
                           timeOut[-1] + (timeOut[1] - timeOut[0])],
