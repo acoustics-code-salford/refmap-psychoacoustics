@@ -200,11 +200,13 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # %% Define constants
 
     signalT = p.shape[0]/sampleRateIn  # duration of input signal
-    # Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2025 [r_s]
+    # Signal sample rate prescribed to be 48kHz (to be used for resampling),
+    # Section 5.1.1 ECMA-418-2:2025 [r_s]
     sampleRate48k = 48e3
     # defined in Section 5.1.4.1 ECMA-418-2:2025 [deltaf(f=0)]
     deltaFreq0 = 81.9289
-    # Half-overlapping Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2025
+    # Half-overlapping Bark band centre-frequency denominator constant defined
+    # in Section 5.1.4.1 ECMA-418-2:2025
     c = 0.1618
 
     dz = 0.5  # critical band overlap
@@ -226,13 +228,14 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     sampleRate1500 = sampleRate48k/downSample
     blockSize1500 = int(blockSize/downSample)
     # hopSize1500 = (1 - overlap)*blockSize1500
-    resDFT1500 = sampleRate1500/blockSize1500  # DFT resolution (section 7.1.5.1) [deltaf]
+    # DFT resolution (section 7.1.5.1) [deltaf]
+    resDFT1500 = sampleRate1500/blockSize1500
 
     # Modulation rate error correction values Table 8, Section 7.1.5.1
     # ECMA-418-2:2025 [E(theta)]
-    errorCorrection = np.array([0.0000, 0.0457, 0.0907, 0.1346, 0.1765, 0.2157, 0.2515,
-                                0.2828, 0.3084, 0.3269, 0.3364, 0.3348, 0.3188, 0.2844,
-                                0.2259, 0.1351, 0.0000])
+    errorCorrection = np.array([0.0000, 0.0457, 0.0907, 0.1346, 0.1765, 0.2157,
+                                0.2515, 0.2828, 0.3084, 0.3269, 0.3364, 0.3348,
+                                0.3188, 0.2844, 0.2259, 0.1351, 0.0000])
     errorCorrection = np.hstack((errorCorrection, np.flip(-errorCorrection[0:-1]), 0))
 
     # High modulation rate roughness perceptual scaling function

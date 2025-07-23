@@ -46,8 +46,7 @@ import numpy as np
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 import matplotlib.ticker as ticker
-from scipy.signal import (bilinear, freqz, lfilter, lfilter_zi,
-                          resample_poly, sosfilt, sosfreqz)
+from scipy.signal import (freqz, lfilter, resample_poly, sosfilt, sosfreqz)
 from scipy.special import (comb)
 from math import gcd
 
@@ -312,55 +311,54 @@ def shmBasisLoudness(signalSegmented, bandCentreFreq=None):
 def shmNoiseRedLowPass(signal, sampleRateIn):
     """
     signalFiltered = shmNoiseRedLowPass(signal, sampleRateIn)
-    
+
     Returns signal low pass filtered for noise reduction according to
     ECMA-418-2:2025 (the Sottek Hearing Model) for an input signal.
-    
+
     Inputs
     ------
     signal : 1D or 2D matrix
              the input signal as single mono or stereo audio (sound
              pressure) signals
-    
+
     sampleRateIn : double
                    the sample rate (frequency) of the input signal(s)
-    
+
     Returns
     -------
     signalFiltered : 1D or 2D matrix
                      the filtered signal/s
-    
+
     Assumptions
     -----------
     The input signal is oriented with time on axis 0 (and channel # on axis 1),
     ie, the filtering operation is applied along axis 0.
-    
+
     Checked by:
     Date last checked:
     """
-    k = 3 # Footnote 21 ECMA-418-2:2025
-    e_i = [0, 1, 1] # Footnote 21 ECMA-418-2:2025
-    
+    k = 3  # Footnote 21 ECMA-418-2:2025
+    e_i = [0, 1, 1]  # Footnote 21 ECMA-418-2:2025
+
     # Footnote 20 ECMA-418-2:2025
     tau = 1/32*6/7
-    
-    d = np.exp(-1/(sampleRateIn*tau)) # Section 5.1.4.2 ECMA-418-2:2025
-    
+
+    d = np.exp(-1/(sampleRateIn*tau))  # Section 5.1.4.2 ECMA-418-2:2025
+
     # Feed-backward coefficients, Equation 14 ECMA-418-2:2025
     m_a = range(1, k + 1)
     a = np.append(1, ((-d)**m_a)*comb(k, m_a))
-    
+
     # Feed-forward coefficients, Equation 15 ECMA-418-2:2025
     m_b = range(k)
     i = range(1, k)
     b = (((1 - d)**k)/sum(e_i[1:]*(d**i)))*(d**m_b)*e_i
-    
+
     # Recursive filter Equation 13 ECMA-418-2:2025
     signalFiltered = lfilter(b, a, signal, axis=0)
-    
-    return(signalFiltered)
-    
-    # end
+
+    return signalFiltered
+
 
 # %% shmOutMidEarFilter
 def shmOutMidEarFilter(signal, soundField='freeFrontal', outPlot=False):
@@ -671,7 +669,7 @@ def shmResample(signal, sampleRateIn):
     return resampledSignal, resampledRate  # end of shmResample function
 
 
-#%% shmSignalSegmentBlocks
+# %% shmSignalSegmentBlocks
 def shmSignalSegmentBlocks(signal, blockSize, overlap=0, axisN=0, i_start=0,
                            endShrink=False):
     """
@@ -703,13 +701,13 @@ def shmSignalSegmentBlocks(signal, blockSize, overlap=0, axisN=0, i_start=0,
     Returns
     -------
     For each channel in the input signal:
-        
+
     signalTrunc :  1D or 2D array
                    the truncated signal/s
 
     nBlocksTotal : integer
                    the total number of blocks to use for signal segmentation
-            
+
     excessSignal : Boolean
                    flag indicating whether there is sufficient signal to
                    accommodate an extra block with increased overlap
@@ -734,10 +732,7 @@ def shmSignalSegmentBlocks(signal, blockSize, overlap=0, axisN=0, i_start=0,
 
     # Check signal dimensions and add axis if 1D input
     if signal.ndim == 1:
-        numChans = 1
         signal = shmDimensional(signal)
-    else:
-        numChans = signal.shape[1]
 
     # Check sample index start will allow segmentation to proceed
     if signal[i_start:, :].shape[0] <= blockSize:
@@ -765,10 +760,11 @@ def shmSignalSegmentBlocks(signal, blockSize, overlap=0, axisN=0, i_start=0,
             nBlocksTotal = nBlocks + 1
     else:
         excessSignal = False
-    
+
     return signalTrunc, nBlocksTotal, excessSignal
 
-#%% shmSignalSegment
+
+# %% shmSignalSegment
 def shmSignalSegment(signal, blockSize, overlap=0, axisN=0, i_start=0,
                      endShrink=False):
     """
@@ -894,9 +890,11 @@ def shmSignalSegment(signal, blockSize, overlap=0, axisN=0, i_start=0,
         if endShrink and excessSignal:
             signalChan = signal[-blockSize:, chan]
             signalSegmentedChanOut = np.concatenate((signalSegmentedChan,
-                                                     signalChan[:, np.newaxis]),
+                                                     signalChan[:,
+                                                                np.newaxis]),
                                                     axis=1)
-            iBlocksOut = np.append(np.arange(0, (nBlocksTotal - 1)*hopSize, hopSize),
+            iBlocksOut = np.append(np.arange(0, (nBlocksTotal - 1)*hopSize,
+                                             hopSize),
                                    signal[i_start:, chan].size - blockSize)
         else:
             signalSegmentedChanOut = signalSegmentedChan
@@ -942,7 +940,7 @@ def shmDownsample(ndArray, axisN=0, downSample=32):
     -------
     targArray : nD array
                 Output numpy array downsampled.
-                
+
     Assumptions
     -----------
     Input ndArray is 1D or 2D
@@ -981,6 +979,7 @@ def shmDownsample(ndArray, axisN=0, downSample=32):
         raise ValueError("Input ndArray must be 1D or 2D")
 
     return targArray
+
 
 # %% shmDimensional
 def shmDimensional(ndArray, targetDim=2, where='last'):
@@ -1152,13 +1151,13 @@ def shmRound(vals, decimals=0):
 
     Inputs
     ------
-    
+
     vals : float or array of floats
            the values to be rounded.
 
     decimals : int
                the number of decimal places to round to (default=0).
-    
+
     Returns
     -------
 
