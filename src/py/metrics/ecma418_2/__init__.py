@@ -15,4 +15,4 @@ from .acousticSHMSubs import (shmDimensional, shmResample, shmPreProc,
                               shmSignalSegment, shmSignalSegmentBlocks,
                               shmBasisLoudness, shmDownsample,
                               shmNoiseRedLowPass, shmRoughLowPass,
-                              shmRoughWeight, shmRound)
+                              shmRoughWeight, shmRound, shmRMS)
