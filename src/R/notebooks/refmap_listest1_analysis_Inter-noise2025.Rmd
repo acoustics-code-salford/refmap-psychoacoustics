@@ -1297,26 +1297,33 @@ p5 <- ggplot(data=model1predictPkASxTn) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
   
-              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.03) +
+              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.08) +
               
-              geom_line(aes(x=x, y=predicted, colour=group), alpha=0.35, linewidth=1) +
-              
-              scale_color_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.2, end = 0.8) +
-              scale_fill_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.2, end = 0.8) +
+              geom_line(aes(x=x, y=predicted, colour=group), alpha=0.45, linewidth=1) +
 
-              guides(colour=guide_legend(title=expression(paste(italic(T)[italic(N)]^"*"~","~sone[SHM])), reverse=TRUE),
-                     fill=guide_legend(title=expression(paste(italic(T)[italic(N)]^"*"~","~sone[SHM])), reverse=TRUE)) +
+              scale_color_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.15, end = 0.85,
+                                  labels=function(x) format(round(as.numeric(x), 2), nsmall = 2)) +
+              scale_fill_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.15, end = 0.85,
+                                 labels=function(x) format(round(as.numeric(x), 2), nsmall = 2)) +
+
+              guides(colour=guide_legend(title=expression(paste(italic(T)[italic(N)]^"*"~","~sone[SHM])),
+                                         reverse=TRUE),
+                     fill=guide_legend(title=expression(paste(italic(T)[italic(N)]^"*"~","~sone[SHM])),
+                                       reverse=TRUE)) +
+              
               ggnewscale::new_scale_color() +
               
               geom_point(data=stimDataNoAmbTemp[(stimDataNoAmbTemp$SessionPart == "A")
                                                 & (stimDataNoAmbTemp$AmbientEnv == "Park"), ],
                          aes(x=UASSharpAurISO305ExMaxLR, y=dAnnoyMean,
                              colour=UASTonLdECMAPowAvgBin),
-                         alpha=0.35, size=2) +
+                         alpha=0.45, size=2) +
   
-              scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.2, end = 0.8) +
+              scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.15, end = 0.85,
+                                  labels=function(x) format(round(x, 2), nsmall = 2)) +
   
-              guides(colour=guide_legend(title=expression(paste(italic(T)[italic(N)]^"*"~","~sone[SHM])), reverse=TRUE)) +
+              guides(colour=guide_legend(title=expression(paste(italic(T)[italic(N)]^"*"~","~sone[SHM])),
+                                         reverse=TRUE)) +
   
             
               scale_x_continuous(breaks=seq(0, 4, by=0.4),
@@ -1330,6 +1337,18 @@ p5 <- ggplot(data=model1predictPkASxTn) +
                          labeller=labeller(UASLAEMaxLRSclRnd=facetLabels))
 
 p5
+
+filename <- "PtsABdAnnoyMnEnvLAeqModSxTnPkA"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=11, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=11, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
 
 ```
 
@@ -1401,7 +1420,7 @@ ggplot(data=predictMeans) +
         axis.text=element_text(family = "serif", size=14),
         axis.title=element_text(family = "serif", size=12)) +
   
-  geom_point(mapping=aes(x=response, y=fit), size=2.5, shape=1, colour=mycolours[4], alpha=0.5) +
+  geom_point(mapping=aes(x=response, y=fit), size=2.5, shape=1, colour=mycolours[5], alpha=0.5) +
   
   geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
   
@@ -2025,7 +2044,7 @@ ggplot(data=predictProbs) +
   theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=12),
         axis.text=element_text(family = "serif", size=14)) +
   
-  geom_point(mapping=aes(x=response, y=fit), size=2.5, shape=1, colour=mycolours[5], alpha=0.5) +
+  geom_point(mapping=aes(x=response, y=fit), size=2.5, shape=1, colour=mycolours[7], alpha=0.5) +
   
   geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
   
