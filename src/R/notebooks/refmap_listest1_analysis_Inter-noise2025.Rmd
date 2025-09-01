@@ -2044,7 +2044,7 @@ ggplot(data=predictProbs) +
   theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=12),
         axis.text=element_text(family = "serif", size=14)) +
   
-  geom_point(mapping=aes(x=response, y=fit), size=2.5, shape=1, colour=mycolours[7], alpha=0.5) +
+  geom_point(mapping=aes(x=response, y=fit), size=2.5, shape=1, colour=mycolours[6], alpha=0.5) +
   
   geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
   
@@ -2053,6 +2053,16 @@ ggplot(data=predictProbs) +
   
   labs(x="% Highly annoyed (test)", y="Predicted % highly annoyed")
 
+filename <- "PtsABdHighAnnoyBasicPred"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=3.5, height=3.5,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=3.5, height=3.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
 
 model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl [-12:13]",
                                                                 "UASEvents [all]"),
