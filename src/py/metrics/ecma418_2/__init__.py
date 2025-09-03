@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ["acousticSHMTonality", "acousticSHMLoudness", "acousticSHMSubs"]
+__all__ = ["acousticSHMTonality", "acousticSHMLoudness", "acousticSHMRoughness", "acousticSHMSubs"]
 
 from .acousticSHMTonality import acousticSHMTonality
 
