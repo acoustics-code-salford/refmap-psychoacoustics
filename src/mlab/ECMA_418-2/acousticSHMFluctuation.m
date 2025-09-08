@@ -103,7 +103,7 @@ function fluctuationSHM = acousticSHMFluctuation(p, sampleRateIn, axisN, soundFi
 % Institution: University of Salford
 %
 % Date created: 16/05/2025
-% Date last modified: 16/05/2025
+% Date last modified: 03/09/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -157,8 +157,8 @@ end
 if size(p, 2) > 2
     error("Error: Input signal comprises more than two channels")
 else
-    inchans = size(p, 2);
-    if inchans == 2
+    chansIn = size(p, 2);
+    if chansIn == 2
         chans = ["Stereo left";
                  "Stereo right"];
     else
@@ -197,8 +197,8 @@ envWindow = zeros([blockSize1500, 1]);  % default envelope analysis window [w_El
 envWindow(num0WinStart + 1:end - num0WinEnd) = 1;
 movMedLen = blockSize1500/64 + 1;  % moving median filter length
 quietZerosMin = blockSize1500*5/32;  % minimum number of zeros in quieter periods (section 9.1.3.4) [ntilde_zeros,min]
-winEndLim = blockSize/4;  % constraint on end index of envelope analysis window (section 9.1.3.6)
-linRegIdxShift = blockSize*5/1024;  % shift on window indices for linear regression analysis (section 9.1.3.6)
+winEndLim = blockSize1500/4;  % constraint on end index of envelope analysis window (section 9.1.3.6)
+linRegIdxShift = blockSize1500*5/1024;  % shift on window indices for linear regression analysis (section 9.1.3.6)
 
 % Modulation rate error correction values Table 8, Section 7.1.5.1
 % ECMA-418-2:2025 [E(theta)]
@@ -284,13 +284,24 @@ if waitBar
     i_step = i_step + 1;
 end % end of if branch for waitBar
 
-% Filter equalised signal using 53 critical band filters according to 
-% Section 5.1.4.2 ECMA-418-2:2025
-pn_omz = shmAuditoryFiltBank(pn_om, false);
-
 % Loop through channels in file
 % -----------------------------
-for chan = size(pn_omz, 2):-1:1
+for chan = chansIn:-1:1
+
+    % Apply auditory filter bank
+    % --------------------------
+    
+    if waitBar
+        w = waitbar(0, "Initialising...");
+        i_step = 1;
+    
+        waitbar(i_step/n_steps, w, 'Applying auditory filters...');
+        i_step = i_step + 1;
+    end % end of if branch for waitBar
+
+    % Filter equalised signal using 53 1/2-overlapping Bark filters
+    % according to Section 5.1.4.2 ECMA-418-2:2025
+    pn_omz = shmAuditoryFiltBank(pn_om(:, chan), false);
 
     % Note: At this stage, typical computer RAM limits impose a need to loop
     % through the critical bands rather than continue with a parallelised
@@ -338,12 +349,12 @@ for chan = size(pn_omz, 2):-1:1
     num0WinStartMat = repmat(num0WinStart, nBlocks, nBands);
     num0WinEndMat = repmat(num0WinEnd, nBlocks, nBands);
     envWindowMat = repmat(envWindow, 1, nBlocks, nBands);
-    % Section 9.1.3.2 Envelope smoothing and first quieter period weighting  
-    envMedWeight = envWindow.*round(movmedian(envelopes, movMedLen, 1), 8);
+
+    % Section 9.1.3.2 Envelope smoothing and first quieter period weighting
+    envMedWeight = envWindow.*round(movmedian(envelopes, movMedLen, 1), 8);  % [pBar(nTilde)_E,l,z]
     envMedWghtMax = max(envMedWeight, [], 1);
     envWindowMat(:, envMedWghtMax <= 5e-6) = 0;
 
-    
     if any(envWindowMat, 'all')
         % Section 9.1.3.3 Further quieter period detection
         quietThreshold = round(0.01*envMedWghtMax, 8);
@@ -371,6 +382,7 @@ for chan = size(pn_omz, 2):-1:1
         startIdxNewFinal = startIdxNew;
         endIdxNewFinal = endIdxNew;
         linRegStdChk = ones(nBlocks, nBands) == 1;
+
         for zBand = 1:nBands
             for nBlock = 1:nBlocks
                 % assign updated interval
@@ -414,7 +426,7 @@ for chan = size(pn_omz, 2):-1:1
                     end  % end of if branch to determine which window end is modified
                 end  % end of if branch for minimum quieter period length
 
-                 % assign zeros to window start and end
+                % assign zeros to window start and end
                 startIdxNewFinal(nBlock, zBand) = num0WinStartMatFinal(nBlock, zBand) + 1;
                 endIdxNewFinal(nBlock, zBand) = blockSize1500 - num0WinEndMatFinal(nBlock, zBand);
         
@@ -452,7 +464,7 @@ for chan = size(pn_omz, 2):-1:1
     end  % end of if branch for further quieter period analysis
 
 envSpectrum = fft(envelopes.*envWindowMat, blockSize1500, 1);
-envPwrSpectr = abs(envSpectrum).^2;
+envMagSqSpectr = abs(envSpectrum).^2;
 
 
     % Section 7.1.3 equation 66 ECMA-418-2:2025 [Phi(k)_E,l,z]
@@ -774,13 +786,13 @@ end  % end of for loop over channels
 
 % Binaural roughness
 % Section 7.1.11 ECMA-418-2:2025 [R'_B(l_50,z)]
-if inchans == 2 && binaural
+if chansIn == 2 && binaural
     specRoughness(:, :, 3) = sqrt(sum(specRoughness.^2, 3)/2);  % Equation 112
     outchans = 3;  % set number of 'channels' to stereo plus single binaural
     chans = [chans;
              "Binaural"];
 else
-    outchans = inchans;  % assign number of output channels
+    outchans = chansIn;  % assign number of output channels
 end
 
 % Section 7.1.8 ECMA-418-2:2025
