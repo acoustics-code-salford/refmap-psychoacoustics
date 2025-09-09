@@ -24,7 +24,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 25/05/2023
-Date last modified: 23/07/2025
+Date last modified: 09/09/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -54,7 +54,7 @@ from src.py.metrics.ecma418_2.acousticSHMSubs import (shmResample, shmPreProc,
                                                       shmSignalSegment,
                                                       shmBasisLoudness,
                                                       shmNoiseRedLowPass,
-                                                      shmRMS)
+                                                      shmRMS, shmInCheck)
 from tqdm import tqdm
 import bottleneck as bn
 from src.py.dsp.filterFuncs import A_weight_T
@@ -186,28 +186,8 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
     """
     # %% Input checks
-    # Orient input matrix
-    if axisN in [0, 1]:
-        if axisN == 1:
-            p = p.T
-    else:
-        raise ValueError("Input axisN must be an integer 0 or 1")
-
-    # Check the length of the input data (must be longer than 300 ms)
-    if p.shape[0] <= 300/1000*sampleRateIn:
-        raise ValueError('Input signal is too short along the specified axis to calculate tonality (must be longer than 300 ms)')
-
-    # Check the channel number of the input data
-    if p.shape[1] > 2:
-        raise ValueError('Input signal comprises more than two channels')
-
-    chansIn = p.shape[1]
-    if chansIn > 1:
-        chans = ["Stereo left",
-                 "Stereo right"]
-    else:
-        chans = ["Mono"]
-    # end of if branch for channel number check
+    p, chansIn, chans = shmInCheck(p, sampleRateIn, axisN,
+                                   soundField, waitBar, outPlot)
 
     # %% Define constants
 
