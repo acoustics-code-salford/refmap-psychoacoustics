@@ -42,10 +42,9 @@ from matplotlib import pyplot as plt
 import matplotlib as mpl
 from src.py.metrics.ecma418_2.acousticSHMSubs import (shmResample,
                                                       shmDimensional, shmRMS,
-                                                      shmInCheck)
+                                                      shmRound, shmInCheck)
 from src.py.metrics.ecma418_2.acousticSHMTonality import acousticSHMTonality
 from src.py.dsp.filterFuncs import A_weight_T
-from src.py.utils.formatFuncs import roundTrad
 
 # %% Module settings
 mpl.rcParams['font.family'] = 'sans-serif'
@@ -349,7 +348,7 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                 LAeq = 20*np.log10(shmRMS(pA)/2e-5)
 
             fig.suptitle(t=(chan_lab + " signal sound pressure level = " +
-                            str(roundTrad(LAeq, 1)) +
+                            str(shmRound(LAeq, 1)) +
                             r"dB $\mathregular{\mathit{L}_{Aeq}}$"))
             fig.show()
         # end of for loop over channels

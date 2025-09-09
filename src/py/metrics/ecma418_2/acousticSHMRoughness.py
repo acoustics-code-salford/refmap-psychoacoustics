@@ -65,7 +65,6 @@ from src.py.metrics.ecma418_2.acousticSHMSubs import (shmDimensional,
                                                       shmInCheck)
 from tqdm import tqdm
 from src.py.dsp.filterFuncs import A_weight_T
-from src.py.utils.formatFuncs import roundTrad
 
 # %% Module settings
 mpl.rcParams['font.family'] = 'sans-serif'
@@ -172,6 +171,16 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     p, chansIn, chans = shmInCheck(p, sampleRateIn, axisN,
                                    soundField, waitBar, outPlot,
                                    binaural)
+
+    # assign chansOut
+    if chansIn > 1:
+        if binaural:
+            chansOut = 3
+            chans += ["Binaural"]
+        else:
+            chansOut = chansIn
+    else:
+        chansOut = chansIn
 
     # %% Define constants
 
@@ -816,7 +825,7 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                 LAeq = 20*np.log10(shmRMS(pA)/2e-5)
 
             fig.suptitle(t=(chan_lab + " signal sound pressure level = " +
-                            str(roundTrad(LAeq, 1)) +
+                            str(shmRound(LAeq, 1)) +
                             r"dB $\mathregular{\mathit{L}_{Aeq}}$"))
             fig.show()
         # end of for loop over channels
