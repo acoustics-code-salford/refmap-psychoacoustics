@@ -1250,6 +1250,8 @@ def shmInCheck(signal, sampleRateIn, axisN, soundField,
     signal : 1D or 2D array
              the input signal as single mono or stereo audio (sound
              pressure) signals, orientated to ensure time is on the first axis
+    chansIn : integer
+              the number of input channels
     chans : list of strings
             text labels indicating the input signal channels
 
@@ -1292,7 +1294,7 @@ def shmInCheck(signal, sampleRateIn, axisN, soundField,
     # Check the length of the input data (must be longer than 300 ms)
     if signal.shape[0] <= 300/1000*sampleRateIn:
         raise ValueError("\nInput signal is too short along the specified axis (must be longer than 300 ms)")
-    
+
     # Check if soundField has a valid value
     try:
         soundFieldIn = soundField.lower()
