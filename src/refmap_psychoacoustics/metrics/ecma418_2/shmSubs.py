@@ -19,7 +19,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 27/10/2023
-Date last modified: 09/09/2025
+Date last modified: 13/09/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -541,8 +541,8 @@ def shmPreProc(signal, blockSize, hopSize, padStart=True, padEnd=True):
 
     Assumptions
     -----------
-    The input signal is oriented with time on axis 1 (and channel # on axis
-    0), ie, the fade and padding operation is applied along axis 1.
+    The input signal is oriented with time on axis 0 (and channel # on axis
+    1), ie, the fade and padding operation is applied along axis 0.
     The input signal must be sampled at 48 kHz.
 
     Copyright statement: This file and code is part of work undertaken within
@@ -627,8 +627,8 @@ def shmResample(signal, sampleRateIn):
 
     Assumptions
     -----------
-    The input signal is oriented with time on axis 1 (and channel # on axis
-    0), ie, the resample operation is applied along axis 1.
+    The input signal is oriented with time on axis 0 (and channel # on axis
+    1), ie, the resample operation is applied along axis 0.
     The sampleRatein is an integer value (this is to guarantee that the target
                                           rate is exactly met).
 
@@ -657,7 +657,7 @@ def shmResample(signal, sampleRateIn):
             raise TypeError("The input sample rate must be a positive integer to enable resampling to " + str(resampledRate) + " Hz:", err)
         try:
             # apply resampling
-            resampledSignal = resample_poly(signal, up, down, axis=1)
+            resampledSignal = resample_poly(signal, up, down, axis=0)
         except TypeError as err:
             raise TypeError("TypeError: The input signal must be a numerical array:", err)
     else:  # don't resample
