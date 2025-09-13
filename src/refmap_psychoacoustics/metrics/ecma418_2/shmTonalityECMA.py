@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # %% Preamble
 """
-acousticSHMTonality.py
+shmTonalityECMA.py
 ----------------------
 
 Returns tonality values and frequencies according to ECMA-418-2:2025
@@ -15,7 +15,7 @@ scipy
 matplotlib
 tqdm
 bottleneck
-refmap-psychoacoustics (metrics.ecma418_2, dsp.filterFuncs and
+refmap_psychoacoustics (metrics.ecma418_2, dsp.filterFuncs and
                         utils.formatFuncs)
 
 Ownership and Quality Assurance
@@ -24,7 +24,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 25/05/2023
-Date last modified: 09/09/2025
+Date last modified: 12/09/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -45,20 +45,21 @@ here with permission.
 
 # %% Import block
 import numpy as np
-from matplotlib import pyplot as plt
 import matplotlib as mpl
-from scipy.fft import (fft, ifft)
-from src.py.metrics.ecma418_2.acousticSHMSubs import (shmResample, shmPreProc,
-                                                      shmOutMidEarFilter,
-                                                      shmAuditoryFiltBank,
-                                                      shmSignalSegment,
-                                                      shmBasisLoudness,
-                                                      shmNoiseRedLowPass,
-                                                      shmRMS, shmRound,
-                                                      shmInCheck)
+mpl.use('QtAgg')
+from matplotlib import pyplot as plt
+from scipy.fft import (fft, rfft, irfft)
+from refmap_psychoacoustics.metrics.ecma418_2.shmSubs import (shmResample, shmPreProc,
+                                                              shmOutMidEarFilter,
+                                                              shmAuditoryFiltBank,
+                                                              shmSignalSegment,
+                                                              shmBasisLoudness,
+                                                              shmNoiseRedLowPass,
+                                                              shmRMS, shmRound,
+                                                              shmInCheck)
 from tqdm import tqdm
 import bottleneck as bn
-from src.py.dsp.filterFuncs import A_weight_T
+from refmap_psychoacoustics.dsp.filterFuncs import A_weight_T
 
 
 # %% Module settings
@@ -75,8 +76,8 @@ plt.rc('legend', fontsize=16)  # legend fontsize
 plt.rc('figure', titlesize=24)  # fontsize of the figure title
 
 
-# %% acousticSHMTonality
-def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
+# %% shmTonalityECMA
+def shmTonalityECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
                         waitBar=True, outPlot=False):
     """
     Inputs
@@ -363,10 +364,10 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             # ACF implementation using DFT
             # Section 6.2.2 Equations 27 & 28 ECMA-418-2:2025
             # [phi_unscaled,l,z(m)]
-            unscaledACF = np.real(ifft(np.abs(fft(pn_rlz,
-                                                  2*blockSizeDupe[zBand],
-                                                  axis=0))**2,
-                                       2*blockSizeDupe[zBand], axis=0))
+            unscaledACF = irfft(np.abs(rfft(pn_rlz,
+                                            2*blockSizeDupe[zBand],
+                                            axis=0))**2,
+                                2*blockSizeDupe[zBand], axis=0)
             # Section 6.2.2 Equation 29 ECMA-418-2:2025 [phi_l,z(m)]
             denom = (np.sqrt(np.flip(np.cumsum(np.flip(pn_rlz, axis=0)**2,
                                                axis=0), axis=0)
@@ -690,4 +691,4 @@ def acousticSHMTonality(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
     return tonalitySHM
 
-# end of acousticSHMTonality function
+# end of shmTonalityECMA function

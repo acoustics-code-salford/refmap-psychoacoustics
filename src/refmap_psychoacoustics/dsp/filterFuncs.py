@@ -35,7 +35,7 @@ Date last checked:
 import numpy as np
 from scipy.signal import (bilinear, butter, freqz, lfilter, lfilter_zi,
                           resample_poly, sosfilt, sosfreqz)
-from src.py.dsp.noct import noctf
+from refmap_psychoacoustics.dsp.noct import noctf
 from math import gcd
 
 

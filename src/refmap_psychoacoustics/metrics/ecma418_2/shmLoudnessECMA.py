@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # %% Preamble
 """
-acousticSHMLoudness.py
+shmLoudnessECMA.py
 ----------------------
 
 Returns loudness values according to ECMA-418-2:2025 (using the Sottek Hearing
@@ -13,7 +13,8 @@ Requirements
 numpy
 scipy
 matplotlib
-refmap-psychoacoustics (metrics.ecma418_2, dsp.filterFuncs and
+tqdm
+refmap_psychoacoustics (metrics.ecma418_2, dsp.filterFuncs and
                         utils.formatFuncs)
 
 Ownership and Quality Assurance
@@ -38,13 +39,14 @@ PARTICULAR PURPOSE.
 
 # %% Import block
 import numpy as np
-from matplotlib import pyplot as plt
 import matplotlib as mpl
-from src.py.metrics.ecma418_2.acousticSHMSubs import (shmResample,
-                                                      shmDimensional, shmRMS,
-                                                      shmRound, shmInCheck)
-from src.py.metrics.ecma418_2.acousticSHMTonality import acousticSHMTonality
-from src.py.dsp.filterFuncs import A_weight_T
+mpl.use('QtAgg')
+from matplotlib import pyplot as plt
+from refmap_psychoacoustics.metrics.ecma418_2.shmSubs import (shmResample,
+                                                              shmDimensional, shmRMS,
+                                                              shmRound, shmInCheck)
+from refmap_psychoacoustics.metrics.ecma418_2.shmTonalityECMA import shmTonalityECMA
+from refmap_psychoacoustics.dsp.filterFuncs import A_weight_T
 
 # %% Module settings
 mpl.rcParams['font.family'] = 'sans-serif'
@@ -60,9 +62,9 @@ plt.rc('legend', fontsize=16)  # legend fontsize
 plt.rc('figure', titlesize=20)  # fontsize of the figure title
 
 
-# %% acousticSHMLoudness
-def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
-                        waitBar=True, outPlot=False, binaural=True):
+# %% shmLoudnessECMA
+def shmLoudnessECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
+                    waitBar=True, outPlot=False, binaural=True):
     """
     Inputs
     ------
@@ -207,9 +209,9 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # ------------------------------------------------------------
 
     # Obtain tonal and noise component specific loudnesses from Sections 5 & 6 ECMA-418-2:2025
-    tonalitySHM = acousticSHMTonality(p_re, sampleRate48k, axisN=0,
-                                      soundField=soundField,
-                                      waitBar=waitBar, outPlot=False)
+    tonalitySHM = shmTonalityECMA(p_re, sampleRate48k, axisN=0,
+                                  soundField=soundField,
+                                  waitBar=waitBar, outPlot=False)
 
     specTonalLoudness = tonalitySHM['specTonalLoudness']  # [N'_tonal(l,z)]
     specNoiseLoudness = tonalitySHM['specNoiseLoudness']  # [N'_noise(l,z)]
@@ -399,9 +401,9 @@ def acousticSHMLoudness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 # end of acousticSHMLoudness function
 
 
-# %% acousticSHMLoudnessFromComponent
-def acousticSHMLoudnessFromComponent(specTonalLoudness, specNoiseLoudness,
-                                     outPlot=False, binaural=True):
+# %% shmLoudnessECMAFromComp
+def shmLoudnessECMAFromComp(specTonalLoudness, specNoiseLoudness,
+                            outPlot=False, binaural=True):
     """
     Inputs
     ------
@@ -697,4 +699,4 @@ def acousticSHMLoudnessFromComponent(specTonalLoudness, specNoiseLoudness,
 
     return loudnessSHM
 
-# end of acousticSHMLoudnessFromComponent function
+# end of shmLoudnessECMAFromComp function

@@ -8,7 +8,7 @@ Created on Fri Jul 21 16:21:31 2023
 import numpy as np
 import pandas as pd
 from scipy import (optimize, signal)
-from src.py.dsp import noct
+from refmap_psychoacoustics.dsp import noct
 from math import gcd
 import bottleneck as bn
 

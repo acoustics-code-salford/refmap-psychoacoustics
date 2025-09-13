@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # %% Preamble
 """
-acousticSHMRoughness.py
+shmRoughnessECMA.py
 ----------------------
 
 Returns roughness values according to ECMA-418-2:2025 using the Sottek Hearing
@@ -14,7 +14,7 @@ numpy
 scipy
 matplotlib
 tqdm
-refmap-psychoacoustics (metrics.ecma418_2, dsp.filterFuncs and
+refmap_psychoacoustics (metrics.ecma418_2, dsp.filterFuncs and
                         utils.formatFuncs)
 
 Ownership and Quality Assurance
@@ -45,26 +45,27 @@ here with permission.
 # %% Import block
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
-from matplotlib import pyplot as plt
 import matplotlib as mpl
+mpl.use('QtAgg')
+from matplotlib import pyplot as plt
 from scipy.fft import (fft)
 from scipy.signal import (hilbert, windows, find_peaks)
 from scipy.interpolate import PchipInterpolator
-from src.py.metrics.ecma418_2.acousticSHMSubs import (shmDimensional,
-                                                      shmResample,
-                                                      shmPreProc,
-                                                      shmOutMidEarFilter,
-                                                      shmAuditoryFiltBank,
-                                                      shmSignalSegmentBlocks,
-                                                      shmSignalSegment,
-                                                      shmBasisLoudness,
-                                                      shmDownsample,
-                                                      shmRoughWeight,
-                                                      shmRoughLowPass,
-                                                      shmRound, shmRMS,
-                                                      shmInCheck)
+from refmap_psychoacoustics.metrics.ecma418_2.shmSubs import (shmDimensional,
+                                                              shmResample,
+                                                              shmPreProc,
+                                                              shmOutMidEarFilter,
+                                                              shmAuditoryFiltBank,
+                                                              shmSignalSegmentBlocks,
+                                                              shmSignalSegment,
+                                                              shmBasisLoudness,
+                                                              shmDownsample,
+                                                              shmRoughWeight,
+                                                              shmRoughLowPass,
+                                                              shmRound, shmRMS,
+                                                              shmInCheck)
 from tqdm import tqdm
-from src.py.dsp.filterFuncs import A_weight_T
+from refmap_psychoacoustics.dsp.filterFuncs import A_weight_T
 
 # %% Module settings
 mpl.rcParams['font.family'] = 'sans-serif'
@@ -80,9 +81,9 @@ plt.rc('legend', fontsize=16)  # legend fontsize
 plt.rc('figure', titlesize=24)  # fontsize of the figure title
 
 
-# %% acousticSHMRoughness
-def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
-                         waitBar=True, outPlot=False, binaural=True):
+# %% shmRoughnessECMA
+def shmRoughnessECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
+                     waitBar=True, outPlot=False, binaural=True):
     """
     Inputs
     ------
@@ -865,4 +866,4 @@ def acousticSHMRoughness(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
     return roughnessSHM
 
-# end of acousticSHMRoughness function
+# end of shmRoughnessECMA function
