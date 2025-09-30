@@ -23,7 +23,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 29/05/2023
-Date last modified: 09/09/2025
+Date last modified: 15/09/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -225,7 +225,8 @@ def shmLoudnessECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
     # Section 8.1.1 ECMA-418-2:2025
     # Weight and combine component specific loudnesses
-    specLoudness = np.zeros(specTonalLoudness.shape)  # pre-allocate array
+    # pre-allocate array
+    specLoudness = np.zeros(specTonalLoudness.shape, order='F')
     for chan in range(chansIn):
         # Equation 114 ECMA-418-2:2025 [e(z)]
         maxLoudnessFuncel = a/(np.max(specTonalLoudness[:, :, chan]
@@ -553,7 +554,7 @@ def shmLoudnessECMAFromComp(specTonalLoudness, specNoiseLoudness,
 
     # Section 8.1.1 ECMA-418-2:2025
     # Weight and combine component specific loudnesses
-    specLoudness = np.zeros(specTonalLoudness.shape)  # pre-allocate array
+    specLoudness = np.zeros(specTonalLoudness.shape, order='F')  # pre-allocate array
     for chan in range(chansIn):
         # Equation 114 ECMA-418-2:2025 [e(z)]
         maxLoudnessFuncel = a/(np.max(specTonalLoudness[:, :, chan]

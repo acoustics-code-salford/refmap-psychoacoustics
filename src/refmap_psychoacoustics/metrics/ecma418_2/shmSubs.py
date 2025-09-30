@@ -19,7 +19,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 27/10/2023
-Date last modified: 13/09/2025
+Date last modified: 15/09/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -49,6 +49,7 @@ import matplotlib.ticker as ticker
 from scipy.signal import (freqz, lfilter, resample_poly, sosfilt, sosfreqz)
 from scipy.special import (comb)
 from math import gcd
+from numba import njit
 
 # set plot parameters
 mpl.rcParams['font.family'] = 'sans-serif'
@@ -116,9 +117,9 @@ def shmAuditoryFiltBank(signal, outPlot=False):
 
     if signal.ndim == 2:
         signalFiltered = np.zeros((signal.shape[0], len(halfBark),
-                                   signal.shape[1]))
+                                   signal.shape[1]), order='F')
     elif signal.ndim == 1:
-        signalFiltered = np.zeros((signal.size, len(halfBark)))
+        signalFiltered = np.zeros((signal.size, len(halfBark)), order='F')
     else:
         raise ValueError("Input signal must have no more than two dimensions.")
 
@@ -195,6 +196,7 @@ def shmAuditoryFiltBank(signal, outPlot=False):
 
 
 # %% shmBasisLoudness
+@njit
 def shmBasisLoudness(signalSegmented, bandCentreFreq=None):
     """Function shmBandBasisLoudness(signalSegmented, bandCentreFreq)
 
@@ -594,9 +596,16 @@ def shmPreProc(signal, blockSize, hopSize, padStart=True, padEnd=True):
         n_zerose = 0
 
     # Apply zero-padding
-    signalFadePad = np.concatenate([np.zeros((n_zeross, numChans)),
+    signalFadePad = np.concatenate([np.zeros((n_zeross, numChans), order='F'),
                                     signalFade,
-                                    np.zeros((n_zerose, numChans))], axis=0)
+                                    np.zeros((n_zerose, numChans), order='F')],
+                                   axis=0)
+
+    # Check memory layout and convert to column-major, if row-major
+    if signalFadePad.flags.f_contiguous:
+        pass
+    else:
+        signalFadePad = np.asfortranarray(signalFadePad)
 
     return signalFadePad  # end of shmPreProc function
 
@@ -667,7 +676,7 @@ def shmResample(signal, sampleRateIn):
 
 
 # %% shmSignalSegmentBlocks
-def shmSignalSegmentBlocks(signal, blockSize, overlap=0, axisN=0, i_start=0,
+def shmSignalSegmentBlocks(signal, blockSize, overlap=0, i_start=0,
                            endShrink=False):
     """
     Returns a truncated signal and the number of blocks to use for segmentation
@@ -676,17 +685,14 @@ def shmSignalSegmentBlocks(signal, blockSize, overlap=0, axisN=0, i_start=0,
 
     Inputs
     ------
-    signal : 1D or 2D array
-             the input signal/s
+    signal : 1D array
+             the input signal
 
     blockSize : integer
                 the block size in samples
 
     overlap : double (>=0, < 1, default: 0)
               the proportion of overlap for each successive block
-
-    axisN : integer (0 or 1, default: 0)
-            the (time) axis along which to apply block segmentation
 
     i_start : integer (optional, default: 0)
               the sample index from which to start the segmented signal
@@ -697,10 +703,8 @@ def shmSignalSegmentBlocks(signal, blockSize, overlap=0, axisN=0, i_start=0,
 
     Returns
     -------
-    For each channel in the input signal:
-
-    signalTrunc :  1D or 2D array
-                   the truncated signal/s
+    signalTrunc :  1D array
+                   the truncated signal
 
     nBlocksTotal : integer
                    the total number of blocks to use for signal segmentation
@@ -711,15 +715,11 @@ def shmSignalSegmentBlocks(signal, blockSize, overlap=0, axisN=0, i_start=0,
 
     Assumptions
     -----------
-    None
+    The input signal is oriented with time on axis 0.
 
     """
 
     # %% Signal pre-processing
-
-    # Orient input
-    if axisN == 1:
-        signal = signal.T
 
     # ensure i_start is positive integer
     try:
@@ -762,15 +762,15 @@ def shmSignalSegmentBlocks(signal, blockSize, overlap=0, axisN=0, i_start=0,
 
 
 # %% shmSignalSegment
-def shmSignalSegment(signal, blockSize, overlap=0, axisN=0, i_start=0,
+def shmSignalSegment(signal, blockSize, overlap=0, i_start=0,
                      endShrink=False):
     """
     Returns input signal segmented into blocks for processing.
 
     Inputs
     ------
-    signal : 1D or 2D array
-             the input signal/s
+    signal : 1D array
+             the input signal
 
     blockSize : integer
                 the block size in samples
@@ -790,13 +790,10 @@ def shmSignalSegment(signal, blockSize, overlap=0, axisN=0, i_start=0,
 
     Returns
     -------
-    For each channel in the input signal:
-
-    signalSegmented : 2D or 3D array
-                      the segmented signal, arranged by channels over the
-                      last axis, samples (within each block) along the axis
-                      corresponding with axisN, and block number along the
-                      other remaining axis
+    signalSegmented : 2D array
+                      the segmented signal, arranged by samples (within each
+                      block) along the axis corresponding with axis 0, and
+                      block number along axis 1
 
     Also:
 
@@ -807,20 +804,11 @@ def shmSignalSegment(signal, blockSize, overlap=0, axisN=0, i_start=0,
 
     Assumptions
     -----------
-    None
+    The input signal is oriented with time on axis 0.
 
     """
 
     # %% Signal pre-processing
-
-    # Orient input
-    if axisN == 1:
-        signal = signal.T
-        axisFlip = True
-    elif axisN == 0:
-        axisFlip = False
-    else:
-        raise ValueError("Input argument 'axisN' can take values 0 (default) or 1.")
 
     # ensure i_start is positive integer
     try:
@@ -850,7 +838,6 @@ def shmSignalSegment(signal, blockSize, overlap=0, axisN=0, i_start=0,
     signalTrunc, nBlocksTotal, excessSignal = shmSignalSegmentBlocks(signal,
                                                                      blockSize,
                                                                      overlap=overlap,
-                                                                     axisN=0,
                                                                      i_start=i_start,
                                                                      endShrink=endShrink)
 
@@ -862,62 +849,49 @@ def shmSignalSegment(signal, blockSize, overlap=0, axisN=0, i_start=0,
     # matrix and the column shifted copies of this matrix are
     # concatenated. The first 6 columns are then discarded as these all
     # contain zeros from the appended zero columns.
-    signalSegmented = np.zeros((blockSize, nBlocksTotal, numChans))
+    signalSegmented = np.concatenate((np.zeros((hopSize, 3), order='F'),
+                                      np.reshape(signalTrunc[:, 0],
+                                                 (hopSize, -1),
+                                                 order='F')),
+                                     axis=1)
 
-    for chan in range(0, numChans):
-        signalSegmentedChan = np.concatenate((np.zeros((hopSize, 3)),
-                                              np.reshape(signalTrunc[:, chan],
-                                                         (hopSize, -1),
-                                                         order='F')),
-                                             axis=1)
+    signalSegmented = np.concatenate((np.roll(signalSegmented,
+                                              shift=3, axis=1),
+                                      np.roll(signalSegmented,
+                                              shift=2, axis=1),
+                                      np.roll(signalSegmented,
+                                              shift=1, axis=1),
+                                      np.roll(signalSegmented,
+                                              shift=0, axis=1)),
+                                     axis=0)
 
-        signalSegmentedChan = np.concatenate((np.roll(signalSegmentedChan,
-                                                      shift=3, axis=1),
-                                              np.roll(signalSegmentedChan,
-                                                      shift=2, axis=1),
-                                              np.roll(signalSegmentedChan,
-                                                      shift=1, axis=1),
-                                              np.roll(signalSegmentedChan,
-                                                      shift=0, axis=1)),
-                                             axis=0)
+    signalSegmented = signalSegmented[:, 6:]
 
-        signalSegmentedChan = signalSegmentedChan[:, 6:]
-
-        # if branch to include block of end data with increased overlap
-        if endShrink and excessSignal:
-            signalChan = signal[-blockSize:, chan]
-            signalSegmentedChanOut = np.concatenate((signalSegmentedChan,
-                                                     signalChan[:,
-                                                                np.newaxis]),
-                                                    axis=1)
-            iBlocksOut = np.append(np.arange(0, (nBlocksTotal - 1)*hopSize,
-                                             hopSize),
-                                   signal[i_start:, chan].size - blockSize)
-        else:
-            signalSegmentedChanOut = signalSegmentedChan
-            iBlocksOut = np.arange(0, nBlocksTotal*hopSize, hopSize)
-        # end of if branch for end data with increased overlap
-
-        signalSegmented[:, :, chan] = signalSegmentedChanOut
-
-    # end of for loop over channels
+    # if branch to include block of end data with increased overlap
+    if endShrink and excessSignal:
+        signalEnd = signal[-blockSize:, 0]
+        signalSegmentedOut = np.concatenate((signalSegmented,
+                                             signalEnd[:,
+                                                       np.newaxis]),
+                                            axis=1)
+        iBlocksOut = np.append(np.arange(0, (nBlocksTotal - 1)*hopSize,
+                                         hopSize),
+                               signal[i_start:, 0].size - blockSize)
+    else:
+        signalSegmentedOut = signalSegmented
+        iBlocksOut = np.arange(0, nBlocksTotal*hopSize, hopSize)
+    # end of if branch for end data with increased overlap
 
     # squeeze singleton dimensions
     if numChans == 1:
-        signalSegmented = np.squeeze(signalSegmented)
-        # re-orient segmented signal to match input
-        if axisFlip:
-            signalSegmented = np.swapaxes(signalSegmented, 0, 1)
-    elif axisFlip:
-        signalSegmented = np.transpose(signalSegmented, [2, 0, 1])
+        signalSegmentedOut = np.squeeze(signalSegmentedOut)
 
-    # end of if branch to revert shape of input
-
-    return (signalSegmented, iBlocksOut)  # end of shmSignalSegment function
+    return (signalSegmentedOut, iBlocksOut)  # end of shmSignalSegment function
 
 
 # %% shmDownsample
-def shmDownsample(ndArray, axisN=0, downSample=32):
+@njit
+def shmDownsample(ndArray, downSample=32):
     """
     Return array downsampled by keeping every value at downSample indices
     after the first.
@@ -926,9 +900,6 @@ def shmDownsample(ndArray, axisN=0, downSample=32):
     ----------
     ndArray : array_like
               Input array
-
-    axisN : integer (0 or 1, default: 0)
-            the (time) axis along which to apply the downsampling
 
     downSample : integer
                  The downsampleing factor
@@ -940,36 +911,14 @@ def shmDownsample(ndArray, axisN=0, downSample=32):
 
     Assumptions
     -----------
-    Input ndArray is 1D or 2D
+    Input ndArray is 1D or 2D with time axis along axis 0
 
     """
-
-    # check input type and try to convert to numpy array
-    if type(ndArray) is np.ndarray:
-        pass
-    else:
-        try:
-            ndArray = np.array(ndArray)
-        except TypeError:
-            raise TypeError("Input ndArray must be an array-like object.")
-
-    # %% Input array pre-processing
-
-    # Orient input
-    if axisN == 1:
-        ndArray = ndArray.T
-        axisFlip = True
-    elif axisN == 0:
-        axisFlip = False
-    else:
-        raise ValueError("Input argument 'axisN' can take values 0 (default) or 1.")
 
     # %% Downsampling
     # remove every value in between the values to be retained
     if ndArray.ndim == 2:
         targArray = ndArray[0:-1:downSample, :]
-        if axisFlip:
-            targArray = np.swapaxes(targArray, 0, 1)
     elif ndArray.ndim == 1:
         targArray = ndArray[0:-1:downSample]
     else:
@@ -1002,16 +951,11 @@ def shmDimensional(ndArray, targetDim=2, where='last'):
     targArray : nD array
                 Output numpy array increased by dimensions.
 
-    """
+    Assumptions
+    -----------
+    Input is a numpy ndArray
 
-    # check input type and try to convert to numpy array
-    if type(ndArray) is np.ndarray:
-        pass
-    else:
-        try:
-            ndArray = np.array(ndArray)
-        except TypeError:
-            raise TypeError("Input ndArray must be an array-like object.")
+    """
 
     # assign dimensions to add
     dimsToAdd = targetDim - ndArray.ndim
@@ -1022,10 +966,10 @@ def shmDimensional(ndArray, targetDim=2, where='last'):
         return targArray
     else:
         if where == 'first' or where == 0:
-            for ii in range(dimsToAdd):
+            for ii in np.arange(dimsToAdd):
                 targArray = np.expand_dims(targArray, 0)
         elif where == 'last' or where == -1:
-            for ii in range(dimsToAdd):
+            for ii in np.arange(dimsToAdd):
                 targArray = np.expand_dims(targArray, -1)
         else:
             raise ValueError("Input argument 'where' must either have string values 'first' or 'last', or integer values 0 or -1")
@@ -1034,6 +978,7 @@ def shmDimensional(ndArray, targetDim=2, where='last'):
 
 
 # %% shmRoughWeight
+@njit
 def shmRoughWeight(modRate, modfreqMaxWeight, roughWeightParams):
     """
     Returns roughness weighting for high- and low-frequency (modulation
@@ -1042,7 +987,6 @@ def shmRoughWeight(modRate, modfreqMaxWeight, roughWeightParams):
 
     Inputs
     ------
-
     modRate : 3D array
               the estimated modulation rates used to determine the weighting
               factors
@@ -1080,6 +1024,7 @@ def shmRoughWeight(modRate, modfreqMaxWeight, roughWeightParams):
 
 
 # %% shmRoughLowPass
+@njit
 def shmRoughLowPass(specRoughEstTform, sampleRate, riseTime, fallTime):
     """
     specRoughness = shmRoughLowPass(specRoughEstTform, sampleRate, riseTime,
@@ -1110,8 +1055,6 @@ def shmRoughLowPass(specRoughEstTform, sampleRate, riseTime, fallTime):
     The input specific roughness estimate is orientated with time on axis 0,
     and critical bands on axis 1.
 
-    Checked by:
-    Date last checked:
     """
     riseExponent = np.exp(-1/(sampleRate*riseTime))*np.ones([specRoughEstTform.shape[1]])
     fallExponent = np.exp(-1/(sampleRate*fallTime))*np.ones([specRoughEstTform.shape[1]])
@@ -1141,6 +1084,7 @@ def shmRoughLowPass(specRoughEstTform, sampleRate, riseTime, fallTime):
 
 
 # %% shmRound
+@njit
 def shmRound(vals, decimals=0):
     """
     Returns a set of rounded values to the specified number of decimal places
@@ -1172,6 +1116,7 @@ def shmRound(vals, decimals=0):
 
 
 # %% shmRMS
+@njit
 def shmRMS(vals, axis=0, keepdims=False):
     """
     Returns the root-mean-square for values contained in an array.
@@ -1206,6 +1151,7 @@ def shmRMS(vals, axis=0, keepdims=False):
 
 
 # %% shmInCheck
+@njit
 def shmInCheck(signal, sampleRateIn, axisN, soundField,
                waitBar, outPlot, binaural=None):
     """
@@ -1222,7 +1168,7 @@ def shmInCheck(signal, sampleRateIn, axisN, soundField,
                    the sample rate (frequency) of the input signal(s)
 
     axisN : integer (0 or 1, default: 0)
-            the time axis along which to calculate the loudness
+            the time axis along which to calculate the sound quality metric
 
     soundField : keyword string (default: 'freeFrontal')
                  determines whether the 'freeFrontal' or 'diffuse' field stages
@@ -1242,8 +1188,9 @@ def shmInCheck(signal, sampleRateIn, axisN, soundField,
               (set outplot to false for doing multi-file parallel calculations)
 
     binaural : None or Boolean (default: True)
-               flag indicating whether to output combined binaural loudness for
-               stereo input signal. If None, this variable will not be checked.
+               flag indicating whether to output combined binaural sound
+               quality for stereo input signal. If None, this variable will
+               not be checked.
 
     Returns
     -------
@@ -1266,12 +1213,25 @@ def shmInCheck(signal, sampleRateIn, axisN, soundField,
         except TypeError:
             raise TypeError("\nInput signal must be an array-like object.")
 
+    # Orient input signal
+    if axisN in [0, 1]:
+        if axisN == 1 and signal.ndim > 1:
+            signal = signal.T
+    else:
+        raise ValueError("\nInput axisN must be an integer 0 or 1")
+
     # Check signal dimensions and add axis if 1D input
     if signal.ndim == 1:
         chansIn = 1
         signal = shmDimensional(signal)
     else:
         chansIn = signal.shape[1]
+
+    # Check memory layout and convert to column-major, if row-major
+    if signal.flags.f_contiguous:
+        pass
+    else:
+        signal = np.asfortranarray(signal)
 
     # Check the channel number of the input data
     if signal.shape[1] > 2:
@@ -1283,13 +1243,6 @@ def shmInCheck(signal, sampleRateIn, axisN, soundField,
                  "Stereo right"]
     else:
         chans = ["Mono"]
-
-    # Orient input signal
-    if axisN in [0, 1]:
-        if axisN == 1:
-            signal = signal.T
-    else:
-        raise ValueError("\nInput axisN must be an integer 0 or 1")
 
     # Check the length of the input data (must be longer than 300 ms)
     if signal.shape[0] <= 300/1000*sampleRateIn:

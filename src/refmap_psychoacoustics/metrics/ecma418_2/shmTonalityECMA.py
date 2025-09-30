@@ -24,7 +24,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 25/05/2023
-Date last modified: 12/09/2025
+Date last modified: 15/09/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -261,6 +261,28 @@ def shmTonalityECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # Footnote 14 (/0 epsilon)
     epsilon = 1e-12
 
+    # Duplicate Banded Data for ACF
+    # ACF averaging occurs over neighbouring bands, to do this the segmentation
+    # needs to be duplicated for neigbouring bands. 'Dupe' has been added
+    # to variables to indicate that the vectors/matrices have been modified
+    # for duplicated neigbouring bands.
+    blockSizeDupe = (np.hstack((8192*np.ones([5,]), 4096*np.ones([17,]),
+                                2048*np.ones([11,]),
+                                1024*np.ones([28,])))).astype(int)
+
+    bandCentreFreqsDupe = np.hstack((bandCentreFreqs[0:5],
+                                     bandCentreFreqs[1:18],
+                                     bandCentreFreqs[15:26],
+                                     bandCentreFreqs[25:53]))
+
+    # (duplicated) indices corresponding with the NB bands around each z band
+    i_NBandsAvgDupe = np.vstack((np.hstack(([0, 0, 0], np.arange(5, 18),
+                                            np.arange(22, 31),
+                                            np.arange(33, 61))),
+                                 np.hstack(([2, 3, 5], np.arange(10, 23),
+                                            np.arange(25, 34),
+                                            np.arange(34, 62)))))
+
     # %% Signal processing
 
     # Input pre-processing
@@ -292,13 +314,13 @@ def shmTonalityECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # pre-allocate results arrays
     # specSNR = np.zeros([l_end + 1, nBands, chansIn])  # dev only
     # specLoudness = np.zeros([l_end + 1, nBands, chansIn])  # dev only
-    specTonalLoudness = np.zeros([l_end + 1, nBands, chansIn])
-    specNoiseLoudness = np.zeros([l_end + 1, nBands, chansIn])
-    specTonalityFreqs = np.zeros([l_end + 1, nBands, chansIn])
-    specTonalityAvg = np.zeros([nBands, chansIn])
-    specTonalityAvgFreqs = np.zeros([nBands, chansIn])
-    tonalityTDep = np.zeros([l_end + 1, chansIn])
-    tonalityTDepFreqs = np.zeros([l_end + 1, chansIn])
+    specTonalLoudness = np.zeros([l_end + 1, nBands, chansIn], order='F')
+    specNoiseLoudness = np.zeros([l_end + 1, nBands, chansIn], order='F')
+    specTonalityFreqs = np.zeros([l_end + 1, nBands, chansIn], order='F')
+    specTonalityAvg = np.zeros([nBands, chansIn], order='F')
+    specTonalityAvgFreqs = np.zeros([nBands, chansIn], order='F')
+    tonalityTDep = np.zeros([l_end + 1, chansIn], order='F')
+    tonalityTDepFreqs = np.zeros([l_end + 1, chansIn], order='F')
     tonalityAvg = np.zeros([chansIn])
 
     for chan in chanIter:
@@ -318,20 +340,6 @@ def shmTonalityECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
         pn_omzDupe = np.hstack((pn_omz[:, 0:5], pn_omz[:, 1:18],
                                 pn_omz[:, 15:26], pn_omz[:, 25:53]))
-        blockSizeDupe = (np.hstack((8192*np.ones([5,]), 4096*np.ones([17,]),
-                                    2048*np.ones([11,]),
-                                    1024*np.ones([28,])))).astype(int)
-        bandCentreFreqsDupe = np.hstack((bandCentreFreqs[0:5],
-                                         bandCentreFreqs[1:18],
-                                         bandCentreFreqs[15:26],
-                                         bandCentreFreqs[25:53]))
-        # (duplicated) indices corresponding with the NB bands around each z band
-        i_NBandsAvgDupe = np.vstack((np.hstack(([0, 0, 0], np.arange(5, 18),
-                                                np.arange(22, 31),
-                                                np.arange(33, 61))),
-                                     np.hstack(([2, 3, 5], np.arange(10, 23),
-                                                np.arange(25, 34),
-                                                np.arange(34, 62)))))
 
         if waitBar:
             bandACFIter = tqdm(range(61), desc="Critical band autocorrelation")
@@ -350,7 +358,7 @@ def shmTonalityECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             i_start = blockSizeDupe[0] - blockSizeDupe[zBand]
             pn_lz, _ = shmSignalSegment(pn_omzDupe[:, zBand],
                                         blockSizeDupe[zBand], overlap=overlap,
-                                        axisN=0, i_start=i_start)
+                                        i_start=i_start)
 
             # Transformation into Loudness
             # ----------------------------
@@ -364,10 +372,10 @@ def shmTonalityECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             # ACF implementation using DFT
             # Section 6.2.2 Equations 27 & 28 ECMA-418-2:2025
             # [phi_unscaled,l,z(m)]
-            unscaledACF = irfft(np.abs(rfft(pn_rlz,
-                                            2*blockSizeDupe[zBand],
-                                            axis=0))**2,
-                                2*blockSizeDupe[zBand], axis=0)
+            unscaledACF = np.asfortranarray(irfft(np.abs(rfft(pn_rlz,
+                                                              2*blockSizeDupe[zBand],
+                                                              axis=0))**2,
+                                                  2*blockSizeDupe[zBand], axis=0))
             # Section 6.2.2 Equation 29 ECMA-418-2:2025 [phi_l,z(m)]
             denom = (np.sqrt(np.flip(np.cumsum(np.flip(pn_rlz, axis=0)**2,
                                                axis=0), axis=0)
@@ -397,16 +405,16 @@ def shmTonalityECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             meanScaledACF = np.mean(unbiasedNormACFDupe[i_NBandsAvgDupe[0,
                                                                         zBand]:i_NBandsAvgDupe[1,
                                                                                                zBand]],
-                                    0)
+                                    axis=0)
 
             # Average the ACF over adjacent time blocks [phibar_z'(m)]
             if zBand < 16:
-                meanScaledACF = np.roll(np.nan_to_num(bn.move_mean(meanScaledACF,
-                                                                   window=3,
-                                                                   min_count=3,
-                                                                   axis=1),
-                                                      copy=False),
-                                        shift=-1, axis=1)
+                meanScaledACF = np.asfortranarray(np.roll(np.nan_to_num(bn.move_mean(meanScaledACF,
+                                                                                     window=3,
+                                                                                     min_count=3,
+                                                                                     axis=1),
+                                                                        copy=False),
+                                                          shift=-1, axis=1))
             # end of if branch for moving mean over time blocks
 
             # Application of ACF lag window Section 6.2.4 ECMA-418-2:2025
@@ -418,7 +426,7 @@ def shmTonalityECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             M = mz_end - mz_start + 1
             # Equation 35 ECMA-418-2:2025
             # lag-windowed, detrended ACF [phi'_z,tau(m)]
-            lagWindowACF = np.zeros(meanScaledACF.shape)
+            lagWindowACF = np.zeros(meanScaledACF.shape, order='F')
             lagWindowACF[mz_start:mz_end + 1, :] = (meanScaledACF[mz_start:mz_end
                                                                   + 1, :]
                                                     - np.mean(meanScaledACF[mz_start:mz_end
@@ -430,10 +438,10 @@ def shmTonalityECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
             # ----------------------------
             # Section 6.2.5 Equation 36 ECMA-418-2:2025
             # ACF spectrum in the lag window [Phi'_z,tau(k)]
-            magFFTlagWindowACF = np.nan_to_num(np.abs(fft(lagWindowACF,
-                                                          2*np.max(blockSize),
-                                                          axis=0)),
-                                               copy=False)
+            magFFTlagWindowACF = np.asfortranarray(np.nan_to_num(np.abs(fft(lagWindowACF,
+                                                                            2*np.max(blockSize),
+                                                                            axis=0)),
+                                                                 copy=False))
             # added to avoid spurious tiny results affecting tonal frequency
             # identification
             magFFTlagWindowACF[magFFTlagWindowACF <= epsilon] = 0.0
@@ -539,8 +547,8 @@ def shmTonalityECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         # --------------------------------
         # Section 6.2.8 Equation 49 ECMA-418-2:2025 [SNR(l)]
         # loudness signal-noise-ratio
-        overallSNR = (np.max(specTonalLoudness, 1)
-                      / (np.sum(specNoiseLoudness, 1) + epsilon))
+        overallSNR = (np.max(specTonalLoudness, axis=1)
+                      / (np.sum(specNoiseLoudness, axis=1) + epsilon))
 
         # Section 6.2.8 Equation 50 ECMA-418-2:2025 [q(l)]
         crit = np.exp(-A*(overallSNR - B))
@@ -584,8 +592,8 @@ def shmTonalityECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
         # Section 6.2.10 Equation 61 ECMA-418-2:2025
         # Time-dependent total tonality [T(l)]
-        tonalityTDep[:, chan] = np.max(specTonality[:, :, chan], 1)
-        zmax = np.argmax(specTonality[:, :, chan], 1)
+        tonalityTDep[:, chan] = np.max(specTonality[:, :, chan], axis=1)
+        zmax = np.argmax(specTonality[:, :, chan], axis=1)
 
         for ll in range(l_end + 1):
             tonalityTDepFreqs[ll, chan] = specTonalityFreqs[ll, zmax[ll], chan]
