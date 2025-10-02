@@ -23,7 +23,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 29/05/2023
-Date last modified: 15/09/2025
+Date last modified: 02/10/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -369,8 +369,8 @@ def shmLoudnessECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # end of if branch for singleton dimensions
 
     # Assign outputs to structure
+    loudnessSHM = {}
     if chansOut == 3:
-        loudnessSHM = {}
         loudnessSHM.update({'specLoudness': specLoudness[:, :, 0:2]})
         loudnessSHM.update({'specTonalLoudness': specTonalLoudness[:, :, 0:2]})
         loudnessSHM.update({'specNoiseLoudness': specNoiseLoudness[:, :, 0:2]})
@@ -676,8 +676,8 @@ def shmLoudnessECMAFromComp(specTonalLoudness, specNoiseLoudness,
     # end of if branch for singleton dimensions
 
     # Assign outputs to structure
+    loudnessSHM = {}
     if chansOut == 3:
-        loudnessSHM = {}
         loudnessSHM.update({'specLoudness': specLoudness[:, :, 0:2]})
         loudnessSHM.update({'specLoudnessPowAvg': specLoudnessPowAvg[:, 0:2]})
         loudnessSHM.update({'loudnessTDep': loudnessTDep[:, 0:2]})
