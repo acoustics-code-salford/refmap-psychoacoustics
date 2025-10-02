@@ -463,8 +463,8 @@ for chan = chansIn:-1:1
         envWindowMat(:, quietBlock) = 0;
     end  % end of if branch for further quieter period analysis
 
-envSpectrum = fft(envelopes.*envWindowMat, blockSize1500, 1);
-envMagSqSpectr = abs(envSpectrum).^2;
+envSpectrum = fft(envelopes.*envWindowMat, blockSize1500, 1);  % [Pk_Elz]
+envMagSqSpectr = abs(envSpectrum).^2;  % [Phik_Elz]
 
 
     % Section 7.1.3 equation 66 ECMA-418-2:2025 [Phi(k)_E,l,z]
