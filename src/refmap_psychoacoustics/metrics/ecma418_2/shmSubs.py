@@ -196,7 +196,6 @@ def shmAuditoryFiltBank(signal, outPlot=False):
 
 
 # %% shmBasisLoudness
-@njit
 def shmBasisLoudness(signalSegmented, bandCentreFreq=None):
     """Function shmBandBasisLoudness(signalSegmented, bandCentreFreq)
 
@@ -1116,7 +1115,6 @@ def shmRound(vals, decimals=0):
 
 
 # %% shmRMS
-@njit
 def shmRMS(vals, axis=0, keepdims=False):
     """
     Returns the root-mean-square for values contained in an array.
@@ -1151,7 +1149,6 @@ def shmRMS(vals, axis=0, keepdims=False):
 
 
 # %% shmInCheck
-@njit
 def shmInCheck(signal, sampleRateIn, axisN, soundField,
                waitBar, outPlot, binaural=None):
     """
