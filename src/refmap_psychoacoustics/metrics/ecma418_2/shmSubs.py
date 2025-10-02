@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # %% Preamble
 """
-acousticSHMSubs.py
+shmSubs.py
 --------------
 
 Acoustic signal analysis subfunctions for implementing the Sottek Hearing
@@ -1263,3 +1263,4 @@ def shmInCheck(signal, sampleRateIn, axisN, soundField,
             raise ValueError("\nInput argument 'binaural' must be logical True/False")
 
     return signal, chansIn, chans
+
