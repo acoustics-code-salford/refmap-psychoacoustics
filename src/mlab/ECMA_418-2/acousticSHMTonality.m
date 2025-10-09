@@ -322,7 +322,6 @@ for chan = chansIn:-1:1
         % Sections 5.1.6 to 5.1.9 ECMA-418-2:2025 [N'_basis(z)]
         [pn_rlz, bandBasisLoudness, ~]...
             = shmBasisLoudness(pn_lz, bandCentreFreqsDupe(zBand));
-        basisLoudnessArray{zBand} = bandBasisLoudness;
 
         % Apply ACF
         % ACF implementation using DFT
@@ -341,7 +340,7 @@ for chan = chansIn:-1:1
         unbiasedNormACF((0.75*blockSizeDupe(zBand) + 1):blockSizeDupe(zBand), :) = 0;
 
         % Section 6.2.2 Equation 30 ECMA-418-2:2025 [phi_z'(m)
-        unbiasedNormACFDupe{zBand} = basisLoudnessArray{zBand}.*unbiasedNormACF;
+        unbiasedNormACFDupe{zBand} = bandBasisLoudness.*unbiasedNormACF;
 
     end
     
