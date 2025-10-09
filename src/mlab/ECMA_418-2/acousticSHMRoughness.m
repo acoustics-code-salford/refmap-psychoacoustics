@@ -102,7 +102,7 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 22/07/2025
+% Date last modified: 09/10/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -605,7 +605,9 @@ for chan = chansIn:-1:1
     % Section 7.1.7 ECMA-418-2:2025
 
     % interpolation to 50 Hz sampling rate
-    % Section 7.1.7 Equation 103 [l_50,end]
+    % Section 7.1.7 Equation 103 [l_last]
+    % NOTE: the corresponding definition of l_last in section 5.1.5.2 is
+    % incorrect.
     l_50Last = floor(n_samples/sampleRate48k*sampleRate50) + 1;
     x = (iBlocksOut - 1)/sampleRate48k;
     xq = linspace(0, signalT, l_50Last);
