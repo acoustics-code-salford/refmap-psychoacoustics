@@ -189,7 +189,7 @@ blockSize1500 = blockSize/downSample;
 % hopSize1500 = (1 - overlap)*blockSize1500;
 resDFT1500 = sampleRate1500/blockSize1500;  % DFT resolution (section 7.1.5.1) [deltaf]
 
-% Modulation rate error correction values Table 8, Section 7.1.5.1
+% Modulation rate error correction values Table 10, Section 7.1.5.1
 % ECMA-418-2:2025 [E(theta)]
 errorCorrection = [0.0000, 0.0457, 0.0907, 0.1346, 0.1765, 0.2157, 0.2515,...
                    0.2828, 0.3084, 0.3269, 0.3364, 0.3348, 0.3188, 0.2844,...
