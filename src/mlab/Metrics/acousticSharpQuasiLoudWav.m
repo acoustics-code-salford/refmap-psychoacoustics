@@ -3,7 +3,7 @@ function sharpnessQZ = acousticSharpQuasiLoudWav(p, sampleRatein, timeStep, axis
 %                                     fieldType, sharpMethod,
 %                                     adjustEQL, ecmaEar, outPlot)
 %
-% Returns quasi-sharpness values using acousticSharpFromQuasiZwicker.m from 
+% Returns quasi-sharpness values using acousticSharpFromQuasi.m from 
 % quasi-loudness results obtained using acousticQuasiLoudZwicker.m with Leq spectra
 % obtained with poctave.
 %
@@ -122,7 +122,7 @@ function sharpnessQZ = acousticSharpQuasiLoudWav(p, sampleRatein, timeStep, axis
 % Institution: University of Salford
 %
 % Date created: 30/04/2025
-% Date last modified: 22/07/2025
+% Date last modified: 09/10/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within

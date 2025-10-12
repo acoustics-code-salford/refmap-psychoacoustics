@@ -23,7 +23,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 29/05/2023
-Date last modified: 15/09/2025
+Date last modified: 09/10/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -190,7 +190,7 @@ def shmLoudnessECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 
     # Output sample rate based on tonality hop sizes (Section 6.2.6
     # ECMA-418-2:2025) [r_sd]
-    sampleRate1875 = 48e3/256
+    sampleRate1875 = sampleRate48k/256
 
     # Footnote 14 (/0 epsilon)
     epsilon = 1e-12
@@ -369,8 +369,8 @@ def shmLoudnessECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # end of if branch for singleton dimensions
 
     # Assign outputs to structure
+    loudnessSHM = {}
     if chansOut == 3:
-        loudnessSHM = {}
         loudnessSHM.update({'specLoudness': specLoudness[:, :, 0:2]})
         loudnessSHM.update({'specTonalLoudness': specTonalLoudness[:, :, 0:2]})
         loudnessSHM.update({'specNoiseLoudness': specNoiseLoudness[:, :, 0:2]})
@@ -545,7 +545,7 @@ def shmLoudnessECMAFromComp(specTonalLoudness, specNoiseLoudness,
 
     # Output sample rate based on tonality hop sizes (Section 6.2.6
     # ECMA-418-2:2025) [r_sd]
-    sampleRate1875 = 48e3/256
+    sampleRate1875 = sampleRate48k/256
 
     # Footnote 14 (/0 epsilon)
     epsilon = 1e-12
@@ -554,6 +554,7 @@ def shmLoudnessECMAFromComp(specTonalLoudness, specNoiseLoudness,
 
     # Section 8.1.1 ECMA-418-2:2025
     # Weight and combine component specific loudnesses
+    # pre-allocate array
     specLoudness = np.zeros(specTonalLoudness.shape, order='F')  # pre-allocate array
     for chan in range(chansIn):
         # Equation 114 ECMA-418-2:2025 [e(z)]
@@ -676,8 +677,8 @@ def shmLoudnessECMAFromComp(specTonalLoudness, specNoiseLoudness,
     # end of if branch for singleton dimensions
 
     # Assign outputs to structure
+    loudnessSHM = {}
     if chansOut == 3:
-        loudnessSHM = {}
         loudnessSHM.update({'specLoudness': specLoudness[:, :, 0:2]})
         loudnessSHM.update({'specLoudnessPowAvg': specLoudnessPowAvg[:, 0:2]})
         loudnessSHM.update({'loudnessTDep': loudnessTDep[:, 0:2]})
