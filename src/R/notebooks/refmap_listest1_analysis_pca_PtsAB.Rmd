@@ -1,0 +1,32 @@
+---
+title: "RefMap Listening test 1 Parts A & B analysis: Principal Components Analysis"
+output: html_document
+date: "2025-10-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup
+
+## Load packages
+
+```{r packages}
+# load packages
+library(tidyr)
+library(ggplot2)
+library(conflicted)
+library(tidyverse)
+library(openxlsx)
+library(stats)
+library(easystats)
+library(viridis)
+library(ggnewscale)
+library(patchwork)
+library(FactoMineR)
+library(factoextra)
+# set package parameters
+theme_set(theme_bw())
+
+```

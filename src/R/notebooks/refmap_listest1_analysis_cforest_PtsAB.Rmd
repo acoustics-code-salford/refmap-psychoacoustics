@@ -1,5 +1,5 @@
 ---
-title: "REFMAP Listening test 1 Part A analysis: Random forest variable importance identification (median responses)"
+title: "REFMAP Listening test 1 Parts A & B analysis: Random forest variable importance identification"
 output: html_notebook
 ---
 
@@ -7,7 +7,7 @@ output: html_notebook
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-This notebook analyses the Part A data in terms of variable importance using a random forest model based on conditional inference trees and a conditional permutation variable importance algorithm.
+This notebook analyses both parts of the data in terms of variable importance, using a random forest model based on conditional inference trees and a conditional permutation variable importance algorithm.
 
 # Setup
 
