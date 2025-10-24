@@ -187,6 +187,7 @@ hopSize = (1 - overlap)*blockSize;  % hop size [s_h]
 downSample = 32;  % downsampling factor
 sampleRate1500 = sampleRate48k/downSample;
 blockSize1500 = blockSize/downSample;
+deltaF1500 = sampleRate1500/blockSize1500;
 % hopSize1500 = (1 - overlap)*blockSize1500;
 % resDFT1500 = sampleRate1500/blockSize1500;  % DFT resolution (section 7.1.5.1) [deltaf]
 
@@ -323,9 +324,9 @@ for chan = chansIn:-1:1
 
         % Transformation into Loudness
         % ----------------------------
-        if waitBar
-            i_step = i_step + 1;
-        end
+        % if waitBar
+        %     i_step = i_step + 1;
+        % end
         % % Sections 5.1.6 to 5.1.9 ECMA-418-2:2025
         % [~, bandBasisLoudness, ~] = shmBasisLoudness(pn_lz, bandCentreFreqs(zBand));
         % basisLoudness(:, :, zBand) = bandBasisLoudness;
@@ -463,9 +464,43 @@ for chan = chansIn:-1:1
         envWindowMat(:, quietBlock) = 0;
     end  % end of if branch for further quieter period analysis
 
-envSpectrum = fft(envelopes.*envWindowMat, blockSize1500, 1);  % [Pk_Elz]
-envMagSqSpectr = abs(envSpectrum).^2;  % [Phik_Elz]
+    envSpectrum = fft(envelopes.*envWindowMat, blockSize1500, 1);  % [Pk_Elz]
+    envMagSqSpectr = abs(envSpectrum).^2;  % [Phik_Elz]
 
+    % Sections 9.1.4-9.1.5
+
+    modRateInitial = 0.25*2.^((1:16 - 2)./2);
+    modRateInitialCand = modRateInitial(1);
+
+    KLInitial = min(max(17, round(max(modRateInitialCand./deltaF1500)) + 8), 49);
+    % identification of prominent spectral lines
+    for zBand = nBands:-1:1
+        if waitBar
+            waitbar(i_step/n_steps, w, strcat("Calculating modulation spectra in 53 bands, ",...
+                    num2str(zBand), " to go..."));...
+            i_step = i_step + 1;
+        end % end of if branch for waitBar
+
+        % Sections 9.1.4 and 9.1.5 ECMA-418-2:2025
+        for lBlock = nBlocks:-1:1
+            % identify peaks in each block (for each band)
+            % NOTE: peak search limited to k = 0,...,48
+            [PhiPks, kLocs, ~, ~] = findpeaks(envMagSqSpectr(0 + mlabIndex:48 + mlabIndex,...
+                                                             lBlock,...
+                                                             zBand));
+            mask = PhiPks >= max(0.001*envMagSqSpectr(1, lBlock, zBand),...
+                                                      0.15);
+            PhiPksMask = PhiPks(mask);
+            kLocsMask = kLocs(mask);
+
+            if ~isempty(PhiPksMask)
+                
+
+            end  % end of if branch for thresholded modulation spectra
+
+
+        end
+    end
 
     % Section 7.1.3 equation 66 ECMA-418-2:2025 [Phi(k)_E,l,z]
     modSpectra = zeros(size(envelopes));
