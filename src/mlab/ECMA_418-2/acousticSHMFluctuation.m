@@ -10,82 +10,77 @@ function fluctuationSHM = acousticSHMFluctuation(p, sampleRateIn, axisN, soundFi
 % Inputs
 % ------
 % p : vector or 2D matrix
-%     the input signal as single mono or stereo audio (sound
-%     pressure) signals
+%   the input signal as single mono or stereo audio (sound pressure)
+%   signals
 %
 % sampleRateIn : integer
-%                the sample rate (frequency) of the input signal(s)
+%   the sample rate (frequency) of the input signal(s)
 %
 % axisN : integer (1 or 2, default: 1)
-%         the time axis along which to calculate the tonality
+%   the time axis along which to calculate the tonality
 %
 % soundField : keyword string (default: 'freeFrontal')
-%              determines whether the 'freeFrontal' or 'diffuse' field stages
-%              are applied in the outer-middle ear filter, or 'noOuter' uses
-%              only the middle ear stage, or 'noEar' omits ear filtering.
-%              Note: these last two options are beyond the scope of the
-%              standard, but may be useful if recordings made using
-%              artificial outer/middle ear are to be processed using the
-%              specific recorded responses.
+%   determines whether the 'freeFrontal' or 'diffuse' field stages are
+%   applied in the outer-middle ear filter, or 'noOuter' uses only the
+%   middle ear stage, or 'noEar' omits ear filtering. Note: these last two
+%   options are beyond the scope of the standard, but may be useful if
+%   recordings made using artificial outer/middle ear are to be processed
+%   using the specific recorded responses.
 %
 % waitBar : keyword string (default: true)
-%           determines whether a progress bar displays during processing
-%           (set waitBar to false for doing multi-file parallel calculations)
+%   determines whether a progress bar displays during processing
+%   (set waitBar to false for doing multi-file parallel calculations)
 %
 % outplot : Boolean true/false (default: false)
-%           flag indicating whether to generate a figure from the output
+%   flag indicating whether to generate a figure from the output
 %
 % binaural : Boolean true/false (default: true)
-%            flag indicating whether to output binaural roughness for stereo
-%            input signal.
+%   flag indicating whether to output binaural fluctuation strength for
+% stereo input signal.
 % 
 % Returns
 % -------
 %
 % fluctuationSHM : structure
-%                contains the output
+%   contains the output
 %
 % fluctuationSHM contains the following outputs:
 %
-% specRoughness : matrix
-%                 time-dependent specific roughness for each (half)
-%                 critical band
-%                 arranged as [time, bands(, channels)]
+% specFluctuation : matrix
+%   time-dependent specific fluctuation strength for each critical band
+%   arranged as [time, bands(, channels)]
 %
-% specRoughnessAvg : matrix
-%                    time-averaged specific roughness for each (half)
-%                    critical band
-%                    arranged as [bands(, channels)]
+% specFluctuationAvg : matrix
+%   time-averaged specific fluctuation strength for each critical band
+%   arranged as [bands(, channels)]
 %
-% roughnessTDep : vector or matrix
-%                 time-dependent overall roughness
-%                 arranged as [time(, channels)]
+% fluctuationTDep : vector or matrix
+%   time-dependent overall fluctuation strength arranged as [time(, channels)]
 % 
-% roughness90Pc : number or vector
-%                 time-aggregated (90th percentile) overall roughness
-%                 arranged as [roughness(, channels)]
+% fluctuation90Pc : number or vector
+%   time-aggregated (90th percentile) overall fluctuation strength
+%   arranged as [fluctuation strength(, channels)]
 %
 % bandCentreFreqs : vector
-%                   centre frequencies corresponding with each (half)
-%                   critical band rate scale width
+%   centre frequencies corresponding with each critical band rate
 %
 % timeOut : vector
-%           time (seconds) corresponding with time-dependent outputs
+%   time (seconds) corresponding with time-dependent outputs
 %
 % soundField : string
-%              identifies the soundfield type applied (the input argument
-%              fieldtype)
+%   identifies the soundfield type applied (the input argument
+%   soundField)
 %
 % If binaural=true, a corresponding set of outputs for the binaural
-% roughness is also contained in roughnessSHM
+% fluctuation strength is also contained in fluctuationSHM
 %
 % If outplot=true, a set of plots is returned illustrating the energy
 % time-averaged A-weighted sound level, the time-dependent specific and
-% overall roughness, with the latter also indicating the time-aggregated
-% value. A set of plots is returned for each input channel, with another
-% set for the binaural roughness, if binaural=true. In that case, the
-% indicated sound level corresponds with the channel with the highest sound
-% level.
+% overall fluctuation strength , with the latter also indicating the
+% time-aggregated value. A set of plots is returned for each input channel,
+% with another set for the binaural fluctuation strength, if binaural=true.
+% In that case, the indicated sound level corresponds with the channel with
+% the highest sound level.
 %
 % Assumptions
 % -----------
@@ -103,7 +98,7 @@ function fluctuationSHM = acousticSHMFluctuation(p, sampleRateIn, axisN, soundFi
 % Institution: University of Salford
 %
 % Date created: 16/05/2025
-% Date last modified: 03/09/2025
+% Date last modified: 31/10/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -201,6 +196,12 @@ quietZerosMin = blockSize1500*5/32;  % minimum number of zeros in quieter period
 winEndLim = blockSize1500/4;  % constraint on end index of envelope analysis window (section 9.1.3.6)
 linRegIdxShift = blockSize1500*5/1024;  % shift on window indices for linear regression analysis (section 9.1.3.6)
 
+% Determination of candidate modulation spectral line pairs Section 9.1.5 ECMA-418-2:2025
+mlabIndex = 1;  % term used to compensate for MATLAB 1-indexing
+modRateInitial = 0.25*2.^((1:16 - 2)./3);  % initial modulation rates for identifying spectral lines
+modRateInitialCand = modRateInitial(1);  % first candidate modulation spectral line rate
+KLInitial = min(max(17, round(max(modRateInitialCand./deltaF1500)) + 8), 49);
+
 % Modulation rate error correction values Table 8, Section 7.1.5.1
 % ECMA-418-2:2025 [E(theta)]
 errorCorrection = [0.0000, 0.0457, 0.0907, 0.1346, 0.1765, 0.2157, 0.2515,...
@@ -208,46 +209,42 @@ errorCorrection = [0.0000, 0.0457, 0.0907, 0.1346, 0.1765, 0.2157, 0.2515,...
                    0.2259, 0.1351, 0.0000];
 errorCorrection = [errorCorrection, flip(-errorCorrection(1:end-1)), 0];
 
-% High modulation rate roughness perceptual scaling function
-% (section 7.1.5.2 ECMA-418-2:2025)
-% Table 11 ECMA-418-2:2025 [r_1; r_2]
-roughScaleParams = [0.3560, 0.8024;
-                    0.8049, 0.9333];
-roughScaleParams = [roughScaleParams(:, 1).*ones([2, sum(bandCentreFreqs < 1e3)]),...
-                    roughScaleParams(:, 2).*ones([2, sum(bandCentreFreqs >= 1e3)])];
-% Equation 84 ECMA-418-2:2025 [r_max(z)]
-roughScale = 1./(1 + roughScaleParams(1, :).*abs(log2(bandCentreFreqs/1000)).^roughScaleParams(2, :));
-roughScale = reshape(roughScale, [1, 1, nBands]);  % Note: this is to ease parallelised calculations
-
-% High/low modulation rate roughness perceptual weighting function parameters
-% (section 7.1.5.2 ECMA-418-2:2025)
-% Equation 86 ECMA-418-2:2025 [f_max(z)]
-modfreqMaxWeight = 72.6937*(1 - 1.1739*exp(-5.4583*bandCentreFreqs/1000));
-
-% TODO for next update
-%bandCentreFreqsWeight = max(ones(size(bandCentreFreqs)).*bandCentreFreqs(3), bandCentreFreqs);
-%modfreqMaxWeight = 72.6937*(1 - 1.1739*exp(-5.4583*bandCentreFreqsWeight/1000));
-
-% Equation 87 ECMA-418-2:2025 [q_1; q_2(z)]
-roughHiWeightParams = [1.2822*ones(size(bandCentreFreqs));...
-                       0.2471*ones(size(bandCentreFreqs))];
-mask = bandCentreFreqs/1000 >= 2^-3.4253;
-roughHiWeightParams(2, mask) = 0.2471 + 0.0129.*(log2(bandCentreFreqs(mask)/1000) + 3.4253).^2;
-roughHiWeightParams = reshape(roughHiWeightParams, [2, 1, nBands]);  % Note: this is to ease parallelised calculations
-
-% (section 7.1.5.4 ECMA-418-2:2025)
-% Equation 96 ECMA-418-2:2025 [q_1; q_2(z)]
-roughLoWeightParams = [0.7066*ones(size(bandCentreFreqs));...
-                       1.0967 - 0.064.*log2(bandCentreFreqs/1000)];
+% % High modulation rate roughness perceptual scaling function
+% % (section 7.1.5.2 ECMA-418-2:2025)
+% % Table 11 ECMA-418-2:2025 [r_1; r_2]
+% roughScaleParams = [0.3560, 0.8024;
+%                     0.8049, 0.9333];
+% roughScaleParams = [roughScaleParams(:, 1).*ones([2, sum(bandCentreFreqs < 1e3)]),...
+%                     roughScaleParams(:, 2).*ones([2, sum(bandCentreFreqs >= 1e3)])];
+% % Equation 84 ECMA-418-2:2025 [r_max(z)]
+% roughScale = 1./(1 + roughScaleParams(1, :).*abs(log2(bandCentreFreqs/1000)).^roughScaleParams(2, :));
+% roughScale = reshape(roughScale, [1, 1, nBands]);  % Note: this is to ease parallelised calculations
+% 
+% % High/low modulation rate roughness perceptual weighting function parameters
+% % (section 7.1.5.2 ECMA-418-2:2025)
+% % Equation 86 ECMA-418-2:2025 [f_max(z)]
+% modfreqMaxWeight = 72.6937*(1 - 1.1739*exp(-5.4583*bandCentreFreqs/1000));
+% 
+% % Equation 87 ECMA-418-2:2025 [q_1; q_2(z)]
+% roughHiWeightParams = [1.2822*ones(size(bandCentreFreqs));...
+%                        0.2471*ones(size(bandCentreFreqs))];
+% mask = bandCentreFreqs/1000 >= 2^-3.4253;
+% roughHiWeightParams(2, mask) = 0.2471 + 0.0129.*(log2(bandCentreFreqs(mask)/1000) + 3.4253).^2;
+% roughHiWeightParams = reshape(roughHiWeightParams, [2, 1, nBands]);  % Note: this is to ease parallelised calculations
+% 
+% % (section 7.1.5.4 ECMA-418-2:2025)
+% % Equation 96 ECMA-418-2:2025 [q_1; q_2(z)]
+% roughLoWeightParams = [0.7066*ones(size(bandCentreFreqs));...
+%                        1.0967 - 0.064.*log2(bandCentreFreqs/1000)];
 
 % Output sample rate (section 7.1.7 ECMA-418-2:2025) [r_s50]
 sampleRate50 = 50;
 
 % Calibration constant
-cal_R = 0.0180909;   % calibration factor in Section 7.1.7 Equation 104 ECMA-418-2:2025 [c_R]
-%cal_Rx = 1/1.00123972659601;  % calibration adjustment factor
-%cal_R*cal_Rx = 0.0180685; adjusted calibration value
-cal_Rx = 1/1.0011565;  % calibration adjustment factor
+cal_F = 0.003840572;   % calibration factor in Section 9.1.11 Equation 163 ECMA-418-2:2025 [c_F]
+%cal_Fx = 1/1.00123972659601;  % calibration adjustment factor
+%cal_F*cal_Fx = 0.0180685; adjusted calibration value
+
 
 %% Signal processing
 
@@ -464,15 +461,15 @@ for chan = chansIn:-1:1
         envWindowMat(:, quietBlock) = 0;
     end  % end of if branch for further quieter period analysis
 
-    envSpectrum = fft(envelopes.*envWindowMat, blockSize1500, 1);  % [Pk_Elz]
-    envMagSqSpectr = abs(envSpectrum).^2;  % [Phik_Elz]
+    envSpectra = fft(envelopes.*envWindowMat, blockSize1500, 1);  % [Pk_Elz]
+    envMagSqSpectra = abs(envSpectra).^2;  % [Phik_Elz]
+    fftFreqs = 
 
     % Sections 9.1.4-9.1.5
+    modSpecCriterion = squeeze(max(0.001*envMagSqSpectra(1, :, :), 0.15));
+    modAmp = zeros(24, nBlocks, nBands);
+    modRate = zeros(24, nBlocks, nBands);
 
-    modRateInitial = 0.25*2.^((1:16 - 2)./2);
-    modRateInitialCand = modRateInitial(1);
-
-    KLInitial = min(max(17, round(max(modRateInitialCand./deltaF1500)) + 8), 49);
     % identification of prominent spectral lines
     for zBand = nBands:-1:1
         if waitBar
@@ -485,16 +482,18 @@ for chan = chansIn:-1:1
         for lBlock = nBlocks:-1:1
             % identify peaks in each block (for each band)
             % NOTE: peak search limited to k = 0,...,48
-            [PhiPks, kLocs, ~, ~] = findpeaks(envMagSqSpectr(0 + mlabIndex:48 + mlabIndex,...
+            [PhiPks, kLocs, ~, ~] = findpeaks(envMagSqSpectra(0 + mlabIndex:48 + mlabIndex,...
                                                              lBlock,...
                                                              zBand));
-            mask = PhiPks >= max(0.001*envMagSqSpectr(1, lBlock, zBand),...
-                                                      0.15);
+            mask = PhiPks >= modSpecCriterion(lBlock, zBand);
             PhiPksMask = PhiPks(mask);
             kLocsMask = kLocs(mask);
 
             if ~isempty(PhiPksMask)
-                
+
+                modRate(length(PhiPksMask),...
+                        lBlock,...
+                        zBand) = deltaF1500*
 
             end  % end of if branch for thresholded modulation spectra
 

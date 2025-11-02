@@ -47,12 +47,12 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
 % roughnessSHM contains the following outputs:
 %
 % specRoughness : matrix
-%                 time-dependent specific roughness for each (half)
+%                 time-dependent specific roughness for each
 %                 critical band
 %                 arranged as [time, bands(, channels)]
 %
 % specRoughnessAvg : matrix
-%                    time-averaged specific roughness for each (half)
+%                    time-averaged specific roughness for each
 %                    critical band
 %                    arranged as [bands(, channels)]
 %
@@ -65,15 +65,14 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
 %                 arranged as [roughness(, channels)]
 %
 % bandCentreFreqs : vector
-%                   centre frequencies corresponding with each (half)
-%                   critical band rate scale width
+%                   centre frequencies corresponding with each
+%                   critical band rate
 %
 % timeOut : vector
 %           time (seconds) corresponding with time-dependent outputs
 %
 % soundField : string
-%              identifies the soundfield type applied (the input argument
-%              fieldtype)
+%              identifies the soundfield type applied (= input argument)
 %
 % If binaural=true, a corresponding set of outputs for the binaural
 % roughness is also contained in roughnessSHM
@@ -102,7 +101,7 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 09/10/2025
+% Date last modified: 31/10/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within

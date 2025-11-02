@@ -55,7 +55,7 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 %                     arranged as [time, bands(, channels)]
 %
 % specTonalityAvg : matrix
-%                   time-averaged specific tonality for each (half)
+%                   time-averaged specific tonality for each
 %                   critical band
 %                   arranged as [bands(, channels)]
 %
@@ -63,17 +63,17 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 %                        frequencies of the dominant tonal components
 %                        corresponding with each of the
 %                        time-averaged specific tonality values in each
-%                        (half) critical band
+%                        critical band
 %                        arranged as [bands(, channels)]
 %
 % specTonalLoudness : matrix
 %                     time-dependent specific tonal loudness for each
-%                     (half) critical band
+%                     critical band
 %                     arranged as [time, bands(, channels)]
 %
 % specNoiseLoudness : matrix
 %                     time-dependent specific noise loudness for each
-%                     (half) critical band
+%                     critical band
 %                     arranged as [time, bands(, channels)]
 %
 % tonalityTDep : vector or matrix
@@ -91,16 +91,14 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 %               arranged as [tonality(, channels)]
 %
 % bandCentreFreqs : vector
-%                   centre frequencies corresponding with each (half)
-%                   critical band rate scale width
+%                   centre frequencies corresponding with each
+%                   critical band
 %
 % timeOut : vector
 %           time (seconds) corresponding with time-dependent outputs
 %
 % soundField : string
-%              identifies the soundfield type applied (the input argument
-%              soundField)
-%
+%              identifies the soundfield type applied (= input argument)
 %
 % If outPlot=true, a set of plots is returned illustrating the energy
 % time-averaged A-weighted sound level, the time-dependent specific and
@@ -124,7 +122,7 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford / ANV Measurement Systems
 %
 % Date created: 07/08/2023
-% Date last modified: 23/07/2025
+% Date last modified: 31/10/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within

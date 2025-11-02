@@ -59,12 +59,12 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, w
 %
 % specTonalLoudness : matrix
 %                     time-dependent specific tonal loudness for each
-%                     (half) critical band
+%                     critical band
 %                     arranged as [time, bands(, channels)]
 %
 % specNoiseLoudness : matrix
 %                     time-dependent specific noise loudness for each
-%                     (half) critical band
+%                     critical band
 %                     arranged as [time, bands(, channels)]
 %
 % loudnessTDep : vector or matrix
@@ -112,7 +112,7 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford
 %
 % Date created: 22/09/2023
-% Date last modified: 22/07/2025
+% Date last modified: 31/10/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
