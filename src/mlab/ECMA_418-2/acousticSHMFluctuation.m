@@ -463,7 +463,12 @@ for chan = chansIn:-1:1
 
     envSpectra = fft(envelopes.*envWindowMat, blockSize1500, 1);  % [Pk_Elz]
     envMagSqSpectra = abs(envSpectra).^2;  % [Phik_Elz]
+<<<<<<< Updated upstream
     fftFreqs = 
+=======
+   
+
+>>>>>>> Stashed changes
 
     % Sections 9.1.4-9.1.5
     modSpecCriterion = squeeze(max(0.001*envMagSqSpectra(1, :, :), 0.15));
@@ -483,8 +488,13 @@ for chan = chansIn:-1:1
             % identify peaks in each block (for each band)
             % NOTE: peak search limited to k = 0,...,48
             [PhiPks, kLocs, ~, ~] = findpeaks(envMagSqSpectra(0 + mlabIndex:48 + mlabIndex,...
+<<<<<<< Updated upstream
                                                              lBlock,...
                                                              zBand));
+=======
+                                                              lBlock,...
+                                                              zBand));
+>>>>>>> Stashed changes
             mask = PhiPks >= modSpecCriterion(lBlock, zBand);
             PhiPksMask = PhiPks(mask);
             kLocsMask = kLocs(mask);

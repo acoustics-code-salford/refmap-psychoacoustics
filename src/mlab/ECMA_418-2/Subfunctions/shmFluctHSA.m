@@ -1,4 +1,8 @@
+<<<<<<< Updated upstream
 function out = shmFluctHSA(envMagSqSpectrBandBlock, sampleRate)
+=======
+function out = shmFluctHSA(envMagSqSpectrBandBlock, modSpecCriterionBankBlock, sampleRate)
+>>>>>>> Stashed changes
 % out = shmFluctHSA(envMagSqSpectr, sampleRate)
 %
 % <Description placeholder>
@@ -6,7 +10,14 @@ function out = shmFluctHSA(envMagSqSpectrBandBlock, sampleRate)
 % Inputs
 % ------
 %
+<<<<<<< Updated upstream
 % envMagSqSpectr : <Description placeholder>
+=======
+% envMagSqSpectrBandBlock : <Description placeholder>
+%   <Description placeholder>
+%
+% modSpecCriterionBankBlock: <Description placeholder>
+>>>>>>> Stashed changes
 %   <Description placeholder>
 %
 % sampleRate : <Description placeholder>
@@ -31,6 +42,7 @@ function out = shmFluctHSA(envMagSqSpectrBandBlock, sampleRate)
 % Institution: University of Salford
 %
 % Date created: 31/10/2025
+<<<<<<< Updated upstream
 % Date last modified: 31/10/2025
 % MATLAB version: 2023b
 %
