@@ -199,8 +199,6 @@ linRegIdxShift = blockSize1500*5/1024;  % shift on window indices for linear reg
 % Determination of candidate modulation spectral line pairs Section 9.1.5 ECMA-418-2:2025
 mlabIndex = 1;  % term used to compensate for MATLAB 1-indexing
 modRateInitial = 0.25*2.^((1:16 - 2)./3);  % initial modulation rates for identifying spectral lines
-modRateInitialCand = modRateInitial(1);  % first candidate modulation spectral line rate
-KLInitial = min(max(17, round(max(modRateInitialCand./deltaF1500)) + 8), 49);
 
 % Modulation rate error correction values Table 8, Section 7.1.5.1
 % ECMA-418-2:2025 [E(theta)]
@@ -463,12 +461,6 @@ for chan = chansIn:-1:1
 
     envSpectra = fft(envelopes.*envWindowMat, blockSize1500, 1);  % [Pk_Elz]
     envMagSqSpectra = abs(envSpectra).^2;  % [Phik_Elz]
-<<<<<<< Updated upstream
-    fftFreqs = 
-=======
-   
-
->>>>>>> Stashed changes
 
     % Sections 9.1.4-9.1.5
     modSpecCriterion = squeeze(max(0.001*envMagSqSpectra(1, :, :), 0.15));
