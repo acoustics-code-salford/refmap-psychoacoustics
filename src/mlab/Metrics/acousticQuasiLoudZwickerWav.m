@@ -9,7 +9,7 @@ function [loudness, fm, fn] = acousticQuasiLoudZwickerWav(p, sampleRatein, timeS
 %
 % Optional modifications available comprise an adjustment to the spectral
 % levels to improve agreement with the 2023 ISO 226 equal loudness
-% contours, or (alternatively) the application of the ECMA-418-2:2024
+% contours, or (alternatively) the application of the ECMA-418-2:2025
 % outer-middle ear filter responses (in 1/3-octaves) instead of the
 % ISO 532-1:2017 outer ear transmission.
 %
@@ -110,7 +110,7 @@ function [loudness, fm, fn] = acousticQuasiLoudZwickerWav(p, sampleRatein, timeS
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 22/07/2025
+% Date last modified: 03/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
