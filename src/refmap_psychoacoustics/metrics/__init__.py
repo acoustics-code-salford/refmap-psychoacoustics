@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ["detectability", "ecma418_2"]
+__all__ = ["detectability"]
 
 from .detectability import detectBBNNASA
-
-from .ecma418_2 import *

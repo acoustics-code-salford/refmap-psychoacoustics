@@ -1,6 +1,7 @@
-function [loudness, fm, fn] = acousticQuasiLoudZwickerWav(p, sampleRatein, timeStep, axisN, fieldType, adjustEQL, ecmaEar)
-% loudLevel = acousticQuasiLoudZwickerWav((p, sampleRatein, timeStep, axisN,
-%                                         fieldType, adjustEQL, ecmaEar)
+function [loudness, fm, fn] = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN, soundField, adjustEQL, ecmaEar, ecmaTform)
+% loudLevel = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN,
+%                                         soundField, adjustEQL, ecmaEar,
+%                                         ecmaTform)
 %
 % Returns quasi-loudness using spectral elements of ISO 532-1 Zwicker
 % loudness model for input pressure time-series. The temporal processing of
@@ -16,84 +17,88 @@ function [loudness, fm, fn] = acousticQuasiLoudZwickerWav(p, sampleRatein, timeS
 % Inputs
 % ------
 % p : vector or 2D matrix
-%     the input signal as single mono or stereo audio (sound
-%     pressure) signals
+%   the input signal as single mono or stereo audio (sound
+%   pressure) signals
 %
-% sampleRatein : integer
-%                the sample rate (frequency) of the input signal(s).
+% sampleRateIn : integer
+%   the sample rate (frequency) of the input signal(s).
 %
 % timeStep : number
-%            the time step value used to calculate the time-dependent Leq
-%            and sharpness.
+%   the time step value used to calculate the time-dependent Leq
+%   and sharpness.
 %
 % axisN : integer (1 or 2, default: 1)
 %         the time axis along which to calculate the sharpness.
 %
-% fieldType : keyword string (default: 'free-frontal')
-%             determines whether the 'free-frontal' or 'diffuse' field stages
-%             are applied in the outer-middle ear filter, or 'noOuter'
-%             omits this filtering stage.
+% soundField : keyword string (default: 'freeFrontal')
+%   determines whether the 'freeFrontal' or 'diffuse' field stages
+%   are applied in the outer-middle ear filter, or 'noOuter'
+%   omits this filtering stage.
 %
 % adjustEQL : Boolean (default: false)
-%             flag to indicate whether to apply adjustments for differences
-%             between 1987 ISO 226 equal-loudness contours (which ISO 532-1
-%             models) and 2023 ISO 226 equal-loudness contours. This option
-%             is overridden if the ecmaEar option is set to true.
+%   flag to indicate whether to apply adjustments for differences
+%   between 1987 ISO 226 equal-loudness contours (which ISO 532-1
+%   models) and 2023 ISO 226 equal-loudness contours. This option
+%   is overridden if the ecmaEar option is set to true.
 %
 % ecmaEar : Boolean (default: false)
-%           flag to indicate whether to substitute the outer-middle ear
-%           filter response from ECMA-418-2:2024 for the ISO 532-1:2017
-%           critical band ear transmission a0. This option overrides the
-%           adjustEQL option.
+%   flag to indicate whether to substitute the outer-middle ear
+%   filter response from ECMA-418-2:2024 for the ISO 532-1:2017
+%   critical band ear transmission a0. This option overrides the
+%   adjustEQL option.
+%
+% ecmaTform : Boolean (default: false)
+%   flag to indicate whether to adapt the loudness transformation
+%   to agree more closely with the ECMA-418-2:2024 transformation.
 %
 % Returns
 % -------
 % fm : vector
-%      the fractional octave band exact mid-frequencies for the input
-%      spectra
+%   the fractional octave band exact mid-frequencies for the input
+%   spectra
 %
 % fn : vector
-%      the fractional octave band nominal mid-frequencies for the input
-%      spectra
+%   the fractional octave band nominal mid-frequencies for the input
+%   spectra
 %
 % loudness : structure
-%            contains the loudness output
+%   contains the loudness output
 %
 % loudness contains the following outputs:
 %
 % loudTDep :  vector or matrix
-%             time-dependent loudness
-%             arranged as [time(, channels)]
+%   time-dependent loudness
+%   arranged as [time(, channels)]
 % 
 % loudPowAvg : number or vector
-%              time-power-averaged loudness
-%              arranged as [loudness(, channels)]
+%   time-power-averaged loudness
+%   arranged as [loudness(, channels)]
 %
 % loud5pcEx : number or vector
-%             95th percentile (5% exceeded) loudness
-%             arranged as [loudness(, channels)]
+%   95th percentile (5% exceeded) loudness
+%   arranged as [loudness(, channels)]
 %
 % loudLevel :  vector or matrix
-%             time-dependent loudness level
-%             arranged as [time(, channels)]
+%   time-dependent loudness level
+%   arranged as [time(, channels)]
 %
 % loudLvlPowAvg : number or vector
-%                 time-power-averaged loudness level
-%                 arranged as [loudness(, channels)]
+%   time-power-averaged loudness level
+%   arranged as [loudness(, channels)]
 %
 % specLoudAvg : vector or matrix
-%               time-power-averaged specific loudness
-%               arranged as [bands(, channels)]
+%   time-power-averaged specific loudness
+%   arranged as [bands(, channels)]
 %
 % specLoudAvg : matrix
-%               time-dependent specific loudness
-%               arranged as [time, bands(, channels)]
+%   time-dependent specific loudness
+%   arranged as [time, bands(, channels)]
 %
 % barkAxis : vector
-%            critical band rates for specific loudness (0.1 dz intervals)
+%   critical band rates for specific loudness (0.1 dz intervals)
 %
 % timeOut : vector
-%           time (seconds) corresponding with time-dependent outputs
+%   time (seconds) corresponding with time-dependent outputs
 %
 % Assumptions
 % -----------
@@ -128,15 +133,16 @@ function [loudness, fm, fn] = acousticQuasiLoudZwickerWav(p, sampleRatein, timeS
 %% Arguments validation;
     arguments (Input)
         p (:, :) double {mustBeReal}
-        sampleRatein (1, 1) double {mustBePositive, mustBeInteger}
+        sampleRateIn (1, 1) double {mustBePositive, mustBeInteger}
         timeStep (1, 1) double {mustBePositive}
         axisN (1, 1) {mustBeInteger, mustBeInRange(axisN, 1, 2)} = 1
-        fieldType (1, :) string {mustBeMember(fieldType,...
-                                                       {'free-frontal',...
+        soundField (1, :) string {mustBeMember(soundField,...
+                                                       {'freeFrontal',...
                                                         'diffuse',...
-                                                        'noOuter'})} = 'free-frontal'
+                                                        'noOuter'})} = 'freeFrontal'
         adjustEQL (1, 1) {mustBeNumericOrLogical} = false
         ecmaEar (1, 1) {mustBeNumericOrLogical} = false
+        ecmaTform (1, 1) {mustBeNumericOrLogical} = false
     end
 
 %% Input checks
@@ -148,9 +154,9 @@ end
 
 % Ensure sampling rate is full range
 resampledRate = 48e3;
-if sampleRatein ~= resampledRate  % Resample signal
-    up = resampledRate/gcd(resampledRate, sampleRatein);  % upsampling factor
-    down = sampleRatein/gcd(resampledRate, sampleRatein);  % downsampling factor
+if sampleRateIn ~= resampledRate  % Resample signal
+    up = resampledRate/gcd(resampledRate, sampleRateIn);  % upsampling factor
+    down = sampleRateIn/gcd(resampledRate, sampleRateIn);  % downsampling factor
     p_re = resample(signal, up, down);  % apply resampling
 else  % don't resample
     p_re = p;
@@ -179,7 +185,10 @@ end
 % Calculate Leq
 Leq = 10*log10(pxx/4e-10);
 
-[loudness, fm, fn] = acousticLoudQuasiZwicker(Leq, [25, 12500], 2, fieldType, adjustEQL, ecmaEar);
-loudness.timeOut = linspace(0, size(loudness.loudTDep, 1)*timeStep - timeStep, size(loudness.loudTDep, 1)).';
+[loudness, fm, fn] = acousticQuasiLoudZwicker(Leq, [25, 12500], 2,...
+                                              soundField, adjustEQL,...
+                                              ecmaEar, ecmaTform);
+loudness.timeOut = linspace(0, size(loudness.loudTDep, 1)*timeStep...
+                            - timeStep, size(loudness.loudTDep, 1)).';
 
 end  % end of acousticQuasiLoudZwickerWav function
