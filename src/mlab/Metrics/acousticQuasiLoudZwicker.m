@@ -1,6 +1,6 @@
-function [loudness, fm, fn] = acousticQuasiLoudZwicker(spectrL, fLim, axisF, soundField, adjustEQL, ecmaEar, ecmaTform)
-% loudLevel = acousticQuasiLoudZwicker(spectrL, fLim, axisF, soundField,
-%                                      adjustEQL, ecmaEar, ecmaTform)
+function loudness = acousticQuasiLoudZwicker(spectrL, fLim, axisF, soundField, adjustLoud)
+% loudness = acousticQuasiLoudZwicker(spectrL, fLim, axisF, soundField,
+%                                      adjustLoud)
 %
 % Returns quasi-loudness using spectral elements of ISO 532-1 Zwicker
 % loudness model for arbitrary spectra. The temporal processing of the
@@ -9,91 +9,80 @@ function [loudness, fm, fn] = acousticQuasiLoudZwicker(spectrL, fLim, axisF, sou
 %
 % Optional modifications available comprise an adjustment to the spectral
 % levels to improve agreement with the 2023 ISO 226 equal loudness
-% contours, or (alternatively) the application of the ECMA-418-2:2024
-% outer-middle ear filter responses (in 1/3-octaves) instead of the
-% ISO 532-1:2017 outer ear transmission.
+% contours ('iso226'), or (alternatively) the application of the
+% ECMA-418-2:2025 outer-middle ear filter responses (in 1/3-octaves)
+% instead of the ISO 532-1:2017 outer ear transmission, and an
+% approximated non-linear transformation following ECMA-418-2:2025
+% ('ecma4182'), instead of Zwicker's original.
 %
 % Inputs
 % ------
 % spectrL : vector, 2D or 3D matrix
-%   the continguous input sound level spectrum or spectra for
+%   The contiguous input sound level 1/3-octave spectrum or spectra for
 %   processing. Must be orientated with time and frequency bands on
 %   first two axes, and channels on third axis.
 %
 % fLim : vector (default: [25, 12.5e3])
-%   the frequency limits for the input spectra (these are
-%   automatically matched to nearest exact band centre-frequencies for
-%   the selected octN resolution
+%   The frequency limits for the input spectra (these are
+%   automatically matched to nearest exact band centre-frequencies).
 %
 % axisF : integer optional (1 or 2, default: 2)
-%   the frequency band axis for series of spectra
+%   The frequency band axis for series of spectra.
 %
 % soundField : keyword string (default: 'freeFrontal')
-%   determines whether the 'freeFrontal' or 'diffuse' field stages
+%   Determines whether the 'freeFrontal' or 'diffuse' field stages
 %   are applied in the outer-middle ear filter, or 'noOuter'
 %   omits this filtering stage.
 %
-% adjustEQL : Boolean (default: false)
-%   flag to indicate whether to apply adjustments for differences
-%   between 1987 ISO 226 equal-loudness contours (which ISO 532-1
-%   models) and 2023 ISO 226 equal-loudness contours. This option
-%   is overridden if the ecmaEar option is set to true.
-%
-% ecmaEar : Boolean (default: false)
-%   flag to indicate whether to substitute the outer-middle ear
-%   filter response from ECMA-418-2:2024 for the ISO 532-1:2017
-%   critical band ear transmission a0. This option overrides the
-%   adjustEQL option.
-%
-% ecmaTform : Boolean (default: false)
-%   flag to indicate whether to adapt the loudness transformation
-%   to agree more closely with the ECMA-418-2:2024 transformation.
+% adjustLoud : keyword string (default: 'none')
+%   Indicates whether to apply adjustments for:
+%   ('iso226') the differences between 1987 ISO 226 equal-loudness contours
+%   (which ISO 532-1 models) and 2023 ISO 226 equal-loudness contours, or;
+%   ('ecma4182') the outer-middle ear filter response from ECMA-418-2:2024
+%   omitting the ISO 532-1:2017 critical band ear transmission a0, and
+%   adapting the loudness transformation to agree more closely with the
+%   ECMA-418-2:2024 transformation.
+%   The default option ('none') applies no adjustment, so follows ISO 532-1
+%   more closely (for closer agreement with Zwicker's model).
 %
 % Returns
 % -------
-% fm : vector
-%   the fractional octave band exact mid-frequencies for the input
-%   spectra
-%
-% fn : vector
-%   the fractional octave band nominal mid-frequencies for the input
-%   spectra
-%
 % loudness : structure
-%   contains the loudness output
+%   Contains the loudness output.
 %
 % loudness contains the following outputs:
 %
 % loudTDep :  vector or matrix
-%   time-dependent loudness
-%   arranged as [time(, channels)]
+%   Time-dependent loudness arranged as [time(, channels)].
 % 
 % loudPowAvg : number or vector
-%   time-power-averaged loudness
-%   arranged as [loudness(, channels)]
+%   Time-power-averaged loudness arranged as [loudness(, channels)].
 %
 % loud5pcEx : number or vector
 %   95th percentile (5% exceeded) loudness
-%   arranged as [loudness(, channels)]
+%   arranged as [loudness(, channels)].
 %
 % loudLevel :  vector or matrix
-%   time-dependent loudness level
-%   arranged as [time(, channels)]
+%   Time-dependent loudness level arranged as [time(, channels)].
 %
 % loudLvlPowAvg : number or vector
-%   time-power-averaged loudness level
-%   arranged as [loudness(, channels)]
+%   Time-power-averaged loudness level arranged as [loudness(, channels)].
 %
 % specLoudAvg : vector or matrix
-%   time-power-averaged specific loudness
-%   arranged as [bands(, channels)]
+%   Time-power-averaged specific loudness arranged as [bands(, channels)].
 %
 % specLoudAvg : matrix
-%   time-dependent specific loudness
-%   arranged as [time, bands(, channels)]
+%   Time-dependent specific loudness arranged as [time, bands(, channels)].
 %
 % barkAxis : vector
-%   critical band rates for specific loudness (0.1 dz intervals)
+%   Critical band rates for specific loudness (0.1 dz intervals).
+%
+% freqInMid : vector
+%   The 1/3-octave band exact mid-frequencies for the input spectra.
+%
+% freqInNom : vector
+%   The 1/3-octave band nominal mid-frequencies for the input spectra.
+%
 %
 % Assumptions
 % -----------
@@ -110,7 +99,7 @@ function [loudness, fm, fn] = acousticQuasiLoudZwicker(spectrL, fLim, axisF, sou
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 03/11/2025
+% Date last modified: 05/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -131,12 +120,13 @@ function [loudness, fm, fn] = acousticQuasiLoudZwicker(spectrL, fLim, axisF, sou
         fLim (1, 2) double {mustBeInRange(fLim, 25, 12600)} = [25, 12500]
         axisF (1, 1) {mustBeInteger, mustBeInRange(axisF, 1, 2)} = 2
         soundField (1, :) string {mustBeMember(soundField,...
-                                                       {'freeFrontal',...
-                                                        'diffuse',...
-                                                        'noOuter'})} = 'freeFrontal'
-        adjustEQL (1, 1) {mustBeNumericOrLogical} = false
-        ecmaEar (1, 1) {mustBeNumericOrLogical} = false
-        ecmaTform (1, 1) {mustBeNumericOrLogical} = false
+                                               {'freeFrontal',...
+                                                'diffuse',...
+                                                'noOuter'})} = 'freeFrontal'
+        adjustLoud (1, :) string {mustBeMember(adjustLoud,...
+                                               {'none',...
+                                                'iso226',...
+                                                'ecma4182'})} = 'none'
     end
 
 %% Load path (assumes root directory is refmap-psychoacoustics)
@@ -160,10 +150,10 @@ if axisF == 1
 end
 
 % fractional octave frequencies
-[fm, ~, ~, fn] = noctf(fLim, 3);
+[freqInMid, ~, ~, freqInNom] = noctf(fLim, 3);
 [fmAll, ~, ~, ~] = noctf([25, 12500], 3);
 
-if length(fm) ~= size(spectrL, 2)
+if length(freqInMid) ~= size(spectrL, 2)
     error("The frequency band range of the input spectra must correspond with the input band limits 'fLim'.")
 end
 
@@ -294,30 +284,23 @@ midOnly = [-22.31, -20.32, -18.45, -16.52, -14.64, -12.77, -11.18,...
 
 % Calibration constants (to ensure 1 sone corresponds with 1 kHz sinusoid at
 % 40 dB in free-field)
-if ecmaEar
-    calN = 1.182090932719875;
-elseif adjustEQL
-    calN = 1.207193910959167;
-else
-    calN = 1.196496337403441;
+switch adjustLoud
+    case 'ecma4182'
+        calN = 1.180440942714077;
+    case 'iso226'
+        calN = 1.209936908720482;
+    case 'none'
+        calN = 1.192929376089246;
 end
 
-% Loudness transformation parameters
-if ecmaTform
-    tFormParam1 = 0.1028045;
-    tFormParam2 = 0.2;
-else
-    tFormParam1 = 0.0635;
-    tFormParam2 = 0.25;
-end
 % loudness threshold factor
 threshFact = 0.25;
 
 %% Signal processing
 
 % frequency band limiting indices
-fmAllI1 = find(min(fm) == fmAll);
-fmAllI2 = find(max(fm) == fmAll);
+fmAllI1 = find(min(freqInMid) == fmAll);
+fmAllI2 = find(max(freqInMid) == fmAll);
 fmShift1 = fmAllI1 - 1;
 
 % calculate number of critical bands for output
@@ -374,11 +357,10 @@ for chan = numChans:-1:1
                                    + lowFWeightsRep(sub2ind(size(lowFWeightsRep),...
                                    (1:nTimeSteps).', lowCriterionMatch));
         end  % end of if branch for non-zero weighting
-    
-    
+
         % if adjusting for difference between 1987 vs 2023 equal loudness
         % contours
-        if adjustEQL
+        if strcmp(adjustLoud, 'iso226')
             levelWeightedRep = repmat(levelWeighted(:, kk), 1, rangePhons);
     
             % check which levels meet corresponding criterion
@@ -400,7 +382,7 @@ for chan = numChans:-1:1
     end  % end of for loop through bands
     
     % apply if using ECMA outer-middle ear filter function
-    if ecmaEar
+    if strcmp(adjustLoud, 'ecma4182')
         switch soundField
             case "freeFrontal"
                 levelWeighted = levelWeighted + outMidFree(fmAllI1:fmAllI2);
@@ -456,7 +438,7 @@ for chan = numChans:-1:1
     
     % Loudness calculation
     % apply outer ear filter (if not using the ECMA outer-middle ear filter)
-    if ~ecmaEar
+    if ~strcmp(adjustLoud, 'ecma4182')
         switch soundField
             case "freeFrontal"
                 excitation = lvlWeightCB - earTmission(barkI1:barkI2);
@@ -474,10 +456,32 @@ for chan = numChans:-1:1
     excitCBands = excitation - critBWAdjust(barkI1:barkI2);
     maskLTQ = excitation > levelThresQ(barkI1:barkI2);
     levelThresQRep = repmat(levelThresQ(barkI1:barkI2), size(loudCore, 1), 1);
-    loudCore(maskLTQ) = calN.*((1 - threshFact...
-                                + threshFact.*10.^((excitCBands(maskLTQ)...
-                                                - levelThresQRep(maskLTQ))/10)).^tFormParam2...
-                               - 1).*tFormParam1.*(10.^(0.1*levelThresQRep(maskLTQ))).^tFormParam2;
+
+    if strcmp(adjustLoud, 'ecma4182')
+        
+        tFormExptP1 = 1.5016;
+        tFormExptP2 = 0.2552;
+        tFormExptP3 = 0.20627;
+        tFormExptP4 = -0.01067;
+        tFormExptP5 = 108.66;
+        tFormExptP6 = -17.03;
+
+        tFormExpt = tFormExptP1.*exp(-tFormExptP2*excitCBands(maskLTQ))...
+                    + tFormExptP3 + tFormExptP4.*tanh((excitCBands(maskLTQ)...
+                                                       - tFormExptP5)/tFormExptP6);
+
+        loudCore(maskLTQ) = calN.*((1 - threshFact...
+                                    + threshFact.*10.^((excitCBands(maskLTQ)...
+                                                    - levelThresQRep(maskLTQ))/10)).^tFormExpt...
+                                   - 1).*0.1028045.*(10.^(0.1*levelThresQRep(maskLTQ))).^tFormExpt;
+
+    else
+        loudCore(maskLTQ) = calN.*((1 - threshFact...
+                                    + threshFact.*10.^((excitCBands(maskLTQ)...
+                                                    - levelThresQRep(maskLTQ))/10)).^0.25...
+                                   - 1).*0.0635.*(10.^(0.1*levelThresQRep(maskLTQ))).^0.25;
+    end
+
     loudCore(loudCore < 0) = 0;
 
     % undocumented correction to core loudness in lowest critical band (Annex
@@ -639,6 +643,9 @@ loudness.loudLvlPowAvg = loudLvl5pcEx;
 loudness.specLoudAvg = specLoudAvg;
 loudness.specLoud = specLoud;
 loudness.barkAxis = barkAxis;
-loudness.fieldType = soundField;
+loudness.soundField = soundField;
+loudness.adjustLoud = adjustLoud;
+loudness.freqInMid = freqInMid;
+loudness.freqInNom = freqInNom;
 
 end  % end of acousticQuasiLoudZwicker function

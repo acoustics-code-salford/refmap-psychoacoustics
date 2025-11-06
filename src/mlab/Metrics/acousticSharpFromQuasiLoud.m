@@ -1,16 +1,29 @@
-function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, timeStep, method, outPlot)
+function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adjustLoud, timeStep, sharpMethod, outPlot)
 % sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness,
-%                                             method, outPlot)
+%                                        adjustLoud, timeStep, sharpMethod,
+%                                        outPlot)
 %
 % Returns quasi-sharpness values using quasi-loudness results obtained using
 % acousticQuasiLoudZwicker.m or acousticQuasiLoudZwickerWav.m.
 %
-% The sharpness model used can be specified using the 'method' input
+% The sharpness model used can be specified using the 'sharpMethod' input
 % argument. Options comprise 'aures', 'vonBismarck', or 'widmann' (which
 % is the model standardised in DIN 45692:2009).
 %
+% The input argument 'adjustLoud' requires any adjustments applied to the
+% quasi-loudness calculations to be declared.
+% Optional modifications available comprise an adjustment to the spectral
+% levels to improve agreement with the 2023 ISO 226 equal loudness
+% contours ('iso226'), or (alternatively) the application of the
+% ECMA-418-2:2025 outer-middle ear filter responses (in 1/3-octaves)
+% instead of the ISO 532-1:2017 outer ear transmission, and an
+% approximated non-linear transformation following ECMA-418-2:2025
+% ('ecma4182'), instead of Zwicker's original. If no adjustment has been
+% applied (following Zwicker's model more closely), the argument should be
+% entered as 'none'.
+%
 % Since the input matrices will have been calculated using a given sound
-% field option ('free-frontal' or 'diffuse') for the outer ear filter, this
+% field option ('freeFrontal' or 'diffuse') for the outer ear filter, this
 % information is not known to the function, so cannot be included in the
 % output.
 %
@@ -18,48 +31,55 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, time
 % ------
 %
 % loudQZTDep : vector or matrix
-%              the time-dependent overall loudness values
-%              arranged as [time(, chans)]
+%   the time-dependent overall loudness values
+%   arranged as [time(, chans)]
 %
 % specQZLoudness : matrix
-%                  the specific loudness values
-%                  arranged as [time, bands(, chans)]
+%   the specific loudness values arranged as [time, bands(, chans)]
+%
+% adjustLoud : keyword string
+%   indicates whether adjustments were applied to the loudness for:
+%   ('iso226') the differences between 1987 ISO 226 equal-loudness contours
+%   (which ISO 532-1 models) and 2023 ISO 226 equal-loudness contours, or;
+%   ('ecma4182') the outer-middle ear filter response from ECMA-418-2:2024
+%   omitting the ISO 532-1:2017 critical band ear transmission a0, and
+%   adapting the loudness transformation to agree more closely with the
+%   ECMA-418-2:2024 transformation.
+%   If no adjustment was applied, the input should be 'none'.
 %
 % timeStep : number
-%            the time step value used for time-dependent inputs
+%   the time step value used for time-dependent inputs
 %
-% method : keyword string (default: 'aures')
-%          the sharpness method to apply. Options: 'aures', 'vonbismarck',
-%          'widmann'
+% sharpMethod : keyword string (default: 'aures')
+%   the sharpness method to apply. Options: 'aures', 'vonbismarck',
+%   'widmann'
 %
 % outPlot : Boolean true/false (default: false)
-%           flag indicating whether to generate a figure from the output
+%   flag indicating whether to generate a figure from the output
 %
 % Returns
 % -------
 %
 % sharpness : structure
-%             contains the output
+%   contains the output
 %
 % sharpness contains the following outputs:
 %
 % sharpTDep : vector or matrix
-%                 time-dependent sharpness
-%                 arranged as [time(, channels)]
+%   time-dependent sharpness arranged as [time(, channels)]
 % 
 % sharpPowAvg : number or vector
-%                   time-power-averaged sharpness
-%                   arranged as [sharpness(, channels)]
+%   time-power-averaged sharpness arranged as [sharpness(, channels)]
 %
 % sharp5pcEx : number or vector
-%                  95th percentile (5% exceeded) sharpness
-%                  arranged as [sharpness(, channels)]
+%   95th percentile (5% exceeded) sharpness
+%   arranged as [sharpness(, channels)]
 %
 % timeOut : vector
-%           time (seconds) corresponding with time-dependent outputs
+%   time (seconds) corresponding with time-dependent outputs
 %
 % method : string
-%          indicates which sharpness method was applied
+%   indicates which sharpness method was applied
 %
 % If outplot=true, a set of plots is returned illustrating the
 % time-dependent sharpness, with the time-aggregated values.
@@ -100,7 +120,7 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, time
 % Institution: University of Salford
 %
 % Date created: 30/04/2025
-% Date last modified: 22/07/2025
+% Date last modified: 05/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -125,11 +145,15 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, time
     arguments (Input)
         loudQZTDep (:, :) double {mustBeReal}
         specQZLoudness (:, :, :) double {mustBeReal}
+        adjustLoud (1, :) string {mustBeMember(adjustLoud,...
+                                               {'none',...
+                                                'iso226',...
+                                                'ecma4182'})}
         timeStep (1, 1) double {mustBePositive}
-        method (1, :) string {mustBeMember(method,...
-                                           {'aures',...
-                                            'vonbismarck',...
-                                            'widmann'})} = 'aures'
+        sharpMethod (1, :) string {mustBeMember(sharpMethod,...
+                                                {'aures',...
+                                                 'vonbismarck',...
+                                                 'widmann'})} = 'aures'
         outPlot {mustBeNumericOrLogical} = false
     end
 
@@ -170,32 +194,57 @@ bark = dz:dz:24;  % Bark numbers for ISO 532-1 specific loudness
 % corresponds with a 60 dB (free-field) narrowband noise 1 critical
 % bandwidth centred on 1 kHz
 
-switch method
+switch sharpMethod
     case 'aures'
-        calS = 0.971827112506741;
         acum = "Aur | Quasi-Zwicker";
 
+        switch adjustLoud
+            case 'none'
+                calS = 0.894278320912636;
+            case 'iso226'
+                calS = 0.927057920144433;
+            case 'ecma4182'
+                calS = 0.860768645652802;
+        end
+
     case 'vonbismarck'
-        calS = 0.972308112404852;
         acum = "vBis | Quasi-Zwicker";
+
+        switch adjustLoud
+            case 'none'
+                calS = 0.939417952118300;
+            case 'iso226'
+                calS = 0.948867825601524;
+            case 'ecma4182'
+                calS = 0.917251605322511;
+        end
+
         q1 = 15;
         q2 = 0.2;
         q3 = 0.308;
         q4 = 0.8;
 
     case 'widmann'
-        calS = 0.975032094599035;
         acum = "Widm | Quasi-Zwicker";
+
+        switch adjustLoud
+            case 'none'
+                calS = 0.942490490455633;
+            case 'iso226'
+                calS = 0.951960816693342;
+            case 'ecma4182'
+                calS = 0.923476004071391;
+        end
+        
         q1 = 15.8;
         q2 = 0.15;
         q3 = 0.42;
         q4 = 0.85;
-
 end
 
 %% Signal processing
 
-switch method
+switch sharpMethod
     case 'aures'
         % Aures weighting
         weightSharp = permute(0.078*(exp(0.171.*permute(repmat(bark, chans, 1),...
@@ -215,7 +264,6 @@ switch method
 
         % time-dependent sharpness
         sharpTDep = calS*0.11.*squeeze(sum(specQZLoudness.*weightSharp.*bark*dz, 2))./(loudQZTDep + eps);
-
 end
 
 % Discard singleton dimensions
@@ -242,7 +290,7 @@ sharpness.sharpTDep = sharpTDep;
 sharpness.sharpPowAvg = sharpPowAvg;
 sharpness.sharp5pcEx = sharp5pcEx;
 sharpness.timeOut = timeOut.';
-sharpness.method = method;
+sharpness.method = sharpMethod;
 
 %% Output plotting
 

@@ -1,7 +1,6 @@
-function [loudness, fm, fn] = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN, soundField, adjustEQL, ecmaEar, ecmaTform)
-% loudLevel = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN,
-%                                         soundField, adjustEQL, ecmaEar,
-%                                         ecmaTform)
+function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN, soundField, adjustLoud)
+% loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN,
+%                                        soundField, adjustLoud)
 %
 % Returns quasi-loudness using spectral elements of ISO 532-1 Zwicker
 % loudness model for input pressure time-series. The temporal processing of
@@ -10,57 +9,46 @@ function [loudness, fm, fn] = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeS
 %
 % Optional modifications available comprise an adjustment to the spectral
 % levels to improve agreement with the 2023 ISO 226 equal loudness
-% contours, or (alternatively) the application of the ECMA-418-2:2025
-% outer-middle ear filter responses (in 1/3-octaves) instead of the
-% ISO 532-1:2017 outer ear transmission.
+% contours ('iso226'), or (alternatively) the application of the
+% ECMA-418-2:2025 outer-middle ear filter responses (in 1/3-octaves)
+% instead of the ISO 532-1:2017 outer ear transmission, and an
+% approximated non-linear transformation following ECMA-418-2:2025
+% ('ecma4182'), instead of Zwicker's original.
 %
 % Inputs
 % ------
 % p : vector or 2D matrix
-%   the input signal as single mono or stereo audio (sound
-%   pressure) signals
+%   The input signal as single mono or stereo audio (sound
+%   pressure) signals.
 %
 % sampleRateIn : integer
-%   the sample rate (frequency) of the input signal(s).
+%   The sample rate (frequency) of the input signal(s).
 %
 % timeStep : number
-%   the time step value used to calculate the time-dependent Leq
+%   The time step value used to calculate the time-dependent Leq
 %   and sharpness.
 %
 % axisN : integer (1 or 2, default: 1)
-%         the time axis along which to calculate the sharpness.
+%   The time axis along which to calculate the sharpness.
 %
 % soundField : keyword string (default: 'freeFrontal')
-%   determines whether the 'freeFrontal' or 'diffuse' field stages
+%   Determines whether the 'freeFrontal' or 'diffuse' field stages
 %   are applied in the outer-middle ear filter, or 'noOuter'
 %   omits this filtering stage.
 %
-% adjustEQL : Boolean (default: false)
-%   flag to indicate whether to apply adjustments for differences
-%   between 1987 ISO 226 equal-loudness contours (which ISO 532-1
-%   models) and 2023 ISO 226 equal-loudness contours. This option
-%   is overridden if the ecmaEar option is set to true.
-%
-% ecmaEar : Boolean (default: false)
-%   flag to indicate whether to substitute the outer-middle ear
-%   filter response from ECMA-418-2:2024 for the ISO 532-1:2017
-%   critical band ear transmission a0. This option overrides the
-%   adjustEQL option.
-%
-% ecmaTform : Boolean (default: false)
-%   flag to indicate whether to adapt the loudness transformation
-%   to agree more closely with the ECMA-418-2:2024 transformation.
+% adjustLoud : keyword string (default: 'none')
+%   Indicates whether to apply adjustments for:
+%   ('iso226') the differences between 1987 ISO 226 equal-loudness contours
+%   (which ISO 532-1 models) and 2023 ISO 226 equal-loudness contours, or;
+%   ('ecma4182') the outer-middle ear filter response from ECMA-418-2:2024
+%   omitting the ISO 532-1:2017 critical band ear transmission a0, and
+%   adapting the loudness transformation to agree more closely with the
+%   ECMA-418-2:2024 transformation.
+%   The default option ('none') applies no adjustment, so follows ISO 532-1
+%   more closely (for closer agreement with Zwicker's model).
 %
 % Returns
 % -------
-% fm : vector
-%   the fractional octave band exact mid-frequencies for the input
-%   spectra
-%
-% fn : vector
-%   the fractional octave band nominal mid-frequencies for the input
-%   spectra
-%
 % loudness : structure
 %   contains the loudness output
 %
@@ -100,6 +88,12 @@ function [loudness, fm, fn] = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeS
 % timeOut : vector
 %   time (seconds) corresponding with time-dependent outputs
 %
+% freqInMid : vector
+%   The 1/3-octave band exact mid-frequencies for the input spectra.
+%
+% freqInNom : vector
+%   The 1/3-octave band nominal mid-frequencies for the input spectra.
+%
 % Assumptions
 % -----------
 % The input is a 1/3-octave band unweighted sound level spectrum or
@@ -115,7 +109,7 @@ function [loudness, fm, fn] = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeS
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 03/11/2025
+% Date last modified: 04/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -140,9 +134,10 @@ function [loudness, fm, fn] = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeS
                                                        {'freeFrontal',...
                                                         'diffuse',...
                                                         'noOuter'})} = 'freeFrontal'
-        adjustEQL (1, 1) {mustBeNumericOrLogical} = false
-        ecmaEar (1, 1) {mustBeNumericOrLogical} = false
-        ecmaTform (1, 1) {mustBeNumericOrLogical} = false
+        adjustLoud (1, :) string {mustBeMember(adjustLoud,...
+                                               {'none',...
+                                                'iso226',...
+                                                'ecma4182'})} = 'none'
     end
 
 %% Input checks
@@ -172,8 +167,8 @@ numChans = size(p_re, 2);
 
 % Get time-averaged power spectrum
 [pxx, ~] = poctave(p_re, resampledRate, 'spectrogram', 'BandsPerOctave', 3,...
-                    'WindowLength', resampledRate*timeStep,...
-                    'FrequencyLimits', [25, 12500]);
+                   'WindowLength', resampledRate*timeStep,...
+                   'FrequencyLimits', [25, 12500]);
 
 % reorientate power spectrum
 if numChans == 1
@@ -185,9 +180,8 @@ end
 % Calculate Leq
 Leq = 10*log10(pxx/4e-10);
 
-[loudness, fm, fn] = acousticQuasiLoudZwicker(Leq, [25, 12500], 2,...
-                                              soundField, adjustEQL,...
-                                              ecmaEar, ecmaTform);
+loudness = acousticQuasiLoudZwicker(Leq, [25, 12500], 2,...
+                                    soundField, adjustLoud);
 loudness.timeOut = linspace(0, size(loudness.loudTDep, 1)*timeStep...
                             - timeStep, size(loudness.loudTDep, 1)).';
 

@@ -21,6 +21,7 @@ dependencies = [
     "pandas>=2.3.2",
     "pingouin>=0.5.5",
     "pip>=25.2",
+    "pyeq3>=12.6.1",
     "pyfftw>=0.15.0",
     "pyqt5==5.15.11",
     "pyqt5-qt5==5.15.2",

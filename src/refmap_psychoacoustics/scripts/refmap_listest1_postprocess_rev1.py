@@ -317,8 +317,6 @@ indicesPsycho = ["LoudQZ5321PowAvgMaxLR",
                  "LoudQZ22605ExMaxLR",
                  "LoudQZ4182PowAvgMaxLR",
                  "LoudQZ418205ExMaxLR",
-                 "LoudQZ4182TfPowAvgMaxLR",
-                 "LoudQZ4182Tf05ExMaxLR",
                  "LoudECMAPowAvgBin",
                  "SharpAurQZ5321PowAvgMaxLR",
                  "SharpAurQZ532105ExMaxLR",
@@ -326,8 +324,6 @@ indicesPsycho = ["LoudQZ5321PowAvgMaxLR",
                  "SharpAurQZ22605ExMaxLR",
                  "SharpAurQZ4182PowAvgMaxLR",
                  "SharpAurQZ418205ExMaxLR",
-                 "SharpAurQZ4182TfPowAvgMaxLR",
-                 "SharpAurQZ4182Tf05ExMaxLR",
                  "LoudISO105ExMaxLR",
                  "LoudISO1PowAvgMaxLR",
                  "LoudISO3PowAvgBin",
@@ -591,191 +587,145 @@ for ii, file in enumerate(filelist):
     elif file[-4:] == "xlsx":
         workbookdata = pd.read_excel(io=file, sheet_name=None)
 
-        # # Calculate quasi-Zwicker (ISO 532-1) overall loudness from 2-channel
-        # # time-dependent loudness
-        # loudQZ5321TDep = pd.DataFrame(workbookdata['LoudQZ5321'].iloc[0:, 1:3].values,
-        #                               columns=workbookdata['LoudQZ5321'].iloc[0, 1:3].index,
-        #                               index=workbookdata['LoudQZ5321'].iloc[:, 0])
+        # Calculate quasi-Zwicker (ISO 532-1) overall loudness from 2-channel
+        # time-dependent loudness
+        loudQZ5321TDep = pd.DataFrame(workbookdata['LoudQZ5321'].iloc[0:, 1:3].values,
+                                      columns=workbookdata['LoudQZ5321'].iloc[0, 1:3].index,
+                                      index=workbookdata['LoudQZ5321'].iloc[:, 0])
 
-        # # mask for start/end skip
-        # loudQZ5321TDepMask = loudQZ5321TDep.loc[(loudQZ5321TDep.index.values
-        #                                        > start_skipT)
-        #                                       & (loudQZ5321TDep.index.values
-        #                                          < loudQZ5321TDep.index.values.max()
-        #                                          - end_skipT), :]
+        # mask for start/end skip
+        loudQZ5321TDepMask = loudQZ5321TDep.loc[(loudQZ5321TDep.index.values
+                                               > start_skipT)
+                                              & (loudQZ5321TDep.index.values
+                                                 < loudQZ5321TDep.index.values.max()
+                                                 - end_skipT), :]
 
-        # # 2-channel overall (power-averaged) loudness
-        # loudQZ5321PowAvg = ((loudQZ5321TDepMask**(1/np.log10(2))).sum(axis=0)
-        #                    / len(loudQZ5321TDepMask))**np.log10(2)
-        # # max of l/r channel overall (power-averaged) loudness
-        # loudQZ5321PowAvgMaxLR = loudQZ5321PowAvg.max()
-        # # 2-channel overall 5% exceeded loudness
-        # loudQZ532105Ex = loudQZ5321TDepMask.quantile(q=0.95)
-        # # max of l/r channel overall 5% exceeded loudness
-        # loudQZ532105ExMaxLR = loudQZ532105Ex.max()
+        # 2-channel overall (power-averaged) loudness
+        loudQZ5321PowAvg = ((loudQZ5321TDepMask**(1/np.log10(2))).sum(axis=0)
+                           / len(loudQZ5321TDepMask))**np.log10(2)
+        # max of l/r channel overall (power-averaged) loudness
+        loudQZ5321PowAvgMaxLR = loudQZ5321PowAvg.max()
+        # 2-channel overall 5% exceeded loudness
+        loudQZ532105Ex = loudQZ5321TDepMask.quantile(q=0.95)
+        # max of l/r channel overall 5% exceeded loudness
+        loudQZ532105ExMaxLR = loudQZ532105Ex.max()
         
-        # # Calculate overall Aures+quasi-Zwicker (ISO 226 adjusted) loudness from 2-channel
-        # # time-dependent loudness
-        # loudQZ226TDep = pd.DataFrame(workbookdata['LoudQZ226'].iloc[0:, 1:3].values,
-        #                              columns=workbookdata['LoudQZ226'].iloc[0, 1:3].index,
-        #                              index=workbookdata['LoudQZ226'].iloc[:, 0])
+        # Calculate overall Aures+quasi-Zwicker (ISO 226 adjusted) loudness from 2-channel
+        # time-dependent loudness
+        loudQZ226TDep = pd.DataFrame(workbookdata['LoudQZ226'].iloc[0:, 1:3].values,
+                                     columns=workbookdata['LoudQZ226'].iloc[0, 1:3].index,
+                                     index=workbookdata['LoudQZ226'].iloc[:, 0])
 
-        # # mask for start/end skip
-        # loudQZ226TDepMask = loudQZ226TDep.loc[(loudQZ226TDep.index.values
-        #                                        > start_skipT)
-        #                                       & (loudQZ226TDep.index.values
-        #                                          < loudQZ226TDep.index.values.max()
-        #                                          - end_skipT), :]
+        # mask for start/end skip
+        loudQZ226TDepMask = loudQZ226TDep.loc[(loudQZ226TDep.index.values
+                                               > start_skipT)
+                                              & (loudQZ226TDep.index.values
+                                                 < loudQZ226TDep.index.values.max()
+                                                 - end_skipT), :]
 
-        # # 2-channel overall (power-averaged) loudness
-        # loudQZ226PowAvg = ((loudQZ226TDepMask**(1/np.log10(2))).sum(axis=0)
-        #                    / len(loudQZ226TDepMask))**np.log10(2)
-        # # max of l/r channel overall (power-averaged) loudness
-        # loudQZ226PowAvgMaxLR = loudQZ226PowAvg.max()
-        # # 2-channel overall 5% exceeded loudness
-        # loudQZ22605Ex = loudQZ226TDepMask.quantile(q=0.95)
-        # # max of l/r channel overall 5% exceeded loudness
-        # loudQZ22605ExMaxLR = loudQZ22605Ex.max()
-        
-        # # Calculate overall Aures+quasi-Zwicker (ECMA-418-2 ear filtered) loudness from 2-channel
-        # # time-dependent loudness
-        # loudQZ4182TDep = pd.DataFrame(workbookdata['LoudQZ4182'].iloc[0:, 1:3].values,
-        #                               columns=workbookdata['LoudQZ4182'].iloc[0, 1:3].index,
-        #                               index=workbookdata['LoudQZ4182'].iloc[:, 0])
-
-        # # mask for start/end skip
-        # loudQZ4182TDepMask = loudQZ4182TDep.loc[(loudQZ4182TDep.index.values
-        #                                          > start_skipT)
-        #                                         & (loudQZ4182TDep.index.values
-        #                                            < loudQZ4182TDep.index.values.max()
-        #                                            - end_skipT), :]
-
-        # # 2-channel overall (power-averaged) loudness
-        # loudQZ4182PowAvg = ((loudQZ4182TDepMask**(1/np.log10(2))).sum(axis=0)
-        #                    / len(loudQZ4182TDepMask))**np.log10(2)
-        # # max of l/r channel overall (power-averaged) loudness
-        # loudQZ4182PowAvgMaxLR = loudQZ4182PowAvg.max()
-        # # 2-channel overall 5% exceeded loudness
-        # loudQZ418205Ex = loudQZ4182TDepMask.quantile(q=0.95)
-        # # max of l/r channel overall 5% exceeded loudness
-        # loudQZ418205ExMaxLR = loudQZ418205Ex.max()
+        # 2-channel overall (power-averaged) loudness
+        loudQZ226PowAvg = ((loudQZ226TDepMask**(1/np.log10(2))).sum(axis=0)
+                           / len(loudQZ226TDepMask))**np.log10(2)
+        # max of l/r channel overall (power-averaged) loudness
+        loudQZ226PowAvgMaxLR = loudQZ226PowAvg.max()
+        # 2-channel overall 5% exceeded loudness
+        loudQZ22605Ex = loudQZ226TDepMask.quantile(q=0.95)
+        # max of l/r channel overall 5% exceeded loudness
+        loudQZ22605ExMaxLR = loudQZ22605Ex.max()
         
         # Calculate overall Aures+quasi-Zwicker (ECMA-418-2 ear filter and
         # transformation) loudness from 2-channel
         # time-dependent loudness
-        loudQZ4182TfTDep = pd.DataFrame(workbookdata['LoudQZ4182Tform'].iloc[0:, 1:3].values,
-                                        columns=workbookdata['LoudQZ4182Tform'].iloc[0, 1:3].index,
-                                        index=workbookdata['LoudQZ4182Tform'].iloc[:, 0])
+        loudQZ4182TDep = pd.DataFrame(workbookdata['LoudQZ4182'].iloc[0:, 1:3].values,
+                                      columns=workbookdata['LoudQZ4182'].iloc[0, 1:3].index,
+                                      index=workbookdata['LoudQZ4182'].iloc[:, 0])
 
         # mask for start/end skip
-        loudQZ4182TfTDepMask = loudQZ4182TfTDep.loc[(loudQZ4182TfTDep.index.values
-                                                     > start_skipT)
-                                                    & (loudQZ4182TfTDep.index.values
-                                                       < loudQZ4182TfTDep.index.values.max()
-                                                       - end_skipT), :]
+        loudQZ4182TDepMask = loudQZ4182TDep.loc[(loudQZ4182TDep.index.values
+                                                 > start_skipT)
+                                                & (loudQZ4182TDep.index.values
+                                                   < loudQZ4182TDep.index.values.max()
+                                                   - end_skipT), :]
 
         # 2-channel overall (power-averaged) loudness
-        loudQZ4182TfPowAvg = ((loudQZ4182TfTDepMask**(1/np.log10(2))).sum(axis=0)
-                              / len(loudQZ4182TfTDepMask))**np.log10(2)
+        loudQZ4182PowAvg = ((loudQZ4182TDepMask**(1/np.log10(2))).sum(axis=0)
+                           / len(loudQZ4182TDepMask))**np.log10(2)
         # max of l/r channel overall (power-averaged) loudness
-        loudQZ4182TfPowAvgMaxLR = loudQZ4182TfPowAvg.max()
+        loudQZ4182PowAvgMaxLR = loudQZ4182PowAvg.max()
         # 2-channel overall 5% exceeded loudness
-        loudQZ4182Tf05Ex = loudQZ4182TfTDepMask.quantile(q=0.95)
+        loudQZ418205Ex = loudQZ4182TDepMask.quantile(q=0.95)
         # max of l/r channel overall 5% exceeded loudness
-        loudQZ4182Tf05ExMaxLR = loudQZ4182Tf05Ex.max()
+        loudQZ418205ExMaxLR = loudQZ418205Ex.max()
         
-        # # Calculate overall Aures+quasi-Zwicker sharpness from 2-channel
-        # # time-dependent sharpness
-        # sharpAQZ5321TDep = pd.DataFrame(workbookdata['SharpAuresQZ5321'].iloc[0:, 1:3].values,
-        #                                 columns=workbookdata['SharpAuresQZ5321'].iloc[0, 1:3].index,
-        #                                 index=workbookdata['SharpAuresQZ5321'].iloc[:, 0])
+        # Calculate overall Aures+quasi-Zwicker sharpness from 2-channel
+        # time-dependent sharpness
+        sharpAQZ5321TDep = pd.DataFrame(workbookdata['SharpAuresQZ5321'].iloc[0:, 1:3].values,
+                                        columns=workbookdata['SharpAuresQZ5321'].iloc[0, 1:3].index,
+                                        index=workbookdata['SharpAuresQZ5321'].iloc[:, 0])
 
-        # # mask for start/end skip
-        # sharpAQZ5321TDepMask = sharpAQZ5321TDep.loc[(sharpAQZ5321TDep.index.values
-        #                                              > start_skipT)
-        #                                             & (sharpAQZ5321TDep.index.values
-        #                                                < sharpAQZ5321TDep.index.values.max()
-        #                                                - end_skipT), :]
+        # mask for start/end skip
+        sharpAQZ5321TDepMask = sharpAQZ5321TDep.loc[(sharpAQZ5321TDep.index.values
+                                                     > start_skipT)
+                                                    & (sharpAQZ5321TDep.index.values
+                                                       < sharpAQZ5321TDep.index.values.max()
+                                                       - end_skipT), :]
 
-        # # 2-channel overall (power-averaged) sharpness
-        # sharpAQZ5321PowAvg = ((sharpAQZ5321TDepMask**(1/np.log10(2))).sum(axis=0)
-        #                    / len(sharpAQZ5321TDepMask))**np.log10(2)
-        # # max of l/r channel overall (power-averaged) sharpness
-        # sharpAQZ5321PowAvgMaxLR = sharpAQZ5321PowAvg.max()
-        # # 2-channel overall 5% exceeded sharpness
-        # sharpAQZ532105Ex = sharpAQZ5321TDepMask.quantile(q=0.95)
-        # # max of l/r channel overall 5% exceeded sharpness
-        # sharpAQZ532105ExMaxLR = sharpAQZ532105Ex.max()
+        # 2-channel overall (power-averaged) sharpness
+        sharpAQZ5321PowAvg = ((sharpAQZ5321TDepMask**(1/np.log10(2))).sum(axis=0)
+                           / len(sharpAQZ5321TDepMask))**np.log10(2)
+        # max of l/r channel overall (power-averaged) sharpness
+        sharpAQZ5321PowAvgMaxLR = sharpAQZ5321PowAvg.max()
+        # 2-channel overall 5% exceeded sharpness
+        sharpAQZ532105Ex = sharpAQZ5321TDepMask.quantile(q=0.95)
+        # max of l/r channel overall 5% exceeded sharpness
+        sharpAQZ532105ExMaxLR = sharpAQZ532105Ex.max()
         
-        # # Calculate overall Aures+quasi-Zwicker (ISO 226 adjusted) sharpness from 2-channel
-        # # time-dependent sharpness
-        # sharpAQZ226TDep = pd.DataFrame(workbookdata['SharpAuresQZ226'].iloc[0:, 1:3].values,
-        #                                columns=workbookdata['SharpAuresQZ226'].iloc[0, 1:3].index,
-        #                                index=workbookdata['SharpAuresQZ226'].iloc[:, 0])
+        # Calculate overall Aures+quasi-Zwicker (ISO 226 adjusted) sharpness from 2-channel
+        # time-dependent sharpness
+        sharpAQZ226TDep = pd.DataFrame(workbookdata['SharpAuresQZ226'].iloc[0:, 1:3].values,
+                                       columns=workbookdata['SharpAuresQZ226'].iloc[0, 1:3].index,
+                                       index=workbookdata['SharpAuresQZ226'].iloc[:, 0])
 
-        # # mask for start/end skip
-        # sharpAQZ226TDepMask = sharpAQZ226TDep.loc[(sharpAQZ226TDep.index.values
-        #                                            > start_skipT)
-        #                                           & (sharpAQZ226TDep.index.values
-        #                                              < sharpAQZ226TDep.index.values.max()
-        #                                              - end_skipT), :]
+        # mask for start/end skip
+        sharpAQZ226TDepMask = sharpAQZ226TDep.loc[(sharpAQZ226TDep.index.values
+                                                   > start_skipT)
+                                                  & (sharpAQZ226TDep.index.values
+                                                     < sharpAQZ226TDep.index.values.max()
+                                                     - end_skipT), :]
 
-        # # 2-channel overall (power-averaged) sharpness
-        # sharpAQZ226PowAvg = ((sharpAQZ226TDepMask**(1/np.log10(2))).sum(axis=0)
-        #                      / len(sharpAQZ226TDepMask))**np.log10(2)
-        # # max of l/r channel overall (power-averaged) sharpness
-        # sharpAQZ226PowAvgMaxLR = sharpAQZ226PowAvg.max()
-        # # 2-channel overall 5% exceeded sharpness
-        # sharpAQZ22605Ex = sharpAQZ226TDepMask.quantile(q=0.95)
-        # # max of l/r channel overall 5% exceeded sharpness
-        # sharpAQZ22605ExMaxLR = sharpAQZ22605Ex.max()
-        
-        # # Calculate overall Aures+quasi-Zwicker (ECMA-418-2 ear filtered) sharpness from 2-channel
-        # # time-dependent sharpness
-        # sharpAQZ4182TDep = pd.DataFrame(workbookdata['SharpAuresQZ4182'].iloc[0:, 1:3].values,
-        #                                 columns=workbookdata['SharpAuresQZ4182'].iloc[0, 1:3].index,
-        #                                 index=workbookdata['SharpAuresQZ4182'].iloc[:, 0])
-
-        # # mask for start/end skip
-        # sharpAQZ4182TDepMask = sharpAQZ4182TDep.loc[(sharpAQZ4182TDep.index.values
-        #                                              > start_skipT)
-        #                                             & (sharpAQZ4182TDep.index.values
-        #                                                < sharpAQZ4182TDep.index.values.max()
-        #                                                - end_skipT), :]
-
-        # # 2-channel overall (power-averaged) sharpness
-        # sharpAQZ4182PowAvg = ((sharpAQZ4182TDepMask**(1/np.log10(2))).sum(axis=0)
-        #                       / len(sharpAQZ4182TDepMask))**np.log10(2)
-        # # max of l/r channel overall (power-averaged) sharpness
-        # sharpAQZ4182PowAvgMaxLR = sharpAQZ4182PowAvg.max()
-        # # 2-channel overall 5% exceeded sharpness
-        # sharpAQZ418205Ex = sharpAQZ4182TDepMask.quantile(q=0.95)
-        # # max of l/r channel overall 5% exceeded sharpness
-        # sharpAQZ418205ExMaxLR = sharpAQZ418205Ex.max()
+        # 2-channel overall (power-averaged) sharpness
+        sharpAQZ226PowAvg = ((sharpAQZ226TDepMask**(1/np.log10(2))).sum(axis=0)
+                             / len(sharpAQZ226TDepMask))**np.log10(2)
+        # max of l/r channel overall (power-averaged) sharpness
+        sharpAQZ226PowAvgMaxLR = sharpAQZ226PowAvg.max()
+        # 2-channel overall 5% exceeded sharpness
+        sharpAQZ22605Ex = sharpAQZ226TDepMask.quantile(q=0.95)
+        # max of l/r channel overall 5% exceeded sharpness
+        sharpAQZ22605ExMaxLR = sharpAQZ22605Ex.max()
         
         # Calculate overall Aures+quasi-Zwicker (ECMA-418-2 ear filter and
         # transformation) sharpness from 2-channel
         # time-dependent sharpness
-        sharpAQZ4182TfTDep = pd.DataFrame(workbookdata['SharpAuresQZ4182Tform'].iloc[0:, 1:3].values,
-                                          columns=workbookdata['SharpAuresQZ4182Tform'].iloc[0, 1:3].index,
-                                          index=workbookdata['SharpAuresQZ4182Tform'].iloc[:, 0])
+        sharpAQZ4182TDep = pd.DataFrame(workbookdata['SharpAuresQZ4182'].iloc[0:, 1:3].values,
+                                        columns=workbookdata['SharpAuresQZ4182'].iloc[0, 1:3].index,
+                                        index=workbookdata['SharpAuresQZ4182'].iloc[:, 0])
 
         # mask for start/end skip
-        sharpAQZ4182TfTDepMask = sharpAQZ4182TfTDep.loc[(sharpAQZ4182TfTDep.index.values
-                                                         > start_skipT)
-                                                        & (sharpAQZ4182TfTDep.index.values
-                                                           < sharpAQZ4182TfTDep.index.values.max()
-                                                           - end_skipT), :]
+        sharpAQZ4182TDepMask = sharpAQZ4182TDep.loc[(sharpAQZ4182TDep.index.values
+                                                     > start_skipT)
+                                                    & (sharpAQZ4182TDep.index.values
+                                                       < sharpAQZ4182TDep.index.values.max()
+                                                       - end_skipT), :]
 
         # 2-channel overall (power-averaged) sharpness
-        sharpAQZ4182TfPowAvg = ((sharpAQZ4182TfTDepMask**(1/np.log10(2))).sum(axis=0)
-                                / len(sharpAQZ4182TfTDepMask))**np.log10(2)
+        sharpAQZ4182PowAvg = ((sharpAQZ4182TDepMask**(1/np.log10(2))).sum(axis=0)
+                              / len(sharpAQZ4182TDepMask))**np.log10(2)
         # max of l/r channel overall (power-averaged) sharpness
-        sharpAQZ4182TfPowAvgMaxLR = sharpAQZ4182TfPowAvg.max()
+        sharpAQZ4182PowAvgMaxLR = sharpAQZ4182PowAvg.max()
         # 2-channel overall 5% exceeded sharpness
-        sharpAQZ4182Tf05Ex = sharpAQZ4182TfTDepMask.quantile(q=0.95)
+        sharpAQZ418205Ex = sharpAQZ4182TDepMask.quantile(q=0.95)
         # max of l/r channel overall 5% exceeded sharpness
-        sharpAQZ4182Tf05ExMaxLR = sharpAQZ4182Tf05Ex.max()
+        sharpAQZ418205ExMaxLR = sharpAQZ418205Ex.max()
 
         # # Calculate ECMA-418-2:2025 Sottek Hearing Model overall loudness from
         # # 2-channel specific loudness
@@ -1058,22 +1008,18 @@ for ii, file in enumerate(filelist):
         # sharpASHM05ExMaxLR = sharpASHM05Ex.max()
 
         # add results to output DataFrame
-        # dataByStim.loc[renderNames[ii], 'LoudQZ5321PowAvgMaxLR'] = loudQZ5321PowAvgMaxLR
-        # dataByStim.loc[renderNames[ii], 'LoudQZ532105ExMaxLR'] = loudQZ532105ExMaxLR
-        # dataByStim.loc[renderNames[ii], 'LoudQZ226PowAvgMaxLR'] = loudQZ226PowAvgMaxLR
-        # dataByStim.loc[renderNames[ii], 'LoudQZ22605ExMaxLR'] = loudQZ22605ExMaxLR
-        # dataByStim.loc[renderNames[ii], 'LoudQZ4182PowAvgMaxLR'] = loudQZ4182PowAvgMaxLR
-        # dataByStim.loc[renderNames[ii], 'LoudQZ418205ExMaxLR'] = loudQZ418205ExMaxLR
-        dataByStim.loc[renderNames[ii], 'LoudQZ4182TfPowAvgMaxLR'] = loudQZ4182TfPowAvgMaxLR
-        dataByStim.loc[renderNames[ii], 'LoudQZ4182Tf05ExMaxLR'] = loudQZ4182Tf05ExMaxLR
-        # dataByStim.loc[renderNames[ii], 'SharpAurQZ5321PowAvgMaxLR'] = sharpAQZ5321PowAvgMaxLR
-        # dataByStim.loc[renderNames[ii], 'SharpAurQZ532105ExMaxLR'] = sharpAQZ532105ExMaxLR
-        # dataByStim.loc[renderNames[ii], 'SharpAurQZ226PowAvgMaxLR'] = sharpAQZ226PowAvgMaxLR
-        # dataByStim.loc[renderNames[ii], 'SharpAurQZ22605ExMaxLR'] = sharpAQZ22605ExMaxLR
-        # dataByStim.loc[renderNames[ii], 'SharpAurQZ4182PowAvgMaxLR'] = sharpAQZ4182PowAvgMaxLR
-        # dataByStim.loc[renderNames[ii], 'SharpAurQZ418205ExMaxLR'] = sharpAQZ418205ExMaxLR
-        dataByStim.loc[renderNames[ii], 'SharpAurQZ4182TfPowAvgMaxLR'] = sharpAQZ4182TfPowAvgMaxLR
-        dataByStim.loc[renderNames[ii], 'SharpAurQZ4182Tf05ExMaxLR'] = sharpAQZ4182Tf05ExMaxLR
+        dataByStim.loc[renderNames[ii], 'LoudQZ5321PowAvgMaxLR'] = loudQZ5321PowAvgMaxLR
+        dataByStim.loc[renderNames[ii], 'LoudQZ532105ExMaxLR'] = loudQZ532105ExMaxLR
+        dataByStim.loc[renderNames[ii], 'LoudQZ226PowAvgMaxLR'] = loudQZ226PowAvgMaxLR
+        dataByStim.loc[renderNames[ii], 'LoudQZ22605ExMaxLR'] = loudQZ22605ExMaxLR
+        dataByStim.loc[renderNames[ii], 'LoudQZ4182PowAvgMaxLR'] = loudQZ4182PowAvgMaxLR
+        dataByStim.loc[renderNames[ii], 'LoudQZ418205ExMaxLR'] = loudQZ418205ExMaxLR
+        dataByStim.loc[renderNames[ii], 'SharpAurQZ5321PowAvgMaxLR'] = sharpAQZ5321PowAvgMaxLR
+        dataByStim.loc[renderNames[ii], 'SharpAurQZ532105ExMaxLR'] = sharpAQZ532105ExMaxLR
+        dataByStim.loc[renderNames[ii], 'SharpAurQZ226PowAvgMaxLR'] = sharpAQZ226PowAvgMaxLR
+        dataByStim.loc[renderNames[ii], 'SharpAurQZ22605ExMaxLR'] = sharpAQZ22605ExMaxLR
+        dataByStim.loc[renderNames[ii], 'SharpAurQZ4182PowAvgMaxLR'] = sharpAQZ4182PowAvgMaxLR
+        dataByStim.loc[renderNames[ii], 'SharpAurQZ418205ExMaxLR'] = sharpAQZ418205ExMaxLR
         # dataByStim.loc[renderNames[ii], 'LoudECMAPowAvgBin'] = loudECMAPowAvgBin
         # dataByStim.loc[renderNames[ii], 'TonalECMAAvgMaxLR'] = tonalECMAAvgMaxLR
         # dataByStim.loc[renderNames[ii], 'TonalECMA05ExMaxLR'] = tonalECMA05ExMaxLR
