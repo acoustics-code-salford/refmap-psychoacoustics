@@ -1,68 +1,65 @@
-function sharpnessSHM = acousticSharpnessFromSHMLoud(specSHMLoudness, method, outplot, binaural)
+function sharpnessSHM = acousticSharpnessFromSHMLoud(specSHMLoudness, method, outPlot, binaural)
 % sharpnessSHM = acousticSharpnessFromSHMLoud(specSHMLoudness, method,
-%                                             outplot, binaural)
+%                                             outPlot, binaural)
 %
 % Returns sharpness values using Sottek Hearing Model (SHM) specific
 % loudness obtained using acousticSHMLoudness.m or 
 % acousticSHMLoudnessFromComponent.m. This is faster than calculating via
-% acousticAuresSharpnessSHM.m (which calls acousticSHMLoudness.m).
+% acousticSharpnessSHM.m (which calls acousticSHMLoudness.m).
 %
 % The sharpness model used can be specified using the 'method' input
 % argument. Options comprise 'aures', 'vonBismarck', or 'widmann' (which
 % is the model standardised in DIN 45692:2009).
 %
 % Since the input matrices will have been calculated using a given sound
-% field option ('free-frontal' or 'diffuse') for the outer ear filter, this
+% field option ('freeFrontal' or 'diffuse') for the outer ear filter, this
 % information is not known to the function, so cannot be included in the
 % output.
 %
 % Inputs
 % ------
 % specSHMLoudness : matrix
-%                   the specific SHM loudness values calculated for
-%                   a sound pressure signal (single mono or single
-%                   stereo audio)
-%                   arranged as [time, bands(, chans)]
+%   The specific SHM loudness values calculated for
+%   a sound pressure signal (single mono or single
+%   stereo audio) arranged as [time, bands(, chans)]
 %
 % method : keyword string (default: 'aures')
-%          the sharpness method to apply. Options: 'aures', 'vonbismarck',
-%          'widmann'
+%   The sharpness method to apply. Options: 'aures', 'vonbismarck',
+%   'widmann'
 %
-% outplot : Boolean true/false (default: false)
-%           flag indicating whether to generate a figure from the output
+% outPlot : Boolean true/false (default: false)
+%   Flag indicating whether to generate a figure from the output
 %
 % binaural : Boolean true/false (default: true)
-%            flag indicating whether to output binaural sharpness for
-%            stereo input signal. (Experimental: it is assumed the
-%            relationship for binaural sharpness follows that of binaural
-%            SHM loudness.
+%   Flag indicating whether to output binaural sharpness for
+%   stereo input signal. (It is assumed the relationship for binaural
+%   sharpness follows that of binaural SHM loudness, which seems to be
+%   supported by available evidence https://doi.org/10.1051/aacus/2025048)
 % 
 % Returns
 % -------
 %
 % sharpnessSHM : structure
-%                     contains the output
+%   Contains the output
 %
 % sharpnessSHM contains the following outputs:
 %
 % sharpnessTDep : vector or matrix
-%                 time-dependent sharpness
-%                 arranged as [time(, channels)]
+%   Time-dependent sharpness arranged as [time(, channels)]
 % 
 % sharpnessPowAvg : number or vector
-%                   time-power-averaged sharpness
-%                   arranged as [sharpness(, channels)]
+%   Time-power-averaged sharpness arranged as [sharpness(, channels)]
 %
 % timeOut : vector
-%           time (seconds) corresponding with time-dependent outputs
+%   Time (seconds) corresponding with time-dependent outputs
 %
 % method : string
-%          indicates which sharpness method was applied
+%   Indicates which sharpness method was applied
 %
 % If binaural=true, a corresponding set of outputs for the binaural
 % sharpness are also contained in sharpnessSHM
 %
-% If outplot=true, a plot is returned illustrating the
+% If outPlot=true, a plot is returned illustrating the
 % time-dependent sharpness, with the time-aggregated value.
 % A plot is returned for each input channel, with another
 % plot for the binaural sharpness, if binaural=true.
@@ -106,6 +103,13 @@ function sharpnessSHM = acousticSharpnessFromSHMLoud(specSHMLoudness, method, ou
 % existing data for the critical-band concept, Acta Acustica united with
 % Acustica, 101(6), 1157-1167. https://doi.org/10.3813/AAA.918908
 %
+% The assumed binaural perception of sharpness is based on evidence found
+% in:
+%
+% Hochbaum, F, Hundt,  T, Fiebig, A & Brinkmann, F, 2025. Directional
+% sharpness perception under different listening conditions, Acta Acustica,
+% 9, 60. https://doi.org/10.1051/aacus/2025048
+%
 % Requirements
 % ------------
 % None
@@ -116,7 +120,7 @@ function sharpnessSHM = acousticSharpnessFromSHMLoud(specSHMLoudness, method, ou
 % Institution: University of Salford
 %
 % Date created: 01/11/2024
-% Date last modified: 22/07/2025
+% Date last modified: 12/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -144,7 +148,7 @@ function sharpnessSHM = acousticSharpnessFromSHMLoud(specSHMLoudness, method, ou
                                            {'aures',...
                                             'vonbismarck',...
                                             'widmann'})} = 'aures'
-        outplot {mustBeNumericOrLogical} = false
+        outPlot {mustBeNumericOrLogical} = false
         binaural {mustBeNumericOrLogical} = true
     end
 
@@ -157,8 +161,8 @@ addpath(genpath(fullfile("src", "mlab")))
 if size(specSHMLoudness, 3) > 2
     error('Error: Input matrices comprise more than two channels')
 else
-    inchans = size(specSHMLoudness, 3);
-    if inchans > 1
+    chansIn = size(specSHMLoudness, 3);
+    if chansIn > 1
         chans = ["Stereo left";
                  "Stereo right"];
     else
@@ -208,20 +212,20 @@ end
 
 %% Signal processing
 
-if inchans == 2 && binaural
+if chansIn == 2 && binaural
     % Binaural loudness
     % Section 8.1.5 ECMA-418-2:2024 Equation 118
     specSHMLoudness(:, :, 3) = sqrt(sum(specSHMLoudness.^2, 3)/2);
-    outchans = 3;  % set number of 'channels' to stereo plus single binaural
+    chansOut = 3;  % set number of 'channels' to stereo plus single binaural
     chans = [chans;
              "Binaural"];
 else
-    outchans = inchans;  % assign number of output channels
+    chansOut = chansIn;  % assign number of output channels
 end
 
 % Time-dependent loudness
 % Discard singleton dimensions
-if outchans == 1
+if chansOut == 1
     loudnessTDep = sum(specSHMLoudness.*dz, 2);
 else
     loudnessTDep = squeeze(sum(specSHMLoudness.*dz, 2));
@@ -230,7 +234,7 @@ end
 switch method
     case 'aures'
         % Aures weighting
-        weightSharp = permute(0.078*(exp(0.171.*permute(repmat(z, outchans, 1),...
+        weightSharp = permute(0.078*(exp(0.171.*permute(repmat(z, chansOut, 1),...
                                                         [2, 1])))...
                               ./(log(0.05*permute(repmat(loudnessTDep, 1, 1,...
                                                          length(z)), [3, 2, 1])...
@@ -259,7 +263,7 @@ switch method
 end
 
 % Discard singleton dimensions
-if outchans ~= 1
+if chansOut ~= 1
     sharpnessTDep = squeeze(sharpnessTDep);
 end
 
@@ -275,7 +279,7 @@ timeOut = (0:(size(specSHMLoudness, 1) - 1))*dt;
 %% Output assignment
 
 % Assign outputs to structure
-if outchans == 3
+if chansOut == 3
     sharpnessSHM.sharpnessTDep = sharpnessTDep(:, 1:2);
     sharpnessSHM.sharpnessPowAvg = sharpnessPowAvg(1:2);
     sharpnessSHM.sharpnessTDepBin = sharpnessTDep(:, 3);
@@ -291,10 +295,10 @@ end
 
 %% Output plotting
 
-if outplot
+if outPlot
     % Plot figures
     % ------------
-    for chan = outchans:-1:1
+    for chan = chansOut:-1:1
         cmap_viridis = load('cmap_viridis.txt');
         % Plot results
         fig = figure;
@@ -325,6 +329,6 @@ if outplot
         title(strcat(chan_lab, ' signal'),...
                      'FontWeight', 'normal', 'FontName', 'Arial');
     end  % end of for loop for plotting over channels
-end  % end of if branch for plotting if outplot true
+end  % end of if branch for plotting
 
 % function end

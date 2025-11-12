@@ -8,11 +8,11 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRateIn, axisN, soundField,
 % also be calculated, and each channel also analysed separately.
 %
 % The sharpness model used can be specified using the 'method' input
-% argument. Options comprise 'aures', 'vonBismarck', or 'widmann' (which
+% argument. Options comprise 'aures', 'vonbismarck', or 'widmann' (which
 % is the model standardised in DIN 45692:2009).
 %
 % Since the input matrices will have been calculated using a given sound
-% field option ('free-frontal' or 'diffuse') for the outer ear filter, this
+% field option ('freeFrontal' or 'diffuse') for the outer ear filter, this
 % information is not known to the function, so cannot be included in the
 % output.
 %
@@ -160,9 +160,9 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRateIn, axisN, soundField,
         sampleRateIn (1, 1) double {mustBePositive, mustBeInteger}
         axisN (1, 1) {mustBeInteger, mustBeInRange(axisN, 1, 2)} = 1
         soundField (1, :) string {mustBeMember(soundField,...
-                                              {'free-frontal',...
+                                              {'freeFrontal',...
                                                'diffuse',...
-                                               'noOuter'})} = 'free-frontal'
+                                               'noOuter'})} = 'freeFrontal'
         method (1, :) string {mustBeMember(method,...
                                            {'aures',...
                                             'vonbismarck',...
@@ -190,8 +190,8 @@ end
 if size(p, 2) > 2
     error('Error: Input signal comprises more than two channels')
 else
-    inchans = size(p, 2);
-    if inchans > 1
+    chansIn = size(p, 2);
+    if chansIn > 1
         chans = ["Stereo left";
                  "Stereo right"];
     else
@@ -249,20 +249,20 @@ loudnessSHM = acousticSHMLoudness(p, sampleRateIn, 1, soundField, waitBar, false
 
 specSHMLoudness = loudnessSHM.specLoudness;
 
-if inchans == 2 && binaural
+if chansIn == 2 && binaural
     % Binaural loudness
     % Section 8.1.5 ECMA-418-2:2024 Equation 118
     specSHMLoudness(:, :, 3) = loudnessSHM.specLoudnessBin;
-    outchans = 3;  % set number of 'channels' to stereo plus single binaural
+    chansOut = 3;  % set number of 'channels' to stereo plus single binaural
     chans = [chans;
              "Binaural"];
 else
-    outchans = inchans;  % assign number of output channels
+    chansOut = chansIn;  % assign number of output channels
 end
 
 % Time-dependent loudness
 % Discard singleton dimensions
-if outchans == 1
+if chansOut == 1
     loudnessTDep = sum(specSHMLoudness.*dz, 2);
 else
     loudnessTDep = squeeze(sum(specSHMLoudness.*dz, 2));
@@ -271,7 +271,7 @@ end
 switch method
     case 'aures'
         % Aures weighting
-        weightSharp = permute(0.078*(exp(0.171.*permute(repmat(z, outchans, 1),...
+        weightSharp = permute(0.078*(exp(0.171.*permute(repmat(z, chansOut, 1),...
                                                         [2, 1])))...
                               ./(log(0.05*permute(repmat(loudnessTDep, 1, 1,...
                                                          length(z)), [3, 2, 1])...
@@ -299,7 +299,7 @@ switch method
 end
 
 % Discard singleton dimensions
-if outchans ~= 1
+if chansOut ~= 1
     sharpnessTDep = squeeze(sharpnessTDep);
 end
 
@@ -315,7 +315,7 @@ timeOut = (0:(size(specSHMLoudness, 1) - 1))*dt;
 %% Output assignment
 
 % Assign outputs to structure
-if outchans == 3
+if chansOut == 3
     sharpnessSHM.sharpnessTDep = sharpnessTDep(:, 1:2);
     sharpnessSHM.sharpnessPowAvg = sharpnessPowAvg(1:2);
     sharpnessSHM.sharpnessTDepBin = sharpnessTDep(:, 3);
@@ -336,7 +336,7 @@ end
 if outPlot
     % Plot figures
     % ------------
-    for chan = outchans:-1:1
+    for chan = chansOut:-1:1
         cmap_viridis = load('cmap_viridis.txt');
         % Plot results
         fig = figure;
