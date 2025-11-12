@@ -10,62 +10,57 @@ function loudnessSHM = acousticSHMLoudnessFromComponent(specTonalLoudness, specN
 % acousticSHMTonality.m).
 %
 % Since the input matrices will have been calculated using a given sound
-% field option ('free-frontal' or 'diffuse') for the outer ear filter, this
-% information is not known to the function, so cannot be included in the
-% output.
+% field option for the outer ear filter, this information is not known to
+% the function, so cannot be included in the output.
 %
 % Inputs
 % ------
 % specTonalLoudness : matrix
-%                     the specific tonal loudness values calculated for
-%                     a sound pressure signal (single mono or single
-%                     stereo audio)
-%                     arranged as [time, bands(, chans)]
+%   Specific tonal loudness values calculated for a sound pressure
+%   signal (single mono or single stereo audio) using acousticSHMTonality
+%   or acousticSHMLoudness.
+%   arranged as [time, bands(, chans)]
 %
 % specNoiseLoudness : matrix
-%                     the specific noise loudness values calculated for
-%                     a sound pressure signal (single mono or single
-%                     stereo audio)
-%                     arranged as [time, bands(, chans)]
+%   Specific noise loudness values calculated for a sound pressure
+%   signal (single mono or single stereo audio) using acousticSHMTonality
+%   or acousticSHMLoudness.
+%   arranged as [time, bands(, chans)]
 %
 % outPlot : Boolean true/false (default: false)
-%           flag indicating whether to generate a figure from the output
+%   Flag indicating whether to generate a figure from the output
 %
 % binaural : Boolean true/false (default: true)
-%            flag indicating whether to output combined binaural loudness
-%            for stereo input signal.
+%   Flag indicating whether to output combined binaural loudness
+%   for stereo input signal.
 % 
 % Returns
 % -------
 %
 % loudnessSHM : structure
-%               contains the output
+%   Contains the output
 %
 % loudnessSHM contains the following outputs:
 %
 % specLoudness : matrix
-%                time-dependent specific loudness for each critical band
-%                arranged as [time, bands(, channels)]
+%   Time-dependent specific loudness for each critical band
+%   arranged as [time, bands(, channels)]
 %
 % specloudnessPowAvg : matrix
-%                      time-power-averaged specific loudness for each
-%                      critical band
-%                      arranged as [bands(, channels)]
+%   Time-power-averaged specific loudness for each critical band
+%   arranged as [bands(, channels)]
 %
 % loudnessTDep : vector or matrix
-%                 time-dependent overall loudness
-%                 arranged as [time(, channels)]
+%   Time-dependent overall loudness arranged as [time(, channels)]
 % 
 % loudnessPowAvg : number or vector
-%                  time-power-averaged overall loudness
-%                  arranged as [loudness(, channels)]
+%   Time-power-averaged overall loudness arranged as [loudness(, channels)]
 %
 % bandCentreFreqs : vector
-%                   centre frequencies corresponding with each critical
-%                   band rate
+%   Centre frequencies corresponding with each critical band rate
 %
 % timeOut : vector
-%           time (seconds) corresponding with time-dependent outputs
+%   Time (seconds) corresponding with time-dependent outputs
 %
 % If binaural=true, a corresponding set of outputs for the combined
 % binaural loudness are also contained in loudnessSHM
@@ -92,7 +87,7 @@ function loudnessSHM = acousticSHMLoudnessFromComponent(specTonalLoudness, specN
 % Institution: University of Salford
 %
 % Date created: 22/08/2023
-% Date last modified: 22/07/2025
+% Date last modified: 12/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -272,7 +267,7 @@ if outPlot
         lgd = legend('Location', 'eastoutside', 'FontSize', 8);
         lgd.Title.String = "Overall";
     end  % end of for loop for plotting over channels
-end  % end of if branch for plotting if outplot true
+end  % end of if branch for plotting
 
 %% Output assignment
 

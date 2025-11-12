@@ -9,71 +9,65 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
 % Inputs
 % ------
 % p : vector or 2D matrix
-%     the input signal as single mono or stereo audio (sound
-%     pressure) signals
+%   Input signal as single mono or stereo audio (sound
+%   pressure) signals
 %
 % sampleRateIn : integer
-%                the sample rate (frequency) of the input signal(s)
+%   Sample rate (frequency) of the input signal(s)
 %
 % axisN : integer (1 or 2, default: 1)
-%         the time axis along which to calculate the tonality
+%   Time axis along which to calculate the tonality
 %
 % soundField : keyword string (default: 'freeFrontal')
-%              determines whether the 'freeFrontal' or 'diffuse' field stages
-%              are applied in the outer-middle ear filter, or 'noOuter' uses
-%              only the middle ear stage, or 'noEar' omits ear filtering.
-%              Note: these last two options are beyond the scope of the
-%              standard, but may be useful if recordings made using
-%              artificial outer/middle ear are to be processed using the
-%              specific recorded responses.
+%   Determines whether the 'freeFrontal' or 'diffuse' field stages
+%   are applied in the outer-middle ear filter, or 'noOuter' uses
+%   only the middle ear stage, or 'noEar' omits ear filtering.
+%   Note: these last two options are beyond the scope of the
+%   standard, but may be useful if recordings made using
+%   artificial outer/middle ear are to be processed using the
+%   specific recorded responses.
 %
 % waitBar : keyword string (default: true)
-%           determines whether a progress bar displays during processing
-%           (set waitBar to false for doing multi-file parallel calculations)
+%   Determines whether a progress bar displays during processing
 %
 % outPlot : Boolean true/false (default: false)
-%           flag indicating whether to generate a figure from the output
+%   Flag indicating whether to generate a figure from the output
 %
 % binaural : Boolean true/false (default: true)
-%            flag indicating whether to output combined binaural roughness
-%            for stereo input signal.
+%   Flag indicating whether to output combined binaural roughness
+%   for stereo input signal.
 %
 % Returns
 % -------
 %
 % roughnessSHM : structure
-%                contains the output
+%   Contains the output
 %
 % roughnessSHM contains the following outputs:
 %
 % specRoughness : matrix
-%                 time-dependent specific roughness for each (half)
-%                 critical band
-%                 arranged as [time, bands(, channels)]
+%   Time-dependent specific roughness for each critical band
+%   arranged as [time, bands(, channels)]
 %
 % specRoughnessAvg : matrix
-%                    time-averaged specific roughness for each (half)
-%                    critical band
-%                    arranged as [bands(, channels)]
+%   Time-averaged specific roughness for each critical band
+%   arranged as [bands(, channels)]
 %
 % roughnessTDep : vector or matrix
-%                 time-dependent overall roughness
-%                 arranged as [time(, channels)]
+%   Time-dependent overall roughness arranged as [time(, channels)]
 % 
 % roughness90Pc : number or vector
-%                 time-aggregated (90th percentile) overall roughness
-%                 arranged as [roughness(, channels)]
+%   Time-aggregated (90th percentile) overall roughness
+%   arranged as [roughness(, channels)]
 %
 % bandCentreFreqs : vector
-%                   centre frequencies corresponding with each (half)
-%                   critical band rate scale width
+%   Centre frequencies corresponding with each critical band rate
 %
 % timeOut : vector
-%           time (seconds) corresponding with time-dependent outputs
+%   Time (seconds) corresponding with time-dependent outputs
 %
 % soundField : string
-%              identifies the soundfield type applied (the input argument
-%              fieldtype)
+%   Identifies the soundfield type applied (= input argument)
 %
 % If binaural=true, a corresponding set of outputs for the binaural
 % roughness is also contained in roughnessSHM
@@ -102,7 +96,7 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 09/10/2025
+% Date last modified: 12/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -762,7 +756,7 @@ if outPlot
         lgd = legend('Location', 'eastoutside', 'FontSize', 8);
         lgd.Title.String = "Overall";
     end  % end of for loop for plotting over channels
-end  % end of if branch for plotting if outplot true
+end  % end of if branch for plotting
 
 %% Output assignment
 

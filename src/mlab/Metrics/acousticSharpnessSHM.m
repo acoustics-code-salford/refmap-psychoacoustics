@@ -1,6 +1,6 @@
-function sharpnessSHM = acousticSharpnessSHM(p, sampleRatein, axisn, fieldtype, method, outplot, binaural)
-% sharpnessSHM = acousticSharpnessSHM(p, sampleRatein, axisn,...
-%                                     fieldtype, method, outplot, binaural)
+function sharpnessSHM = acousticSharpnessSHM(p, sampleRateIn, axisN, soundField, method, waitBar, outPlot, binaural)
+% sharpnessSHM = acousticSharpnessSHM(p, sampleRateIn, axisN,...
+%                                     soundField, method, outPlot, binaural)
 %
 % Returns sharpness values using Sottek Hearing Model (SHM) loudness for an
 % input calibrated single mono or single stereo audio (sound pressure)
@@ -19,62 +19,62 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRatein, axisn, fieldtype, 
 % Inputs
 % ------
 % p : vector or 2D matrix
-%     the input signal as single mono or stereo audio (sound
-%     pressure) signals
+%   the input signal as single mono or stereo audio (sound
+%   pressure) signals
 %
-% sampleRatein : integer
-%                the sample rate (frequency) of the input signal(s)
+% sampleRateIn : integer
+%   the sample rate (frequency) of the input signal(s)
 %
-% axisn : integer (1 or 2, default: 1)
-%         the time axis along which to calculate the sharpness
+% axisN : integer (1 or 2, default: 1)
+%   the time axis along which to calculate the sharpness
 %
-% fieldtype : keyword string (default: 'free-frontal')
-%             determines whether the 'free-frontal' or 'diffuse' field stages
-%             are applied in the outer-middle ear filter
+% soundField : keyword string (default: 'free-frontal')
+%   determines whether the 'free-frontal' or 'diffuse' field stages
+%   are applied in the outer-middle ear filter
 %
 % method : keyword string (default: 'aures')
-%          the sharpness method to apply. Options: 'aures', 'vonbismarck',
-%          'widmann'
+%   the sharpness method to apply. Options: 'aures', 'vonbismarck',
+%   'widmann'
 %
-% outplot : Boolean true/false (default: false)
-%           flag indicating whether to generate a figure from the output
+% waitBar : keyword string (default: true)
+%   determines whether a progress bar displays during processing
+%
+% outPlot : Boolean true/false (default: false)
+%   flag indicating whether to generate a figure from the output
 %
 % binaural : Boolean true/false (default: true)
-%            flag indicating whether to output binaural sharpness for
-%            stereo input signal. (Experimental: it is assumed the
-%            relationship for binaural sharpness follows that of binaural
-%            SHM loudness.
+%   flag indicating whether to output binaural sharpness for
+%   stereo input signal. (It is assumed the relationship for binaural
+%   sharpness follows that of binaural SHM loudness, which seems to be
+%   supported by available evidence https://doi.org/10.1051/aacus/2025048)
 % 
 % Returns
 % -------
 %
 % sharpnessSHM : structure
-%                     contains the output
+%   contains the output
 %
 % sharpnessSHM contains the following outputs:
 %
 % sharpnessTDep : vector or matrix
-%                 time-dependent sharpness
-%                 arranged as [time(, channels)]
+%   time-dependent sharpness arranged as [time(, channels)]
 % 
 % sharpnessPowAvg : number or vector
-%                   time-power-averaged sharpness
-%                   arranged as [sharpness(, channels)]
+%   time-power-averaged sharpness arranged as [sharpness(, channels)]
 %
 % timeOut : vector
-%           time (seconds) corresponding with time-dependent outputs
+%   time (seconds) corresponding with time-dependent outputs
 %
 % soundField : string
-%              identifies the soundfield type applied (the input argument
-%              fieldtype)
+%   identifies the soundfield type applied (= input argument)
 %
 % method : string
-%          indicates which sharpness method was applied
+%   indicates which sharpness method was applied
 %
 % If binaural=true, a corresponding set of outputs for the binaural
 % sharpness are also contained in sharpnessSHM
 %
-% If outplot=true, a plot is returned illustrating the
+% If outPlot=true, a plot is returned illustrating the
 % time-dependent sharpness, with the time-aggregated value.
 % A plot is returned for each input channel, with another
 % plot for the binaural sharpness, if binaural=true.
@@ -115,6 +115,13 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRatein, axisn, fieldtype, 
 % existing data for the critical-band concept, Acta Acustica united with
 % Acustica, 101(6), 1157-1167. https://doi.org/10.3813/AAA.918908
 %
+% The assumed binaural perception of sharpness is based on evidence found
+% in:
+%
+% Hochbaum, F, Hundt,  T, Fiebig, A & Brinkmann, F, 2025. Directional
+% sharpness perception under different listening conditions, Acta Acustica,
+% 9, 60. https://doi.org/10.1051/aacus/2025048
+%
 % Requirements
 % ------------
 % Signal Processing Toolbox
@@ -126,7 +133,7 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRatein, axisn, fieldtype, 
 % Institution: University of Salford
 %
 % Date created: 01/11/2024
-% Date last modified: 22/07/2025
+% Date last modified: 12/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -150,9 +157,9 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRatein, axisn, fieldtype, 
 %% Arguments validation
     arguments (Input)
         p (:, :) double {mustBeReal}
-        sampleRatein (1, 1) double {mustBePositive, mustBeInteger}
-        axisn (1, 1) {mustBeInteger, mustBeInRange(axisn, 1, 2)} = 1
-        fieldtype (1, :) string {mustBeMember(fieldtype,...
+        sampleRateIn (1, 1) double {mustBePositive, mustBeInteger}
+        axisN (1, 1) {mustBeInteger, mustBeInRange(axisN, 1, 2)} = 1
+        soundField (1, :) string {mustBeMember(soundField,...
                                               {'free-frontal',...
                                                'diffuse',...
                                                'noOuter'})} = 'free-frontal'
@@ -160,7 +167,8 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRatein, axisn, fieldtype, 
                                            {'aures',...
                                             'vonbismarck',...
                                             'widmann'})} = 'aures'
-        outplot {mustBeNumericOrLogical} = false
+        waitBar {mustBeNumericOrLogical} = true
+        outPlot {mustBeNumericOrLogical} = false
         binaural {mustBeNumericOrLogical} = true
     end
 
@@ -169,12 +177,12 @@ addpath(genpath(fullfile("src", "mlab")))
 
 %% Input checks
 % Orient input matrix
-if axisn == 2
+if axisN == 2
     p = p.';
 end
 
 % Check the length of the input data (must be longer than 300 ms)
-if size(p, 1) <  300/1000*sampleRatein
+if size(p, 1) <  300/1000*sampleRateIn
     error('Error: Input signal is too short along the specified axis to calculate sharpness (must be longer than 300 ms)')
 end
 
@@ -237,7 +245,7 @@ end
 % ---------------------------
 
 % Obtain specific loudness from ECMA-418-2:2024
-loudnessSHM = acousticSHMLoudness(p, sampleRatein, 1, fieldtype, false);
+loudnessSHM = acousticSHMLoudness(p, sampleRateIn, 1, soundField, waitBar, false, binaural);
 
 specSHMLoudness = loudnessSHM.specLoudness;
 
@@ -313,19 +321,19 @@ if outchans == 3
     sharpnessSHM.sharpnessTDepBin = sharpnessTDep(:, 3);
     sharpnessSHM.sharpnessPowAvgBin = sharpnessPowAvg(:, 3);
     sharpnessSHM.timeOut = timeOut;
-    sharpnessSHM.soundField = fieldtype;
+    sharpnessSHM.soundField = soundField;
     sharpnessSHM.method = method;
 else
     sharpnessSHM.sharpnessTDep = sharpnessTDep;
     sharpnessSHM.sharpnessPowAvg = sharpnessPowAvg;
     sharpnessSHM.timeOut = timeOut;
-    sharpnessSHM.soundField = fieldtype;
+    sharpnessSHM.soundField = soundField;
     sharpnessSHM.method = method;
 end
 
 %% Output plotting
 
-if outplot
+if outPlot
     % Plot figures
     % ------------
     for chan = outchans:-1:1
@@ -359,6 +367,6 @@ if outplot
         title(strcat(chan_lab, ' signal'),...
                      'FontWeight', 'normal', 'FontName', 'Arial');
     end  % end of for loop for plotting over channels
-end  % end of if branch for plotting if outplot true
+end  % end of if branch for plotting
 
 % function end

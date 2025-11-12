@@ -8,99 +8,86 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 % Inputs
 % ------
 % p : vector or 2D matrix
-%     the input signal as single mono or stereo audio (sound
-%     pressure) signals
+%   Input signal as single mono or stereo audio (sound
+%   pressure) signals
 %
 % sampleRateIn : integer
-%                the sample rate (frequency) of the input signal(s)
+%   Sample rate (frequency) of the input signal(s)
 %
 % axisN : integer (1 or 2, default: 1)
-%         the time axis along which to calculate the tonality
+%   Time axis along which to calculate the tonality
 %
 % soundField : keyword string (default: 'freeFrontal')
-%              determines whether the 'freeFrontal' or 'diffuse' field stages
-%              are applied in the outer-middle ear filter, or 'noOuter' uses
-%              only the middle ear stage, or 'noEar' omits ear filtering.
-%              Note: these last two options are beyond the scope of the
-%              standard, but may be useful if recordings made using
-%              artificial outer/middle ear are to be processed using the
-%              specific recorded responses.
+%   Determines whether the 'freeFrontal' or 'diffuse' field stages
+%   are applied in the outer-middle ear filter, or 'noOuter' uses
+%   only the middle ear stage, or 'noEar' omits ear filtering.
+%   Note: these last two options are beyond the scope of the
+%   standard, but may be useful if recordings made using
+%   artificial outer/middle ear are to be processed using the
+%   specific recorded responses.
 %
 % waitBar : keyword string (default: true)
-%           determines whether a progress bar displays during processing
-%           (set waitBar to false for doing multi-file parallel calculations)
+%   Determines whether a progress bar displays during processing
 %
 % outPlot : Boolean true/false (default: false)
-%           flag indicating whether to generate a figure from the output
-%           (set outPlot to false for doing multi-file parallel calculations)
+%   Flag indicating whether to generate a figure from the output
+%   (set outPlot to false for doing multi-file parallel calculations)
 % 
 % Returns
 % -------
 %
 % tonalitySHM : structure
-%               contains the output
+%   Contains the output
 %
 % tonalitySHM contains the following outputs:
 %
 % specTonality : matrix
-%                time-dependent specific tonality for each (half) critical
-%                band
-%                arranged as [time, bands(, channels)]
+%   Time-dependent specific tonality for each critical band
+%   arranged as [time, bands(, channels)]
 %
 % specTonalityFreqs : matrix
-%                     time-dependent frequencies of the dominant tonal
-%                     components corresponding with each of the
-%                     time-dependent specific tonality values in each
-%                     (half) critical band
-%                     arranged as [time, bands(, channels)]
+%   Time-dependent frequencies of the dominant tonal
+%   components corresponding with each of the time-dependent specific
+%   tonality values in each critical band
+%   arranged as [time, bands(, channels)]
 %
 % specTonalityAvg : matrix
-%                   time-averaged specific tonality for each (half)
-%                   critical band
-%                   arranged as [bands(, channels)]
+%   Time-averaged specific tonality for each critical band
+%   arranged as [bands(, channels)]
 %
 % specTonalityAvgFreqs : matrix
-%                        frequencies of the dominant tonal components
-%                        corresponding with each of the
-%                        time-averaged specific tonality values in each
-%                        (half) critical band
-%                        arranged as [bands(, channels)]
+%   Frequencies of the dominant tonal components
+%   corresponding with each of the
+%   time-averaged specific tonality values in each critical band
+%   arranged as [bands(, channels)]
 %
 % specTonalLoudness : matrix
-%                     time-dependent specific tonal loudness for each
-%                     (half) critical band
-%                     arranged as [time, bands(, channels)]
+%   Time-dependent specific tonal loudness for each critical band
+%   arranged as [time, bands(, channels)]
 %
 % specNoiseLoudness : matrix
-%                     time-dependent specific noise loudness for each
-%                     (half) critical band
-%                     arranged as [time, bands(, channels)]
+%   Time-dependent specific noise loudness for each critical band
+%   arranged as [time, bands(, channels)]
 %
 % tonalityTDep : vector or matrix
-%                time-dependent overall tonality
-%                arranged as [time(, channels)]
+%   Time-dependent overall tonality arranged as [time(, channels)]
 %
 % tonalityTDepFreqs : vector or matrix
-%                     time-dependent frequencies of the dominant tonal
-%                     components corresponding with the
-%                     time-dependent overall tonality values
-%                     arranged as [time(, channels)]
+%   Time-dependent frequencies of the dominant tonal components
+%   corresponding with the time-dependent overall tonality values
+%   arranged as [time(, channels)]
 %
 % tonalityAvg : number or vector
-%               time-averaged overall tonality
-%               arranged as [tonality(, channels)]
+%   Time-averaged overall tonality arranged as [tonality(, channels)]
 %
 % bandCentreFreqs : vector
-%                   centre frequencies corresponding with each (half)
-%                   critical band rate scale width
+%   Centre frequencies corresponding with each critical band rate
 %
 % timeOut : vector
-%           time (seconds) corresponding with time-dependent outputs
+%   Time (seconds) corresponding with time-dependent outputs
 %
 % soundField : string
-%              identifies the soundfield type applied (the input argument
-%              soundField)
-%
+%   Identifies the soundfield type applied (= input argument)
 %
 % If outPlot=true, a set of plots is returned illustrating the energy
 % time-averaged A-weighted sound level, the time-dependent specific and
@@ -120,11 +107,11 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 % Ownership and Quality Assurance
 % -------------------------------
 % Authors: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk) &
-%          Matt Torjussen (matt@anv.co.uk)
-% Institution: University of Salford / ANV Measurement Systems
+%          Matt Torjussen (m.c.torjussen@edu.salford.ac.uk)
+% Institution: University of Salford
 %
 % Date created: 07/08/2023
-% Date last modified: 23/07/2025
+% Date last modified: 12/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -477,6 +464,8 @@ for chan = chansIn:-1:1
     % --------------------------------
     % Section 6.2.8 Equation 49 ECMA-418-2:2025 [SNR(l)]
     overallSNR = max(specTonalLoudness, [], 2)./(sum(specNoiseLoudness, 2) + epsilon);  % loudness signal-noise-ratio
+
+    % 
     
     % Section 6.2.8 Equation 50 ECMA-418-2:2025 [q(l)]
     crit = exp(-A*(overallSNR - B));
