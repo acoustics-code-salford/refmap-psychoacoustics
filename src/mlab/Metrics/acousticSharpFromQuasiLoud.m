@@ -1,7 +1,7 @@
-function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adjustLoud, timeStep, sharpMethod, outPlot)
+function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adjustLoud, timeStep, sharpMethod, outPlot, binaural)
 % sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness,
 %                                        adjustLoud, timeStep, sharpMethod,
-%                                        outPlot)
+%                                        outPlot, binaural)
 %
 % Returns quasi-sharpness values using quasi-loudness results obtained using
 % acousticQuasiLoudZwicker.m or acousticQuasiLoudZwickerWav.m.
@@ -57,6 +57,12 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adju
 % outPlot : Boolean true/false (default: false)
 %   flag indicating whether to generate a figure from the output
 %
+% binaural : Boolean true/false (default: true)
+%   flag indicating whether to output binaural sharpness for
+%   stereo input signal. (It is assumed the relationship for binaural
+%   sharpness follows that of binaural loudness, which seems to be
+%   supported by available evidence https://doi.org/10.1051/aacus/2025048)
+%
 % Returns
 % -------
 %
@@ -110,6 +116,13 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adju
 %
 % Widmann model is described in DIN 45692:2009
 %
+% The assumed binaural perception of sharpness is based on evidence found
+% in:
+%
+% Hochbaum, F, Hundt,  T, Fiebig, A & Brinkmann, F, 2025. Directional
+% sharpness perception under different listening conditions, Acta Acustica,
+% 9, 60. https://doi.org/10.1051/aacus/2025048
+%
 % Requirements
 % ------------
 % None
@@ -120,7 +133,7 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adju
 % Institution: University of Salford
 %
 % Date created: 30/04/2025
-% Date last modified: 05/11/2025
+% Date last modified: 13/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -155,6 +168,7 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adju
                                                  'vonbismarck',...
                                                  'widmann'})} = 'aures'
         outPlot {mustBeNumericOrLogical} = false
+        binaural {mustBeNumericOrLogical} = true
     end
 
 %% Load path (assumes root directory is refmap-psychoacoustics)
@@ -176,10 +190,10 @@ end
 if size(specQZLoudness, 3) > 2
     error('Error: Input matrices comprise more than two channels')
 else
-    chans = size(specQZLoudness, 3);
-    if chans > 1
+    chansIn = size(specQZLoudness, 3);
+    if chansIn > 1
         chanLabs = ["Stereo left";
-                 "Stereo right"];
+                    "Stereo right"];
     else
         chanLabs = "Mono";
     end
@@ -247,7 +261,7 @@ end
 switch sharpMethod
     case 'aures'
         % Aures weighting
-        weightSharp = permute(0.078*(exp(0.171.*permute(repmat(bark, chans, 1),...
+        weightSharp = permute(0.078*(exp(0.171.*permute(repmat(bark, chansIn, 1),...
                                                         [2, 1])))...
                               ./(log(0.05*permute(repmat(loudQZTDep, 1, 1,...
                                                          length(bark)), [3, 2, 1])...
@@ -267,8 +281,20 @@ switch sharpMethod
 end
 
 % Discard singleton dimensions
-if chans ~= 1
+if chansIn == 2
     sharpTDep = squeeze(sharpTDep);
+    chansOut = chansIn;
+
+    % Binaural sharpness
+    if binaural
+        chansOut = 3;
+        sharpTDepBin = sqrt(sum(sharpTDep(:, 1:2).^2, 2)/2);
+        sharpPowAvgBin = (sum(sharpTDepBin.^(1/log10(2)), 1)./size(sharpTDepBin, 1)).^log10(2);
+        sharp5pcExBin = prctile(sharpTDepBin, 95, 1);
+        chanLabs = [chanLabs; "Binaural"];
+    end
+else
+    chansOut = chansIn;
 end
 
 % ensure any 0 loudness values also have 0 sharpness
@@ -289,6 +315,9 @@ timeOut = (0:(size(specQZLoudness, 1) - 1))*timeStep;
 sharpness.sharpTDep = sharpTDep;
 sharpness.sharpPowAvg = sharpPowAvg;
 sharpness.sharp5pcEx = sharp5pcEx;
+sharpness.sharpTDepBin = sharpTDepBin;
+sharpness.sharpPowAvgBin = sharpPowAvgBin;
+sharpness.sharp5pcExBin = sharp5pcExBin;
 sharpness.timeOut = timeOut.';
 sharpness.method = sharpMethod;
 
@@ -297,7 +326,7 @@ sharpness.method = sharpMethod;
 if outPlot
     % Plot figures
     % ------------
-    for chan = chans:-1:1
+    for chan = chansOut:-1:1
         cmap_viridis = load('cmap_viridis.txt');
         % Plot results
         fig = figure;
@@ -331,6 +360,6 @@ if outPlot
         title(strcat(chan_lab, ' signal'),...
                      'FontWeight', 'normal', 'FontName', 'Arial');
     end  % end of for loop for plotting over channels
-end  % end of if branch for plotting if outplot true
+end  % end of if branch for plotting
 
 end % end of acousticSharpFromQuasiLoud function

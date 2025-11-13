@@ -1,7 +1,7 @@
-function sharpness = acousticSharpQuasiLoudWav(p, sampleRatein, timeStep, axisN, soundField, sharpMethod, adjustLoud, outPlot)
+function sharpness = acousticSharpQuasiLoudWav(p, sampleRatein, timeStep, axisN, soundField, sharpMethod, adjustLoud, outPlot, binaural)
 % sharpness = acousticSharpQuasiLoudWav(p, sampleRatein, timeStep, axisN,
 %                                       soundField, sharpMethod,
-%                                       adjustLoud, outPlot)
+%                                       adjustLoud, outPlot, binaural)
 %
 % Returns quasi-sharpness values using acousticSharpFromQuasi.m from 
 % quasi-loudness results obtained using acousticQuasiLoudZwicker.m with Leq spectra
@@ -46,9 +46,6 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRatein, timeStep, axisN,
 %   the sharpness method to apply. Options: 'aures', 'vonbismarck',
 %   'widmann'.
 %
-% outplot : Boolean true/false (default: false)
-%   flag indicating whether to generate a figure from the output
-%
 % adjustLoud : keyword string (default: 'none')
 %   indicates whether to apply adjustments for:
 %   ('iso226') the differences between 1987 ISO 226 equal-loudness contours
@@ -59,7 +56,16 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRatein, timeStep, axisN,
 %   ECMA-418-2:2024 transformation.
 %   The default option ('none') applies no adjustment, so follows ISO 532-1
 %   more closely (for closer agreement with Zwicker's model).
+%
+% outplot : Boolean true/false (default: false)
+%   flag indicating whether to generate a figure from the output
 % 
+% binaural : Boolean true/false (default: true)
+%   flag indicating whether to output binaural sharpness for
+%   stereo input signal. (It is assumed the relationship for binaural
+%   sharpness follows that of binaural loudness, which seems to be
+%   supported by available evidence https://doi.org/10.1051/aacus/2025048)
+%
 % Returns
 % -------
 %
@@ -116,6 +122,13 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRatein, timeStep, axisN,
 % Zwicker loudness is defined in ISO 532-1:2017. Modifications are based on
 % ISO 226:2023, ISO 226:1987 and ECMA-418-2:2024.
 %
+% The assumed binaural perception of sharpness is based on evidence found
+% in:
+%
+% Hochbaum, F, Hundt,  T, Fiebig, A & Brinkmann, F, 2025. Directional
+% sharpness perception under different listening conditions, Acta Acustica,
+% 9, 60. https://doi.org/10.1051/aacus/2025048
+%
 % Requirements
 % ------------
 % None
@@ -126,7 +139,7 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRatein, timeStep, axisN,
 % Institution: University of Salford
 %
 % Date created: 30/04/2025
-% Date last modified: 05/11/2025
+% Date last modified: 13/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -166,6 +179,7 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRatein, timeStep, axisN,
                                                 'iso226',...
                                                 'ecma4182'})} = 'none'
         outPlot {mustBeNumericOrLogical} = false
+        binaural {mustBeNumericOrLogical} = true
     end
 
 %% Load path (assumes root directory is refmap-psychoacoustics)
@@ -204,6 +218,6 @@ loudness = acousticQuasiLoudZwicker(Leq, [25 12500], 2, soundField,...
 sharpness = acousticSharpFromQuasiLoud(loudness.loudTDep,...
                                        loudness.specLoud, adjustLoud,...
                                        timeStep, sharpMethod,...
-                                       outPlot);
+                                       outPlot, binaural);
 
 end  % end of acousticSharpQuasiLoudWav function

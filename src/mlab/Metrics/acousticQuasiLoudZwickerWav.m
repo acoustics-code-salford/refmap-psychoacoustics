@@ -26,10 +26,10 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
 %
 % timeStep : number
 %   The time step value used to calculate the time-dependent Leq
-%   and sharpness.
+%   and loudness.
 %
 % axisN : integer (1 or 2, default: 1)
-%   The time axis along which to calculate the sharpness.
+%   The time axis along which to calculate the loudness.
 %
 % soundField : keyword string (default: 'freeFrontal')
 %   Determines whether the 'freeFrontal' or 'diffuse' field stages
@@ -109,7 +109,7 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 04/11/2025
+% Date last modified: 13/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -167,8 +167,11 @@ numChans = size(p_re, 2);
 
 % Get time-averaged power spectrum
 [pxx, ~] = poctave(p_re, resampledRate, 'spectrogram', 'BandsPerOctave', 3,...
+                   'FilterOrder', 6,...
+                   'FrequencyLimits', [25, 12600],...
+                   'Weighting', 'none',...
                    'WindowLength', resampledRate*timeStep,...
-                   'FrequencyLimits', [25, 12500]);
+                   'OverlapPercent', 0);
 
 % reorientate power spectrum
 if numChans == 1

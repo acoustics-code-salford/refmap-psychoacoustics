@@ -273,6 +273,12 @@ sharpnessTDep(loudnessTDep==0) = 0;
 % overall (power-averaged) sharpness
 sharpnessPowAvg = (sum(sharpnessTDep((57 + 1):end, :).^(1/log10(2)), 1)./size(sharpnessTDep((57 + 1):end, :), 1)).^log10(2);
 
+if chansIn == 2 && binaural
+    % alternative binaural calculation method (Hochbaum et al, 2025)
+    sharpnessTDepBin2 = sqrt(sum(sharpnessTDep.^2, 2)/2);
+    sharpnessPowAvgBin2 = (sum(sharpnessTDepBin2((57 + 1):end, :).^(1/log10(2)), 1)./size(sharpnessTDepBin2((57 + 1):end, :), 1)).^log10(2);
+end
+
 % time (s) corresponding with results output
 timeOut = (0:(size(specSHMLoudness, 1) - 1))*dt;
 
@@ -284,6 +290,8 @@ if chansOut == 3
     sharpnessSHM.sharpnessPowAvg = sharpnessPowAvg(1:2);
     sharpnessSHM.sharpnessTDepBin = sharpnessTDep(:, 3);
     sharpnessSHM.sharpnessPowAvgBin = sharpnessPowAvg(:, 3);
+    sharpnessSHM.sharpnessTDepBin2 = sharpnessTDepBin2;
+    sharpnessSHM.sharpnessPowAvgBin2 = sharpnessPowAvgBin2;
     sharpnessSHM.timeOut = timeOut;
     sharpnessSHM.method = method;
 else

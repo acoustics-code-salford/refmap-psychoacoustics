@@ -133,7 +133,7 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRateIn, axisN, soundField,
 % Institution: University of Salford
 %
 % Date created: 01/11/2024
-% Date last modified: 12/11/2025
+% Date last modified: 13/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -309,6 +309,12 @@ sharpnessTDep(loudnessTDep==0) = 0;
 % overall (power-averaged) sharpness
 sharpnessPowAvg = (sum(sharpnessTDep((57 + 1):end, :).^(1/log10(2)), 1)./size(sharpnessTDep((57 + 1):end, :), 1)).^log10(2);
 
+if chansIn == 2 && binaural
+    % alternative binaural calculation method (Hochbaum et al, 2025)
+    sharpnessTDepBin2 = sqrt(sum(sharpnessTDep(:, 1:2).^2, 2)/2);
+    sharpnessPowAvgBin2 = (sum(sharpnessTDepBin2((57 + 1):end, :).^(1/log10(2)), 1)./size(sharpnessTDepBin2((57 + 1):end, :), 1)).^log10(2);
+end
+
 % time (s) corresponding with results output
 timeOut = (0:(size(specSHMLoudness, 1) - 1))*dt;
 
@@ -320,6 +326,8 @@ if chansOut == 3
     sharpnessSHM.sharpnessPowAvg = sharpnessPowAvg(1:2);
     sharpnessSHM.sharpnessTDepBin = sharpnessTDep(:, 3);
     sharpnessSHM.sharpnessPowAvgBin = sharpnessPowAvg(:, 3);
+    sharpnessSHM.sharpnessTDepBin2 = sharpnessTDepBin2;
+    sharpnessSHM.sharpnessPowAvgBin2 = sharpnessPowAvgBin2;
     sharpnessSHM.timeOut = timeOut;
     sharpnessSHM.soundField = soundField;
     sharpnessSHM.method = method;
@@ -364,7 +372,33 @@ if outPlot
         lgd = legend('Location', 'eastoutside', 'FontSize', 8);
         lgd.Title.String = "Overall";
         chan_lab = chans(chan);
-        title(strcat(chan_lab, ' signal'),...
+
+        % Create A-weighting filter
+        weightFilt = weightingFilter('A-weighting', sampleRateIn);
+        % Filter signal to determine A-weighted time-averaged level
+        if chan == 3
+            pA = weightFilt(p);
+            LAeq2 = 20*log10(rms(pA, 1)/2e-5);
+            % take the higher channel level as representative (PD ISO/TS
+            % 12913-3:2019 Annex D)
+            [LAeq, LR] = max(LAeq2);
+            % if branch to identify which channel is higher
+            if LR == 1
+                whichEar = ' left ear';
+            else
+                whichEar = ' right ear';
+            end  % end of if branch
+
+            chan_lab = chan_lab + whichEar;
+
+        else
+            pA = weightFilt(p(:, chan));
+            LAeq = 20*log10(rms(pA)/2e-5);
+        end
+        
+        title(strcat(chan_lab,...
+                     ' signal sound pressure level =', {' '},...
+                     num2str(round(LAeq, 1)), "dB {\itL}_{Aeq}"),...
                      'FontWeight', 'normal', 'FontName', 'Arial');
     end  % end of for loop for plotting over channels
 end  % end of if branch for plotting
