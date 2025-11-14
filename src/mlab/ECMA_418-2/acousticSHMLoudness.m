@@ -106,7 +106,7 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford
 %
 % Date created: 22/09/2023
-% Date last modified: 12/11/2025
+% Date last modified: 14/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -259,7 +259,7 @@ end
 loudnessPowAvg = (sum(loudnessTDep((57 + 1):end, :).^(1/log10(2)), 1)./size(loudnessTDep((57 + 1):end, :), 1)).^log10(2);
 
 % time (s) corresponding with results output [t]
-timeOut = (0:(size(specLoudness, 1) - 1))/sampleRate1875;
+timeOut = transpose((0:(size(specLoudness, 1) - 1))/sampleRate1875);
 
 %% Output plotting
 

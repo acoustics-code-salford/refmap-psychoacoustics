@@ -133,7 +133,7 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRateIn, axisN, soundField,
 % Institution: University of Salford
 %
 % Date created: 01/11/2024
-% Date last modified: 13/11/2025
+% Date last modified: 14/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -316,7 +316,7 @@ if chansIn == 2 && binaural
 end
 
 % time (s) corresponding with results output
-timeOut = (0:(size(specSHMLoudness, 1) - 1))*dt;
+timeOut = transpose((0:(size(specSHMLoudness, 1) - 1))*dt);
 
 %% Output assignment
 

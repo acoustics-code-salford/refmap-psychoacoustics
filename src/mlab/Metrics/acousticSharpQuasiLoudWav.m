@@ -131,7 +131,7 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRatein, timeStep, axisN,
 %
 % Requirements
 % ------------
-% None
+% Signal Processing Toolbox
 %
 % Ownership and Quality Assurance
 % -------------------------------
@@ -211,7 +211,7 @@ end
 Leq = 10*log10(pxx/4e-10);
 
 % Calculate loudness
-loudness = acousticQuasiLoudZwicker(Leq, [25 12500], 2, soundField,...
+loudness = acousticQuasiLoudZwicker(Leq, [25 12600], 2, soundField,...
                                     adjustLoud);
 
 % Calculate sharpness

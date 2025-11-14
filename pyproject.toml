@@ -27,6 +27,7 @@ dependencies = [
     "pyqt5-qt5==5.15.2",
     "pyqt5-sip==12.17.0",
     "pyqt6>=6.9.1",
+    "python-calamine>=0.5.4",
     "scipy>=1.16.1",
     "seaborn>=0.13.2",
     "soundfile>=0.13.1",

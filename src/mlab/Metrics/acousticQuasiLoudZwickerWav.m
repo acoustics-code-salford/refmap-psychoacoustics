@@ -101,7 +101,7 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
 %
 % Requirements
 % ------------
-% None
+% Signal Processing Toolbox
 %
 % Ownership and Quality Assurance
 % -------------------------------

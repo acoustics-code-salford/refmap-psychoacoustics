@@ -96,7 +96,7 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 12/11/2025
+% Date last modified: 14/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -234,6 +234,9 @@ cal_Rx = 1/1.0011565;  % calibration adjustment factor
 % standardised epsilon
 epsilon = 1e-12;
 
+% term used to compensate for MATLAB 1-indexing
+mlabIdx = 1;
+
 %% Signal processing
 
 % Input pre-processing
@@ -363,7 +366,6 @@ for chan = chansIn:-1:1
     % theta used in equation 79, including additional index for
     % errorCorrection terms from table 10
     theta = 0:1:33;
-    mlabIndex = 1;  % term used to compensate for MATLAB 1-indexing
     nBlocks = size(modWeightSpectraAvg, 2);
     modAmp = zeros(10, nBlocks, nBands);
     modRate = zeros(10, nBlocks, nBands);
@@ -378,18 +380,18 @@ for chan = chansIn:-1:1
         % Section 7.1.5.1 ECMA-418-2:2025
         for lBlock = nBlocks:-1:1
             % identify peaks in each block (for each band)
-            startIdx = 2;
-            endIdx = 255;
-            [PhiPks, kLocs, ~, proms] = findpeaks(modWeightSpectraAvg(startIdx + mlabIndex:endIdx + mlabIndex,...
+            startk = 2;
+            endk = 255;
+            [PhiPks, kLocs, ~, proms] = findpeaks(modWeightSpectraAvg(startk + mlabIdx:endk + mlabIdx,...
                                                                       lBlock,...
                                                                       zBand));
 
             % reindex kLocs to match spectral start index used in findpeaks
             % for indexing into modulation spectra matrices
-            kLocs = kLocs + startIdx;
+            kLocs = kLocs + startk;
 
-            % we can only have peaks at k = 3:254
-            mask = ismember(kLocs, 3:254);
+            % we can only have peaks at k = 3:254 -> kLocs = 4:255
+            mask = ismember(kLocs, 3:254 + mlabIdx);
             kLocs = kLocs(mask);
             PhiPks = PhiPks(mask);
 
@@ -432,9 +434,9 @@ for chan = chansIn:-1:1
                     % in the calculation, MATLAB indexing needs to be
                     % compensated for by subtracting 1 from kLocs
                     % [K]
-                    modIndexMat = [(kLocs(iPeak) - mlabIndex - 1)^2, kLocs(iPeak) - mlabIndex - 1, 1;
-                                   (kLocs(iPeak) - mlabIndex)^2, kLocs(iPeak) - mlabIndex, 1;
-                                   (kLocs(iPeak) - mlabIndex + 1)^2, kLocs(iPeak) - mlabIndex + 1, 1];
+                    modIndexMat = [(kLocs(iPeak) - mlabIdx - 1)^2, kLocs(iPeak) - mlabIdx - 1, 1;
+                                   (kLocs(iPeak) - mlabIdx)^2, kLocs(iPeak) - mlabIdx, 1;
+                                   (kLocs(iPeak) - mlabIdx + 1)^2, kLocs(iPeak) - mlabIdx + 1, 1];
 
                     coeffVec = modIndexMat\modAmpMat;  % Equation 73 solution [C]
 
@@ -443,7 +445,7 @@ for chan = chansIn:-1:1
 
                     % Equation 79 ECMA-418-2:2025 [beta(theta)]
                     errorBeta = (floor(modRateEst/resDFT1500) + theta(1:33)/32)*resDFT1500...
-                                - (modRateEst + errorCorrection(theta(1:33) + mlabIndex)); % compensated theta value for MATLAB-indexing
+                                - (modRateEst + errorCorrection(theta(1:33) + mlabIdx)); % compensated theta value for MATLAB-indexing
 
                     % Equation 80 ECMA-418-2:2025 [theta_min]
                     [~, i_minError] = min(abs(errorBeta));
@@ -460,12 +462,12 @@ for chan = chansIn:-1:1
                     % thetaCorr is 0-indexed so needs adjusting when
                     % indexing
                     % [rho(ftilde_p,i(l,z))]
-                    biasAdjust = errorCorrection(thetaCorr + mlabIndex - 1)...
-                                 - (errorCorrection(thetaCorr + mlabIndex)...
-                                    - errorCorrection(thetaCorr + mlabIndex - 1))...
-                                    *errorBeta(thetaCorr + mlabIndex - 1)...
-                                    /(errorBeta(thetaCorr + mlabIndex)...
-                                      - errorBeta(thetaCorr + mlabIndex - 1));
+                    biasAdjust = errorCorrection(thetaCorr + mlabIdx - 1)...
+                                 - (errorCorrection(thetaCorr + mlabIdx)...
+                                    - errorCorrection(thetaCorr + mlabIdx - 1))...
+                                    *errorBeta(thetaCorr + mlabIdx - 1)...
+                                    /(errorBeta(thetaCorr + mlabIdx)...
+                                      - errorBeta(thetaCorr + mlabIdx - 1));
 
                     % Equation 77 ECMA-418-2:2025 [f_p,i(l,z)]
                     modRate(iPeak, lBlock, zBand) = modRateEst + biasAdjust;
@@ -671,7 +673,7 @@ end
 roughness90Pc = prctile(roughnessTDep(17:end, :), 90, 1);
 
 % time (s) corresponding with results output [t]
-timeOut = (0:(size(specRoughness, 1) - 1))/sampleRate50;
+timeOut = transpose((0:(size(specRoughness, 1) - 1))/sampleRate50);
 
 %% Output plotting
 

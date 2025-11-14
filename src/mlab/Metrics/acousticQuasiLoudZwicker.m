@@ -5,7 +5,7 @@ function loudness = acousticQuasiLoudZwicker(spectrL, fLim, axisF, soundField, a
 % Returns quasi-loudness using spectral elements of ISO 532-1 Zwicker
 % loudness model for arbitrary spectra. The temporal weighting of the
 % model is disregarded. The input spectra must be 1/3 octave band
-% resolution, limited to the 25 Hz-12.5 kHz range.
+% resolution Leq, limited to the 25 Hz-12.5 kHz range.
 %
 % Optional modifications available comprise an adjustment to the spectral
 % levels to improve agreement with the 2023 ISO 226 equal loudness
@@ -18,7 +18,7 @@ function loudness = acousticQuasiLoudZwicker(spectrL, fLim, axisF, soundField, a
 % Inputs
 % ------
 % spectrL : vector, 2D or 3D matrix
-%   The contiguous input sound level 1/3-octave spectrum or spectra for
+%   The contiguous input sound level 1/3-octave Leq spectrum or spectra for
 %   processing. Must be orientated with time and frequency bands on
 %   first two axes, and channels on third axis.
 %
@@ -99,7 +99,7 @@ function loudness = acousticQuasiLoudZwicker(spectrL, fLim, axisF, soundField, a
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 13/11/2025
+% Date last modified: 05/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
