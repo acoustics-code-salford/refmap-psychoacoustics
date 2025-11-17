@@ -1,4 +1,4 @@
-function annoyance = acousticPsychAnnoy(p, sampleRateIn, axisN, startSkip, soundField, prctExceed, outPlot)
+function annoyance = acousticPsychAnnoy(p, sampleRateIn, axisN, startSkip, soundField, outPlot)
 % annoyance = acousticPsychAnnoy(p, sampleRateIn, axisN, startSkip, soundField, prctExceed, outPlot)
 %
 % Returns psychoacoustic annoyance values according to Widmann (1992) [also
@@ -24,69 +24,125 @@ function annoyance = acousticPsychAnnoy(p, sampleRateIn, axisN, startSkip, sound
 % Inputs
 % ------
 % p : vector or 2D matrix
-%     the input signal as single mono or stereo audio (sound
-%     pressure) signals
+%   Input signal as single mono or stereo audio (sound pressure) signals.
 %
 % sampleRateIn : integer
-%                the sample rate (frequency) of the input signal(s)
+%   Sample rate (frequency) of the input signal(s).
 %
 % axisN : integer (1 or 2, default: 1)
-%         the time axis along which to calculate the tonality
+%   Time axis along which to calculate the tonality.
 %
 % startSkip : number (default: 2)
-%             the amount of time to skip at the start of the signal for
-%             calculating time-aggregated outputs (starts from next input
-%             sample). The default value is obtained from the result of
-%             calculating fluctuation strength for the relevant reference
-%             signal
+%   Amount of time to skip at the start of the signal for
+%   calculating time-aggregated outputs (starts from next input
+%   sample). The default value is obtained from the result of
+%   calculating fluctuation strength for the relevant reference
+%   signal.
 %
 % soundField : keyword string (default: 'freeFrontal')
-%              determines whether the 'freeFrontal' or 'diffuse' field stages
-%              are applied in the outer-middle ear filtering.
-%
-% prctExceed : vector (default: [0, 1, 5, 10, 50, 90, 95, 99, 100]
-%              time-aggregation percent-exceeded for calculation
-%              (calculated from 100-statistical percentile)
+%   Determines whether the 'freeFrontal' or 'diffuse' field stages
+%   are applied in the outer-middle ear filtering.
 %
 % outPlot : Boolean true/false (default: false)
-%           flag indicating whether to generate a figure from the output
+%   Flag indicating whether to generate a figure from the output.
 %
 % Returns
 % -------
 %
 % annoyance : structure
-%                contains the output
+%   contains the output
 %
 % annoyance contains the following outputs:
 %
-% specRoughness : matrix
-%                 time-dependent specific roughness for each (half)
-%                 critical band
-%                 arranged as [time, bands(, channels)]
+% loudness : structure
+%   contains sub-outputs:
 %
-% specRoughnessAvg : matrix
-%                    time-averaged specific roughness for each (half)
-%                    critical band
-%                    arranged as [bands(, channels)]
+%   NTDep : vector or 2D matrix
+%       Time-dependent overall loudness arranged as [time(, channels)].
 %
-% roughnessTDep : vector or matrix
-%                 time-dependent overall roughness
-%                 arranged as [time(, channels)]
-% 
-% roughness90Pc : number or vector
-%                 time-aggregated (90th percentile) overall roughness
-%                 arranged as [roughness(, channels)]
+%   specN : matrix
+%       Time-dependent specific loudness for each critical band
+%       arranged as [time, bands(, channels)].
 %
-% bandCentreFreqs : vector
-%                   centre frequencies corresponding with each (half)
-%                   critical band rate scale width
+%   N5 : number or vector
+%       Time-aggregated loudness, as 5%-exceeded (95th percentile).
 %
-% timeOut : vector
-%           time (seconds) corresponding with time-dependent outputs
+%   NPwAvg : number or vector
+%       Time-aggregated loudness, as power-average (see ECMA-418-2).
+%
+%   timeOutN : vector
+%       Time (seconds) corresponding with time-dependent loudness outputs.
+%
+% sharpness : structure
+%   contains sub-outputs:
+%
+%   STDep : vector or 2D matrix
+%       Time-dependent sharpness arranged as [time(, channels)].
+%
+%   S5 : number or vector
+%       Time-aggregated sharpness, as 5%-exceeded (95th percentile).
+%
+%   SPwAvg : number or vector
+%       Time-aggregated sharpness, as power-average (see ECMA-418-2).
+%
+%   timeOutS : vector
+%       Time (seconds) corresponding with time-dependent sharpness outputs.
+%
+% fluctuation : structure
+%   contains sub-outputs:
+%
+%   FTDep : vector or 2D matrix
+%       Time-dependent overall fluctuation strength arranged as
+%       [time(, channels)].
+%
+%   specF : matrix
+%       Time-dependent specific fluctuation strength for each critical band
+%       arranged as [time, bands(, channels)].
+%
+%   F5 : number or vector
+%       Time-aggregated fluctuation strength, as 5%-exceeded (95th percentile).
+%
+%   F10 : number or vector
+%       Time-aggregated fluctuation strength, as 10%-exceeded (90th
+%       percentile).
+%
+%   timeOutF : vector
+%       Time (seconds) corresponding with time-dependent fluctuation 
+%       strength outputs.
+%
+% roughness : structure
+%   contains sub-outputs:
+%
+%   roughnessTDep : vector or 2D matrix
+%       Time-dependent overall roughness arranged as [time(, channels)].
+%
+%   specRoughness : matrix
+%       Time-dependent specific roughness for each critical band
+%       arranged as [time, bands(, channels)].
+%
+%   R5 : number or vector
+%       Time-aggregated roughness, as 5%-exceeded (95th percentile).
+%
+%   timeOutR : vector
+%       Time (seconds) corresponding with time-dependent roughness outputs.
+%
+% psychAnnoyTDep : vector or 2D matrix
+%   Time-dependent psychoacoustic annoyance arranged as [time(, channels)].
+%
+% psychAnnoyFrom5Pc : number or vector
+%   Overall psychoacoustic annoyance based on 5%-exceeded time-aggregated
+%   metric values.
+%
+% psychAnnoyFromAlt : number or vector
+%   Overall psychoacoustic annoyance based on alternative time-aggregated
+%   metric values (thought to be better estimates of overall perception for
+%   time-varying sound qualities).
+%
+% timeOutPA : vector
+%   Time (seconds) corresponding with time-dependent psychacoustic annoyance output.
 %
 % soundField : string
-%              identifies the soundfield type applied (the input argument
-%              fieldtype)
+%              identifies the soundfield type applied (= input argument)
 %
 % If outplot=true, a set of plots is returned illustrating the energy
 % time-averaged A-weighted sound level, the time-dependent specific and
@@ -109,7 +165,7 @@ function annoyance = acousticPsychAnnoy(p, sampleRateIn, axisN, startSkip, sound
 % Institution: University of Salford
 %
 % Date created: 07/07/2025
-% Date last modified: 10/07/2025
+% Date last modified: 17/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -139,7 +195,6 @@ function annoyance = acousticPsychAnnoy(p, sampleRateIn, axisN, startSkip, sound
         soundField (1, :) string {mustBeMember(soundField,...
                                                {'freeFrontal',...
                                                 'diffuse'})} = 'freeFrontal'
-        prctExceed (1, :) {mustBeReal, mustBeInteger} = [0, 1, 5, 10, 50, 90, 95, 99, 100]
         outPlot (1, 1) {mustBeNumericOrLogical} = false
     end
 
@@ -197,10 +252,20 @@ calF = 1.044096149945446;
 calS = 0.993681909452517;
 
 % sampling periods for output component metrics
-samplePerNSF = 1/500;  % period for loudness, sharpness and fluctuation strength
+samplePerN = 1/500;  % period for loudness
+samplePerS = 1/500;  % period for sharpness
+samplePerF = 1/500;  % period for fluctuation strength
 samplePerR = 1/2000;  % period for roughness
-sampleRateNSF = 500;  % rate for loudness, sharpness and fluctuation strength
-sampleRateR = 2000;  % rate for roughness
+
+barkAxis = 0.5:0.5:23.5;  % critical band rates
+
+% sample rates
+sampleRateN = 1/samplePerN;  % rate for loudness
+sampleRateS = 1/samplePerS;  % rate for loudness
+sampleRateF = 1/samplePerF;  % rate for loudness
+sampleRateR = 1/samplePerR;  % rate for roughness
+sampleRateMax = max([sampleRateN, sampleRateS, sampleRateF, sampleRateR]);
+samplePerMax = 1/sampleRateMax;
 
 % end skip in seconds, to avoid processing artefacts for modulation metrics
 endSkip = 0.5;
@@ -237,13 +302,35 @@ weightSharp(sharpness > 1.75) = 0.25*log10(loudness(sharpness > 1.75) + 10)...
                        .*(sharpness(sharpness > 1.75) - 1.75);
 
 % interpolation to match metric sampling rates
-timeOutNSF = 0:samplePerNSF:size(loudness, 1)*samplePerNSF - samplePerNSF;
-timeOutRPA = 0:samplePerR:size(roughness, 1)*samplePerR - samplePerR;
-loudUp = interp1(timeOutNSF, loudness, timeOutRPA, 'pchip').';
-fluctUp = interp1(timeOutNSF, fluctuation, timeOutRPA, 'pchip').';
-weightSharpUp = interp1(timeOutNSF, weightSharp, timeOutRPA, 'pchip').';
+lenN = size(loudness, 1);
+lenS = size(weightSharp, 1);
+lenF = size(fluctuation, 1);
+lenR = size(roughness, 1);
+lenMax = max([lenN, lenS, lenF, lenR]);
+timeOutN = 0:samplePerN:lenN*samplePerN - samplePerN;
+timeOutS = 0:samplePerS:lenS*samplePerS - samplePerS;
+timeOutF = 0:samplePerF:lenF*samplePerF - samplePerF;
+timeOutR = 0:samplePerR:lenR*samplePerR - samplePerR;
+timeOutMax = 0:samplePerMax:lenMax*samplePerMax - samplePerMax;
 
-weightMod = 2.18./loudUp.^0.4.*(0.4*fluctUp + 0.6*roughness);
+if lenN < lenMax
+    loudUp = interp1(timeOutN, loudness, timeOutMax, 'pchip').';
+end
+
+if lenS < lenMax
+    weightSharpUp = interp1(timeOutS, weightSharp, timeOutMax, 'pchip').';
+end
+
+if lenF < lenMax
+    fluctUp = interp1(timeOutF, fluctuation, timeOutMax, 'pchip').';
+end
+
+if lenR < lenMax
+    roughUp = interp1(timeOutR, roughness, timeOutMax, 'pchip').';
+end
+
+% weighted time-dependent modulation
+weightMod = 2.18./loudUp.^0.4.*(0.4*fluctUp + 0.6*roughUp);
 
 % time-dependent psychoacoustic annoyance
 psychAnnoyTDep = loudUp.*(1 + sqrt(weightSharpUp.^2 + weightMod.^2));
@@ -268,54 +355,179 @@ F10 = prctile(fluctuation(startSkipNSF:end - endSkipNSF, :), 90, 1);
 R10 = prctile(roughness(startSkipR:end - endSkipR, :), 90, 1);
 psychAnnoyFromAlt = PA(NPwAvg, SPwAvg, F10, R10);
 
+timeOutPA = 0:samplePerMax:size(psychAnnoyTDep, 1)*samplePerMax - samplePerMax;
+
 %% Output plotting
 
 if outPlot
-    cmap_plasma = load('cmap_plasma.txt');
-    cmap_inferno = load('cmap_inferno.txt');
-    cmap_magma = load('cmap_magma.txt');
-    cmap_viridis = load('cmap_viridis.txt');
-    cmap_cividis = load('cmap_cividis.txt');
+    % TODO needs completing (based on detection)
+    % cmap_plasma = load('cmap_plasma.txt');
+    % cmap_inferno = load('cmap_inferno.txt');
+    % cmap_magma = load('cmap_magma.txt');
+    % cmap_viridis = load('cmap_viridis.txt');
+    % cmap_cividis = load('cmap_cividis.txt');
+    % cmap_mako = load('cmap_mako.txt');
+    % 
+    % % Plot figures
+    % % ------------
+    % for chan = chansIn:-1:1
+    %     % Plot results
+    %     fig = figure;
+    %     set(fig, 'position', [300, 200, 1300, 600])
+    %     tiledlayout(fig, 2, 3);
+    %     movegui(fig, 'center');
+    %     ax1 = nexttile(1);
+    % 
+    % 
+    %     fig = figure;
+    %     set(fig, 'position', [300, 200, 1300, 600])
+    %     tiledlayout(fig, 2, 3);
+    %     movegui(fig, 'center');
+    % 
+    %     ax1 = nexttile(1);
+    %     surf(ax1, [timeOutN, timeOutN(end) + timeOutN(2)] - timeOutN(2)/2, fm_vis - fBandWidth_vis/2,...
+    %          arrangeSpectro(dBSpecTarget(:, :, targChan)),...
+    %          EdgeColor='none', FaceColor='interp');
+    %     view(2);
+    %     set(ax1, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
+    %         'YScale', 'log', 'YLim', [f1(1), f2(end)],...
+    %         'YTick', [31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],...
+    %         'YTickLabel', ["31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]);
+    %     ax1.YLabel.String = "Frequency, Hz";
+    %     ax1.XLabel.String = "Time, s";
+    %     colormap(ax1, cmap_viridis);
+    %     cbar = colorbar; clim([0, max(dBSpecTarget(:, :, targChan), [], 'all')]);
+    %     cbar.Label.String = "dB re 2e-5 Pa";
+    %     ax1.Title.String = "Target spectrogram";
+    %     ax1.TitleFontWeight = "normal";
+    % 
+    %     ax2 = nexttile(2);
+    %     surf(ax2, [t, t(end) + timeStep] - timeStep/2, fm_vis - fBandWidth_vis/2,...
+    %          arrangeSpectro(detectabilitydB(:, :, targChan)),...
+    %          EdgeColor='none', FaceColor='interp');
+    %     view(2);
+    %     set(ax2, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
+    %         'YScale', 'log', 'YLim', [f1(1), f2(end)],...
+    %         'YTick', [31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],...
+    %         'YTickLabel', ["31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]);
+    %     ax2.YLabel.String = "Frequency, Hz";
+    %     ax2.XLabel.String = "Time, s";
+    %     colormap(ax2, cmap_magma);
+    %     cbar = colorbar; clim([0, max(detectabilitydB(:, :, targChan), [], 'all')]);
+    %     cbar.Label.String = "Detectability 10log_{10}{\it d'}, dB";
+    %     ax2.Title.String = "Masked target detectability";
+    %     ax2.TitleFontWeight = "normal";
+    % 
+    %     ax3 = nexttile(3);
+    %     plot(ax3, t, dBATDepTarget(:, targChan), 'color', cmap_magma(34, :), 'DisplayName', "Target")
+    %     hold on
+    %     plot(ax3, t, dBATDepMasker(:, maskChan), 'color', cmap_magma(166, :), 'DisplayName', "Masker")
+    %     plot(ax3, t, dBATDepDiscTarget(:, targChan), 'color', cmap_magma(100, :),...
+    %         'LineStyle', ':', 'LineWidth', 2, 'DisplayName', "Target discounted")
+    %     hold off
+    %     set(ax3, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
+    %         'YLim', [min(dBATDepMasker(:, maskChan), [], 'all') - 10,...
+    %                  max(max(dBATDepTarget(:, targChan), [], 'all'),...
+    %                  max(dBATDepMasker(:, maskChan), [], 'all'))*1.05],...
+    %         'XGrid', 'on', 'YGrid', 'on', 'GridAlpha', 0.075,...
+    %         'GridLineStyle', '--', 'GridLineWidth', 0.25);
+    %     ax3.YLabel.String = "dB(A) re 2e-5 Pa";
+    %     ax3.XLabel.String = "Time, s";
+    %     ax3.Title.String = "Time-dependent levels";
+    %     ax3.TitleFontWeight = "normal";
+    %     legend(ax3, 'Location', 'eastoutside');
+    % 
+    %     ax4 = nexttile(4);
+    %     surf(ax4, [t, t(end) + timeStep] - timeStep/2, fm_vis - fBandWidth_vis/2,...
+    %          arrangeSpectro(dBSpecMasker(:, :, targChan)),...
+    %          EdgeColor='none', FaceColor='interp');
+    %     view(2);
+    %     set(ax4, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
+    %         'YScale', 'log', 'YLim', [f1(1), f2(end)],...
+    %         'YTick', [31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],...
+    %         'YTickLabel', ["31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]);
+    %     ax4.YLabel.String = "Frequency, Hz";
+    %     ax4.XLabel.String = "Time, s";
+    %     colormap(ax4, cmap_viridis);
+    %     cbar = colorbar; clim([0, max(dBSpecMasker(:, :, targChan), [], 'all')]);
+    %     cbar.Label.String = "dB re 2e-5 Pa";
+    %     ax4.Title.String = "Masker spectrogram";
+    %     ax4.TitleFontWeight = "normal";
+    % 
+    %     ax5 = nexttile(5);
+    %     surf(ax5, [t, t(end) + timeStep] - timeStep/2, fm_vis - fBandWidth_vis/2,...
+    %          arrangeSpectro(dBSpecDiscTarget(:, :, targChan)),...
+    %          EdgeColor='none', FaceColor='interp');
+    %     view(2);
+    %     set(gca, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
+    %         'YScale', 'log', 'YLim', [f1(1), f2(end)],...
+    %         'YTick', [31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],...
+    %         'YTickLabel', ["31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]);
+    %     ax5.YLabel.String = "Frequency, Hz";
+    %     ax5.XLabel.String = "Time, s";
+    %     colormap(ax5, cmap_magma);
+    %     cbar = colorbar; clim([0, max(dBSpecDiscTarget(:, :, targChan), [], 'all')]);
+    %     cbar.Label.String = "Detectability-discounted \newline     level, dB re 2e-5 Pa";
+    %     ax5.Title.String = "Target detectability-discounted spectrogram";
+    %     ax5.TitleFontWeight = "normal";
+    % 
+    %     ax6 = nexttile(6);
+    %     levelVals = [LAETarget(targChan), LAEMasker(maskChan), LAEDiscTarget(targChan)];
+    %     labelVals = num2cell(round(levelVals, 1));
+    %     labelCats = ["Target", "Masker", "Discount. targ."];
+    %     % a trick using stacked bar to get the legend mapped
+    %     b = bar(ax6,...
+    %             diag(levelVals, 0),...
+    %             'stacked', 'FaceColor', 'flat');
+    %     set(b, {'FaceColor'}, {cmap_magma(34, :); cmap_magma(166, :); cmap_magma(100, :)})
+    %     set(ax6, 'YLim', [min(levelVals, [], 'all')/1.25, max(levelVals)*1.1])
+    %     ax6.YLabel.String = "{\it L}_{AE}, dB re 2e-5 Pa";
+    %     ax6.XTickLabel = [];
+    %     lg6 = legend(ax6, labelCats, 'Location','eastoutside');
+    %     lg6.Direction = 'normal';
+    %     % data labels
+    %     y = sum(reshape(cell2mat(get(b', 'YData')),size(b, 2), []), 1); 
+    %     x = unique(cell2mat(get(b', 'XData')),'stable');
+    %     offset = range(ylim)*.1; 
+    %     text(x, y - offset, labelVals, 'HorizontalAlignment', 'Center',...
+    %          'VerticalAlignment', 'bottom', 'Color', 'w');
+    %     ax6.Title.String = "Overall levels";
+    %     ax6.TitleFontWeight = "normal";
 
-    % Plot figures
-    % ------------
-    for chan = chansIn:-1:1
-        % Plot results
-        fig = figure;
-        set(fig, 'position', [300, 200, 1300, 600])
-        tiledlayout(fig, 2, 3);
-        movegui(fig, 'center');
-        ax1 = nexttile(1);
-    end
+    % end
 end
 
 %% Output assignment
 
-annoyance.loudness.loudnessTDep = loudness;
-annoyance.loudness.specLoudness = specLoudness;
+annoyance.loudness.NTDep = loudness;
+annoyance.loudness.specN = specLoudness;
 annoyance.loudness.N5 = N5;
 annoyance.loudness.NPwAvg = NPwAvg;
+annoyance.loudness.timeOutN = timeOutN;
 
-annoyance.sharpness.sharpnessTDep = sharpness;
+annoyance.sharpnessSTDep = sharpness;
 annoyance.sharpness.S5 = S5;
 annoyance.sharpness.SPwAvg = SPwAvg;
+annoyance.loudness.timeOutS = timeOutS;
 
-annoyance.fluctuation.fluctuationTDep = fluctuation;
-annoyance.fluctuation.specFluctuation = specFluctuation;
+annoyance.fluctuation.FTDep = fluctuation;
+annoyance.fluctuation.specF = specFluctuation;
 annoyance.fluctuation.F5 = F5;
 annoyance.fluctuation.F10 = F10;
+annoyance.loudness.timeOutF = timeOutF;
 
-annoyance.roughness.roughnessTDep = roughness;
-annoyance.roughness.specRoughness = specRoughness;
+annoyance.roughness.RTDep = roughness;
+annoyance.roughness.specR = specRoughness;
 annoyance.roughness.R5 = R5;
 annoyance.roughness.R10 = R10;
+annoyance.loudness.timeOutR = timeOutR;
 
 annoyance.psychAnnoyTDep = psychAnnoyTDep;
 annoyance.psychAnnoyFrom5Pc = psychAnnoyFrom5Pc;
 annoyance.psychAnnoyFromAlt = psychAnnoyFromAlt;
+annoyance.timeOutPA = timeOutPA;
 
-annoyance.timeOut.timeOutNSF = timeOutNSF;
-annoyance.timeOut.timeOutRPA = timeOutRPA;
+annoyance.soundField = soundField;
 
 %% nested function to calculate psychoacoustic annoyance
 function pa = PA(N, S, F, R)

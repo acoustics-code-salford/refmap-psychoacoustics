@@ -1,5 +1,5 @@
-function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, waitBar, outPlot)
-% tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, waitBar, outPlot)
+function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, waitBar, outPlot, annoyWeight)
+% tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, waitBar, outPlot, annoyWeight)
 %
 % Returns tonality values and frequencies according to ECMA-418-2:2025
 % (using the Sottek Hearing Model) for an input calibrated single mono
@@ -27,11 +27,15 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 %   specific recorded responses.
 %
 % waitBar : keyword string (default: true)
-%   Determines whether a progress bar displays during processing
+%   Determines whether a progress bar displays during processing.
 %
 % outPlot : Boolean true/false (default: false)
 %   Flag indicating whether to generate a figure from the output
-%   (set outPlot to false for doing multi-file parallel calculations)
+%   (set outPlot to false for doing multi-file parallel calculations).
+%
+% annoyWeight : Boolean true/false (default: false)
+%   Flag indicating whether to include tonal annoyance-weighted results in
+%   the output.
 % 
 % Returns
 % -------
@@ -89,6 +93,24 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 % soundField : string
 %   Identifies the soundfield type applied (= input argument)
 %
+% If annoyWeight=true, additional outputs are included in tonality:
+%
+% specTonalityAnnoy : matrix
+%   Tonal annoyance-weighted, time-dependent specific tonality for each
+%   critical band arranged as [time, bands(, channels)]
+%
+% specTonalityAvgAnnoy : matrix
+%   Tonal annoyance-weighted, time-averaged specific tonality for each
+%   critical band arranged as [bands(, channels)]
+%
+% tonalityTDepAnnoy : vector or matrix
+%   Tonal annoyance-weighted, time-dependent overall tonality
+%   arranged as [time(, channels)]
+%
+% tonalityAvgAnnoy : number or vector
+%   Tonal annoyance-weighted, time-averaged overall tonality
+%   arranged as [tonality(, channels)]
+%
 % If outPlot=true, a set of plots is returned illustrating the energy
 % time-averaged A-weighted sound level, the time-dependent specific and
 % overall tonality, with the latter also indicating the time-aggregated
@@ -111,7 +133,7 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford
 %
 % Date created: 07/08/2023
-% Date last modified: 14/11/2025
+% Date last modified: 17/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -148,6 +170,7 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
                                                 'noEar'})} = 'freeFrontal'
         waitBar {mustBeNumericOrLogical} = true
         outPlot {mustBeNumericOrLogical} = false
+        annoyWeight {mustBeNumericOrLogical} = false
     end
 
 %% Load path (assumes root directory is refmap-psychoacoustics)
@@ -512,6 +535,27 @@ for chan = chansIn:-1:1
     % Time-averaged total tonality [T]
     tonalityAvg(chan) = sum(tonalityTDep(mask, chan))/(nnz(mask) + epsilon);
 
+    if annoyWeight
+        % Tonal annoyance weighted results
+        annoyWeightx = ones(size(bandCentreFreqs));
+        annoyWeightx(bandCentreFreqs...
+                     >= 1e3) = 2.3*(log10(bandCentreFreqs(bandCentreFreqs...
+                                                          >= 1e3)) - 3) + 1;
+        specTonalityAnnoy(:, :, chan) = specTonality(:, :, chan).*annoyWeightx;
+
+        for zBand = 53:-1:1
+            mask = specTonalityAnnoy(:, zBand, chan) > 0.02;
+            mask(1:(58 - 1)) = 0;
+            specTonalityAvgAnnoy(1, zBand, chan)...
+                = sum(specTonalityAnnoy(mask, zBand, chan), 1)./(nnz(mask) + epsilon);
+        end
+
+        tonalityTDepAnnoy(:, chan) = max(specTonalityAnnoy(:, :, chan), [], 2);
+        mask = tonalityTDepAnnoy(:, chan) > 0.02;
+        mask(1:(58 - 1)) = 0;
+        tonalityAvgAnnoy(chan) = sum(tonalityTDepAnnoy(mask, chan))/(nnz(mask) + epsilon);
+    end
+
     if waitBar
         close(w)  % close waitbar
     end
@@ -577,20 +621,84 @@ for chan = chansIn:-1:1
         ax2.FontSize = 12;
         lgd = legend('Location', 'eastoutside', 'FontSize', 8);
         lgd.Title.String = "Overall";
+
+        if annoyWeight
+            % Plot tonal annoyance-weighted results
+            chan_lab = chans(chan);
+            fig = figure;
+            tiledlayout(fig, 2, 1);
+            movegui(fig, 'center');
+            ax1 = nexttile(1);
+            surf(ax1, timeOut, bandCentreFreqs, permute(specTonalityAnnoy(:, :, chan),...
+                                                  [2, 1, 3]),...
+                 'EdgeColor', 'none', 'FaceColor', 'interp');
+            view(2);
+            ax1.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
+            ax1.YLim = [bandCentreFreqs(1), bandCentreFreqs(end)];
+            ax1.CLim = [0, ceil(max(tonalityTDep(:, chan))*10)/10];
+            ax1.YTick = [63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3]; 
+            ax1.YTickLabel = ["63", "125", "250", "500", "1k", "2k", "4k",...
+                              "8k", "16k"]; 
+            ax1.YScale = 'log';
+            ax1.YLabel.String = "Frequency, Hz";
+            ax1.XLabel.String = "Time, s";
+            ax1.FontName =  'Arial';
+            ax1.FontSize = 12;
+            colormap(cmap_plasma);
+            h = colorbar;
+            set(get(h,'label'),'string', {'Specific tonality; (tonal annoyance-weighted),; tu_{SHMaw}/Bark_{SHM}'});
+    
+            % Create A-weighting filter
+            weightFilt = weightingFilter('A-weighting', sampleRate48k);
+            % Filter signal to determine A-weighted time-averaged level
+            pA = weightFilt(p_re(:, chan));
+            LAeq = 20*log10(rms(pA)/2e-5);
+            title(strcat(chan_lab,...
+                         " signal sound pressure level =", {' '},...
+                         num2str(round(LAeq,1)), "dB {\itL}_{Aeq}"),...
+                         'FontWeight', 'normal', 'FontName', 'Arial');
+    
+            ax2 = nexttile(2);
+            plot(ax2, timeOut, tonalityAvgAnnoy(1, chan)*ones(size(timeOut)), 'color', cmap_plasma(34, :),...
+                 'LineWidth', 1, 'DisplayName', "Time-" + string(newline) + "average");
+            hold on
+            plot(ax2, timeOut, tonalityTDepAnnoy(:, chan), 'color',  cmap_plasma(166, :),...
+                 'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
+            hold off
+            ax2.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
+            ax2.YLim = [0, 1.1*ceil(max(tonalityTDep(:, chan))*10)/10];
+            ax2.XLabel.String = "Time, s";
+            ax2.YLabel.String = "Tonality (tonal annoyance-weighted), tu_{SHMaw}";
+            ax2.XGrid = 'on';
+            ax2.YGrid = 'on';
+            ax2.GridAlpha = 0.075;
+            ax2.GridLineStyle = '--';
+            ax2.GridLineWidth = 0.25;
+            ax2.FontName = 'Arial';
+            ax2.FontSize = 12;
+            lgd = legend('Location', 'eastoutside', 'FontSize', 8);
+            lgd.Title.String = "Overall";
+        end
     end
 
 end  % end of for loop over channels
 
-%% Output assignment
-
-% Discard singleton dimensions
+% Discard singleton dimensions (must come after channels loop)
 if chansIn > 1
     specTonalityAvg = squeeze(specTonalityAvg);
     specTonalityAvgFreqs = squeeze(specTonalityAvgFreqs);
+    if annoyWeight
+        specTonalityAvgAnnoy = squeeze(specTonalityAvgAnnoy);
+    end
 else
     specTonalityAvg = transpose(specTonalityAvg);
     specTonalityAvgFreqs = transpose(specTonalityAvgFreqs);
+    if annoyWeight
+        specTonalityAvgAnnoy = transpose(specTonalityAvgAnnoy);
+    end
 end
+
+%% Output assignment
 
 % Assign outputs to structure
 tonalitySHM.specTonality = specTonality;
@@ -605,5 +713,13 @@ tonalitySHM.tonalityTDepFreqs = tonalityTDepFreqs;
 tonalitySHM.bandCentreFreqs = bandCentreFreqs;
 tonalitySHM.timeOut = timeOut;
 tonalitySHM.soundField = soundField;
+
+% additional outputs for tonal annoyance weighting
+if annoyWeight
+    tonalitySHM.specTonalityAnnoy = specTonalityAnnoy;
+    tonalitySHM.specTonalityAvgAnnoy = specTonalityAvgAnnoy;
+    tonalitySHM.tonalityTDepAnnoy = tonalityTDepAnnoy;
+    tonalitySHM.tonalityAvgAnnoy = tonalityAvgAnnoy;
+end
 
 % end of function

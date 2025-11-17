@@ -25,19 +25,31 @@ Signal 1 is unmodulated, which yields 0 asper roughness, so time-dependent and s
 
 ![Signal 3 time-dependent tonality](results/tonalSHMTDepBusySt.png)
 
+#### Tonal annoyance-weighted
+
+![Signal 3 time-dependent tonality](results/tonalSHMTDepAnnoyBusySt.png)
+
 ### Time-dependent specific tonality
 
 ![Signal 1 time-dependent specific tonality](results/tonalSHMSpecTDepSine1kHz40dB.png)
 
 ![Signal 3 time-dependent specific tonality](results/tonalSHMSpecTDepBusySt.png)
 
+#### Tonal annoyance-weighted
+
+![Signal 3 time-dependent specific tonality](results/tonalSHMSpecTDepAnnoyBusySt.png)
+
 ### Time-aggregated specific tonality
 
 ![Signal 3 time-aggregated specific tonality](results/tonalSHMSpecTAggBusySt.png)
 
+#### Tonal annoyance-weighted
+
+![Signal 3 time-aggregated specific tonality](results/tonalSHMSpecTAggAnnoyBusySt.png)
+
 ### Overall tonality
 
-<img src='results/tonalSHMsingles.png' width=400>
+<img src='results/tonalSHMsingles.png' width=600>
 
 ## Loudness
 ### Time-dependent loudness
@@ -62,7 +74,7 @@ Signal 1 is unmodulated, which yields 0 asper roughness, so time-dependent and s
 
 ### Overall loudness
 
-<img src='results/loudSHMsingles.png' width=400>
+<img src='results/loudSHMsingles.png' width=450>
 
 ## Roughness
 ### Time-dependent roughness
@@ -87,7 +99,7 @@ Signal 1 is unmodulated, which yields 0 asper roughness, so time-dependent and s
 
 ### Overall roughness
 
-<img src='results/roughSHMsingles.png' width=400>
+<img src='results/roughSHMsingles.png' width=450>
 
 ## Python implementation
 The verification results presented here comprise sound quality magnitude *differences* between the time-dependent specific outputs from the Python implementation and the MATLAB equivalents. The resulting values demonstrate that the differences are negligible in all cases (carefully note the scale of the colourbar axes, which are automatically ranged to the max and min differences).

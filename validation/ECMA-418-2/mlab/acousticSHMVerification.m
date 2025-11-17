@@ -19,7 +19,7 @@ function acousticSHMVerification(savePlots, includePython)
 % Institution: University of Salford
 %
 % Date created: 19/08/2024
-% Date last modified: 16/11/2025
+% Date last modified: 17/11/2025
 % MATLAB version: 2023b
 % [Python version: 3.11]
 %
@@ -81,6 +81,9 @@ sine_1kHz_70Hz_60dB.TonalSpecTDep = readmatrix(fullfile(refpath, "sine_1kHz_70Hz
 BusyStreet1_0530_0600.TonalTDep = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.Tonal_SHM_TDep_LR.asc"), 'FileType', 'text');
 BusyStreet1_0530_0600.TonalSpec = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.TonalSpec_SHM_LR.asc"), 'FileType', 'text');
 BusyStreet1_0530_0600.TonalSpecTDep = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.TonalSpec_SHM_TDep_LR.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.TonalTDepTaw = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.Tonal_SHM_TDep_Taw_LR.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.TonalSpecTaw = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.TonalSpec_SHM_Taw_LR.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.TonalSpecTDepTaw = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.TonalSpec_SHM_TDep_Taw_LR.asc"), 'FileType', 'text');
 
 % Roughness
 
@@ -108,6 +111,8 @@ sine_1kHz_40dB.Tonality = verification_ECMA_418_2_3_2025_LR{2, 5};
 sine_1kHz_70Hz_60dB.Tonality = verification_ECMA_418_2_3_2025_LR{3, 5};
 BusyStreet1_0530_0600.Tonality = [verification_ECMA_418_2_3_2025_LR{4, 5},...
                                   verification_ECMA_418_2_3_2025_LR{5, 5}];
+BusyStreet1_0530_0600.TonalityTaw = [verification_ECMA_418_2_3_2025_LR{4, 6},...
+                                  verification_ECMA_418_2_3_2025_LR{5, 6}];
 
 sine_1kHz_40dB.Roughness = verification_ECMA_418_2_3_2025_LR{2, 4};
 sine_1kHz_70Hz_60dB.Roughness = verification_ECMA_418_2_3_2025_LR{3, 4};
@@ -131,7 +136,7 @@ loudSingles = horzcat([sine_1kHz_40dB.Loudness, sine_1kHz_70Hz_60dB.Loudness],..
                       BusyStreet1_0530_0600.Loudness, BusyStreet1_0530_0600.LoudnessBin);
 
 tonalSingles = horzcat([sine_1kHz_40dB.Tonality, sine_1kHz_70Hz_60dB.Tonality],...
-                       BusyStreet1_0530_0600.Tonality);
+                       BusyStreet1_0530_0600.Tonality, BusyStreet1_0530_0600.TonalityTaw);
 
 roughSingles = horzcat([sine_1kHz_40dB.Roughness, sine_1kHz_70Hz_60dB.Roughness],...
                BusyStreet1_0530_0600.Roughness, BusyStreet1_0530_0600.RoughnessBin);
@@ -149,7 +154,7 @@ tonalitySHM1 = acousticSHMTonality(signal1, fs1, 1, 'freeFrontal',...
 tonalitySHM2 = acousticSHMTonality(signal2, fs2, 1, 'freeFrontal',...
                                    true, false);
 tonalitySHM3 = acousticSHMTonality(signal3, fs3, 1, 'freeFrontal',...
-                                   true, false);
+                                   true, false, true);
 
 loudnessSHM1 = acousticSHMLoudnessFromComponent(tonalitySHM1.specTonalLoudness,...
                                                 tonalitySHM1.specNoiseLoudness,...
@@ -177,7 +182,8 @@ loudSinglesAll = vertcat(loudSingles, horzcat([loudnessSHM1.loudnessPowAvg,...
 
 tonalSinglesAll = vertcat(tonalSingles, horzcat([tonalitySHM1.tonalityAvg,...
                                                  tonalitySHM2.tonalityAvg],...
-                                                tonalitySHM3.tonalityAvg));
+                                                tonalitySHM3.tonalityAvg,...
+                                                tonalitySHM3.tonalityAvgAnnoy));
 
 roughSinglesAll = vertcat(roughSingles, horzcat([roughnessSHM1.roughness90Pc,...
                                                  roughnessSHM2.roughness90Pc],...
@@ -233,14 +239,24 @@ SpecTDepPlot(BusyStreet1_0530_0600, tonalitySHM3, 'tonality', "BusyStreet1\_0530
 SpecTAggPlot(BusyStreet1_0530_0600, tonalitySHM3, 'tonality', "BusyStreet1\_0530-0600.wav",...
              false, figpath, "tonalSHMSpecTAggBusySt", figformat);
 
+% Time-dependent (tonal annoyance-weighted)
+TDepPlot(BusyStreet1_0530_0600, tonalitySHM3, 'tonalityAnnoy', "BusyStreet1\_0530-0600.wav",...
+         false, figpath, "tonalSHMTDepAnnoyBusySt", figformat);
+SpecTDepPlot(BusyStreet1_0530_0600, tonalitySHM3, 'tonalityAnnoy', "BusyStreet1\_0530-0600.wav",...
+             false, figpath, "tonalSHMSpecTDepAnnoyBusySt");
+
+% Time-aggregated (tonal annoyance-weighted)
+SpecTAggPlot(BusyStreet1_0530_0600, tonalitySHM3, 'tonalityAnnoy', "BusyStreet1\_0530-0600.wav",...
+             false, figpath, "tonalSHMSpecTAggAnnoyBusySt", figformat);
+
 % Single values
-fg = figure('Position', [200, 200, 450, 350]);
+fg = figure('Position', [200, 200, 650, 425]);
 movegui(fg, 'center');
-br = bar(strrep(signalLabs(1:end - 1), "_", " "), tonalSinglesAll);
+br = bar([strrep(signalLabs(1:end - 1), "_", " "); strcat(strrep(signalLabs(3:end - 1), "_", " "), " (tonal annoyance)")], tonalSinglesAll);
 cMap = load('cmap_plasma.txt');
 colororder([cMap(166, :); cMap(34, :)])
 ylabel("Tonality, tu_{SHM}")
-set(gca, 'YGrid', 'on', 'GridLineStyle', '--', 'GridAlpha', 0.15);
+set(gca, 'YGrid', 'on', 'GridLineStyle', '--', 'GridAlpha', 0.15, 'YLim', [0, 1.5]);
 hax = gca;
 hax.Toolbar.Visible = 'off';
 legend(["ArtemiS", "refmap"], 'Location', 'northeast')
@@ -249,6 +265,9 @@ for bb = 1:length(br)
         'HorizontalAlignment','center',...
         'VerticalAlignment','bottom', 'FontSize', 8)
 end
+yyaxis right
+ylabel(["Tonality (tonal"; "annoyance-weighted),"; "tu_{SHMaw}"])
+set(gca, 'YLim', [0, 1.5]);
 
 if savePlots
     exportgraphics(fg, fullfile(figpath, "tonalSHMsingles.pdf"), 'ContentType', 'vector')
@@ -421,6 +440,11 @@ function TDepPlot(struct1, struct2, metricType, titleStr, binaural,...
             unit = "Tonality, tu_{SHM}";
             metric1 = struct1.TonalTDep;
             metric2 = struct2.tonalityTDep;
+        case 'tonalityAnnoy'
+            cmap = load('cmap_plasma.txt');
+            unit = {"Tonality (tonal"; "annoyance-weighted)"; "tu_{SHMaw}"};
+            metric1 = struct1.TonalTDepTaw;
+            metric2 = struct2.tonalityTDepAnnoy;
         case 'loudness'
             cmap = load('cmap_viridis.txt');
             unit = "Loudness, sone_{SHM}";
@@ -516,6 +540,11 @@ function SpecTAggPlot(struct1, struct2, metricType, titleStr, binaural,...
             unit = "Specific tonality, tu_{SHM}/Bark_{SHM}";
             metric1 = struct1.TonalSpec;
             metric2 = struct2.specTonalityAvg;
+        case 'tonalityAnnoy'
+            cmap = load('cmap_plasma.txt');
+            unit = {"Specific tonality"; "(tonal annoyance-weighted)"; "tu_{SHMaw}/Bark_{SHM}"};
+            metric1 = struct1.TonalSpecTaw;
+            metric2 = struct2.specTonalityAvgAnnoy;
         case 'loudness'
             cmap = load('cmap_viridis.txt');
             unit = "Specific loudness, sone_{SHM}/Bark_{SHM}";
@@ -612,6 +641,11 @@ function SpecTDepPlot(struct1, struct2, metricType, titleStr, binaural,...
             unit = {"Specific tonality,"; "tu_{SHM}/Bark_{SHM}"};
             metric1 = struct1.TonalSpecTDep;
             metric2 = struct2.specTonality;
+        case 'tonalityAnnoy'
+            cmap = load('cmap_plasma.txt');
+            unit = {"Specific tonality"; "(tonal annoyance-weighted)"; "tu_{SHMaw}/Bark_{SHM}"};
+            metric1 = struct1.TonalSpecTDepTaw;
+            metric2 = struct2.specTonalityAnnoy;
         case 'loudness'
             cmap = load('cmap_viridis.txt');
             unit = {"Specific loudness,"; "sone_{SHM}/Bark_{SHM}"};
