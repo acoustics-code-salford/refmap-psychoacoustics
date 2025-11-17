@@ -14,6 +14,10 @@ The reference ArtemiS results are included in the [reference folder](reference).
 
 Calculated sound quality values and reference comparison figures were generated using the [verification script](mlab/acousticSHMVerification.m), which calls the algorithms from the [ECMA-418-2](../../src/mlab/ECMA_418-2) folder. The full set of comparison plots can be displayed by running the validation script; the selection presented below is sufficient to validate all capabilities of the algorithms.
 
+The tonal annoyance-weighted tonality values are based on the following publication, and do not currently form part of the ECMA-418-2 standard:
+
+> Sottek, R & Becker, J, 2019. Tonal annoyance vs. tonal loudness and tonality. In: Proceedings of Inter-noise 2019, Madrid, Spain, 16-19 June 2019.
+
 The values for the Python implementation were calculated using the corresponding [script](py/shmVerification.py), which calls the algorithms from the [relevant Python folder](../../src/refmap_psychoacoustics/metrics/ecma418_2), and saved as .mat files for use in the main [verification script](mlab/acousticSHMVerification.m). The Python implementation has subsequently been incorporated into an installable package [sottek-hearing-model](https://github.com/mlotinga/sottek-hearing-model) available on [PyPI](https://pypi.org/project/sottek-hearing-model), (```pip install sottek-hearing-model```).
 
 Signal 1 is unmodulated, which yields 0 asper roughness, so time-dependent and specific roughnesses are not displayed for this signal.
