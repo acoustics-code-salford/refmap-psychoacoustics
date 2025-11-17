@@ -322,8 +322,10 @@ indicesPsycho = ["LoudQZ5321PowAvgMaxLR",
                  "LoudQZ532105ExMaxLR",
                  "LoudQZ226PowAvgMaxLR",
                  "LoudQZ22605ExMaxLR",
+                 "LoudQZ226PowAvgBin",
                  "LoudQZ4182PowAvgMaxLR",
                  "LoudQZ418205ExMaxLR",
+                 "LoudQZ4182PowAvgBin",
                  "LoudECMAPowAvgBin",
                  "SharpAurQZ5321PowAvgBin",
                  "SharpAurQZ532105ExBin",
@@ -772,7 +774,7 @@ for ii, file in enumerate(filelist):
 
         # calculation section for SQM differences
         # exclude FluctFZ and LoudECMA
-        if filenames[ii].find("FluctFZ") == -1 or filenames[ii].find("LoudECMA") == -1: 
+        if (filenames[ii].find("FluctFZ") == -1) and (filenames[ii].find("LoudECMA") == -1): 
 
             # NOTE: THIS SECTION RELIES ON THE ALPHABETIC ORDER OF THE STIMULI FILES AS
             # ORIGINALLY NAMED: EACH AMBIENT SOUND FILE PRECEDING THE CORRESPONDING
@@ -829,11 +831,11 @@ for ii, file in enumerate(filelist):
                                              axis=1)
 
                     # mask for start/end skip
-                    dRoughFZTDepMask = roughFZTDep.loc[(dRoughFZTDep.index.values
-                                                        > start_skipT)
-                                                       & (dRoughFZTDep.index.values
-                                                          < dRoughFZTDep.index.values.max()
-                                                          - end_skipT)]
+                    dRoughFZTDepMask = dRoughFZTDep.loc[(dRoughFZTDep.index.values
+                                                         > start_skipT)
+                                                        & (dRoughFZTDep.index.values
+                                                           < dRoughFZTDep.index.values.max()
+                                                           - end_skipT)]
 
                     # overall (90th percentile = 10% exceeded) roughness
                     dRoughFZ10Ex = dRoughFZTDepMask.quantile(q=0.90, axis=0)
@@ -1072,8 +1074,8 @@ for ii, file in enumerate(filelist):
                                                  - end_skipT), :]
 
         # estimated binaural loudness from monaural loudness values
-        loudQZ226TDepBinMask = ((loudQZ226TDepMask.loc[:, 0]**2
-                                 + loudQZ226TDepMask.loc[:, 1]**2)/2).pow(0.5)
+        loudQZ226TDepBinMask = ((loudQZ226TDepMask.iloc[:, 0]**2
+                                 + loudQZ226TDepMask.iloc[:, 1]**2)/2).pow(0.5)
 
         # 2-channel overall (power-averaged) loudness
         loudQZ226PowAvg = ((loudQZ226TDepMask**(1/np.log10(2))).sum(axis=0)
@@ -1104,8 +1106,8 @@ for ii, file in enumerate(filelist):
                                                    - end_skipT), :]
         
         # estimated binaural loudness from monaural loudness values
-        loudQZ4182TDepBinMask = ((loudQZ4182TDepMask.loc[:, 0]**2
-                                  + loudQZ4182TDepMask.loc[:, 1]**2)/2).pow(0.5)
+        loudQZ4182TDepBinMask = ((loudQZ4182TDepMask.iloc[:, 0]**2
+                                  + loudQZ4182TDepMask.iloc[:, 1]**2)/2).pow(0.5)
 
         # 2-channel overall (power-averaged) loudness
         loudQZ4182PowAvg = ((loudQZ4182TDepMask**(1/np.log10(2))).sum(axis=0)
@@ -1123,9 +1125,9 @@ for ii, file in enumerate(filelist):
 
         # Calculate overall Aures+quasi-Zwicker sharpness from binaural
         # time-dependent sharpness
-        sharpAQZ5321TDepBin = pd.DataFrame(workbookdata['SharpAuresQZ5321Bin'].iloc[0:, 4].values,
-                                           columns=workbookdata['SharpAuresQZ5321Bin'].iloc[0, 4].index,
-                                           index=workbookdata['SharpAuresQZ5321Bin'].iloc[:, 0])
+        sharpAQZ5321TDepBin = pd.DataFrame(workbookdata['SharpAuresQZ5321'].iloc[0:, 3].values,
+                                           columns=[workbookdata['SharpAuresQZ5321'].iloc[0, :4].index[-1]],
+                                           index=workbookdata['SharpAuresQZ5321'].iloc[:, 0])
 
         # mask for start/end skip
         sharpAQZ5321TDepBinMask = sharpAQZ5321TDepBin.loc[(sharpAQZ5321TDepBin.index.values
@@ -1142,8 +1144,8 @@ for ii, file in enumerate(filelist):
 
         # Calculate overall Aures+quasi-Zwicker (ISO 226 adjusted) sharpness from binaural
         # time-dependent sharpness
-        sharpAQZ226TDepBin = pd.DataFrame(workbookdata['SharpAuresQZ226'].iloc[0:, 4].values,
-                                          columns=workbookdata['SharpAuresQZ226'].iloc[0, 4].index,
+        sharpAQZ226TDepBin = pd.DataFrame(workbookdata['SharpAuresQZ226'].iloc[0:, 3].values,
+                                          columns=[workbookdata['SharpAuresQZ226'].iloc[0, :4].index[-1]],
                                           index=workbookdata['SharpAuresQZ226'].iloc[:, 0])
 
         # mask for start/end skip
@@ -1161,8 +1163,8 @@ for ii, file in enumerate(filelist):
         
         # Calculate overall Aures+quasi-Zwicker (ECMA-418-2 ear filter and
         # transformation) sharpness from binaural time-dependent sharpness
-        sharpAQZ4182TDepBin = pd.DataFrame(workbookdata['SharpAuresQZ4182'].iloc[0:, 4].values,
-                                           columns=workbookdata['SharpAuresQZ4182'].iloc[0, 4].index,
+        sharpAQZ4182TDepBin = pd.DataFrame(workbookdata['SharpAuresQZ4182'].iloc[0:, 3].values,
+                                           columns=[workbookdata['SharpAuresQZ4182'].iloc[0, :4].index[-1]],
                                            index=workbookdata['SharpAuresQZ4182'].iloc[:, 0])
 
         # mask for start/end skip
@@ -1237,8 +1239,8 @@ for ii, file in enumerate(filelist):
 
         # Calculate overall Aures+Sottek Hearing Model sharpness from 2-channel
         # time-dependent sharpness
-        sharpASHMTDepBin = pd.DataFrame(workbookdata['SharpAuresSHM'].iloc[0:, 4].values,
-                                        columns=workbookdata['SharpAuresSHM'].iloc[0, 4].index,
+        sharpASHMTDepBin = pd.DataFrame(workbookdata['SharpAuresSHM'].iloc[0:, 3].values,
+                                        columns=[workbookdata['SharpAuresSHM'].iloc[0, :4].index[-1]],
                                         index=workbookdata['SharpAuresSHM'].iloc[:, 0])
 
         # mask for start/end skip
@@ -1425,81 +1427,91 @@ for ii, file in enumerate(filelist):
                 # windowT
     
                 # calculate moving average values for ambient stimulus
-                ambSpecFluctECMASHMLMovAvg = specFluctECMAL.T.rolling(window=int(np.ceil((sampleRateModECMA)*windowT))).mean().T
-                ambSpecFluctECMASHMRMovAvg = specFluctECMAR.T.rolling(window=int(np.ceil((sampleRateModECMA)*windowT))).mean().T
-                ambSpecImpulsSHMLMovAvg = specImpulsSHML.rolling(window=int(np.ceil(sampleRateImpulsSHM*windowT))).mean().T
-                ambSpecImpulsSHMRMovAvg = specImpulsSHMR.rolling(window=int(np.ceil(sampleRateImpulsSHM*windowT))).mean().T
-    
+                if file.find("Impulsiveness") != -1:
+                    ambSpecImpulsSHMLMovAvg = specImpulsSHML.rolling(window=int(np.ceil(sampleRateImpulsSHM*windowT))).mean()
+                    ambSpecImpulsSHMRMovAvg = specImpulsSHMR.rolling(window=int(np.ceil(sampleRateImpulsSHM*windowT))).mean()
+                
+                elif file.find("Fluctuation") != -1:
+                    ambSpecFluctECMASHMLMovAvg = specFluctECMAL.rolling(window=int(np.ceil((sampleRateModECMA)*windowT))).mean()
+                    ambSpecFluctECMASHMRMovAvg = specFluctECMAR.rolling(window=int(np.ceil((sampleRateModECMA)*windowT))).mean()
+                
             elif renderNames[ii][0:3] in ["A1_", "A2_", "B2_"]:
                 # calculate moving average values for combined stimulus
-                specFluctECMALMovAvg = specFluctECMAL.T.rolling(window=int(np.ceil((sampleRateModECMA)*windowT))).mean().T
-                specFluctECMARMovAvg = specFluctECMAR.T.rolling(window=int(np.ceil((sampleRateModECMA)*windowT))).mean().T
-                specImpulsSHMLMovAvg = specImpulsSHML.rolling(window=int(np.ceil(sampleRateImpulsSHM*windowT))).mean().T
-                specImpulsSHMRMovAvg = specImpulsSHMR.rolling(window=int(np.ceil(sampleRateImpulsSHM*windowT))).mean().T
-    
-                # calculate differences and make negative values 0
-                # fluctuation strength
-                dSpecFluctECMAL = np.maximum(specFluctECMALMovAvg
-                                             - ambSpecFluctECMASHMLMovAvg, 0)
-                dSpecFluctECMAR = np.maximum(specFluctECMARMovAvg
-                                             - ambSpecFluctECMASHMRMovAvg, 0)
-
-                # binaural specific fluctuation strength
-                dSpecFluctECMABin = ((dSpecFluctECMAL**2
-                                      + dSpecFluctECMAR**2)/2).pow(0.5) 
-                
-                # 2-channel time-dependent binaural fluctuation strength
-                dFluctECMASHMTDepBin = dSpecFluctECMABin.sum(axis=1)*bandDiff0p5
-
-                # 2-channel fluctuation strength masked for start/end skip
-                dFluctECMASHMTDepBinMask = dFluctECMASHMTDepBin.loc[(dFluctECMASHMTDepBin.index.values
-                                                                     > start_skipT).transpose()
-                                                                    & (dFluctECMASHMTDepBin.index.values
-                                                                       < dFluctECMASHMTDepBin.index.values.max()
-                                                                       - end_skipT).transpose()]
-
-                # 2-channel overall 10% exceeded binaural fluctuation strength
-                dFluctECMA10ExBin = dFluctECMASHMTDepBinMask.quantile(q=0.90)
-                # 2-channel overall 5% exceeded binaural fluctuation strength
-                dFluctECMA05ExBin = dFluctECMASHMTDepBinMask.quantile(q=0.95)
-
                 # impulsiveness
-                dImpulsSHMTDep = pd.concat([np.maximum(specImpulsSHMLMovAvg
-                                           - ambSpecImpulsSHMLMovAvg, 0).sum(axis=0).to_frame(name="Channel 1"),
-                                            np.maximum(specImpulsSHMRMovAvg
-                                           - ambSpecImpulsSHMRMovAvg, 0).sum(axis=0).to_frame(name="Channel 2")],
-                                           axis=1)
+                if file.find("Impulsiveness") != -1:
+                    specImpulsSHMLMovAvg = specImpulsSHML.rolling(window=int(np.ceil(sampleRateImpulsSHM*windowT))).mean()
+                    specImpulsSHMRMovAvg = specImpulsSHMR.rolling(window=int(np.ceil(sampleRateImpulsSHM*windowT))).mean()
     
-                # calculate aggregated difference values
-                # 2-channel impulsiveness masked for start/end skip
-                dImpulsSHMTDepMask = dImpulsSHMTDep.loc[(dImpulsSHMTDep.index.values
-                                                         > start_skipT).transpose()
-                                                        & (dImpulsSHMTDep.index.values
-                                                           < dImpulsSHMTDep.index.values.max()
-                                                           - end_skipT).transpose()]
+                    dImpulsSHMTDep = pd.concat([np.maximum(specImpulsSHMLMovAvg
+                                                - ambSpecImpulsSHMLMovAvg, 0).sum(axis=1).to_frame(name="Channel 1"),
+                                                np.maximum(specImpulsSHMRMovAvg
+                                                - ambSpecImpulsSHMRMovAvg, 0).sum(axis=1).to_frame(name="Channel 2")],
+                                               axis=1)
+        
+                    # calculate aggregated difference values
+                    # 2-channel impulsiveness masked for start/end skip
+                    dImpulsSHMTDepMask = dImpulsSHMTDep.loc[(dImpulsSHMTDep.index.values
+                                                             > start_skipT).transpose()
+                                                            & (dImpulsSHMTDep.index.values
+                                                               < dImpulsSHMTDep.index.values.max()
+                                                               - end_skipT).transpose()]
+                    
+                    # 2-channel overall (power-averaged) impulsiveness
+                    dImpulsSHMPowAvg = ((dImpulsSHMTDepMask**(1/np.log10(2))).sum(axis=0)
+                                        / len(dImpulsSHMTDepMask))**np.log10(2)
+                    # max of l/r overall (power-averaged) impulsiveness
+                    dImpulsSHMPowAvgMaxLR = dImpulsSHMPowAvg.max()
+                    # 2-channel overall (mean) impulsiveness
+                    dImpulsSHMMean = dImpulsSHMTDepMask.mean(axis=0)
+                    # max of l/r channel overall (mean) impulsiveness
+                    dImpulsSHMMeanMaxLR = dImpulsSHMMean.max()
+        
+                    # 2-channel overall 5% exceeded impulsiveness
+                    dImpulsSHM05Ex = dImpulsSHMTDepMask.quantile(q=0.95)
+                    # max of l/r channel overall 5% exceeded impulsiveness
+                    dImpulsSHM05ExMaxLR = dImpulsSHM05Ex.max()
+    
+                    # add results to output DataFrame
+                    dataByStim.loc[renderNames[ii], 'dImpulsSHMPowAvgMaxLR'] = dImpulsSHMPowAvgMaxLR
+                    dataByStim.loc[renderNames[ii], 'dImpulsSHMAvgMaxLR'] = dImpulsSHMMeanMaxLR
+                    dataByStim.loc[renderNames[ii], 'dImpulsSHM05ExMaxLR'] = dImpulsSHM05ExMaxLR
+
+                # fluctuation strength
+                if file.find("Fluctuation") != -1:
+                    specFluctECMALMovAvg = specFluctECMAL.rolling(window=int(np.ceil((sampleRateModECMA)*windowT))).mean()
+                    specFluctECMARMovAvg = specFluctECMAR.rolling(window=int(np.ceil((sampleRateModECMA)*windowT))).mean()
                 
-                # 2-channel overall (power-averaged) impulsiveness
-                dImpulsSHMPowAvg = ((dImpulsSHMTDepMask**(1/np.log10(2))).sum(axis=0)
-                                    / len(dImpulsSHMTDepMask))**np.log10(2)
-                # max of l/r overall (power-averaged) impulsiveness
-                dImpulsSHMPowAvgMaxLR = dImpulsSHMPowAvg.max()
-                # 2-channel overall (mean) impulsiveness
-                dImpulsSHMMean = dImpulsSHMTDepMask.mean(axis=0)
-                # max of l/r channel overall (mean) impulsiveness
-                dImpulsSHMMeanMaxLR = dImpulsSHMMean.max()
-    
-                # 2-channel overall 5% exceeded impulsiveness
-                dImpulsSHM05Ex = dImpulsSHMTDepMask.quantile(q=0.95)
-                # max of l/r channel overall 5% exceeded impulsiveness
-                dImpulsSHM05ExMaxLR = dImpulsSHM05Ex.max()
-    
-                # add results to output DataFrame
-                dataByStim.loc[renderNames[ii], 'dFluctECMA10ExBin'] = dFluctECMA10ExBin
-                dataByStim.loc[renderNames[ii], 'dFluctECMA05ExBin'] = dFluctECMA05ExBin
-                dataByStim.loc[renderNames[ii], 'dImpulsSHMPowAvgMaxLR'] = dImpulsSHMPowAvgMaxLR
-                dataByStim.loc[renderNames[ii], 'dImpulsSHMAvgMaxLR'] = dImpulsSHMMeanMaxLR
-                dataByStim.loc[renderNames[ii], 'dImpulsSHM05ExMaxLR'] = dImpulsSHM05ExMaxLR
-            
+                    # calculate differences and make negative values 0
+                    # fluctuation strength
+                    dSpecFluctECMAL = np.maximum(specFluctECMALMovAvg
+                                                 - ambSpecFluctECMASHMLMovAvg, 0)
+                    dSpecFluctECMAR = np.maximum(specFluctECMARMovAvg
+                                                 - ambSpecFluctECMASHMRMovAvg, 0)
+
+                    # binaural specific fluctuation strength
+                    dSpecFluctECMABin = ((dSpecFluctECMAL**2
+                                         + dSpecFluctECMAR**2)/2).pow(0.5) 
+                    
+                    # 2-channel time-dependent binaural fluctuation strength
+                    dFluctECMASHMTDepBin = dSpecFluctECMABin.sum(axis=1)*bandDiff0p5
+
+                    # 2-channel fluctuation strength masked for start/end skip
+                    dFluctECMASHMTDepBinMask = dFluctECMASHMTDepBin.loc[(dFluctECMASHMTDepBin.index.values
+                                                                         > start_skipT).transpose()
+                                                                        & (dFluctECMASHMTDepBin.index.values
+                                                                           < dFluctECMASHMTDepBin.index.values.max()
+                                                                           - end_skipT).transpose()]
+
+                    # 2-channel overall 10% exceeded binaural fluctuation strength
+                    dFluctECMA10ExBin = dFluctECMASHMTDepBinMask.quantile(q=0.90)
+                    # 2-channel overall 5% exceeded binaural fluctuation strength
+                    dFluctECMA05ExBin = dFluctECMASHMTDepBinMask.quantile(q=0.95)
+
+                    # add results to output DataFrame
+                    dataByStim.loc[renderNames[ii], 'dFluctECMA10ExBin'] = dFluctECMA10ExBin
+                    dataByStim.loc[renderNames[ii], 'dFluctECMA05ExBin'] = dFluctECMA05ExBin
+                    
+                
         # if-else branch for not specific impulsiveness (overall)
         else:
             
@@ -2055,7 +2067,7 @@ filepath = QFileDialog.getOpenFileName(filter=fileExts,
 
 # read in data and add column indicating the stimulus recording file
 partAResponses = pd.read_excel(io=filepath, sheet_name="PtAResponse",
-                               header=0)
+                               header=0, engine='calamine')
 partAResponses['Recording'] = [StimFile.split('.')[0] + "_CALBIN_Pa.wav"
                                for StimFile in partAResponses['Stim File']]
 
@@ -2319,7 +2331,7 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
 
 # read in data and add column indicating the stimulus recording file
 partBResponses = pd.read_excel(io=filepath, sheet_name="PtBResponse",
-                               header=0)
+                               header=0, engine='calamine')
 partBResponses['Recording'] = [StimFile.split('.')[0] + "_CALBIN_Pa.wav"
                                for StimFile in partBResponses['Stim File']]
 
@@ -2566,13 +2578,13 @@ dataByStim = dataByStim.merge(allResponses, how='outer',
 
 # add pre- and post-test response responses to dataset
 preTestResponses = pd.read_excel(io=filepath, sheet_name="Pre-test",
-                                 header=0)
+                                 header=0, engine='calamine')
 preTestResponses.drop(columns=['Impairment_details'], inplace=True)
 preTestResponses.drop(columns=preTestResponses.loc[:,
                                                    'PANAS_interested':].columns,
                       inplace=True)
 postTestResponses = pd.read_excel(io=filepath, sheet_name="Post-test",
-                                  header=0)
+                                  header=0, engine='calamine')
 postTestResponses.drop(columns=['Nationality', 'Language',
                                 'Response Considerations',
                                 'Source comments', 'AAM Exp',

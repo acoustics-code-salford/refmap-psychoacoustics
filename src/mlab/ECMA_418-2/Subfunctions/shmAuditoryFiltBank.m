@@ -2,26 +2,24 @@ function signalFiltered = shmAuditoryFiltBank(signal, outPlot)
 % signalFiltered = shmAuditoryFiltBank(signal, outPlot)
 %
 % Returns a set of signals, bandpass filtered for the inner ear response
-% in each half-Bark critical band rate scale width, according to
-% ECMA-418-2:2025 (the Sottek Hearing Model) for an input calibrated
-% single (sound pressure) time-series signal.
+% in each critical band, according to ECMA-418-2:2025 (the Sottek Hearing
+% Model) for an input calibrated single (sound pressure) time-series signal.
 %
 % Inputs
 % ------
 % signal : vector or 2D matrix
-%          the input signal as single or two-channel audio (sound pressure)
-%          signal
+%   the input signal as single or two-channel audio (sound pressure) signal
 %
 % outPlot : Boolean true/false (default: false)
-%           flag indicating whether to generate a figure a frequency and phase
-%           response figure for the filter bank
+%   flag indicating whether to generate a figure a frequency and phase
+%   response figure for the filter bank
 % 
 % Returns
 % -------
 % 
 % signalFiltered : 2D or 3D matrix
-%                  the filtered signals with dimensions
-%                  [time, bands(, chans)]
+%   the filtered signals with dimensions
+%   [time, bands(, chans)]
 %
 % Assumptions
 % -----------
@@ -36,11 +34,11 @@ function signalFiltered = shmAuditoryFiltBank(signal, outPlot)
 % Ownership and Quality Assurance
 % -------------------------------
 % Authors: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk) &
-%          Matt Torjussen (matt@anv.co.uk)
-% Institution: University of Salford / ANV Measurement Systems
+%          Matt Torjussen (m.c.torjussen@edu.salford.ac.uk)
+% Institution: University of Salford
 %
 % Date created: 27/09/2023
-% Date last modified: 02/07/2025
+% Date last modified: 15/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -159,7 +157,6 @@ for zBand = 53:-1:1
         ax2.XScale = 'log';
         ax1.YLim = [-100, 0];
     end
-
 
 end
 

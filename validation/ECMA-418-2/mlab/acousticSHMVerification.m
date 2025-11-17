@@ -3,16 +3,15 @@ function acousticSHMVerification(savePlots, includePython)
 %
 % Compares ECMA-418-2:2025 (Sottek Hearing Model) implementation with
 % values obtained using commercially-available software for reference
-% signals (currently ArtemiS 16.7 with ECMA-418-2:2024 3rd edition).
+% signals (currently ArtemiS 17.1 with ECMA-418-2:2025 4th edition).
 %
 % Inputs
 % ------
 % savePlots : Boolean (default = true)
-%             flag indicating whether to save the generated plots to file
+%   flag indicating whether to save the generated plots to file
 %
 % includePython : Boolean (default = true)
-%                 flag indicating whether to include results for Python
-%                 implementation
+%   flag indicating whether to include results for Python implementation
 %
 % Ownership and Quality Assurance
 % -------------------------------
@@ -20,7 +19,7 @@ function acousticSHMVerification(savePlots, includePython)
 % Institution: University of Salford
 %
 % Date created: 19/08/2024
-% Date last modified: 22/07/2025
+% Date last modified: 16/11/2025
 % MATLAB version: 2023b
 % [Python version: 3.11]
 %
@@ -54,76 +53,76 @@ refpath = fullfile("validation", "ECMA-418-2", "reference");
 
 % Loudness
 
-sine_1kHz_40dB.LoudTDep = readmatrix(fullfile(refpath, "sine_1kHz_40dB.Loud_HMS_TDep_LR.asc"), 'FileType', 'text');
-sine_1kHz_40dB.LoudSpec = readmatrix(fullfile(refpath, "sine_1kHz_40dB.LoudSpec_HMS_LR.asc"), 'FileType', 'text');
-sine_1kHz_40dB.LoudSpecTDep = readmatrix(fullfile(refpath, "sine_1kHz_40dB.LoudSpec_HMS_TDep_LR.asc"), 'FileType', 'text');
+sine_1kHz_40dB.LoudTDep = readmatrix(fullfile(refpath, "sine_1kHz_40dB.Loud_SHM_TDep.asc"), 'FileType', 'text');
+sine_1kHz_40dB.LoudSpec = readmatrix(fullfile(refpath, "sine_1kHz_40dB.LoudSpec_SHM.asc"), 'FileType', 'text');
+sine_1kHz_40dB.LoudSpecTDep = readmatrix(fullfile(refpath, "sine_1kHz_40dB.LoudSpec_SHM_TDep.asc"), 'FileType', 'text');
 
-sine_1kHz_70Hz_60dB.LoudTDep = readmatrix(fullfile(refpath, "sine_1kHz_70Hz_60dB.Loud_HMS_TDep_LR.asc"), 'FileType', 'text');
-sine_1kHz_70Hz_60dB.LoudSpec = readmatrix(fullfile(refpath, "sine_1kHz_70Hz_60dB.LoudSpec_HMS_LR.asc"), 'FileType', 'text');
-sine_1kHz_70Hz_60dB.LoudSpecTDep = readmatrix(fullfile(refpath, "sine_1kHz_70Hz_60dB.LoudSpec_HMS_TDep_LR.asc"), 'FileType', 'text');
+sine_1kHz_70Hz_60dB.LoudTDep = readmatrix(fullfile(refpath, "sine_1kHz_70Hz_60dB.Loud_SHM_TDep.asc"), 'FileType', 'text');
+sine_1kHz_70Hz_60dB.LoudSpec = readmatrix(fullfile(refpath, "sine_1kHz_70Hz_60dB.LoudSpec_SHM.asc"), 'FileType', 'text');
+sine_1kHz_70Hz_60dB.LoudSpecTDep = readmatrix(fullfile(refpath, "sine_1kHz_70Hz_60dB.LoudSpec_SHM_TDep.asc"), 'FileType', 'text');
 
-BusyStreet1_0530_0600.LoudTDep = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.Loud_HMS_TDep_LR.asc"), 'FileType', 'text');
-BusyStreet1_0530_0600.LoudSpec = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.LoudSpec_HMS_LR.asc"), 'FileType', 'text');
-BusyStreet1_0530_0600.LoudSpecTDep = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.LoudSpec_HMS_TDep_LR.asc"), 'FileType', 'text');
-BusyStreet1_0530_0600.LoudTDepBin = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.Loud_HMS_TDep_Bin.asc"), 'FileType', 'text');
-BusyStreet1_0530_0600.LoudSpecBin = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.LoudSpec_HMS_Bin.asc"), 'FileType', 'text');
-BusyStreet1_0530_0600.LoudSpecTDepBin = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.LoudSpec_HMS_TDep_Bin.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.LoudTDep = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.Loud_SHM_TDep_LR.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.LoudSpec = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.LoudSpec_SHM_LR.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.LoudSpecTDep = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.LoudSpec_SHM_TDep_LR.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.LoudTDepBin = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.Loud_SHM_TDep_Bin.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.LoudSpecBin = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.LoudSpec_SHM_Bin.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.LoudSpecTDepBin = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.LoudSpec_SHM_TDep_Bin.asc"), 'FileType', 'text');
 
 % Tonality
 
-sine_1kHz_40dB.TonalTDep = readmatrix(fullfile(refpath, "sine_1kHz_40dB.Tonal_HMS_TDep_LR.asc"), 'FileType', 'text');
-sine_1kHz_40dB.TonalSpec = readmatrix(fullfile(refpath, "sine_1kHz_40dB.TonalSpec_HMS_LR.asc"), 'FileType', 'text');
-sine_1kHz_40dB.TonalSpecTDep = readmatrix(fullfile(refpath, "sine_1kHz_40dB.TonalSpec_HMS_TDep_LR.asc"), 'FileType', 'text');
+sine_1kHz_40dB.TonalTDep = readmatrix(fullfile(refpath, "sine_1kHz_40dB.Tonal_SHM_TDep.asc"), 'FileType', 'text');
+sine_1kHz_40dB.TonalSpec = readmatrix(fullfile(refpath, "sine_1kHz_40dB.TonalSpec_SHM.asc"), 'FileType', 'text');
+sine_1kHz_40dB.TonalSpecTDep = readmatrix(fullfile(refpath, "sine_1kHz_40dB.TonalSpec_SHM_TDep.asc"), 'FileType', 'text');
 
-sine_1kHz_70Hz_60dB.TonalTDep = readmatrix(fullfile(refpath, "sine_1kHz_70Hz_60dB.Tonal_HMS_TDep_LR.asc"), 'FileType', 'text');
-sine_1kHz_70Hz_60dB.TonalSpec = readmatrix(fullfile(refpath, "sine_1kHz_70Hz_60dB.TonalSpec_HMS_LR.asc"), 'FileType', 'text');
-sine_1kHz_70Hz_60dB.TonalSpecTDep = readmatrix(fullfile(refpath, "sine_1kHz_70Hz_60dB.TonalSpec_HMS_TDep_LR.asc"), 'FileType', 'text');
+sine_1kHz_70Hz_60dB.TonalTDep = readmatrix(fullfile(refpath, "sine_1kHz_70Hz_60dB.Tonal_SHM_TDep.asc"), 'FileType', 'text');
+sine_1kHz_70Hz_60dB.TonalSpec = readmatrix(fullfile(refpath, "sine_1kHz_70Hz_60dB.TonalSpec_SHM.asc"), 'FileType', 'text');
+sine_1kHz_70Hz_60dB.TonalSpecTDep = readmatrix(fullfile(refpath, "sine_1kHz_70Hz_60dB.TonalSpec_SHM_TDep.asc"), 'FileType', 'text');
 
-BusyStreet1_0530_0600.TonalTDep = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.Tonal_HMS_TDep_LR.asc"), 'FileType', 'text');
-BusyStreet1_0530_0600.TonalSpec = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.TonalSpec_HMS_LR.asc"), 'FileType', 'text');
-BusyStreet1_0530_0600.TonalSpecTDep = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.TonalSpec_HMS_TDep_LR.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.TonalTDep = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.Tonal_SHM_TDep_LR.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.TonalSpec = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.TonalSpec_SHM_LR.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.TonalSpecTDep = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.TonalSpec_SHM_TDep_LR.asc"), 'FileType', 'text');
 
 % Roughness
 
-sine_1kHz_70Hz_60dB.RoughTDep = readmatrix(fullfile(refpath, "sine_1kHz_70Hz_60dB.Rough_HMS_TDep_LR.asc"), 'FileType', 'text');
-sine_1kHz_70Hz_60dB.RoughSpec = readmatrix(fullfile(refpath, "sine_1kHz_70Hz_60dB.RoughSpec_HMS_LR.asc"), 'FileType', 'text');
-sine_1kHz_70Hz_60dB.RoughSpecTDep = readmatrix(fullfile(refpath, "sine_1kHz_70Hz_60dB.RoughSpec_HMS_TDep_LR.asc"), 'FileType', 'text');
+sine_1kHz_70Hz_60dB.RoughTDep = readmatrix(fullfile(refpath, "sine_1kHz_70Hz_60dB.Rough_SHM_TDep.asc"), 'FileType', 'text');
+sine_1kHz_70Hz_60dB.RoughSpec = readmatrix(fullfile(refpath, "sine_1kHz_70Hz_60dB.RoughSpec_SHM.asc"), 'FileType', 'text');
+sine_1kHz_70Hz_60dB.RoughSpecTDep = readmatrix(fullfile(refpath, "sine_1kHz_70Hz_60dB.RoughSpec_SHM_TDep.asc"), 'FileType', 'text');
 
-BusyStreet1_0530_0600.RoughTDep = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.Rough_HMS_TDep_LR.asc"), 'FileType', 'text');
-BusyStreet1_0530_0600.RoughSpec = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.RoughSpec_HMS_LR.asc"), 'FileType', 'text');
-BusyStreet1_0530_0600.RoughSpecTDep = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.RoughSpec_HMS_TDep_LR.asc"), 'FileType', 'text');
-BusyStreet1_0530_0600.RoughTDepBin = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.Rough_HMS_TDep_Bin.asc"), 'FileType', 'text');
-BusyStreet1_0530_0600.RoughSpecBin = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.RoughSpec_HMS_Bin.asc"), 'FileType', 'text');
-BusyStreet1_0530_0600.RoughSpecTDepBin = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.RoughSpec_HMS_TDep_Bin.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.RoughTDep = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.Rough_SHM_TDep_LR.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.RoughSpec = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.RoughSpec_SHM_LR.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.RoughSpecTDep = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.RoughSpec_SHM_TDep_LR.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.RoughTDepBin = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.Rough_SHM_TDep_Bin.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.RoughSpecBin = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.RoughSpec_SHM_Bin.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.RoughSpecTDepBin = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.RoughSpec_SHM_TDep_Bin.asc"), 'FileType', 'text');
 
 % single values
-validation_ECMA_418_2_3_2024_LR = readcell(fullfile(refpath, "validation_ECMA-418-2_2024_LR.xlsx"),...
-                                            'NumHeaderLines', 0);
+verification_ECMA_418_2_3_2025_LR = readcell(fullfile(refpath, "verification_ECMA-418-2_2025_LR.xlsx"),...
+                                             'NumHeaderLines', 0);
 
-sine_1kHz_40dB.Loudness = validation_ECMA_418_2_3_2024_LR{2, 3};
-sine_1kHz_70Hz_60dB.Loudness = validation_ECMA_418_2_3_2024_LR{3, 3};
-BusyStreet1_0530_0600.Loudness = [validation_ECMA_418_2_3_2024_LR{4, 3},...
-                                  validation_ECMA_418_2_3_2024_LR{5, 3}];
+sine_1kHz_40dB.Loudness = verification_ECMA_418_2_3_2025_LR{2, 3};
+sine_1kHz_70Hz_60dB.Loudness = verification_ECMA_418_2_3_2025_LR{3, 3};
+BusyStreet1_0530_0600.Loudness = [verification_ECMA_418_2_3_2025_LR{4, 3},...
+                                  verification_ECMA_418_2_3_2025_LR{5, 3}];
 
-sine_1kHz_40dB.Tonality = validation_ECMA_418_2_3_2024_LR{2, 5};
-sine_1kHz_70Hz_60dB.Tonality = validation_ECMA_418_2_3_2024_LR{3, 5};
-BusyStreet1_0530_0600.Tonality = [validation_ECMA_418_2_3_2024_LR{4, 5},...
-                                  validation_ECMA_418_2_3_2024_LR{5, 5}];
+sine_1kHz_40dB.Tonality = verification_ECMA_418_2_3_2025_LR{2, 5};
+sine_1kHz_70Hz_60dB.Tonality = verification_ECMA_418_2_3_2025_LR{3, 5};
+BusyStreet1_0530_0600.Tonality = [verification_ECMA_418_2_3_2025_LR{4, 5},...
+                                  verification_ECMA_418_2_3_2025_LR{5, 5}];
 
-sine_1kHz_40dB.Roughness = validation_ECMA_418_2_3_2024_LR{2, 4};
-sine_1kHz_70Hz_60dB.Roughness = validation_ECMA_418_2_3_2024_LR{3, 4};
-BusyStreet1_0530_0600.Roughness = [validation_ECMA_418_2_3_2024_LR{4, 4},...
-                                   validation_ECMA_418_2_3_2024_LR{5, 4}];
+sine_1kHz_40dB.Roughness = verification_ECMA_418_2_3_2025_LR{2, 4};
+sine_1kHz_70Hz_60dB.Roughness = verification_ECMA_418_2_3_2025_LR{3, 4};
+BusyStreet1_0530_0600.Roughness = [verification_ECMA_418_2_3_2025_LR{4, 4},...
+                                   verification_ECMA_418_2_3_2025_LR{5, 4}];
 
-validation_ECMA_418_2_3_2024_Bin = readcell(fullfile(refpath, "validation_ECMA-418-2_2024_Bin.xlsx"),...
-                                            'NumHeaderLines', 0);
+verification_ECMA_418_2_3_2025_Bin = readcell(fullfile(refpath, "verification_ECMA-418-2_2025_Bin.xlsx"),...
+                                              'NumHeaderLines', 0);
 
-BusyStreet1_0530_0600.LoudnessBin = validation_ECMA_418_2_3_2024_Bin{2, 2};
-BusyStreet1_0530_0600.RoughnessBin = validation_ECMA_418_2_3_2024_Bin{2, 3};
+BusyStreet1_0530_0600.LoudnessBin = verification_ECMA_418_2_3_2025_Bin{2, 2};
+BusyStreet1_0530_0600.RoughnessBin = verification_ECMA_418_2_3_2025_Bin{2, 3};
 
 % concatenate results
 
-signalLabs = string(validation_ECMA_418_2_3_2024_LR(:, 1)) + " " + string(validation_ECMA_418_2_3_2024_LR(:, 2));
+signalLabs = string(verification_ECMA_418_2_3_2025_LR(:, 1)) + " " + string(verification_ECMA_418_2_3_2025_LR(:, 2));
 signalLabs = signalLabs(2:end);
 signalLabs = eraseBetween(signalLabs, " ", "Ch");
 signalLabs = [signalLabs; extractBefore(signalLabs(end), " ") + " Bin"];

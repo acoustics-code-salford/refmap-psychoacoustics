@@ -11,7 +11,7 @@ function acousticSHMGenerateRefSignals
 % Institution: University of Salford
 %
 % Date created: 19/08/2024
-% Date last modified: 21/07/2025
+% Date last modified: 17/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -34,7 +34,7 @@ addpath(genpath(fullfile("validation")))
 
 fs = 48e3;
 dt = 1/fs;
-T = 10;
+T = 5;
 n = T*fs;
 t = linspace(0, T-dt, n);
 f_tone = 1000;
