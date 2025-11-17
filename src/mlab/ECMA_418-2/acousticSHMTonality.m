@@ -35,7 +35,8 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 %
 % annoyWeight : Boolean true/false (default: false)
 %   Flag indicating whether to include tonal annoyance-weighted results in
-%   the output.
+%   the output. This weighting is not currently included in the ECMA-418-2
+%   standard, but was initially proposed by Sottek & Becker (2019).
 % 
 % Returns
 % -------
@@ -125,6 +126,12 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 % ------------
 % Signal Processing Toolbox
 % Audio Toolbox
+%
+% References
+% ----------
+% Sottek, R & Becker, J (2019). Tonal annoyance vs. tonal loudness and
+% tonality. In: Proceedings of Inter-noise 2019, Madrid, Spain, 13-16 June
+% 2019.
 %
 % Ownership and Quality Assurance
 % -------------------------------
