@@ -14,7 +14,7 @@ The reference ArtemiS results are included in the [reference folder](reference).
 
 Calculated sound quality values and reference comparison figures were generated using the [verification script](mlab/acousticSHMVerification.m), which calls the algorithms from the [ECMA-418-2](../../src/mlab/ECMA_418-2) folder. The full set of comparison plots can be displayed by running the validation script; the selection presented below is sufficient to validate all capabilities of the algorithms.
 
-The values for the Python implementation were calculated using the corresponding [script](refmap_psychoacoustics/acousticSHMVerification.py), which calls the algorithms from the [relevant Python folder](../../src/refmap_psychoacoustics/metrics/ecma418_2), and saved as .mat files for use in the main [verification script](mlab/acousticSHMVerification.m).
+The values for the Python implementation were calculated using the corresponding [script](py/shmVerification.py), which calls the algorithms from the [relevant Python folder](../../src/refmap_psychoacoustics/metrics/ecma418_2), and saved as .mat files for use in the main [verification script](mlab/acousticSHMVerification.m).
 
 Signal 1 is unmodulated, which yields 0 asper roughness, so time-dependent and specific roughnesses are not displayed for this signal.
 
