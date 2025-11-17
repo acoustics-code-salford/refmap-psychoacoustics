@@ -1,5 +1,5 @@
 # ECMA-418-2:2024 - Sottek Hearing Model tonality, loudness and roughness sound quality metrics: Verification of MATLAB and Python implementations
-Verification of the MATLAB and Python algorithms has been undertaken by comparison with outputs calculated using HEAD Acoustics ArtemiS v16.7 software.
+Verification of the MATLAB and Python algorithms has been undertaken by comparison with outputs calculated using HEAD Acoustics ArtemiS v17.1 software.
 
 The audio signals used for the verification comprise:
 1. reference calibration signal for tonality and loudness: 1 kHz sinusoid at 40 dB sound pressure level (5 seconds, mono)
