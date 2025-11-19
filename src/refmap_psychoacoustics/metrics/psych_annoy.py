@@ -199,8 +199,8 @@ def willemsenPA(loud5ExZwicker, sharpMedAures, rough5ExHEAD, impulsAvgWillemsen)
 
     rough5ExHEAD : float or array
         HEAD acoustics early Sottek Hearing Model roughness values as defined in ArtemiS SUITE software
-        (module ACM 907), 5%-exceeded (95th percentile), asper. In lieu of HEAD roughness values, ECMA-418-2 roughness
-        values may be used as the nearest approximation.
+        (module ACM 907), 5%-exceeded (95th percentile), asper. In lieu of HEAD roughness values, ECMA-418-2
+        roughness values may be used as the nearest approximation.
 
     impulsAvgWillemsen : float or array
         Willemsen (et al.) impulsive loudness values as defined in Willemsen et al. (2010),
@@ -362,9 +362,9 @@ def torijaPA(loud5ExZwicker, sharp5ExWidmann, rough5ExSHMOld, fluct5ExSHMOld, to
     """
     wS = (sharp5ExWidmann - 1.75)*0.25*np.log10(loud5ExZwicker + 10)
     wS[wS <= 1.75] = 0
-    wMod = 2.18/(loud5ExZwicker)**0.4*(0.4*fluct5ExFastl + 0.6*rough5ExFastl)
+    wMod = 2.18/(loud5ExZwicker)**0.4*(0.4*fluct5ExSHMOld + 0.6*rough5ExSHMOld)
     wT = (1 - np.exp(-0.29*loud5ExZwicker))*(1 - np.exp(-5.49*tonal5ExAures))
-    wI = 0.075*impuls5ExHEAD/loud5ExZwicker**-1.334
+    wI = 0.075*impuls5ExSHMOld/loud5ExZwicker**-1.334
 
     sqm = np.maximum(0, 103.08 + 339.49*(wS**2) + 121.88*(wMod**2) + 77.2*(wT**2) + 29.29*(wI**2))
 
