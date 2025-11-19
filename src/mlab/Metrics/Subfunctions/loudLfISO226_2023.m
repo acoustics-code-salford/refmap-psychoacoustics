@@ -1,5 +1,5 @@
 function soundLevel = loudLfISO226_2023(alphaf, magTransfer, thresholdf, phonLevel, axisN)
-% soundLevel = loudLfISO226_2023(loudExponent, magTransfer, threshold)
+% soundLevel = loudLfISO226_2023(loudExponent, magTransfer, threshold, phonLevel, axisN)
 % 
 % Return sound pressure level(s) of a pure tone according to ISO 226:2023
 % (for 1/3 octave bands)
@@ -7,24 +7,24 @@ function soundLevel = loudLfISO226_2023(alphaf, magTransfer, thresholdf, phonLev
 % Inputs
 % ------
 % alphaf : double or vector
-%          exponent(s) of loudness perception over frequencies.
+%   exponent(s) of loudness perception over frequencies.
 %
 % magTransfer : double or vector
-%               normalised magnitude of linear transfer function (L_U).
+%   normalised magnitude of linear transfer function (L_U).
 %
 % thresholdf : double or vector
-%              hearing threshold (Tf).
+%   hearing threshold (Tf).
 %
 % phonLevel : double, 
-%             input loudness level
+%   input loudness level
 %
 % axisN : integer (default: 1)
-%         series axis (that is not frequency bands)
+%   series axis (that is not frequency bands)
 %
 % Returns
 % -------
 % soundLevel : double or vector
-%              sound pressure level(s)
+%   sound pressure level(s)
 %
 % Requirements
 % ------------
@@ -36,7 +36,7 @@ function soundLevel = loudLfISO226_2023(alphaf, magTransfer, thresholdf, phonLev
 % Institution: University of Salford
 %  
 % Date created: 22/04/2025
-% Date last modified: 22/04/2025
+% Date last modified: 18/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within

@@ -4,8 +4,7 @@ function annoyance = acousticPsychAnnoy(p, sampleRateIn, axisN, startSkip, sound
 % Returns psychoacoustic annoyance values according to Widmann (1992) [also
 % known as 'Zwicker Psychoacoustic Annoyance - see below].
 % for an input calibrated single mono or single stereo audio
-% (sound pressure) time-series signal, p. For stereo signals, the binaural
-% roughness can be calculated, and each channel is also analysed separately.
+% (sound pressure) time-series signal, p.
 %
 % Widmann, U. (1992). Ein Modell der Psychoakustischen Lästigkeit von
 % Schallen und seine Anwendung in der Praxis der Lärmbeurteilung (A model
@@ -145,9 +144,7 @@ function annoyance = acousticPsychAnnoy(p, sampleRateIn, axisN, startSkip, sound
 %              identifies the soundfield type applied (= input argument)
 %
 % If outplot=true, a set of plots is returned illustrating the energy
-% time-averaged A-weighted sound level, the time-dependent specific and
-% overall roughness, with the latter also indicating the time-aggregated
-% value. A set of plots is returned for each input channel.
+% time-averaged A-weighted sound level, the [other plots to be determined].
 %
 % Assumptions
 % -----------
@@ -165,7 +162,7 @@ function annoyance = acousticPsychAnnoy(p, sampleRateIn, axisN, startSkip, sound
 % Institution: University of Salford
 %
 % Date created: 07/07/2025
-% Date last modified: 17/11/2025
+% Date last modified: 18/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within

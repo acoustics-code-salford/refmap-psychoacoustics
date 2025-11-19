@@ -133,7 +133,7 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRateIn, axisN, soundField,
 % Institution: University of Salford
 %
 % Date created: 01/11/2024
-% Date last modified: 14/11/2025
+% Date last modified: 18/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -182,7 +182,7 @@ if axisN == 2
 end
 
 % Check the length of the input data (must be longer than 300 ms)
-if size(p, 1) <  300/1000*sampleRateIn
+if size(p, 1) <=  300/1000*sampleRateIn
     error('Error: Input signal is too short along the specified axis to calculate sharpness (must be longer than 300 ms)')
 end
 
