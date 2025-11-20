@@ -578,8 +578,8 @@ def shm_loudness_ecma_from_comp(spec_tonal_loudness, spec_noise_loudness,
         # Equation 113 ECMA-418-2:2025 [N'(l,z)]
         spec_loudness[:, :, chan] = (spec_tonal_loudness[:, :,
                                                          chan]**max_loudness_funcel
-                                     + np.abs(weight_n*spec_noise_loudness[:, :, chan])
-                                              ** max_loudness_funcel)**(1/max_loudness_funcel)
+                                     + (weight_n*spec_noise_loudness[:, :, chan])
+                                     ** max_loudness_funcel)**(1/max_loudness_funcel)
 
     # end of loudness for loop over channels
 
