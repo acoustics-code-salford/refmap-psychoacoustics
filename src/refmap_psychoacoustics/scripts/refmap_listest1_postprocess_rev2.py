@@ -874,7 +874,7 @@ for ii, file in enumerate(filelist):
             # time-dependent values
             impulsLoudWZTDep = pd.DataFrame(filedata[1:, 1:],
                                             index=filedata[1:, 0],
-                                            columns=filedata[0, 1:])
+                                            columns=["Channel 1", "Channel 2"])
             # mask for start/end skip
             impulsLoudWZTDepMask = impulsLoudWZTDep.loc[(impulsLoudWZTDep.index.values
                                                          > start_skipT)
@@ -903,7 +903,7 @@ for ii, file in enumerate(filelist):
             # time-dependent values
             impulsLoudWECMATDepBin = pd.DataFrame(filedata[1:, 1:],
                                                   index=filedata[1:, 0],
-                                                  columns=filedata[0, 1:])
+                                                  columns=["Combined binaural"])
             # mask for start/end skip
             impulsLoudWECMATDepBinMask = impulsLoudWECMATDepBin.loc[(impulsLoudWECMATDepBin.index.values
                                                                      > start_skipT)
@@ -912,17 +912,20 @@ for ii, file in enumerate(filelist):
                                                                        - end_skipT), :]
 
             # binaural overall (averaged) impulsive loudness
-            impulsLoudWECMAAvgBin = impulsLoudWECMATDepBinMask.mean(axis=0).max()
+            impulsLoudWECMAAvgBin = impulsLoudWECMATDepBinMask.mean()
+            impulsLoudWECMAAvgBin = impulsLoudWECMAAvgBin.iloc[0]
 
             # binaural overall (95th percentile = 5% exceeded) impulsive loudness
-            impulsLoudWECMA05ExMaxBin = impulsLoudWECMATDepBinMask.quantile(q=0.95, axis=0).max()
+            impulsLoudWECMA05ExBin = impulsLoudWECMATDepBinMask.quantile(q=0.95)
+            impulsLoudWECMA05ExBin = impulsLoudWECMA05ExBin.iloc[0]
 
             # binaural overall (power-averaged) impulsive loudness
-            impulsLoudWECMAPowAvgBin = (impulsLoudWECMATDepBinMask.pow(1/np.log10(2)).mean(axis=0)**np.log10(2)).max()
+            impulsLoudWECMAPowAvgBin = impulsLoudWECMATDepBinMask.pow(1/np.log10(2)).mean()**np.log10(2)
+            impulsLoudWECMAPowAvgBin = impulsLoudWECMAPowAvgBin.iloc[0]
 
             # add results to output DataFrame
             dataByStim.loc[renderNames[ii], 'ImpulsLoudWECMAAvgBin'] = impulsLoudWECMAAvgBin
-            dataByStim.loc[renderNames[ii], 'ImpulsLoudWECMA05ExMaxBin'] = impulsLoudWECMA05ExMaxBin
+            dataByStim.loc[renderNames[ii], 'ImpulsLoudWECMA05ExBin'] = impulsLoudWECMA05ExBin
             dataByStim.loc[renderNames[ii], 'ImpulsLoudWECMAPowAvgBin'] = impulsLoudWECMAPowAvgBin
 
         # end of if section for absolute SQMs
@@ -1289,7 +1292,7 @@ for ii, file in enumerate(filelist):
                     dImpulsLoudWZ05ExMaxLR = dImpulsLoudWZTDepMask.quantile(q=0.95, axis=0).max()
                     
                     # max l/r overall (power-averaged) impulsive loudness
-                    dImpulsLoudWZPowAvgMaxLR = dImpulsLoudWZTDepMask.pow(1/np.log10(2)).mean(axis=0)**np.log10(2).max()
+                    dImpulsLoudWZPowAvgMaxLR = (dImpulsLoudWZTDepMask.pow(1/np.log10(2)).mean(axis=0)**np.log10(2)).max()
 
                     # add results to output DataFrame
                     dataByStim.loc[renderNames[ii], 'dImpulsLoudWZAvgMaxLR'] = dImpulsLoudWZAvgMaxLR
@@ -1318,6 +1321,11 @@ for ii, file in enumerate(filelist):
                     
                     # binaural overall (power-averaged) impulsive loudness
                     dImpulsLoudWECMAPowAvgBin = dImpulsLoudWECMATDepBinMask.pow(1/np.log10(2)).mean()**np.log10(2)
+
+                    # add results to output DataFrame
+                    dataByStim.loc[renderNames[ii], 'dImpulsLoudWECMAAvgBin'] = dImpulsLoudWECMAAvgBin
+                    dataByStim.loc[renderNames[ii], 'dImpulsLoudWECMA05ExBin'] = dImpulsLoudWECMA05ExBin
+                    dataByStim.loc[renderNames[ii], 'dImpulsLoudWECMAPowAvgBin'] = dImpulsLoudWECMAPowAvgBin
 
         # end of if section for SQM differences
     # end of if branch for .mat files

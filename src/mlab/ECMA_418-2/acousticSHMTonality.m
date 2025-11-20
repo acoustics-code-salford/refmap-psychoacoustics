@@ -140,7 +140,7 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford
 %
 % Date created: 07/08/2023
-% Date last modified: 17/11/2025
+% Date last modified: 20/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -490,6 +490,10 @@ for chan = chansIn:-1:1
 
     end  % end of for loop over ACF bands
 
+    % set any tiny negative loudness values to 0
+    specTonalLoudness(specTonalLoudness < 0) = 0;
+    specNoiseLoudness(specNoiseLoudness < 0) = 0;
+
     % Calculation of specific tonality
     % --------------------------------
     % Section 6.2.8 Equation 49 ECMA-418-2:2025 [SNR(l)]
@@ -666,7 +670,8 @@ for chan = chansIn:-1:1
                          'FontWeight', 'normal', 'FontName', 'Arial');
     
             ax2 = nexttile(2);
-            plot(ax2, timeOut, tonalityAvgAnnoy(1, chan)*ones(size(timeOut)), 'color', cmap_plasma(34, :),...
+            plot(ax2, timeOut, tonalityAvgAnnoy(1, chan)*ones(size(timeOut)),...
+                 ':', 'color', cmap_plasma(34, :),...
                  'LineWidth', 1, 'DisplayName', "Time-" + string(newline) + "average");
             hold on
             plot(ax2, timeOut, tonalityTDepAnnoy(:, chan), 'color',  cmap_plasma(166, :),...

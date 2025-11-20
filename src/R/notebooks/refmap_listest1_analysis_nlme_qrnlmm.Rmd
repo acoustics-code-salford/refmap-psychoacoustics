@@ -1,0 +1,93 @@
+---
+title: "REFMAP listening test 1 analysis: Nonlinear mixed models for psychoacoustic annoyance"
+output: html_document
+date: "2024-12-07"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup
+
+Load packages
+
+```{r}
+library(conflicted)
+library(dplyr)
+library(flexplot)
+library(lme4)
+library(lmerTest)
+library(nlme)
+library(qrnlmm)
+library(merTools)
+library(ggeffects)
+library(marginaleffects)
+library(stats)
+library(ggplot2)
+library(openxlsx)
+library(easystats)
+#library(future)
+library(viridis)
+# set package parameters
+theme_set(theme_bw())
+
+#numCores <- parallel::detectCores()
+
+#future::plan(multisession, workers = numCores-6)
+
+
+```
+
+Set parameters
+
+```{r}
+
+# plot colour scheme
+
+mycolourlist = list(c(0, 102, 255), c(0, 204, 153), c(255, 0, 102), c(74, 111, 152), c(251, 164, 49), c(204, 153, 255), c(90, 192, 255), c(80, 245, 233), c(255, 90, 192), c(164, 201, 242), c(255, 254, 139), c(255, 243, 255))
+mycolours = matrix()
+
+for (ii in 1:length(mycolourlist)){
+  mycolours[ii] = rgb(mycolourlist[[ii]][1]/255,
+                      mycolourlist[[ii]][2]/255,
+                      mycolourlist[[ii]][3]/255)
+}
+
+# toggle to save plots
+saveplots = TRUE
+
+if (saveplots){
+  # set output plot directory
+  choose.files(caption="Just cancel this", filters=matrix(data=c(" ", " "), ncol=2))  # workaround for bug in RTerm choose.dir
+  outFigPath <- utils::choose.dir(caption="Select output folder to save plots")
+  
+  if (!dir.exists(file.path(outFigPath, "svg"))){dir.create(file.path(outFigPath, "svg"))}
+  if (!dir.exists(file.path(outFigPath, "pdf"))){dir.create(file.path(outFigPath, "pdf"))}
+  
+}
+
+# toggle to save data
+savedata = TRUE
+
+if (savedata){
+  # set output plot directory
+  if (saveplots==FALSE){
+    choose.files(caption="Just cancel this", filters=matrix(data=c(" ", " "), ncol=2))  # workaround for bug in RTerm choose.dir
+  }
+  outDataPath <- utils::choose.dir(caption="Select output folder to save data")
+}
+
+set.seed(3212165)
+
+lmcontrol <- lme4::lmerControl(optimizer = 'bobyqa',
+                               optCtrl = list(maxfun = 1e6))
+glmcontrol <- lme4::glmerControl(optimizer = 'bobyqa',
+                                optCtrl = list(maxfun = 1e6))
+
+
+```
+
+# Import data and wrangle
+
+## Parts A & B combined

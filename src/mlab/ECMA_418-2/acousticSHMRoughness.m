@@ -96,7 +96,7 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 14/11/2025
+% Date last modified: 20/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -736,7 +736,7 @@ if outPlot
                      'FontWeight', 'normal', 'FontName', 'Arial');
 
         ax2 = nexttile(2);
-        plot(ax2, timeOut, roughness90Pc(1, chan)*ones(size(timeOut)), 'color',...
+        plot(ax2, timeOut, roughness90Pc(1, chan)*ones(size(timeOut)), ':', 'color',...
              cmap_inferno(34, :), 'LineWidth', 1, 'DisplayName', "90th" + string(newline) + "percentile");
         hold on
         plot(ax2, timeOut, roughnessTDep(:, chan), 'color', cmap_inferno(166, :),...

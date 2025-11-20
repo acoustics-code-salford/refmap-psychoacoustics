@@ -23,7 +23,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 29/05/2023
-Date last modified: 09/10/2025
+Date last modified: 20/11/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -69,79 +69,73 @@ def shmLoudnessECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     Inputs
     ------
     p : 1D or 2D array
-        the input signal as single mono or stereo audio (sound
-        pressure) signals
+        Input signal as single mono or stereo audio (sound
+        pressure) signals.
 
     sampleRateIn : integer
-                   the sample rate (frequency) of the input signal(s)
+        Sample rate (frequency) of the input signal(s).
 
     axisN : integer (0 or 1, default: 0)
-            the time axis along which to calculate the loudness
+        Time axis along which to calculate the loudness.
 
     soundField : keyword string (default: 'freeFrontal')
-                 determines whether the 'freeFrontal' or 'diffuse' field stages
-                 are applied in the outer-middle ear filter, or 'noOuter' uses
-                 only the middle ear stage, or 'noEar' omits ear filtering.
-                 Note: these last two options are beyond the scope of the
-                 standard, but may be useful if recordings made using
-                 artificial outer/middle ear are to be processed using the
-                 specific recorded responses.
+        Determines whether the 'freeFrontal' or 'diffuse' field stages
+        are applied in the outer-middle ear filter, or 'noOuter' uses
+        only the middle ear stage, or 'noEar' omits ear filtering.
+        Note: these last two options are beyond the scope of the
+        standard, but may be useful if recordings made using
+        artificial outer/middle ear are to be processed using the
+        specific recorded responses.
 
     waitBar : keyword string (default: True)
-              determines whether a progress bar displays during processing
-              (set waitBar to false for doing multi-file parallel calculations)
+        Determines whether a progress bar displays during processing
+        (set waitBar to false for doing multi-file parallel calculations).
 
     outPlot : Boolean (default: False)
-              flag indicating whether to generate a figure from the output
-              (set outplot to false for doing multi-file parallel calculations)
+        Flag indicating whether to generate a figure from the output
+        (set outplot to false for doing multi-file parallel calculations).
 
     binaural : Boolean (default: True)
-               flag indicating whether to output combined binaural loudness for
-               stereo input signal
+        Flag indicating whether to output combined binaural loudness for
+        stereo input signal.
 
     Returns
     -------
     loudnessSHM : dict
-                  contains the output
+        Contains the outputs.
 
     loudnessSHM contains the following outputs:
 
     specLoudness : 2D or 3D array
-                   time-dependent specific loudness for each critical band
-                   arranged as [time, bands(, channels)]
+        Time-dependent specific loudness for each critical band
+        arranged as [time, bands(, channels)].
 
     specLoudnessPowAvg : 1D or 2D array
-                         time-averaged specific loudness for each critical band
-                         arranged as [bands(, channels)]
+        Time-averaged specific loudness for each critical band
+        arranged as [bands(, channels)].
 
     specTonalLoudness : 2D or 3D array
-                        time-dependent specific tonal loudness for each
-                        critical band
-                        arranged as [time, bands(, channels)]
+        Time-dependent specific tonal loudness for each critical band
+        arranged as [time, bands(, channels)].
 
     specNoiseLoudness : 2D or 3D array
-                        time-dependent specific noise loudness for each
-                        critical band
-                        arranged as [time, bands(, channels)]
+        Time-dependent specific noise loudness for each critical band
+        arranged as [time, bands(, channels)].
 
     loudnessTDep : 1D or 2D array
-                   time-dependent overall loudness
-                   arranged as [time(, channels)]
+        Time-dependent overall loudness arranged as [time(, channels)].
 
     loudnessPowAvg : 1D or 2D array
-                     time-averaged overall loudness
-                     arranged as [loudness(, channels)]
+        Time-averaged overall loudness arranged as [loudness(, channels)].
 
     bandCentreFreqs : 1D array
-                      centre frequencies corresponding with each critical band
-                      rate
+        Centre frequencies corresponding with each critical band rate.
 
     timeOut : 1D array
-              time (seconds) corresponding with time-dependent outputs
+        Time (seconds) corresponding with time-dependent outputs.
 
     soundField : string
-                 identifies the soundfield type applied (the input argument
-                 soundField)
+        Identifies the soundfield type applied (= input argument).
 
     If outPlot=True, a set of plots is returned illustrating the energy
     time-averaged A-weighted sound level, the time-dependent specific and
@@ -229,15 +223,15 @@ def shmLoudnessECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     specLoudness = np.zeros(specTonalLoudness.shape, order='F')
     for chan in range(chansIn):
         # Equation 114 ECMA-418-2:2025 [e(z)]
-        maxLoudnessFuncel = a/(np.max(specTonalLoudness[:, :, chan]
+        maxLoudnessFuncel = a/(np.nanmax(specTonalLoudness[:, :, chan]
                                       + specNoiseLoudness[:, :, chan], axis=1)
                                + epsilon) + b
         maxLoudnessFuncel = shmDimensional(maxLoudnessFuncel)
         # Equation 113 ECMA-418-2:2025 [N'(l,z)]
         specLoudness[:, :, chan] = (specTonalLoudness[:, :,
                                                       chan]**maxLoudnessFuncel
-                                    + np.abs((weight_n*specNoiseLoudness[:, :, chan])
-                                             ** maxLoudnessFuncel))**(1/maxLoudnessFuncel)
+                                    + (weight_n*specNoiseLoudness[:, :, chan])
+                                    ** maxLoudnessFuncel)**(1/maxLoudnessFuncel)
     # end of loudness for loop over channels
 
     if chansIn == 2 and binaural:
@@ -409,66 +403,60 @@ def shmLoudnessECMAFromComp(specTonalLoudness, specNoiseLoudness,
     Inputs
     ------
     specTonalLoudness : 2D or 3D array
-                        the specific tonal loudness values calculated for
-                        a sound pressure signal (single mono or single
-                        stereo audio) arranged as [time, bands(, chans)]
+        Specific tonal loudness values calculated for
+        a sound pressure signal (single mono or single stereo audio)
+        arranged as [time, bands(, chans)].
 
     specNoiseLoudness : 2D or 3D array
-                        the specific noise loudness values calculated for
-                        a sound pressure signal (single mono or single
-                        stereo audio) arranged as [time, bands(, chans)]
+        Specific noise loudness values calculated for
+        a sound pressure signal (single mono or single stereo audio)
+        arranged as [time, bands(, chans)].
 
     outPlot : Boolean (default: False)
-              flag indicating whether to generate a figure from the output
-              (set outplot to false for doing multi-file parallel calculations)
+        Flag indicating whether to generate a figure from the output
+        (set outplot to false for doing multi-file parallel calculations).
 
     binaural : Boolean (default: True)
-               flag indicating whether to output combined binaural loudness for
-               stereo input signal
+        Flag indicating whether to output combined binaural loudness for
+        stereo input signal.
 
     Returns
     -------
     loudnessSHM : dict
-                  contains the output
+        Contains the outputs.
 
     loudnessSHM contains the following outputs:
 
     specLoudness : 2D or 3D array
-                   time-dependent specific loudness for each critical band
-                   arranged as [time, bands(, channels)]
+        Time-dependent specific loudness for each critical band
+        arranged as [time, bands(, channels)].
 
     specLoudnessPowAvg : 1D or 2D array
-                         time-averaged specific loudness for each critical band
-                         arranged as [bands(, channels)]
+        Time-averaged specific loudness for each critical band
+        arranged as [bands(, channels)].
 
     specTonalLoudness : 2D or 3D array
-                        time-dependent specific tonal loudness for each
-                        critical band
-                        arranged as [time, bands(, channels)]
+        Time-dependent specific tonal loudness for each critical band
+        arranged as [time, bands(, channels)].
 
     specNoiseLoudness : 2D or 3D array
-                        time-dependent specific noise loudness for each
-                        critical band
-                        arranged as [time, bands(, channels)]
+        Time-dependent specific noise loudness for each critical band
+        arranged as [time, bands(, channels)].
 
     loudnessTDep : 1D or 2D array
-                   time-dependent overall loudness
-                   arranged as [time(, channels)]
+        Time-dependent overall loudness arranged as [time(, channels)].
 
     loudnessPowAvg : 1D or 2D array
-                     time-averaged overall loudness
-                     arranged as [loudness(, channels)]
+        Time-averaged overall loudness arranged as [loudness(, channels)].
 
     bandCentreFreqs : 1D array
-                      centre frequencies corresponding with each critical band
-                      rate
+        Centre frequencies corresponding with each critical band rate.
 
     timeOut : 1D array
-              time (seconds) corresponding with time-dependent outputs
+        Time (seconds) corresponding with time-dependent outputs.
 
     soundField : string
-                 identifies the soundfield type applied (the input argument
-                 soundField)
+        Identifies the soundfield type applied (= input argument).
 
     If outPlot=True, a set of plots is returned illustrating the energy
     time-averaged A-weighted sound level, the time-dependent specific and
@@ -558,16 +546,14 @@ def shmLoudnessECMAFromComp(specTonalLoudness, specNoiseLoudness,
     specLoudness = np.zeros(specTonalLoudness.shape, order='F')  # pre-allocate array
     for chan in range(chansIn):
         # Equation 114 ECMA-418-2:2025 [e(z)]
-        maxLoudnessFuncel = a/(np.max(specTonalLoudness[:, :, chan]
-                                      + specNoiseLoudness[:, :, chan], axis=1)
+        maxLoudnessFuncel = a/(np.nanmax(specTonalLoudness[:, :, chan]
+                                         + specNoiseLoudness[:, :, chan], axis=1)
                                + epsilon) + b
         maxLoudnessFuncel = shmDimensional(maxLoudnessFuncel)
         # Equation 113 ECMA-418-2:2025 [N'(l,z)]
         specLoudness[:, :, chan] = (specTonalLoudness[:, :, chan]**maxLoudnessFuncel
-                                    + np.abs((weight_n*specNoiseLoudness[:,
-                                                                         :,
-                                                                         chan])
-                                             ** maxLoudnessFuncel))**(1/maxLoudnessFuncel)
+                                    + (weight_n*specNoiseLoudness[:, :, chan])
+                                    ** maxLoudnessFuncel)**(1/maxLoudnessFuncel)
     # end of loudness for loop over channels
 
     if chansIn == 2 and binaural:

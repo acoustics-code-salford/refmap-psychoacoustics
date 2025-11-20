@@ -106,7 +106,7 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford
 %
 % Date created: 22/09/2023
-% Date last modified: 14/11/2025
+% Date last modified: 20/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -219,11 +219,11 @@ for chan = chansIn:-1:1
     % Equation 114 ECMA-418-2:2025 [e(z)]
     maxLoudnessFuncel = a./(max(specTonalLoudness(:, :, chan)...
                                 + specNoiseLoudness(:, :, chan), [],...
-                                2, "omitnan") + epsilon) + b;
+                                2, 'omitnan') + epsilon) + b;
 
     % Equation 113 ECMA-418-2:2025 [N'(l,z)]
     specLoudness(:, :, chan) = (specTonalLoudness(:, :, chan).^maxLoudnessFuncel...
-                                + abs((weight_n.*specNoiseLoudness(:, :, chan)).^maxLoudnessFuncel)).^(1./maxLoudnessFuncel);
+                                + (weight_n.*specNoiseLoudness(:, :, chan)).^maxLoudnessFuncel).^(1./maxLoudnessFuncel);
 end
 
 if chansIn == 2 && binaural
@@ -322,7 +322,7 @@ if outPlot
                      'FontWeight', 'normal', 'FontName', 'Arial');
 
         ax2 = nexttile(2);
-        plot(ax2, timeOut, loudnessPowAvg(1, chan)*ones(size(timeOut)), 'color',...
+        plot(ax2, timeOut, loudnessPowAvg(1, chan)*ones(size(timeOut)), ':', 'color',...
              cmap_viridis(34, :), 'LineWidth', 1, 'DisplayName', "Power" + string(newline) + "time-avg");
         hold on
         plot(ax2, timeOut, loudnessTDep(:, chan), 'color', cmap_viridis(166, :),...

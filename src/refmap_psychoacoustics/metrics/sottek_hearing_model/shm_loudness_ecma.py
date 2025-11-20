@@ -40,7 +40,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 29/05/2023
-Date last modified: 22/10/2025
+Date last modified: 20/11/2025
 Python version: 3.11
 
 Copyright statement: This code has been developed during work undertaken within
@@ -249,14 +249,14 @@ def shm_loudness_ecma(p, samp_rate_in, axis=0, soundfield='free_frontal',
     spec_loudness = np.zeros(spec_tonal_loudness.shape, order='F')
     for chan in range(chans_in):
         # Equation 114 ECMA-418-2:2025 [e(z)]
-        max_loudness_funcel = a/(np.max(spec_tonal_loudness[:, :, chan]
-                                        + spec_noise_loudness[:, :, chan], axis=1)
+        max_loudness_funcel = a/(np.nanmax(spec_tonal_loudness[:, :, chan]
+                                           + spec_noise_loudness[:, :, chan], axis=1)
                                  + epsilon) + b
         max_loudness_funcel = shm_dimensional(max_loudness_funcel)
         # Equation 113 ECMA-418-2:2025 [N'(l,z)]
         spec_loudness[:, :, chan] = (spec_tonal_loudness[:, :,
-                                                      chan]**max_loudness_funcel
-                                     + weight_n*spec_noise_loudness[:, :, chan]
+                                                         chan]**max_loudness_funcel
+                                     + (weight_n*spec_noise_loudness[:, :, chan])
                                      ** max_loudness_funcel)**(1/max_loudness_funcel)
     # end of loudness for loop over channels
 
@@ -571,15 +571,15 @@ def shm_loudness_ecma_from_comp(spec_tonal_loudness, spec_noise_loudness,
     spec_loudness = np.zeros(spec_tonal_loudness.shape, order='F')  # pre-allocate array
     for chan in range(chans_in):
         # Equation 114 ECMA-418-2:2025 [e(z)]
-        max_loudness_funcel = a/(np.max(spec_tonal_loudness[:, :, chan]
-                                      + spec_noise_loudness[:, :, chan], axis=1)
-                               + epsilon) + b
+        max_loudness_funcel = a/(np.nanmax(spec_tonal_loudness[:, :, chan]
+                                           + spec_noise_loudness[:, :, chan], axis=1)
+                                 + epsilon) + b
         max_loudness_funcel = shm_dimensional(max_loudness_funcel)
         # Equation 113 ECMA-418-2:2025 [N'(l,z)]
         spec_loudness[:, :, chan] = (spec_tonal_loudness[:, :,
                                                          chan]**max_loudness_funcel
-                                    + weight_n*spec_noise_loudness[:, :, chan]
-                                    ** max_loudness_funcel)**(1/max_loudness_funcel)
+                                     + np.abs(weight_n*spec_noise_loudness[:, :, chan])
+                                              ** max_loudness_funcel)**(1/max_loudness_funcel)
 
     # end of loudness for loop over channels
 

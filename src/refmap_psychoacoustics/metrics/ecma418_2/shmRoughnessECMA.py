@@ -23,7 +23,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 29/05/2023
-Date last modified: 02/10/2025
+Date last modified: 20/11/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -88,68 +88,66 @@ def shmRoughnessECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     Inputs
     ------
     p : 1D or 2D array
-        the input signal as single mono or stereo audio (sound
-        pressure) signals
+        Input signal as single mono or stereo audio (sound
+        pressure) signals.
 
     sampleRateIn : integer
-                   the sample rate (frequency) of the input signal(s)
+        Sample rate (frequency) of the input signal(s).
 
     axisN : integer (0 or 1, default: 0)
-            the time axis along which to calculate the roughness
+        Time axis along which to calculate the roughness.
 
     soundField : keyword string (default: 'freeFrontal')
-                 determines whether the 'freeFrontal' or 'diffuse' field stages
-                 are applied in the outer-middle ear filter, or 'noOuter' uses
-                 only the middle ear stage, or 'noEar' omits ear filtering.
-                 Note: these last two options are beyond the scope of the
-                 standard, but may be useful if recordings made using
-                 artificial outer/middle ear are to be processed using the
-                 specific recorded responses.
+        Determines whether the 'freeFrontal' or 'diffuse' field stages
+        are applied in the outer-middle ear filter, or 'noOuter' uses
+        only the middle ear stage, or 'noEar' omits ear filtering.
+        Note: these last two options are beyond the scope of the
+        standard, but may be useful if recordings made using
+        artificial outer/middle ear are to be processed using the
+        specific recorded responses.
 
     waitBar : keyword string (default: True)
-              determines whether a progress bar displays during processing
-              (set waitBar to false for doing multi-file parallel calculations)
+        Determines whether a progress bar displays during processing
+        (set waitBar to false for doing multi-file parallel calculations).
 
     outPlot : Boolean (default: False)
-              flag indicating whether to generate a figure from the output
-              (set outplot to false for doing multi-file parallel calculations)
+        Flag indicating whether to generate a figure from the output
+        (set outplot to false for doing multi-file parallel calculations)
 
     binaural : Boolean (default: True)
-               flag indicating whether to output combined binaural roughness
-               for stereo input signal
+        Flag indicating whether to output combined binaural roughness
+        for stereo input signal
+
     Returns
     -------
     roughnessSHM : dict
-                  contains the output
+        Contains the outputs.
 
     roughnessSHM contains the following outputs:
 
     specRoughness : 2D or 3D array
-                    time-dependent specific roughness for each critical band
-                    arranged as [time, bands(, channels)]
+        Time-dependent specific roughness for each critical band
+        arranged as [time, bands(, channels)].
 
     specRoughnessAvg : 1D or 2D array
-                      time-averaged specific roughness for each critical band
-                      arranged as [bands(, channels)]
+        Time-averaged specific roughness for each critical band
+        arranged as [bands(, channels)]
 
     roughnessTDep : 1D or 2D array
-                   time-dependent overall roughness
-                   arranged as [time(, channels)]
+        Time-dependent overall roughness arranged as [time(, channels)].
 
     roughness90pc : 1D or 2D array
-                    time-aggregated (90th percentile) overall roughness
-                    arranged as [roughness(, channels)]
+        Time-aggregated (90th percentile) overall roughness
+        arranged as [roughness(, channels)]
 
     bandCentreFreqs : 1D array
-                      centre frequencies corresponding with each critical band
-                      rate
+        Centre frequencies corresponding with each critical band rate.
 
     timeOut : 1D array
-              time (seconds) corresponding with time-dependent outputs
+        Time (seconds) corresponding with time-dependent outputs.
 
     soundField : string
-                 identifies the soundfield type applied (the input argument
-                 soundField)
+        Identifies the soundfield type applied (= input argument).
 
     If outPlot=True, a set of plots is returned illustrating the energy
     time-averaged A-weighted sound level, the time-dependent specific and
@@ -157,7 +155,7 @@ def shmRoughnessECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     value. A set of plots is returned for each input channel.
 
     If binaural=true, a corresponding set of outputs for the binaural
-    loudness are also contained in roughnessSHM.
+    roughness are also contained in roughnessSHM.
 
     Assumptions
     -----------

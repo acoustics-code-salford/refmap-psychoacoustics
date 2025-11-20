@@ -40,7 +40,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 25/05/2023
-Date last modified: 08/10/2025
+Date last modified: 20/11/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -64,16 +64,16 @@ import numpy as np
 import matplotlib as mpl
 mpl.use('QtAgg')
 from matplotlib import pyplot as plt
-from sottek_hearing_model.shmSubs import (shmResample, shmPreProc,
-                                          shmOutMidEarFilter,
-                                          shmAuditoryFiltBank,
-                                          shmSignalSegment,
-                                          shmBasisLoudness,
-                                          shmNoiseRedLowPass,
-                                          shmRMS, shmRound,
-                                          shmInCheck)
+from refmap_psychoacoustics.metrics.ecma418_2.shmSubs import (shmResample, shmPreProc,
+                                                              shmOutMidEarFilter,
+                                                              shmAuditoryFiltBank,
+                                                              shmSignalSegment,
+                                                              shmBasisLoudness,
+                                                              shmNoiseRedLowPass,
+                                                              shmRMS, shmRound,
+                                                              shmInCheck)
 from tqdm import tqdm
-from sottek_hearing_model.filters import A_weight_T
+from refmap_psychoacoustics.dsp.filterFuncs import A_weight_T
 import bottleneck as bn
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import multiprocessing
@@ -103,95 +103,85 @@ def shmTonalityECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     Inputs
     ------
     p : 1D or 2D array
-        the input signal as single mono or stereo audio (sound pressure)
-        signals
+        Input signal as single mono or stereo audio (sound pressure) signals.
 
     sampleRateIn : integer
-                   the sample rate (frequency) of the input signal(s)
+        Sample rate (frequency) of the input signal(s).
 
     axisN : integer (0 or 1, default: 0)
-            the time axis along which to calculate the tonality
+        Time axis along which to calculate the tonality.
 
     soundField : keyword string (default: 'freeFrontal')
-                 determines whether the 'freeFrontal' or 'diffuse' field stages
-                 are applied in the outer-middle ear filter, or 'noOuter' uses
-                 only the middle ear stage, or 'noEar' omits ear filtering.
-                 Note: these last two options are beyond the scope of the
-                 standard, but may be useful if recordings made using
-                 artificial outer/middle ear are to be processed using the
-                 specific recorded responses.
+        Determines whether the 'freeFrontal' or 'diffuse' field stages
+        are applied in the outer-middle ear filter, or 'noOuter' uses
+        only the middle ear stage, or 'noEar' omits ear filtering.
+        Note: these last two options are beyond the scope of the
+        standard, but may be useful if recordings made using
+        artificial outer/middle ear are to be processed using the
+        specific recorded responses.
 
     waitBar : keyword string (default: True)
-              determines whether a progress bar displays during processing
-              (set waitBar to false for doing multi-file parallel calculations)
+        Determines whether a progress bar displays during processing
+        (set waitBar to false for doing multi-file parallel calculations).
 
     outPlot : Boolean (default: False)
-              flag indicating whether to generate a figure from the output
-              (set outplot to false for doing multi-file parallel calculations)
+        Flag indicating whether to generate a figure from the output
+        (set outplot to false for doing multi-file parallel calculations).
 
     Returns
     -------
     tonalitySHM : dict
-                  contains the output
+        Contains the output.
 
     tonalitySHM contains the following outputs:
 
     specTonality : 2D or 3D array
-                   time-dependent specific tonality for each critical band
-                   arranged as [time, bands(, channels)]
+        Time-dependent specific tonality for each critical band
+        arranged as [time, bands(, channels)].
 
     specTonalityFreqs : 2D or 3D array
-                        time-dependent frequencies of the dominant tonal
-                        components corresponding with each of the
-                        time-dependent specific tonality values in each
-                        (half) critical band
-                        arranged as [time, bands(, channels)]
+        Time-dependent frequencies of the dominant tonal
+        components corresponding with each of the
+        time-dependent specific tonality values in each
+        critical band arranged as [time, bands(, channels)].
 
     specTonalityAvg : 1D or 2D array
-                      time-averaged specific tonality for each critical band
-                      arranged as [bands(, channels)]
+        Time-averaged specific tonality for each critical band
+        arranged as [bands(, channels)].
 
     specTonalityAvgFreqs : 1D or 2D array
-                           frequencies of the dominant tonal components
-                           corresponding with each of the
-                           time-averaged specific tonality values in each
-                           (half) critical band
-                           arranged as [bands(, channels)]
+        Frequencies of the dominant tonal components
+        corresponding with each of the time-averaged specific
+        tonality values in each critical band
+        arranged as [bands(, channels)].
 
     specTonalLoudness : 2D or 3D array
-                        time-dependent specific tonal loudness for each
-                        critical band
-                        arranged as [time, bands(, channels)]
+        Time-dependent specific tonal loudness for each critical band
+        arranged as [time, bands(, channels)].
 
     specNoiseLoudness : 2D or 3D array
-                        time-dependent specific noise loudness for each
-                        critical band
-                        arranged as [time, bands(, channels)]
+        Time-dependent specific noise loudness for each critical band
+        arranged as [time, bands(, channels)].
 
     tonalityTDep : 1D or 2D array
-                   time-dependent overall tonality
-                   arranged as [time(, channels)]
+        Time-dependent overall tonality arranged as [time(, channels)].
 
     tonalityTDepFreqs : 1D or 2D array
-                        time-dependent frequencies of the dominant tonal
-                        components corresponding with the
-                        time-dependent overall tonality values
-                        arranged as [time(, channels)]
+        Time-dependent frequencies of the dominant tonal components
+        corresponding with the time-dependent overall tonality values
+        arranged as [time(, channels)].
 
     tonalityAvg : 1D or 2D array
-                  time-averaged overall tonality
-                  arranged as [tonality(, channels)]
+        Time-averaged overall tonality arranged as [tonality(, channels)].
 
     bandCentreFreqs : 1D array
-                      centre frequencies corresponding with each critical band
-                      rate
+        Centre frequencies corresponding with each critical band rate.
 
     timeOut : 1D array
-              time (seconds) corresponding with time-dependent outputs
+        Time (seconds) corresponding with time-dependent outputs.
 
     soundField : string
-                 identifies the soundfield type applied (the input argument
-                 soundField)
+        Identifies the soundfield type applied (= input argument).
 
     If outPlot=True, a set of plots is returned illustrating the energy
     time-averaged A-weighted sound level, the time-dependent specific and
@@ -255,10 +245,6 @@ def shmTonalityECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     #                                   2*np.ones([1, 14]), np.ones([1, 9]),
     #                                   np.zeros([1, 28]))))).astype(int)
 
-    # Noise reduction constants from Section 6.2.7 Table 7 ECMA-418-2:2025
-    alpha = 20
-    beta = 0.07
-
     # Scaling factor constants from Section 6.2.8 Table 9 ECMA-418-2:2025
     A = 35
     B = 0.003
@@ -307,7 +293,7 @@ def shmTonalityECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # end of if branch for resampling
 
     # Section 5.1.2 ECMA-418-2:2025 Fade in weighting and zero-padding
-    pn = shmPreProc(p_re, np.max(blockSize), np.max(hopSize))
+    pn = shmPreProc(p_re, maxBlockSize, np.max(hopSize))
 
     # Apply outer & middle ear filter
     # -------------------------------
@@ -325,8 +311,8 @@ def shmTonalityECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
     # Equation 40 ECMA-418-2:2025 [l_end]
     lastBlock = int(np.ceil(p_re.shape[0]/sampleRate48k*sampleRate1875))
     # pre-allocate results arrays
-    # specSNR = np.zeros([l_end + 1, nBands, chansIn])  # dev only
-    # specLoudness = np.zeros([l_end + 1, nBands, chansIn])  # dev only
+    # specSNR = np.zeros([lastBlock + 1, nBands, chansIn])  # dev only
+    # specLoudness = np.zeros([lastBlock + 1, nBands, chansIn])  # dev only
     specTonalLoudness = np.zeros([lastBlock + 1, nBands, chansIn], order='F')
     specNoiseLoudness = np.zeros([lastBlock + 1, nBands, chansIn], order='F')
     specTonalityFreqs = np.zeros([lastBlock + 1, nBands, chansIn], order='F')
@@ -447,7 +433,7 @@ def shmTonalityECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
         tonalityTDep[:, chan] = np.max(specTonality[:, :, chan], axis=1)
         zmax = np.argmax(specTonality[:, :, chan], axis=1)
 
-        for ll in range(l_end + 1):
+        for ll in range(lastBlock + 1):
             tonalityTDepFreqs[ll, chan] = specTonalityFreqs[ll, zmax[ll], chan]
         # end of total tonality for loop over blocks
 
@@ -554,31 +540,38 @@ def shmTonalityECMA(p, sampleRateIn, axisN=0, soundField='freeFrontal',
 # end of shmTonalityECMA function
 
 
-def shmCritBandAutoCorrelation(zBand, bandCentreFreqs, blockSizeBands, overlap, signalBands):
-    """shmCritBandAutoCorrelation(zBand, bandCentreFreqs, blockSizeBands, overlap, signalBands)
+def shmCritBandAutoCorrelation(zBand, bandCentreFreqs, blockSizeBands, overlap,
+                               signalBands):
+    """shmCritBandAutoCorrelation(zBand, bandCentreFreqs, blockSizeBands,
+    overlap, signalBands)
 
     Returns the critical band autocorrelation estimate.
 
     Inputs
     ------
     zBand : integer
-            the input critical band index
+        Input critical band index.
+
     bandCentreFreqs : array of floats
-                      the centre frequencies of the critical bands
+        Centre frequencies of the critical bands.
+
     blockSizeBands : array of integers
-                     the block size in samples for each critical band
+        Block size in samples for each critical band.
+
     overlap : float
-              the proportion of overlap
+        Proportion of overlap.
+
     signalBands : 2D array
-                  the input critical bandpass-filtered signals
+        Input critical bandpass-filtered signals.
 
     Returns
     -------
     zBand : integer
-            the input critical band index as output
+        Input critical band index as output.
+
     unbiasedNormBandACF : 2D array
-                          unbiased and normalised estimate of the autocorrelation
-                          function in the corresponding critical band
+        Unbiased and normalised estimate of the autocorrelation
+        function in the corresponding critical band.
 
     """
 
@@ -640,31 +633,38 @@ def shmCritBandTonalityComponents(zBand, bandCentreFreqs, blockSizeBands, lastBl
     Inputs
     ------
     zBand : integer
-            the input critical band index
+        Input critical band index.
+
     bandCentreFreqs : array of floats
-                      the centre frequencies of the critical bands
+        Centre frequencies of the critical bands.
+
     blockSizeBands : array of integers
-                     the block size in samples for each critical band
+        Block size in samples for each critical band.
+
     lastBlock : integer
-                the index of the last block
+        Index of the last block.
+
     unbiasedNormACF : 2D array
-                      the unbiased and normalised estimate of the autocorrelation
-                      function in the corresponding critical band
+        Unbiased and normalised estimate of the autocorrelation
+        function in the corresponding critical band.
+
     i_NBandsAvg : array of integers
-                  the indices for averaging adjacent critical bands
+        Indices for averaging adjacent critical bands.
 
     Returns
     -------
     zBand : integer
-            the input critical band index as output
+        Input critical band index as output.
+
     bandTonalLoudness : 2D array
-                        the specific loudness of the tonal component in the critical band
+        Specific loudness of the tonal component in the critical band.
 
     bandNoiseLoudness : 2D array
-                        the specific loudness of the noise component in the critical band
+        Specific loudness of the noise component in the critical band.
 
     bandTonalFreqs : 2D array
-                     the time-dependent frequencies of the tonal components in the critical band
+        Time-dependent frequencies of the tonal components in the critical band.
+
     """
 
     # %% Define constants
