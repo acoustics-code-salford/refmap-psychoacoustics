@@ -133,7 +133,7 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRateIn, axisN, soundField,
 % Institution: University of Salford
 %
 % Date created: 01/11/2024
-% Date last modified: 18/11/2025
+% Date last modified: 21/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -201,11 +201,11 @@ end
 
 %% Define constants
 
-deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2024
-c = 0.1618;  % Half-Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2024
+deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2025
+c = 0.1618;  % Half-Bark band centre-frequency denominator constant defined in Section 5.1.4.1 ECMA-418-2:2025
 dz = 0.5;  % critical band resolution [deltaz]
 halfBark = dz:dz:26.5;  % half-critical band rate scale
-f = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2024
+f = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2025
 % z = 13*atan(0.76*(f/1000)) + 3.5*atan((f/7500).^2);  % Bark Eq 6.1 Fastl
 % & Zwicker (no longer used)
 z = 32.12*(1 - (1 + (f/873.47).^1.18).^-0.4);  % Bark eq 9 Volk, 2015
@@ -244,14 +244,14 @@ end
 % Calculate specific loudness
 % ---------------------------
 
-% Obtain specific loudness from ECMA-418-2:2024
+% Obtain specific loudness from ECMA-418-2:2025
 loudnessSHM = acousticSHMLoudness(p, sampleRateIn, 1, soundField, waitBar, false, binaural);
 
 specSHMLoudness = loudnessSHM.specLoudness;
 
 if chansIn == 2 && binaural
     % Binaural loudness
-    % Section 8.1.5 ECMA-418-2:2024 Equation 118
+    % Section 8.1.5 ECMA-418-2:2025 Equation 118
     specSHMLoudness(:, :, 3) = loudnessSHM.specLoudnessBin;
     chansOut = 3;  % set number of 'channels' to stereo plus single binaural
     chans = [chans;
