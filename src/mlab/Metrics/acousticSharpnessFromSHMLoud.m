@@ -8,7 +8,7 @@ function sharpnessSHM = acousticSharpnessFromSHMLoud(specSHMLoudness, method, ou
 % acousticSharpnessSHM.m (which calls acousticSHMLoudness.m).
 %
 % The sharpness model used can be specified using the 'method' input
-% argument. Options comprise 'aures', 'vonBismarck', or 'widmann' (which
+% argument. Options comprise 'aures', 'vonbismarck', or 'widmann' (which
 % is the model standardised in DIN 45692:2009).
 %
 % Since the input matrices will have been calculated using a given sound
@@ -120,7 +120,7 @@ function sharpnessSHM = acousticSharpnessFromSHMLoud(specSHMLoudness, method, ou
 % Institution: University of Salford
 %
 % Date created: 01/11/2024
-% Date last modified: 14/11/2025
+% Date last modified: 21/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
