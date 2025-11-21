@@ -20,7 +20,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 27/10/2023
-Date last modified: 08/10/2025
+Date last modified: 21/11/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -72,17 +72,17 @@ def shmAuditoryFiltBank(signal, outPlot=False):
     Inputs
     ------
     signal : 1D or 2D array
-             the input signal as single audio (sound pressure) signal/s,
-             arranged as [time(, chans)]
+        Input signal as single audio (sound pressure) signal/s,
+        arranged as [time(, chans)].
 
     outPlot : Boolean true/false (default: false)
-              flag indicating whether to generate a figure a frequency and
-              phase response figure for the filter bank
+        Flag indicating whether to generate a figure a frequency and
+        phase response figure for the filter bank.
 
     Returns
     -------
     signalFiltered : 2D of 3D array
-                     the filtered signals, arranged as [time, bands(, chans)]
+        Filtered signals, arranged as [time, bands(, chans)].
 
     Assumptions
     -----------
@@ -207,23 +207,23 @@ def shmBasisLoudness(signalSegmented, bandCentreFreq=None):
     Inputs
     ------
     signalSegmented : 2D or 3D array
-                      input band-limited segmented signal(s)
+        Input band-limited segmented signal(s).
 
     bandCentreFreq : double (optional, default: None)
-                     half-Bark critical band centre frequency - if None, all
-                     bands are assumed to be present in the input segmented
-                     signal matrix
+        Critical band centre frequency - if None, all
+        bands are assumed to be present in the input segmented
+        signal matrix.
 
     Returns
     -------
     signalRectSeg : 2D or 3D array
-                    rectified band-limited segmented signal
+        Rectified band-limited segmented signal.
 
     basisLoudness : 2D or 3D array
-                    basis loudness in each block
+        Basis loudness in each block
 
     blockRMS : 1D or 2D array
-               RMS for each block
+        Root-mean-square for each block.
 
     Assumptions
     -----------
@@ -320,16 +320,16 @@ def shmNoiseRedLowPass(signal, sampleRateIn):
     Inputs
     ------
     signal : 1D or 2D matrix
-             the input signal as single mono or stereo audio (sound
-             pressure) signals
+        Input signal as single audio (sound pressure) signal/s,
+        arranged as [time(, chans)].
 
     sampleRateIn : double
-                   the sample rate (frequency) of the input signal(s)
+        Sample rate (frequency) of the input signal(s).
 
     Returns
     -------
     signalFiltered : 1D or 2D matrix
-                     the filtered signal/s
+        Filtered signal/s.
 
     Assumptions
     -----------
@@ -374,28 +374,29 @@ def shmOutMidEarFilter(signal, soundField='freeFrontal', outPlot=False):
     Inputs
     ------
     signal : 1D or 2D array
-             the input signal (sound pressure)
+        Input signal as single audio (sound pressure) signal/s,
+        arranged as [time(, chans)].
 
     soundField: keyword string (default: 'freeFrontal')
-                determines whether the 'freeFrontal' or 'diffuse' field
-                stages are applied in the outer-middle ear filter;
-                alternatively, the 'noOuter' option omits the outer ear stage
-                entirely, ie, only the middle ear stage is applied.
-                (this may be useful for reliance on a recording made with an
-                artificial head + outer ear, when compensation equalisation
-                filtering is unavailable or is not desired. Note: omitting the
-                outer ear stage is beyond the current scope of the standard,
-                but is consistent with the description of the implementation in
-                section 5.1.3.2 and the frequency response shown in Figure 3).
+        Determines whether the 'freeFrontal' or 'diffuse' field
+        stages are applied in the outer-middle ear filter;
+        alternatively, the 'noOuter' option omits the outer ear stage
+        entirely, ie, only the middle ear stage is applied.
+        (this may be useful for reliance on a recording made with an
+         artificial head + outer ear, when compensation equalisation
+         filtering is unavailable or is not desired. Note: omitting the
+         outer ear stage is beyond the current scope of the standard,
+         but is consistent with the description of the implementation in
+         section 5.1.3.2 and the frequency response shown in Figure 3).
 
     outPlot : Boolean true/false (default: false)
-              flag indicating whether to generate a frequency and phase
-              response figure for the filter
+        Flag indicating whether to generate a frequency and phase
+        response figure for the filter.
 
     Returns
     -------
     signalFiltered : 1D or 2D array
-                     the output filtered signal
+        Output filtered signal/s.
 
     Assumptions
     -----------
@@ -520,26 +521,26 @@ def shmPreProc(signal, blockSize, hopSize, padStart=True, padEnd=True):
     Inputs
     ------
     signal : 1D or 2D array
-             the input signal/s
+        Input signal as single audio (sound pressure) signal/s,
+        arranged as [time(, chans)].
 
     blockSize : integer
-                the maximum signal segmentation block size
+        Maximum signal segmentation block size.
 
     hopSize : integer
-              the maximum signal segmentation hop size
-              = (1 - overlap)*blockSize
+        Maximum signal segmentation hop size = (1 - overlap)*blockSize.
 
     padStart : Boolean (default: True)
-               flag to indicate whether to pad the start of the signal
+        Flag to indicate whether to pad the start of the signal.
 
     padEnd : Boolean (default: True)
-             flag to indicate whether to pad the end of the signal
+        Flag to indicate whether to pad the end of the signal.
 
 
     Returns
     -------
     signalFadePad : 1D or 2D array
-                    the output faded, padded signal
+        Output faded, padded signal.
 
     Assumptions
     -----------
@@ -619,27 +620,28 @@ def shmResample(signal, sampleRateIn):
     Inputs
     ------
     signal : 1D or 2D array
-             the input signal
+        Input signal as single audio (sound pressure) signal/s,
+        arranged as [time(, chans)].
 
     sampleRateIn : integer
-                   the sample rate (frequency) of the input signal(s)
+        Sample rate (frequency) of the input signal(s)
 
     Returns
     -------
     For each channel in the input signal:
 
     resampledSignal : number or 1D array
-                  average (overall) tonality value
+        Average (overall) tonality value
 
     resampledRate : integer
-                    the resampled signal sample rate, ie, 48 kHz
+        Resampled signal sample rate, ie, 48 kHz
 
     Assumptions
     -----------
     The input signal is oriented with time on axis 0 (and channel # on axis
     1), ie, the resample operation is applied along axis 0.
     The sampleRatein is an integer value (this is to guarantee that the target
-                                          rate is exactly met).
+    rate is exactly met).
 
     Checked by:
     Date last checked:
@@ -686,32 +688,32 @@ def shmSignalSegmentBlocks(signal, blockSize, overlap=0, i_start=0,
     Inputs
     ------
     signal : 1D array
-             the input signal
+        Input signal.
 
     blockSize : integer
-                the block size in samples
+        Block size in samples.
 
     overlap : double (>=0, < 1, default: 0)
-              the proportion of overlap for each successive block
+        Proportion of overlap for each successive block.
 
     i_start : integer (optional, default: 0)
-              the sample index from which to start the segmented signal
+        Sample index from which to start the segmented signal.
 
     endShrink : Boolean (optional, default: false)
-                option to include the end of the signal data in a block using
-                increased overlap with the preceding block
+        Option to include the end of the signal data in a block using
+        increased overlap with the preceding block.
 
     Returns
     -------
     signalTrunc :  1D array
-                   the truncated signal
+        Truncated signal.
 
     nBlocksTotal : integer
-                   the total number of blocks to use for signal segmentation
+        Total number of blocks to use for signal segmentation.
 
     excessSignal : Boolean
-                   flag indicating whether there is sufficient signal to
-                   accommodate an extra block with increased overlap
+        Flag indicating whether there is sufficient signal to
+        accommodate an extra block with increased overlap.
 
     Assumptions
     -----------
@@ -770,37 +772,34 @@ def shmSignalSegment(signal, blockSize, overlap=0, i_start=0,
     Inputs
     ------
     signal : 1D array
-             the input signal
+        Input signal.
 
     blockSize : integer
-                the block size in samples
+        Block size in samples.
 
     overlap : double (>=0, < 1, default: 0)
-              the proportion of overlap for each successive block
-
-    axisN : integer (0 or 1, default: 0)
-            the (time) axis along which to apply block segmentation
+        Proportion of overlap for each successive block.
 
     i_start : integer (optional, default: 0)
-              the sample index from which to start the segmented signal
+        Sample index from which to start the segmented signal.
 
     endShrink : Boolean (optional, default: false)
-                option to include the end of the signal data in a block using
-                increased overlap with the preceding block
+        Option to include the end of the signal data in a block using
+        increased overlap with the preceding block.
 
     Returns
     -------
     signalSegmented : 2D array
-                      the segmented signal, arranged by samples (within each
-                      block) along the axis corresponding with axis 0, and
-                      block number along axis 1
+        Segmented signal, arranged by samples (within each
+        block) along the axis corresponding with axis 0, and
+        block number along axis 1.
 
     Also:
 
     iBlocksOut : 1D array
-                 the indices corresponding with each output block starting
-                 index (NOTE: the indices corresponding with the input
-                 indexing can be recovered by adding i_start to iBlocksOut)
+        Indices corresponding with each output block starting
+        index (NOTE: the indices corresponding with the input
+        indexing can be recovered by adding i_start to iBlocksOut).
 
     Assumptions
     -----------
@@ -898,15 +897,15 @@ def shmDownsample(ndArray, downSample=32):
     Parameters
     ----------
     ndArray : array_like
-              Input array
+        Input array.
 
     downSample : integer
-                 The downsampleing factor
+        Downsampleing factor.
 
     Returns
     -------
     targArray : nD array
-                Output numpy array downsampled.
+        Output numpy array downsampled.
 
     Assumptions
     -----------
@@ -936,19 +935,19 @@ def shmDimensional(ndArray, targetDim=2, where='last'):
     Parameters
     ----------
     ndArray : array_like
-              Input array
+        Input array.
 
     targetDim : TYPE, optional
-        The target number of dimensions. The default is 2.
+        Target number of dimensions. The default is 2.
 
     where : keyword string or corresponding integer (0, -1), optional
-            Where the added dimensions are to be placed.
-            The default is 'last' (-1). The altgernative is 'first' (0).
+        Where the added dimensions are to be placed. Default is 'last' (-1).
+        The altgernative is 'first' (0).
 
     Returns
     -------
     targArray : nD array
-                Output numpy array increased by dimensions.
+        Output numpy array increased by dimensions.
 
     Assumptions
     -----------
@@ -986,21 +985,18 @@ def shmRoughWeight(modRate, modfreqMaxWeight, roughWeightParams):
     Inputs
     ------
     modRate : 3D array
-              the estimated modulation rates used to determine the weighting
-              factors
+        Estimated modulation rates used to determine the weighting factors.
 
     modfreqMaxWeight : 1D array
-                       the modulation rate at which the weighting reaches its
-                       maximum value (one)
+        Modulation rate at which the weighting reaches its maximum value (one).
 
     roughWeightParams : array
-                        the parameters for the each of the weightings (high
-                        or low)
+        Parameters for the each of the weightings (high or low).
 
     Returns
     -------
     roughWeight : array
-                  the weighting values for the input parameters
+        Weighting values for the input parameters.
 
     Assumptions
     -----------
@@ -1034,18 +1030,17 @@ def shmRoughLowPass(specRoughEstTform, sampleRate, riseTime, fallTime):
     Inputs
     ------
     specRoughEstTform : 2D array
-                        the input specific roughness estimate (from
-                        Equation 104)
+        Input specific roughness estimate (from Equation 104).
 
     sampleRate : double
-                 the sample rate (frequency) of the input specific
-                 roughness (NB: this is not the original signal sample
-                 rate; currently it should be set to 50 Hz)
+        Sample rate (frequency) of the input specific roughness
+        (NB: this is not the original signal sample rate; currently it should
+         be set to 50 Hz)
 
     Returns
     -------
     specRoughness : 2D array
-                    the filtered specific roughness
+        Filtered specific roughness
 
     Assumptions
     -----------
@@ -1090,16 +1085,16 @@ def shmRound(vals, decimals=0):
     ------
 
     vals : float or array of floats
-           the values to be rounded.
+        Values to be rounded.
 
     decimals : int
-               the number of decimal places to round to (default=0).
+        Number of decimal places to round to (default=0).
 
     Returns
     -------
 
      : array of floats
-          The rounded values.
+         Rounded values.
 
     """
 
@@ -1120,20 +1115,20 @@ def shmRMS(vals, axis=0, keepdims=False):
     ------
 
     vals : float or array of floats
-           the values to be rounded.
+        Values to be root-mean-squared.
 
     axis : integer
-           the axis along which to calculate the RMS.
+        Axis along which to calculate the RMS.
 
     keepdims : Boolean
-               flag to indicate whether to retain dimensions along the mean
-               axis (with size of one), for broadcasting compatibility.
+        Flag to indicate whether to retain dimensions along the mean
+        axis (with size of one), for broadcasting compatibility.
 
     Returns
     -------
 
     array of floats
-    The root-mean-squared values.
+        Root-mean-squared values.
 
     """
 
@@ -1155,46 +1150,47 @@ def shmInCheck(signal, sampleRateIn, axisN, soundField,
     ------
 
     signal : 1D or 2D array
-             the input signal as single mono or stereo audio (sound
-             pressure) signals
+        Input signal as single mono or stereo audio (sound pressure) signals.
 
     sampleRateIn : integer
-                   the sample rate (frequency) of the input signal(s)
+        Sample rate (frequency) of the input signal(s).
 
     axisN : integer (0 or 1, default: 0)
-            the time axis along which to calculate the sound quality metric
+        Time axis along which to calculate the sound quality metric.
 
     soundField : keyword string (default: 'freeFrontal')
-                 determines whether the 'freeFrontal' or 'diffuse' field stages
-                 are applied in the outer-middle ear filter, or 'noOuter' uses
-                 only the middle ear stage, or 'noEar' omits ear filtering.
-                 Note: these last two options are beyond the scope of the
-                 standard, but may be useful if recordings made using
-                 artificial outer/middle ear are to be processed using the
-                 specific recorded responses.
+        Determines whether the 'freeFrontal' or 'diffuse' field stages
+        are applied in the outer-middle ear filter, or 'noOuter' uses
+        only the middle ear stage, or 'noEar' omits ear filtering.
+        Note: these last two options are beyond the scope of the
+        standard, but may be useful if recordings made using
+        artificial outer/middle ear are to be processed using the
+        specific recorded responses.
 
     waitBar : keyword string (default: True)
-              determines whether a progress bar displays during processing
-              (set waitBar to false for doing multi-file parallel calculations)
+        Determines whether a progress bar displays during processing
+        (set waitBar to false for doing multi-file parallel calculations).
 
     outPlot : Boolean (default: False)
-              flag indicating whether to generate a figure from the output
-              (set outplot to false for doing multi-file parallel calculations)
+        Flag indicating whether to generate a figure from the output
+        (set outPlot to false for doing multi-file parallel calculations).
 
     binaural : None or Boolean (default: True)
-               flag indicating whether to output combined binaural sound
-               quality for stereo input signal. If None, this variable will
-               not be checked.
+        Flag indicating whether to output combined binaural sound
+        quality for stereo input signal. If None, this variable will
+        not be checked.
 
     Returns
     -------
     signal : 1D or 2D array
-             the input signal as single mono or stereo audio (sound
-             pressure) signals, orientated to ensure time is on the first axis
+        Tnput signal as single mono or stereo audio (sound
+        pressure) signals, orientated to ensure time is on the first axis.
+
     chansIn : integer
-              the number of input channels
+        Number of input channels.
+
     chans : list of strings
-            text labels indicating the input signal channels
+            Text labels indicating the input signal channels.
 
     """
 
