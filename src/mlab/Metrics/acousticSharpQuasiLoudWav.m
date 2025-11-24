@@ -1,4 +1,4 @@
-function sharpness = acousticSharpQuasiLoudWav(p, sampleRatein, timeStep, axisN, soundField, sharpMethod, adjustLoud, outPlot, binaural)
+function sharpness = acousticSharpQuasiLoudWav(p, sampleRateIn, timeStep, axisN, soundField, sharpMethod, adjustLoud, outPlot, binaural)
 % sharpness = acousticSharpQuasiLoudWav(p, sampleRatein, timeStep, axisN,
 %                                       soundField, sharpMethod,
 %                                       adjustLoud, outPlot, binaural)
@@ -25,7 +25,7 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRatein, timeStep, axisN,
 %   the input signal as single mono or stereo audio (sound
 %   pressure) signals
 %
-% sampleRatein : integer
+% sampleRateIn : integer
 %   the sample rate (frequency) of the input signal(s).
 %
 % timeStep : number
@@ -139,7 +139,7 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRatein, timeStep, axisN,
 % Institution: University of Salford
 %
 % Date created: 30/04/2025
-% Date last modified: 13/11/2025
+% Date last modified: 24/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -163,7 +163,7 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRatein, timeStep, axisN,
 %% Arguments validation
     arguments (Input)
         p (:, :) double {mustBeReal}
-        sampleRatein (1, 1) double {mustBePositive, mustBeInteger}
+        sampleRateIn (1, 1) double {mustBePositive, mustBeInteger}
         timeStep (1, 1) double {mustBePositive}
         axisN (1, 1) {mustBeInteger, mustBeInRange(axisN, 1, 2)} = 1
         soundField (1, :) string {mustBeMember(soundField,...
@@ -192,12 +192,22 @@ if axisN == 2
     p = p.';
 end
 
+% Ensure sampling rate is full range
+resampledRate = 48e3;
+if sampleRateIn ~= resampledRate  % Resample signal
+    up = resampledRate/gcd(resampledRate, sampleRateIn);  % upsampling factor
+    down = sampleRateIn/gcd(resampledRate, sampleRateIn);  % downsampling factor
+    p_re = resample(p, up, down);  % apply resampling
+else  % don't resample
+    p_re = p;
+end
+
 % get number of channels
-numChans = size(p, 2);
+numChans = size(p_re, 2);
 
 % Get time-averaged power spectrum
-[pxx, ~] = poctave(p, sampleRatein, 'spectrogram', 'BandsPerOctave', 3,...
-                   'WindowLength', sampleRatein*timeStep,...
+[pxx, ~] = poctave(p_re, sampleRateIn, 'spectrogram', 'BandsPerOctave', 3,...
+                   'WindowLength', sampleRateIn*timeStep,...
                    'FrequencyLimits', [25, 12500]);
 
 % reorientate power spectrum

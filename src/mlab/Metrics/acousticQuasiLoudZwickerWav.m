@@ -109,7 +109,7 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 13/11/2025
+% Date last modified: 24/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -152,7 +152,7 @@ resampledRate = 48e3;
 if sampleRateIn ~= resampledRate  % Resample signal
     up = resampledRate/gcd(resampledRate, sampleRateIn);  % upsampling factor
     down = sampleRateIn/gcd(resampledRate, sampleRateIn);  % downsampling factor
-    p_re = resample(signal, up, down);  % apply resampling
+    p_re = resample(p, up, down);  % apply resampling
 else  % don't resample
     p_re = p;
 end
