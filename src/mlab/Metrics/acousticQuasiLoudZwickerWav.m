@@ -109,7 +109,7 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 24/11/2025
+% Date last modified: 26/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -163,7 +163,7 @@ addpath(genpath(fullfile("src", "mlab")))
 %% Signal processing
 
 % get number of channels
-numChans = size(p_re, 2);
+chansIn = size(p_re, 2);
 
 % Get time-averaged power spectrum
 [pxx, ~] = poctave(p_re, resampledRate, 'spectrogram', 'BandsPerOctave', 3,...
@@ -174,7 +174,7 @@ numChans = size(p_re, 2);
                    'OverlapPercent', 0);
 
 % reorientate power spectrum
-if numChans == 1
+if chansIn == 1
     pxx = pxx.';
 else
     pxx = permute(pxx, [2, 1, 3]);

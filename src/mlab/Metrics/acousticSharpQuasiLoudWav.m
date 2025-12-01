@@ -139,7 +139,7 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRateIn, timeStep, axisN,
 % Institution: University of Salford
 %
 % Date created: 30/04/2025
-% Date last modified: 24/11/2025
+% Date last modified: 01/12/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -164,7 +164,7 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRateIn, timeStep, axisN,
     arguments (Input)
         p (:, :) double {mustBeReal}
         sampleRateIn (1, 1) double {mustBePositive, mustBeInteger}
-        timeStep (1, 1) double {mustBePositive}
+        timeStep (1, 1) double {mustBePositive} = 0.1
         axisN (1, 1) {mustBeInteger, mustBeInRange(axisN, 1, 2)} = 1
         soundField (1, :) string {mustBeMember(soundField,...
                                               {'freeFrontal',...

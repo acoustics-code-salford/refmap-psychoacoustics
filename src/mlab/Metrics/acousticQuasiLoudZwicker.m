@@ -99,13 +99,18 @@ function loudness = acousticQuasiLoudZwicker(spectrL, fLim, axisF, soundField, a
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 05/11/2025
+% Date last modified: 27/11/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
 % the RefMap project (www.refmap.eu), and is subject to licence as detailed
 % in the code repository
 % (https://github.com/acoustics-code-salford/refmap-psychoacoustics)
+%
+% This file contains code adapted from the SQAT toolbox (itself being an
+% adaptation of the AARAE code Loudness_ISO532_1.m by Ella Manor). SQAT is
+% licensed as CC-NC-BY4 (https://creativecommons.org/licenses/by-nc/4.0/),
+% while the AARAE code is BSD-3 (https://opensource.org/license/bsd-3-clause).
 %
 % As per the licensing information, please be aware that this code is
 % WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -134,15 +139,15 @@ addpath(genpath(fullfile("src", "mlab")))
 
 %% Input checks
 if ndims(spectrL) == 3
-    numChans = size(spectrL, 3);
+    inChans = size(spectrL, 3);
 elseif ismatrix(spectrL)
-    numChans = 1;
+    inChans = 1;
 else
     error("Input spectrL must not have more than 3 dimensions.")
 end
 
 if axisF == 1
-    if numChans == 1
+    if inChans == 1
         spectrL = spectrL.';
     else
         spectrL = permute(spectrL, [2, 1, 3]);
@@ -190,6 +195,19 @@ levelThresQ = [30, 18, 12, 8, 7, 6, 5, 4,...
 % adjustment
 critBWAdjust = [-0.25, -0.6, -0.8, -0.8, -0.5, 0, 0.5, 1.1, 1.5, 1.7,...
                 1.8, 1.8, 1.7, 1.6, 1.4, 1.2, 0.8, 0.5, 0, -0.5];
+
+if strcmp(adjustLoud, 'ecma4182')
+    % ISO 523-2 Table 2
+    levelThresQTOB = [28.18, 23.9, 19.2, 15.68, 12.67, 10.09, 8.08, 6.3,...
+                      5.3, 4.5, 3.63, 3.63, 3.63, 3.63, 3.63, 3.63, 3.63,...
+                      3.63, 3.63, 3.63, 3.63, 3.63, 3.63, 3.63, 3.63];
+
+    levelThresQCB = [min(levelThresQTOB(1:3)), min(levelThresQTOB(4:6)),...
+                     min(levelThresQTOB(7:8)), levelThresQTOB(9:end)];
+
+    levelThresQ = levelThresQCB - critBWAdjust;
+
+end
 
 % ISO 532-1 Table A.8: critical band number (rate) - addition of 1e-4 is as
 % as per Annex A.4
@@ -286,15 +304,70 @@ midOnly = [-22.31, -20.32, -18.45, -16.52, -14.64, -12.77, -11.18,...
 % 40 dB in free-field)
 switch adjustLoud
     case 'ecma4182'
-        calN = 1.180440942714077;
+        calN = 0.915728923552739;
     case 'iso226'
-        calN = 1.209936908720482;
+        calN = 1.209768056417869;
     case 'none'
         calN = 1.192929376089246;
 end
 
-% loudness threshold factor
+% loudness transform threshold factor
 threshFact = 0.25;
+
+% loudness transform parameters per critical band for ecma4182 option
+if strcmp(adjustLoud, 'ecma4182')
+
+    tFormParams = [0.0216211014619521, 0.244893066697970, 0.249652468585476,...
+                   0.132769990262922, 0.144338387038054, 0.138547904063839,...
+                   0.127851720890203, 0.122988446348321, 0.109432262457469,...
+                   0.140110970198732, 0.127532531503563, 0.128824953232883,...
+                   0.125423326764015, 0.113713974586521, 0.114221022126836,...
+                   0.115674103067031, 0.117045217317147, 0.123614083758182,...
+                   0.128292534021925, 0.129388081356235;
+                   12.9997784114591, 0.189689480014467, 27.5041570037957,...
+                   14.0747011015335, 26.9618721060537, 14.4981572709487,...
+                   3.96076147304715, 25.0327217497616, 1.16375666073087,...
+                   21.7640099113582, 15.7816186599824, 1.62680264429789,...
+                   2.11564296029020, 19.7133969292022, 12.2975292033567,...
+                   14.9609171919786, -2.32510656585183, 10.4449368579285,...
+                   11.5131700928274, 10.9776844794432;
+                   0.550004650415479, 0.100080757265366, 0.346122712797352,...
+                   0.550189114019556, 0.477856625731104, 0.456954428002810,...
+                   0.374757323668428, 0.605408817611497, 0.216031615292129,...
+                   0.582191786753812, 0.557145246877237, 0.342554465472874,...
+                   0.370810435822780, 0.517159004220563, 0.831437862495454,...
+                   0.826655742289538, 0.846147528058533, 0.813828381081569,...
+                   0.769281361498644, 0.798452453256665;
+                   0.234168807782939, 0.142865229874899, 0.147443484602303,...
+                   0.191253199663201, 0.180718235313210, 0.182356695592064,...
+                   0.187980849430008, 0.189686205126263, 0.210018882817866,...
+                   0.202658092740540, 0.208829051454368, 0.268132695041064,...
+                   0.203618421505789, 0.193542579976283, 0.187146691691566,...
+                   0.185856331078352, 0.187151425242945, 0.187817210563186,...
+                   0.184885920516634, 0.174287307872786;
+                  -0.0314967447291350, -0.0506714665075209, -0.0376645433019592,...
+                  -0.0351674378501139, -0.0194388857021200, -0.0152717939057543,...
+                  -0.0134450413035557, -0.0116995448707150, -0.0213778718674300,...
+                  -0.0348463270274590, -0.0347986379310834, -0.0925973329499940,...
+                  -0.0247469217021565, -0.00833770842655125, -0.00310967338030957,...
+                  -0.00373157927397809, -0.00718325628212586, -0.0137749197165944,...
+                  -0.0165767904749479, -0.0119545792193787;
+                   35.0336084516183, 83.3368871957613, 84.1501555884328,...
+                   100.218714680987, 88.5903082350575, 87.5515649841792,...
+                   90.4705999145900, 91.9220231584999, 118.982821284743,...
+                   124.490670419392, 126.031894509287, 155.847920405969,...
+                   119.855891847784, 100.362239143157, 93.0345292038482,...
+                   93.0241169457276, 100.002846880705, 104.574081521952,...
+                   103.922064899048	97.2030112052792;
+                  -25.5529483888763, -47.2052688039484, -40.6420481056860,...
+                  -57.8551311301582, -31.8981349724947, -29.2458884789345,...
+                  -26.7512699340362, -26.7056271886970, -33.8428265154256,...
+                  -49.1980895148980, -45.8712359428293, -42.3574478012233,...
+                  -26.9826496760918, -16.4844827430767, -6.36146379509605,...
+                  -1.82053441691555, -9.17083504578188, -15.2503110339556,...
+                  -16.5317770116393, -11.7668051136539];
+
+end
 
 %% Signal processing
 
@@ -324,12 +397,11 @@ barkAxisN = length(barkAxis);
 nTimeSteps = size(spectrL, 1);
 
 % loop over channels
-for chan = numChans:-1:1
+for chan = inChans:-1:1
     
     % low-frequency weighting and adjustment for equal loudness contour
     % differences
     levelWeighted = spectrL(:, :, chan);
-    loudCore = zeros([size(levelWeighted, 1), barkCount]);
 
     rangeInts = length(lowFLRange);
     rangePhons = length(phonRange);
@@ -338,7 +410,7 @@ for chan = numChans:-1:1
     for kk = fmAllI1:fmAllI2
     
         % only proceed if any band weightings are non-zero
-        if any(lowFWeights(kk, :))
+        if any(lowFWeights(kk, :)) && ~strcmp(adjustLoud, 'ecma4182')
     
             % repeat band levels and apply all weights
             spectrLRepWt = repmat(spectrL(:, kk, chan), 1, rangeInts) + lowFWeights(kk, :);
@@ -455,41 +527,47 @@ for chan = numChans:-1:1
     % transformation to loudness
     excitCBands = excitation - critBWAdjust(barkI1:barkI2);
     maskLTQ = excitation > levelThresQ(barkI1:barkI2);
-    levelThresQRep = repmat(levelThresQ(barkI1:barkI2), size(loudCore, 1), 1);
+    levelThresQRep = repmat(levelThresQ(barkI1:barkI2), size(excitation, 1), 1);
 
     if strcmp(adjustLoud, 'ecma4182')
         
-        tFormExptP1 = 1.5016;
-        tFormExptP2 = 0.2552;
-        tFormExptP3 = 0.20627;
-        tFormExptP4 = -0.01067;
-        tFormExptP5 = 108.66;
-        tFormExptP6 = -17.03;
+        tFormParamsCBands = tFormParams(:, barkI1:barkI2);
 
-        tFormExpt = tFormExptP1.*exp(-tFormExptP2*excitCBands(maskLTQ))...
-                    + tFormExptP3 + tFormExptP4.*tanh((excitCBands(maskLTQ)...
-                                                       - tFormExptP5)/tFormExptP6);
+        tFormP1 = tFormParamsCBands(1, :);
+        tFormP2 = tFormParamsCBands(2, :);
+        tFormP3 = tFormParamsCBands(3, :);
+        tFormP4 = tFormParamsCBands(4, :);
+        tFormP5 = tFormParamsCBands(5, :);
+        tFormP6 = tFormParamsCBands(6, :);
+        tFormP7 = tFormParamsCBands(7, :);
 
-        loudCore(maskLTQ) = calN.*((1 - threshFact...
-                                    + threshFact.*10.^((excitCBands(maskLTQ)...
-                                                    - levelThresQRep(maskLTQ))/10)).^tFormExpt...
-                                   - 1).*0.1028045.*(10.^(0.1*levelThresQRep(maskLTQ))).^tFormExpt;
+        tFormExpt = tFormP2.*exp(-tFormP3.*excitCBands) + tFormP4...
+                    + tFormP5.*tanh((excitCBands - tFormP6)./tFormP7);
+
+        loudCore = calN.*((1 - threshFact...
+                           + threshFact.*10.^((excitCBands...
+                                               - levelThresQRep)/10)).^tFormExpt...
+                          - 1).*tFormP1.*(10.^(0.1*levelThresQRep)).^tFormExpt;
 
     else
-        loudCore(maskLTQ) = calN.*((1 - threshFact...
-                                    + threshFact.*10.^((excitCBands(maskLTQ)...
-                                                    - levelThresQRep(maskLTQ))/10)).^0.25...
-                                   - 1).*0.0635.*(10.^(0.1*levelThresQRep(maskLTQ))).^0.25;
+        loudCore = calN.*((1 - threshFact...
+                           + threshFact.*10.^((excitCBands...
+                                               - levelThresQRep)/10)).^0.25...
+                          - 1).*0.0635.*(10.^(0.1*levelThresQRep)).^0.25;
     end
 
-    loudCore(loudCore < 0) = 0;
+    loudCore(~maskLTQ) = 0;  % zero loudness for below-threshold excitation
+    loudCore(loudCore < 0) = 0;  % zero negative loudness
 
-    % undocumented correction to core loudness in lowest critical band (Annex
-    % A.4 f_corr_loudness)
+    % correction to core loudness in lowest critical band (Annex
+    % A.4 f_corr_loudness) "for the consideration of the run of threshold
+    % in quiet within this critical band"
     if CB1
-        loudCore(:, 1) = loudCore(:, 1).*(0.4 + 0.32.*loudCore(:, 1).^0.2);
+        corrCL = (0.4 + 0.32.*loudCore(:, 1).^0.2);
+        corrCL(corrCL >= 1) = 1;
+        loudCore(:, 1) = loudCore(:, 1).*corrCL;
     end
-    
+
     % Specific loudness slopes adjustment
     % add dummy band for uppermost band
     if barkNOut(end) >= 23.6
@@ -498,7 +576,7 @@ for chan = numChans:-1:1
         loudCore1 = loudCore;
     end
     
-    %%%% SQAT code adapted
+    %%%% SQAT(/AARAE) code adapted
     
     loudTDepChan = zeros(nTimeSteps, 1);
     specLoudChan = zeros(nTimeSteps, barkAxisN);
@@ -524,7 +602,7 @@ for chan = numChans:-1:1
     
             while z1 < barkN(i)
     
-                if n1 <= loudCore1(l, i)     % Nm is the main loudness level
+                if n1 <= loudCore1(l, i)     % loudCore1 is the main loudness level
                     % contribution of unmasked main loudness to total loudness
                     % and calculation of values
                     if n1 < loudCore1(l, i)
@@ -548,7 +626,7 @@ for chan = numChans:-1:1
     
                     z = k;
     
-                else %if N1 > NM(i)
+                else %if n1 > loudCore(i)
                     % decision wether the critical band in question is completely
                     % or partly masked by accessory loudness
     
@@ -588,7 +666,7 @@ for chan = numChans:-1:1
                     j = 18;
                 end
     
-                z1 = z2;     % N1 and Z1 for next loop
+                z1 = z2;     % n1 and z1 for next loop
                 n1 = n2;
     
             end
@@ -607,7 +685,7 @@ for chan = numChans:-1:1
         loudTDepChan(l) = N; % total loudness at current timeframe l
     end
     
-    %%%% End of SQAT code adapted
+    %%%% End of SQAT(/AARAE) code adapted
     specLoud(:, :, chan) = specLoudChan;
     loudTDep(:, chan) = loudTDepChan;
 end  % end of for loop over channels

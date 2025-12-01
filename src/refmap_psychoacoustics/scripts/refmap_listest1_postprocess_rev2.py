@@ -344,12 +344,14 @@ indicesPsycho = ["LoudECMAPowAvgBin",
                  "TonalAur05ExMaxLR",
                  "RoughECMA10ExBin",
                  "RoughECMA05ExBin",
+                 "RoughECMAAvgBin",
                  "RoughFZ10ExMaxLR",
                  "RoughFZ05ExMaxLR",
                  "RoughDW10ExMaxLR",
                  "RoughDW05ExMaxLR",
                  "FluctOldSHM10ExBin",
                  "FluctOldSHM05ExBin",
+                 "FluctOldSHMAvgBin",
                  "FluctECMA10ExBin",
                  "FluctECMA05ExBin",
                  "FluctFZ10ExMaxLR",
@@ -362,6 +364,7 @@ indicesPsycho = ["LoudECMAPowAvgBin",
                  "SharpAurISO305ExBin",
                  "SharpAurISO1PowAvgBin",
                  "SharpAurISO105ExBin",
+                 "SharpAurISO1MedBin",
                  "SharpDINPowAvgBin",
                  "SharpDIN05ExBin",
                  "SharpvBISO1PowAvgBin",
@@ -386,6 +389,7 @@ indicesPsycho = ["LoudECMAPowAvgBin",
                  "PsychAnnoyDi",
                  "PsychAnnoyTorija",
                  "PsychAnnoyWillemsen",
+                 "PsychAnnoyBoucher",
                  "dTonalECMAAvgMaxLR",
                  "dTonalECMA05ExMaxLR",
                  "dTonalSHMIntAvgMaxLR",
@@ -421,15 +425,13 @@ indicesPsycho = ["LoudECMAPowAvgBin",
                  "dPsychAnnoyMore",
                  "dPsychAnnoyDi",
                  "dPsychAnnoyTorija",
-                 "dPsychAnnoyWillemsen"]
+                 "dPsychAnnoyWillemsen",
+                 "dPsychAnnoyBoucher"]
 
 dataByStim = pd.concat([dataByStim, pd.DataFrame(index=dataByStim.index,
                                                  columns=indicesPsycho,
                                                  dtype=float)], axis=1)
 
-dataForWillemsenPA = pd.DataFrame(index=dataByStim.index,
-                                  columns=['SharpAurISO1MedBin'],
-                                  dtype=float)
 
 # output SQM sample rates
 sampleRateLoudECMA = 187.5
@@ -475,6 +477,7 @@ filelistMAT = list(QFileDialog.getOpenFileNames(filter=fileExtsMAT,
                                                 caption=r"Select MATLAB output files in '03 Experiment\Experiment 1\Analysis\MATLAB\CALHEQ\mat'"))[0]
 
 filelistMAT.sort()
+
 
 filelist = filelistXLSX + filelistMAT
 
@@ -829,9 +832,13 @@ for ii, file in enumerate(filelist):
             # binaural overall (95th percentile = 5% exceeded) roughness
             roughECMA05ExBin = roughECMATDepBinMask.quantile(q=0.95)
 
+            # binaural overall time-averaged roughness
+            roughECMAAvgBin = roughECMATDepBinMask.mean()
+
             # add results to output DataFrame
             dataByStim.loc[renderNames[ii], 'RoughECMA10ExBin'] = roughECMA10ExBin
             dataByStim.loc[renderNames[ii], 'RoughECMA05ExBin'] = roughECMA05ExBin
+            dataByStim.loc[renderNames[ii], 'RoughECMAAvgBin'] = roughECMAAvgBin
 
         elif filenames[ii].find("FluctOV") != -1:       
             filedata = io.loadmat(file)['FluctOVSpecTDep2']   
@@ -1299,7 +1306,7 @@ for ii, file in enumerate(filelist):
                     dataByStim.loc[renderNames[ii], 'dImpulsLoudWZ05ExMaxLR'] = dImpulsLoudWZ05ExMaxLR
                     dataByStim.loc[renderNames[ii], 'dImpulsLoudWZPowAvgMaxLR'] = dImpulsLoudWZPowAvgMaxLR
 
-                elif filenames[ii].find("ImpulsLoudWZ") != -1:
+                elif filenames[ii].find("ImpulsLoudWECMA") != -1:
                     impulsLoudWECMATDepBinMovAvg = impulsLoudWECMATDepBin.rolling(window=int(np.ceil(sampleRateLoudECMA*windowT))).mean()
                     
                     # calculate differences and make negative values 0
@@ -1315,12 +1322,15 @@ for ii, file in enumerate(filelist):
 
                     # binaural overall (averaged) impulsive loudness
                     dImpulsLoudWECMAAvgBin = dImpulsLoudWECMATDepBinMask.mean()
+                    dImpulsLoudWECMAAvgBin = dImpulsLoudWECMAAvgBin.iloc[0]
                     
                     # binaural overall (95th percentile = 5% exceeded) impulsive loudness
                     dImpulsLoudWECMA05ExBin = dImpulsLoudWECMATDepBinMask.quantile(q=0.95)
+                    dImpulsLoudWECMA05ExBin = dImpulsLoudWECMA05ExBin.iloc[0]
                     
                     # binaural overall (power-averaged) impulsive loudness
                     dImpulsLoudWECMAPowAvgBin = dImpulsLoudWECMATDepBinMask.pow(1/np.log10(2)).mean()**np.log10(2)
+                    dImpulsLoudWECMAPowAvgBin = dImpulsLoudWECMAPowAvgBin.iloc[0]
 
                     # add results to output DataFrame
                     dataByStim.loc[renderNames[ii], 'dImpulsLoudWECMAAvgBin'] = dImpulsLoudWECMAAvgBin
@@ -1878,6 +1888,9 @@ for ii, file in enumerate(filelist):
         # binaural overall (95th percentile = 5% exceeded) fluctuation strength
         FluctOldSHM05ExBin = FluctOldSHMTDepBinMask.quantile(q=0.95)
 
+        # binaural overall time-averaged fluctuation strength
+        FluctOldSHMAvgBin = FluctOldSHMTDepBinMask.mean()
+
         # Calculate overall ISO 532-1 loudness from 2-channel time-varing loudness
         loudISO1TDep = pd.DataFrame(workbookdata['Sheet1'].iloc[13:, 1:3].values,
                                     columns=workbookdata['Sheet1'].iloc[12, 1:3],
@@ -2009,6 +2022,7 @@ for ii, file in enumerate(filelist):
         # add results to output DataFrame
         dataByStim.loc[renderNames[ii], 'FluctOldSHM10ExBin'] = FluctOldSHM10ExBin
         dataByStim.loc[renderNames[ii], 'FluctOldSHM05ExBin'] = FluctOldSHM05ExBin
+        dataByStim.loc[renderNames[ii], 'FluctOldSHMAvgBin'] = FluctOldSHMAvgBin
         dataByStim.loc[renderNames[ii], 'LoudISO105ExMaxLR'] = loudISO105ExMaxLR
         dataByStim.loc[renderNames[ii], 'LoudISO1PowAvgMaxLR'] = loudISO1PowAvgMaxLR
         dataByStim.loc[renderNames[ii], 'LoudISO3PowAvgBin'] = loudISO3PowAvgBin
@@ -2020,8 +2034,7 @@ for ii, file in enumerate(filelist):
         dataByStim.loc[renderNames[ii], 'SharpvBISO105ExBin'] = sharpvBISO105ExBin
         dataByStim.loc[renderNames[ii], 'SharpDINPowAvgBin'] = sharpDINPowAvgBin
         dataByStim.loc[renderNames[ii], 'SharpDIN05ExBin'] = sharpDIN05ExBin
-
-        dataForWillemsenPA.loc[renderNames[ii], 'SharpAISO1MedBin'] = sharpAISO1MedBin
+        dataByStim.loc[renderNames[ii], 'SharpAISO1MedBin'] = sharpAISO1MedBin
 
         # calculation section for SQM differences
         # NOTE: THIS SECTION RELIES ON THE ALPHABETIC ORDER OF THE STIMULI FILES AS
@@ -2089,9 +2102,9 @@ dataByStim['PsychAnnoyMore'] = psych_annoy.morePA(dataByStim.loc[:, 'LoudISO105E
 
 dataByStim['PsychAnnoyDi'] = psych_annoy.diPA(dataByStim.loc[:, 'LoudISO105ExMaxLR'],
                                               dataByStim.loc[:, 'SharpvBISO105ExBin'],
-                                              dataByStim.loc[:, 'RoughECMA05ExBin'],
-                                              dataByStim.loc[:, 'FluctOldSHM05ExBin'],
-                                              dataByStim.loc[:, 'TonalAur05ExMaxLR'])
+                                              dataByStim.loc[:, 'RoughECMAAvgBin'],
+                                              dataByStim.loc[:, 'FluctOldSHMAvgBin'],
+                                              dataByStim.loc[:, 'TonalAurAvgMaxLR'])
 
 dataByStim['PsychAnnoyTorija'] = psych_annoy.torijaPA(dataByStim.loc[:, 'LoudISO105ExMaxLR'],
                                                       dataByStim.loc[:, 'SharpDIN05ExBin'],
@@ -2101,24 +2114,31 @@ dataByStim['PsychAnnoyTorija'] = psych_annoy.torijaPA(dataByStim.loc[:, 'LoudISO
                                                       dataByStim.loc[:, 'ImpulsSHM05ExMaxLR'])
 
 dataByStim['PsychAnnoyWillemsen'] = psych_annoy.willemsenPA(dataByStim.loc[:, 'LoudISO105ExMaxLR'],
-                                                            dataForWillemsenPA.loc[:, 'SharpAISO1MedBin'],
+                                                            dataByStim.loc[:, 'SharpAISO1MedBin'],
                                                             dataByStim.loc[:, 'RoughECMA05ExBin'],
                                                             dataByStim.loc[:, 'ImpulsLoudWZAvgMaxLR'])
+
+dataByStim['PsychAnnoyBoucher'] = psych_annoy.boucherPA(dataByStim.loc[:, 'LoudISO105ExMaxLR'],
+                                                        dataByStim.loc[:, 'SharpDIN05ExBin'],
+                                                        dataByStim.loc[:, 'RoughECMAAvgBin'],
+                                                        dataByStim.loc[:, 'FluctOldSHMAvgBin'],
+                                                        dataByStim.loc[:, 'TonalECMAAvgMaxLR'])
+
 
 # for rows in dataByStim.index that start with "A1_", (but not "A1"), fill in the dPsychAnnoy... columns by
 # subtracting the corresponding "A1" row values from the "A1_" row values 
 for row in dataByStim.index:
     if row.startswith("A1_") and row != "A1":
         base_row = "A1"
-        for col in ['dPsychAnnoyWidmann', 'dPsychAnnoyMore', 'dPsychAnnoyDi', 'dPsychAnnoyTorija', 'dPsychAnnoyWillemsen']:
+        for col in ['dPsychAnnoyWidmann', 'dPsychAnnoyMore', 'dPsychAnnoyDi', 'dPsychAnnoyTorija', 'dPsychAnnoyWillemsen', 'dPsychAnnoyBoucher']:
             dataByStim.loc[row, col] = dataByStim.loc[row, col.replace('dPsychAnnoy', 'PsychAnnoy')] - dataByStim.loc[base_row, col.replace('dPsychAnnoy', 'PsychAnnoy')]
     elif row.startswith("A2_") and row != "A2":
         base_row = "A2"
-        for col in ['dPsychAnnoyWidmann', 'dPsychAnnoyMore', 'dPsychAnnoyDi', 'dPsychAnnoyTorija', 'dPsychAnnoyWillemsen']:
+        for col in ['dPsychAnnoyWidmann', 'dPsychAnnoyMore', 'dPsychAnnoyDi', 'dPsychAnnoyTorija', 'dPsychAnnoyWillemsen', 'dPsychAnnoyBoucher']:
             dataByStim.loc[row, col] = dataByStim.loc[row, col.replace('dPsychAnnoy', 'PsychAnnoy')] - dataByStim.loc[base_row, col.replace('dPsychAnnoy', 'PsychAnnoy')]
     elif row.startswith("B2_") and row != "B2":
         base_row = "B2"
-        for col in ['dPsychAnnoyWidmann', 'dPsychAnnoyMore', 'dPsychAnnoyDi', 'dPsychAnnoyTorija', 'dPsychAnnoyWillemsen']:
+        for col in ['dPsychAnnoyWidmann', 'dPsychAnnoyMore', 'dPsychAnnoyDi', 'dPsychAnnoyTorija', 'dPsychAnnoyWillemsen', 'dPsychAnnoyBoucher']:
             dataByStim.loc[row, col] = dataByStim.loc[row, col.replace('dPsychAnnoy', 'PsychAnnoy')] - dataByStim.loc[base_row, col.replace('dPsychAnnoy', 'PsychAnnoy')]
 
 # rearrange SQM columns
@@ -2161,7 +2181,8 @@ indicesDiffPsycho = ["dTonalECMAAvgMaxLR",
                      "dPsychAnnoyMore",
                      "dPsychAnnoyDi",
                      "dPsychAnnoyTorija",
-                     "dPsychAnnoyWillemsen"]
+                     "dPsychAnnoyWillemsen",
+                     "dPsychAnnoyBoucher"]
 
 indicesAbsPsycho = [index for index in indicesPsycho
                     if index not in indicesDiffPsycho]

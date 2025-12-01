@@ -47,7 +47,7 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adju
 %   ECMA-418-2:2024 transformation.
 %   If no adjustment was applied, the input should be 'none'.
 %
-% timeStep : number
+% timeStep : number (default: 0.1)
 %   the time step value used for time-dependent inputs
 %
 % sharpMethod : keyword string (default: 'aures')
@@ -133,7 +133,7 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adju
 % Institution: University of Salford
 %
 % Date created: 30/04/2025
-% Date last modified: 13/11/2025
+% Date last modified: 01/12/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -162,7 +162,7 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adju
                                                {'none',...
                                                 'iso226',...
                                                 'ecma4182'})}
-        timeStep (1, 1) double {mustBePositive}
+        timeStep (1, 1) double {mustBePositive} = 0.1
         sharpMethod (1, :) string {mustBeMember(sharpMethod,...
                                                 {'aures',...
                                                  'vonbismarck',...
@@ -216,9 +216,9 @@ switch sharpMethod
             case 'none'
                 calS = 0.894278320912636;
             case 'iso226'
-                calS = 0.927057920144433;
+                calS = 0.927076573795556;
             case 'ecma4182'
-                calS = 0.860768645652802;
+                calS = 0.931048632737447;
         end
 
     case 'vonbismarck'
@@ -228,9 +228,9 @@ switch sharpMethod
             case 'none'
                 calS = 0.939417952118300;
             case 'iso226'
-                calS = 0.948867825601524;
+                calS = 0.948870112818799;
             case 'ecma4182'
-                calS = 0.917251605322511;
+                calS = 0.963451896395575;
         end
 
         q1 = 15;
@@ -243,11 +243,11 @@ switch sharpMethod
 
         switch adjustLoud
             case 'none'
-                calS = 0.942490490455633;
+                calS = 0.942490490455634;
             case 'iso226'
-                calS = 0.951960816693342;
+                calS = 0.951963155887469;
             case 'ecma4182'
-                calS = 0.923476004071391;
+                calS = 0.969927824372733;
         end
         
         q1 = 15.8;
@@ -315,11 +315,14 @@ timeOut = (0:(size(specQZLoudness, 1) - 1))*timeStep;
 sharpness.sharpTDep = sharpTDep;
 sharpness.sharpPowAvg = sharpPowAvg;
 sharpness.sharp5pcEx = sharp5pcEx;
-sharpness.sharpTDepBin = sharpTDepBin;
-sharpness.sharpPowAvgBin = sharpPowAvgBin;
-sharpness.sharp5pcExBin = sharp5pcExBin;
 sharpness.timeOut = timeOut.';
 sharpness.method = sharpMethod;
+
+if binaural && chansIn == 2
+    sharpness.sharpTDepBin = sharpTDepBin;
+    sharpness.sharpPowAvgBin = sharpPowAvgBin;
+    sharpness.sharp5pcExBin = sharp5pcExBin;
+end
 
 %% Output plotting
 

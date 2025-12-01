@@ -213,8 +213,7 @@ def willemsenPA(loud5ExZwicker, sharpMedAures, rough5ExHEAD, impulsAvgWillemsen)
 
     Assumptions
     -----------
-    All input metrics are same shape (scalar or array), non-negative, and represent time-aggregated
-    values.
+    All input metrics are same shape (scalar or array), non-negative.
 
     References
     ----------
@@ -236,7 +235,7 @@ def willemsenPA(loud5ExZwicker, sharpMedAures, rough5ExHEAD, impulsAvgWillemsen)
 
 
 # %% diPA
-def diPA(loud5ExZwicker, sharp5ExAures, rough5ExHEAD, fluct5ExHEAD, tonal5ExAures):
+def diPA(loud5ExZwicker, sharp5ExAures, roughAvgHEAD, fluctAvgHEAD, tonalAvgAures):
     """
     Returns Di et al. (2016) psychoacoustic annoyance metric based on time-aggregated sound quality
     metrics loudness, sharpness, roughness, fluctuation strength and tonality. The sound quality
@@ -251,18 +250,19 @@ def diPA(loud5ExZwicker, sharp5ExAures, rough5ExHEAD, fluct5ExHEAD, tonal5ExAure
         Aures-weighted sharpness values as defined in Aures (1985, using Zwicker loudness input),
         5%-exceeded (95th percentile), acum.
 
-    rough5ExHEAD : float or array
+    roughAvgHEAD : float or array
         HEAD acoustics roughness values as defined in v10 of ArtemiS SUITE software (module ACM 900),
-        5%-exceeded (95th percentile), asper. In lieu of HEAD roughness values, ECMA-418-2 roughness
+        arithmetic time-average, asper. In lieu of HEAD roughness values, ECMA-418-2 roughness
         values may be used as the nearest approximation.
 
-    fluct5ExHEAD : float or array
+    fluctAvgHEAD : float or array
         HEAD acoustics fluctuation strength values as defined in v10 of ArtemiS SUITE software
-        (module ACM 907), 5%-exceeded (95th percentile), vacil. In lieu of HEAD fluctuation strength
-        values, ECMA-418-2 fluctuation strength values may be used as the nearest approximation.
+        (module ACM 907), arithmetic time-average, vacil. In lieu of HEAD fluctuation strength
+        values, early-version SHM or ECMA-418-2 fluctuation strength values may be used as the nearest
+        approximation.
     
-    tonal5ExAures : float or array
-        Aures tonality values as defined in Aures (1985), 5%-exceeded (95th percentile), tu.
+    tonalAvgAures : float or array
+        Aures tonality values as defined in Aures (1985), arithmetic time-average, tu.
 
     Returns
     -------
@@ -271,11 +271,13 @@ def diPA(loud5ExZwicker, sharp5ExAures, rough5ExHEAD, fluct5ExHEAD, tonal5ExAure
 
     Assumptions
     -----------
-    All input metrics are same shape (scalar or array), non-negative, and represent time-aggregated
-    5%-exceeded (95th percentile) values.
+    All input metrics are same shape (scalar or array), non-negative.
 
     References
-    ----------
+    ----------    
+    Aures, W. (1985). Berechnungsverfahren für den sensorischen Wohlklang beliebiger Schallsignale
+    (Calculation method for the sensory euphony of arbitrary sound signals). Acustica, 59(2), 130–141.
+
     Di, G., Chen, X.-W., Song, K., Zhou, B. & Pei, C.-M. (2016). Improvement of Zwicker’s psychoacoustic
     annoyance model aiming at tonal noises. Applied Acoustics, 105, 164–170.
 
@@ -284,14 +286,11 @@ def diPA(loud5ExZwicker, sharp5ExAures, rough5ExHEAD, fluct5ExHEAD, tonal5ExAure
 
     ISO 532-1:2017. Acoustics — Method for calculating loudness — Part 1: Zwicker method.
 
-    Aures, W. (1985). Berechnungsverfahren für den sensorischen Wohlklang beliebiger Schallsignale
-    (Calculation method for the sensory euphony of arbitrary sound signals). Acustica, 59(2), 130–141.
-
     """
     wS = (sharp5ExAures - 1.75)*0.25*np.log10(loud5ExZwicker + 10)
     wS[wS <= 1.75] = 0
-    wMod = 2.18/(loud5ExZwicker)**0.4*(0.4*fluct5ExHEAD + 0.6*rough5ExHEAD)
-    wT = 6.41*tonal5ExAures/loud5ExZwicker**0.52
+    wMod = 2.18/(loud5ExZwicker)**0.4*(0.4*fluctAvgHEAD + 0.6*roughAvgHEAD)
+    wT = 6.41*tonalAvgAures/loud5ExZwicker**0.52
 
     psych_annoy = loud5ExZwicker*(1 + np.sqrt(wS**2 + wMod**2 + wT**2))
 
@@ -369,5 +368,67 @@ def torijaPA(loud5ExZwicker, sharp5ExWidmann, rough5ExSHMOld, fluct5ExSHMOld, to
     sqm = np.maximum(0, 103.08 + 339.49*(wS**2) + 121.88*(wMod**2) + 77.2*(wT**2) + 29.29*(wI**2))
 
     psych_annoy = loud5ExZwicker*(1 + np.sqrt(sqm))
+
+    return psych_annoy
+
+# %% boucherPA
+def boucherPA(loud5ExZwicker, sharp5ExWidmann, rough10ExECMA, fluctAvgSHMOld, tonalAvgECMA):
+    """
+    Returns Boucher et al.2024) psychoacoustic annoyance metric based on time-aggregated sound quality
+    metrics loudness, sharpness, roughness, fluctuation strength and tonality.
+
+    Parameters
+    ----------
+    loud5ExZwicker : float or array
+        Zwicker loudness values as defined in ISO 532-1:2017, 5%-exceeded (95th percentile), sone.
+
+    sharp5ExWidmann : float or array
+        Widmann-weighted sharpness values as defined in Widmann (1992, using Zwicker loudness input),
+        5%-exceeded (95th percentile), acum.
+
+    rough10ExECMA : float or array
+        ECMA-418-2 roughness values as defined in ECMA-418-2:2025, 10%-exceeded (90th percentile), asper.
+
+    fluctAvgSHMOld : float or array
+        HEAD acoustics early Sottek Hearing Model fluctuation strength values as defined in ArtemiS
+        SUITE software (module ACM 907), arithmetic time-average, vacil. In lieu of HEAD
+        fluctuation strength values, ECMA-418-2 fluctuation strength values may be used as the nearest
+        approximation.
+
+    tonalAvgECMA : float or array
+        ECMA-418-2 tonality values as defined in ECMA-418-2:2025, time-average, tu.
+
+    Returns
+    -------
+    psych_annoy : float or array
+        Boucher (2024) psychoacoustic annoyance metric, au.
+
+    Assumptions
+    -----------
+    All input metrics are same shape (scalar or array), non-negative.
+
+    References
+    ----------
+    Boucher, M. A., Christian, A. W., Krishnamurthy, S., Tracy, T.,
+    Shepherd, K. & Rizzi, S. A. (2024). Towards a psychoacoustic annoyance model
+    for urban air mobility vehicle noise. NASA Technical memorandum NASA/TM–20240003202.
+
+    ECMA-418-2:2025. Psychoacoustic metrics for ITT equipment — Part 2 (methods for describing human
+    perception based on the Sottek Hearing Model).
+
+    ISO 532-1:2017. Acoustics — Method for calculating loudness — Part 1: Zwicker method.
+
+    Widmann, U. (1992). Ein Modell der Psychoakustischen Lästigkeit von Schallen und seine Anwendung
+    in der Praxis der Lärmbeurteilung (A model of the psychoacoustic annoyance of sounds and its
+    application in noise assessment practice) [Doctoral thesis, Technische Universität München
+    (Technical University of Munich)]
+
+    """
+    wS = (sharp5ExWidmann - 1.75)*0.25*np.log10(loud5ExZwicker + 10)
+    wS[wS <= 1.75] = 0
+    wMod = 2.18/(loud5ExZwicker)**0.4*(0.4*fluctAvgSHMOld + 0.6*rough10ExECMA)
+    wT = 3.2*tonalAvgECMA/loud5ExZwicker
+
+    psych_annoy = loud5ExZwicker*(1 + np.sqrt(wS**2 + wMod**2 + wT**2))
 
     return psych_annoy
