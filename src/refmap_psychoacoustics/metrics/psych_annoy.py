@@ -24,7 +24,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 15/11/2025
-Date last modified: 19/11/2025
+Date last modified: 01/12/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -213,7 +213,8 @@ def willemsenPA(loud5ExZwicker, sharpMedAures, rough5ExHEAD, impulsAvgWillemsen)
 
     Assumptions
     -----------
-    All input metrics are same shape (scalar or array), non-negative.
+    All input metrics are same shape (scalar or array), non-negative, and represent time-aggregated
+    values as specified.
 
     References
     ----------
@@ -271,7 +272,8 @@ def diPA(loud5ExZwicker, sharp5ExAures, roughAvgHEAD, fluctAvgHEAD, tonalAvgAure
 
     Assumptions
     -----------
-    All input metrics are same shape (scalar or array), non-negative.
+    All input metrics are same shape (scalar or array), non-negative, and represent time-aggregated
+    values as specified.
 
     References
     ----------    
@@ -405,7 +407,8 @@ def boucherPA(loud5ExZwicker, sharp5ExWidmann, rough10ExECMA, fluctAvgSHMOld, to
 
     Assumptions
     -----------
-    All input metrics are same shape (scalar or array), non-negative.
+    All input metrics are same shape (scalar or array), non-negative, and represent time-aggregated
+    values as specified.
 
     References
     ----------
