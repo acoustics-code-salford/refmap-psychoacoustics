@@ -7,13 +7,12 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
 % the Zwicker model is disregarded. The input signal must be calibrated
 % acoustic pressure (Pa).
 %
-% Optional modifications available comprise an adjustment to the spectral
-% levels to improve agreement with the 2023 ISO 226 equal loudness
-% contours ('iso226'), or (alternatively) the application of the
+% Optional modifications available comprise adjustments to the spectral
+% levels to mimic the application of the ISO 532-3:2023 or
 % ECMA-418-2:2025 outer-middle ear filter responses (in 1/3-octaves)
-% instead of the ISO 532-1:2017 outer ear transmission, and an
-% approximated non-linear transformation following ECMA-418-2:2025
-% ('ecma4182'), instead of Zwicker's original.
+% instead of the ISO 532-1:2017 outer ear transmission, and
+% approximated non-linear transformations more closely following
+% ISO 532-3 or ECMA-418-2 instead of the ISO 532-1 original.
 %
 % Inputs
 % ------
@@ -36,16 +35,12 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
 %   are applied in the outer-middle ear filter, or 'noOuter'
 %   omits this filtering stage.
 %
-% adjustLoud : keyword string (default: 'none')
-%   Indicates whether to apply adjustments for:
-%   ('iso226') the differences between 1987 ISO 226 equal-loudness contours
-%   (which ISO 532-1 models) and 2023 ISO 226 equal-loudness contours, or;
-%   ('ecma4182') the outer-middle ear filter response from ECMA-418-2:2024
-%   omitting the ISO 532-1:2017 critical band ear transmission a0, and
-%   adapting the loudness transformation to agree more closely with the
-%   ECMA-418-2:2024 transformation.
-%   The default option ('none') applies no adjustment, so follows ISO 532-1
-%   more closely (for closer agreement with Zwicker's model).
+% adjustLoud : keyword string (default: 'iso5321')
+%   Indicates whether to apply adjustments for the outer-middle ear filter
+%   response and loudness transformations from ISO 532-3:2023 ('iso5323')
+%   or ECMA-418-2:2024 ('ecma4182').
+%   The default option ('iso5321') applies no adjustment, so follows ISO
+%   532-1 more closely (for closer agreement with Zwicker's model).
 %
 % Returns
 % -------
@@ -99,6 +94,12 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
 % The input is a 1/3-octave band unweighted sound level spectrum or
 % series of sound level spectra in dB re 2e-5 Pa.
 %
+% References
+% ----------
+%
+% Zwicker loudness is defined in ISO 532-1:2017. Modifications are based on
+% ISO 532-3:2023 and ECMA-418-2:2025.
+%
 % Requirements
 % ------------
 % Signal Processing Toolbox
@@ -109,7 +110,7 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 26/11/2025
+% Date last modified: 05/12/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -135,9 +136,9 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
                                                         'diffuse',...
                                                         'noOuter'})} = 'freeFrontal'
         adjustLoud (1, :) string {mustBeMember(adjustLoud,...
-                                               {'none',...
-                                                'iso226',...
-                                                'ecma4182'})} = 'none'
+                                               {'iso5321',...
+                                                'iso5323',...
+                                                'ecma4182'})} = 'iso5321'
     end
 
 %% Input checks

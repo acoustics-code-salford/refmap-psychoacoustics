@@ -11,13 +11,12 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRateIn, timeStep, axisN,
 % argument. Options comprise 'aures', 'vonbismarck', or 'widmann' (which
 % is the model standardised in DIN 45692:2009).
 %
-% Optional modifications available comprise an adjustment to the spectral
-% levels to improve agreement with the 2023 ISO 226 equal loudness
-% contours ('iso226'), or (alternatively) the application of the
+% Optional modifications available comprise adjustments to the spectral
+% levels to mimic the application of the ISO 532-3:2023 or
 % ECMA-418-2:2025 outer-middle ear filter responses (in 1/3-octaves)
-% instead of the ISO 532-1:2017 outer ear transmission, and an
-% approximated non-linear transformation following ECMA-418-2:2025
-% ('ecma4182'), instead of Zwicker's original.
+% instead of the ISO 532-1:2017 outer ear transmission, and
+% approximated non-linear transformations more closely following
+% ISO 532-3 or ECMA-418-2 instead of the ISO 532-1 original.
 %
 % Inputs
 % ------
@@ -46,16 +45,12 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRateIn, timeStep, axisN,
 %   the sharpness method to apply. Options: 'aures', 'vonbismarck',
 %   'widmann'.
 %
-% adjustLoud : keyword string (default: 'none')
-%   indicates whether to apply adjustments for:
-%   ('iso226') the differences between 1987 ISO 226 equal-loudness contours
-%   (which ISO 532-1 models) and 2023 ISO 226 equal-loudness contours, or;
-%   ('ecma4182') the outer-middle ear filter response from ECMA-418-2:2024
-%   omitting the ISO 532-1:2017 critical band ear transmission a0, and
-%   adapting the loudness transformation to agree more closely with the
-%   ECMA-418-2:2024 transformation.
-%   The default option ('none') applies no adjustment, so follows ISO 532-1
-%   more closely (for closer agreement with Zwicker's model).
+% adjustLoud : keyword string
+%   Indicates whether to apply adjustments for the outer-middle ear filter
+%   response and loudness transformations from ISO 532-3:2023 ('iso5323')
+%   or ECMA-418-2:2024 ('ecma4182').
+%   The default option ('iso5321') applies no adjustment, so follows ISO
+%   532-1 more closely (for closer agreement with Zwicker's model).
 %
 % outplot : Boolean true/false (default: false)
 %   flag indicating whether to generate a figure from the output
@@ -111,16 +106,21 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRateIn, timeStep, axisN,
 % 130-141.
 % https://www.ingentaconnect.com/content/dav/aaua/1985/00000059/00000002/art00008
 %
-% von Bismarck model is described in:
+% von Bismarck-Zwicker model is described in:
 % 
 % von Bismarck, G., 1974. Sharpness as an attribute of the timbre of
 % steady sounds, Acta Acustica united with Acustica, 30(3) 159-172.
 % https://www.ingentaconnect.com/content/dav/aaua/1974/00000030/00000003/art00006
 %
+% and:
+%
+% Zwicker, E. & Fastl, H., 1999. Psychoacoustics: Facts and models.
+% Springer-Verlag.
+%
 % Widmann model is described in DIN 45692:2009
 %
 % Zwicker loudness is defined in ISO 532-1:2017. Modifications are based on
-% ISO 226:2023, ISO 226:1987 and ECMA-418-2:2024.
+% ISO 532-3:2023 and ECMA-418-2:2025.
 %
 % The assumed binaural perception of sharpness is based on evidence found
 % in:
@@ -139,7 +139,7 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRateIn, timeStep, axisN,
 % Institution: University of Salford
 %
 % Date created: 30/04/2025
-% Date last modified: 01/12/2025
+% Date last modified: 05/12/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -175,9 +175,9 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRateIn, timeStep, axisN,
                                                  'vonbismarck',...
                                                  'widmann'})} = 'aures'
         adjustLoud (1, :) string {mustBeMember(adjustLoud,...
-                                               {'none',...
-                                                'iso226',...
-                                                'ecma4182'})} = 'none'
+                                               {'iso5321',...
+                                                'iso5323',...
+                                                'ecma4182'})} = 'iso5321'
         outPlot {mustBeNumericOrLogical} = false
         binaural {mustBeNumericOrLogical} = true
     end

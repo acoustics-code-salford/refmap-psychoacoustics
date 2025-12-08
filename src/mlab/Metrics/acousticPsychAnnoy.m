@@ -44,6 +44,7 @@ function annoyance = acousticPsychAnnoy(p, sampleRateIn, axisN, startSkip, sound
 %
 % outPlot : Boolean true/false (default: false)
 %   Flag indicating whether to generate a figure from the output.
+%   [not currently implemented]
 %
 % Returns
 % -------
@@ -162,7 +163,7 @@ function annoyance = acousticPsychAnnoy(p, sampleRateIn, axisN, startSkip, sound
 % Institution: University of Salford
 %
 % Date created: 07/07/2025
-% Date last modified: 18/11/2025
+% Date last modified: 03/12/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -173,12 +174,6 @@ function annoyance = acousticPsychAnnoy(p, sampleRateIn, axisN, startSkip, sound
 % As per the licensing information, please be aware that this code is
 % WITHOUT ANY WARRANTY; without even the implied warranty of
 % MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-%
-% This code calls sub-component file 'cmap_inferno.txt'. The contents of
-% the file includes a copy of data obtained from the repository 
-% https://github.com/BIDS/colormap, and is CC0 1.0 licensed for modified
-% use, see https://creativecommons.org/publicdomain/zero/1.0 for
-% information.
 %
 % Checked by:
 % Date last checked:

@@ -12,15 +12,12 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adju
 %
 % The input argument 'adjustLoud' requires any adjustments applied to the
 % quasi-loudness calculations to be declared.
-% Optional modifications available comprise an adjustment to the spectral
-% levels to improve agreement with the 2023 ISO 226 equal loudness
-% contours ('iso226'), or (alternatively) the application of the
+% Optional modifications available comprise adjustments to the spectral
+% levels to mimic the application of the ISO 532-3:2023 or
 % ECMA-418-2:2025 outer-middle ear filter responses (in 1/3-octaves)
-% instead of the ISO 532-1:2017 outer ear transmission, and an
-% approximated non-linear transformation following ECMA-418-2:2025
-% ('ecma4182'), instead of Zwicker's original. If no adjustment has been
-% applied (following Zwicker's model more closely), the argument should be
-% entered as 'none'.
+% instead of the ISO 532-1:2017 outer ear transmission, and
+% approximated non-linear transformations more closely following
+% ISO 532-3 or ECMA-418-2 instead of the ISO 532-1 original.
 %
 % Since the input matrices will have been calculated using a given sound
 % field option ('freeFrontal' or 'diffuse') for the outer ear filter, this
@@ -38,14 +35,11 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adju
 %   the specific loudness values arranged as [time, bands(, chans)]
 %
 % adjustLoud : keyword string
-%   indicates whether adjustments were applied to the loudness for:
-%   ('iso226') the differences between 1987 ISO 226 equal-loudness contours
-%   (which ISO 532-1 models) and 2023 ISO 226 equal-loudness contours, or;
-%   ('ecma4182') the outer-middle ear filter response from ECMA-418-2:2024
-%   omitting the ISO 532-1:2017 critical band ear transmission a0, and
-%   adapting the loudness transformation to agree more closely with the
-%   ECMA-418-2:2024 transformation.
-%   If no adjustment was applied, the input should be 'none'.
+%   indicates whether adjustments were applied to the loudness for the
+%   outer-middle ear filter response and loudness transformations from
+%   ISO 532-3:2023 ('iso5323') or ECMA-418-2:2025 ('ecma4182').
+%   The option 'iso5321' applies no adjustments, so follows ISO
+%   532-1 more closely (for closer agreement with Zwicker's model).
 %
 % timeStep : number (default: 0.1)
 %   the time step value used for time-dependent inputs
@@ -108,13 +102,21 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adju
 % 130-141.
 % https://www.ingentaconnect.com/content/dav/aaua/1985/00000059/00000002/art00008
 %
-% von Bismarck model is described in:
+% von Bismarck-Zwicker model is described in:
 % 
 % von Bismarck, G., 1974. Sharpness as an attribute of the timbre of
 % steady sounds, Acta Acustica united with Acustica, 30(3) 159-172.
 % https://www.ingentaconnect.com/content/dav/aaua/1974/00000030/00000003/art00006
 %
+% and:
+%
+% Zwicker, E. & Fastl, H., 1999. Psychoacoustics: Facts and models.
+% Springer-Verlag.
+%
 % Widmann model is described in DIN 45692:2009
+%
+% Zwicker loudness is defined in ISO 532-1:2017. Modifications are based on
+% ISO 532-3:2023 and ECMA-418-2:2025.
 %
 % The assumed binaural perception of sharpness is based on evidence found
 % in:
@@ -133,7 +135,7 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adju
 % Institution: University of Salford
 %
 % Date created: 30/04/2025
-% Date last modified: 01/12/2025
+% Date last modified: 07/12/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -159,8 +161,8 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adju
         loudQZTDep (:, :) double {mustBeReal}
         specQZLoudness (:, :, :) double {mustBeReal}
         adjustLoud (1, :) string {mustBeMember(adjustLoud,...
-                                               {'none',...
-                                                'iso226',...
+                                               {'iso5321',...
+                                                'iso5323',...
                                                 'ecma4182'})}
         timeStep (1, 1) double {mustBePositive} = 0.1
         sharpMethod (1, :) string {mustBeMember(sharpMethod,...
@@ -210,27 +212,31 @@ bark = dz:dz:24;  % Bark numbers for ISO 532-1 specific loudness
 
 switch sharpMethod
     case 'aures'
-        acum = "Aur | Quasi-Zwicker";
 
         switch adjustLoud
-            case 'none'
-                calS = 0.894278320912636;
-            case 'iso226'
-                calS = 0.927076573795556;
+            case 'iso5321'
+                acum = "A | Q-ISO";
+                calS = 0.894280845127320;
+            case 'iso5323'
+                acum = "A | Q-ISO";
+                calS = 0.915481386337880;
             case 'ecma4182'
-                calS = 0.931048632737447;
+                acum = "A | Q-ISO+ECMA";
+                calS = 0.898938611525311;
         end
 
     case 'vonbismarck'
-        acum = "vBis | Quasi-Zwicker";
 
         switch adjustLoud
-            case 'none'
-                calS = 0.939417952118300;
-            case 'iso226'
-                calS = 0.948870112818799;
+            case 'iso5321'
+                acum = "vBZ | Q-ISO";
+                calS = 0.939418242981291;
+            case 'iso5323'
+                acum = "vBZ | Q-ISO";
+                calS = 0.958284577731598;
             case 'ecma4182'
-                calS = 0.963451896395575;
+                acum = "vBZ | Q-ISO+ECMA";
+                calS = 0.932773984477842;
         end
 
         q1 = 15;
@@ -239,17 +245,19 @@ switch sharpMethod
         q4 = 0.8;
 
     case 'widmann'
-        acum = "Widm | Quasi-Zwicker";
 
         switch adjustLoud
-            case 'none'
-                calS = 0.942490490455634;
-            case 'iso226'
-                calS = 0.951963155887469;
+            case 'iso5321'
+                acum = "W | Q-ISO";
+                calS = 0.942490787738152;
+            case 'iso5323'
+                acum = "W | Q-ISO";
+                calS = 0.961918282421545;
             case 'ecma4182'
-                calS = 0.969927824372733;
+                acum = "W | Q-ISO+ECMA";
+                calS = 0.939152867468521;
         end
-        
+
         q1 = 15.8;
         q2 = 0.15;
         q3 = 0.42;
