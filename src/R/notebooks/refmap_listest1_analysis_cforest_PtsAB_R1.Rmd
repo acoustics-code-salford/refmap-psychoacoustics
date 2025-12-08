@@ -119,9 +119,9 @@ stimDataNum <- cbind(stimData[, 'Stimulus'],
                      stimData[, which(colnames(stimData)=="UASTonalECMAAvgMaxLR"):
                                 which(colnames(stimData)=="UASSharpvBISO105ExBin")],
                      stimData[, which(colnames(stimData)=="UASImpulsSHMPowAvgMaxLR"):
-                                which(colnames(stimData)=="UASPsychAnnoyWillemsen")],
+                                which(colnames(stimData)=="UASPsychAnnoyBoucher")],
                      stimData[, which(colnames(stimData)=="LAeqLAF90diff"):
-                                which(colnames(stimData)=="dPsychAnnoyWillemsen")],
+                                which(colnames(stimData)=="dPsychAnnoyBoucher")],
                      stimData[, which(colnames(stimData)=="ValenceMedian"):
                                 which(colnames(stimData)=="dHighAnnoyProp")],
                      stimData[, which(colnames(stimData)=="HighAnnoyPc"):
@@ -487,7 +487,7 @@ resdAnnoyMnPermImpAB <- list()
 
 ```{r}
 
-iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEvents'):which(names(stimDataNum) == 'dPsychAnnoyWillemsen')]
+iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEvents'):which(names(stimDataNum) == 'dPsychAnnoyBoucher')]
 
 dVar <- "dAnnoyMean"
 
@@ -562,7 +562,7 @@ resdAnnoyMnPermImpAB$AllVars <- resultsOutAbsDiffs$conditional_permimp
 
 #### Plot results
 
-```{r, fig.width=8,fig.height=20}
+```{r, fig.width=8,fig.height=23}
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -572,16 +572,16 @@ pBar <- ggplot(resultsOutAbsDiffs.conimp) + geom_col(aes(x=factor(rownames(resul
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp.svg", width=8, height=20, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp.svg", width=8, height=23, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMnAllVarsConPermimp.svg")
 
-  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp.pdf", width=8, height=20, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp.pdf", width=8, height=23, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMnAllVarsConPermimp.pdf")
 }
 
 ```
 
-```{r, fig.width=8,fig.height=10}
+```{r, fig.width=8,fig.height=11}
 
 # Plot only positive values
 
@@ -594,10 +594,10 @@ pBar <- ggplot(resultsOutAbsDiffs.conimpPtv) + geom_col(aes(x=factor(rownames(re
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimpPtv.svg", width=8, height=10, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimpPtv.svg", width=8, height=11, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMnAllVarsConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimpPtv.pdf", width=8, height=10, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimpPtv.pdf", width=8, height=11, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMnAllVarsConPermimp.pdf")
 }
 
@@ -631,7 +631,7 @@ if (saveplots){
 
 ```{r}
 
-iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEvents'):which(names(stimDataNum) == 'UASPsychAnnoyWillemsen')]
+iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEvents'):which(names(stimDataNum) == 'UASPsychAnnoyBoucher')]
 iVars <- iVars[! iVars %in% c('SNRlevel', 'IntermitRatioC2MaxLR', 'IntermitRatioC3MaxLR', 'IntermitRatioC5MaxLR')]
 
 dVar <- "dAnnoyMean"
@@ -663,7 +663,7 @@ Selected hyperparameters
 ```{r}
 
 ntree <- 1001
-mtry <- as.integer(length(iVars)/1.5)
+mtry <- as.integer(length(iVars)/1.25)
 
 ```
 
@@ -710,7 +710,7 @@ resdAnnoyMnPermImpAB$AbsVars <- resultsOutAbs$conditional_permimp
 
 #### Plot results
 
-```{r, fig.width=8,fig.height=11.5}
+```{r, fig.width=8,fig.height=13}
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -721,16 +721,16 @@ pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOut
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp.svg", width=8, height=11.5, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp.svg", width=8, height=13, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMnAbsVarsConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp.pdf", width=8, height=11.5, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp.pdf", width=8, height=13, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMnAbsVarsConPermimp.pdf")
 }
 ```
 
 
-```{r, fig.width=8,fig.height=8}
+```{r, fig.width=8,fig.height=10}
 
 # Plot only positive values
 
@@ -743,16 +743,16 @@ pBar <- ggplot(resultsOutAbs.conimpPtv) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimpPtv.svg", width=8, height=8, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimpPtv.svg", width=8, height=10, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMnAbsVarsConPermimpPtv.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimpPtv.pdf", width=8, height=8, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimpPtv.pdf", width=8, height=10, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMnAbsVarsConPermimpPtv.pdf")
 }
 
 ```
 
-```{r, fig.width=8,fig.height=2.6}
+```{r, fig.width=8,fig.height=3}
 
 # Plot only values within 1% of the maximum
 
@@ -765,10 +765,10 @@ pBar <- ggplot(resultsOutAbs.conimp1pc) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp1pc.svg", width=8, height=2.6, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp1pc.svg", width=8, height=3, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMnAbsVarsConPermimp1pc.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp1pc.pdf", width=8, height=2.6, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp1pc.pdf", width=8, height=3, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMnAbsVarsConPermimp1pc.pdf")
 }
 
@@ -793,7 +793,7 @@ absVar <- "UASLAEMaxLR"
 
 ```{r}
 
-iVars <- c(absVar, eventVar, ambVar, "UASSharpAurISO3PowAvgBin", "UASSharpAurISO305ExBin", "UASSharpAurSHMPowAvgBin", "UASSharpAurSHM05ExBin", "UASSharpAurISO1PowAvgBin", "UASSharpAurISO105ExBin", "UASSharpvBISO1PowAvgBin", "UASSharpvBISO105ExBin", "UASSharpDINPowAvgBin", "UASSharpDIN05ExBin")
+iVars <- c(absVar, eventVar, ambVar, "UASSharpAurISO3PowAvgBin", "UASSharpAurISO305ExBin", "UASSharpAurSHMPowAvgBin", "UASSharpAurSHM05ExBin", "UASSharpAurISO1PowAvgBin", "UASSharpAurISO105ExBin", "UASSharpvBISO1PowAvgBin", "UASSharpvBISO105ExBin", "UASSharpDINPowAvgBin", "UASSharpDIN05ExBin", "UASSharpAurISO1MedBin")
 dVar <- "dAnnoyMean"
 
 seeds <- c(7041, 905, 4984651, 6513213, 120651)
@@ -814,7 +814,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1001
+ntree <- 1501
 mtry <- as.integer(length(iVars)/1.5)
 
 ```
@@ -1600,7 +1600,7 @@ if (saveplots){
 
 ```{r}
 
-iVars <- c(ambVar, "UASPsychAnnoyWidmann", "UASPsychAnnoyMore", "UASPsychAnnoyDi", "UASPsychAnnoyTorija", "UASPsychAnnoyWillemsen")
+iVars <- c(ambVar, "UASPsychAnnoyWidmann", "UASPsychAnnoyMore", "UASPsychAnnoyDi", "UASPsychAnnoyTorija", "UASPsychAnnoyWillemsen", "UASPsychAnnoyBoucher")
 dVar <- "dAnnoyMean"
 
 seeds <- c(829, 9, 190, 4564, 924707824)
@@ -1623,8 +1623,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1501
-mtry <- as.integer(length(iVars)/1.75)
+ntree <- 2501
+mtry <- as.integer(length(iVars)/1.25)
 
 ```
 
@@ -1676,7 +1676,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutPA.conimp <- arrange(resultsOutPA$conditional_permimp, desc(row_number()))
 
-pBar <- ggplot(resultsOutPA.conimp) + geom_col(aes(x=factor(rownames(resultsOutPA.conimp), levels=rownames(resultsOutPA.conimp)), y=CondPermImp), fill=mycolours[8], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 1.8))
+pBar <- ggplot(resultsOutPA.conimp) + geom_col(aes(x=factor(rownames(resultsOutPA.conimp), levels=rownames(resultsOutPA.conimp)), y=CondPermImp), fill=mycolours[10], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 1.8))
 pBar
 
 if (saveplots){
@@ -1693,22 +1693,12 @@ if (saveplots){
 
 Next, the difference metrics are analysed, 
 
-#### Remove ambient only stimuli - OMITTED
-
-Here, the 'ambient only' stimuli are removed, as the analysis cannot handle missing values for dB metrics.
-
-```{r}
-# stimDataNum <- stimDataNum[complete.cases(stimDataNum),]
-# stimDataNum$UASLAeq <- as.numeric(stimDataNum$UASLAeq)
-# stimDataNum$SNRlevel <- as.numeric(stimDataNum$SNRlevel)
-```
-
 #### Set variables
 
 ```{r}
 
 iVars <- c(names(stimDataNum)[which(colnames(stimDataNum)=="LAeqLAF90diff"):
-                               which(colnames(stimDataNum)=="dImpulsSHM05ExMaxLR")],
+                               which(colnames(stimDataNum)=="dPsychAnnoyBoucher")],
            "UASEvents", "SNRlevel", "IntermitRatioC2MaxLR", "IntermitRatioC3MaxLR", "IntermitRatioC5MaxLR")
 dVar <- "dAnnoyMean"
 
