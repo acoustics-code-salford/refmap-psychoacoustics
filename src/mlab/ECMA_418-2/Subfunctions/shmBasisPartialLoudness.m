@@ -114,8 +114,7 @@ LTQz = [0.3310, 0.1625, 0.1051, 0.0757, 0.0576, 0.0453, 0.0365, 0.0298,...
 % Partial masking parameters
 maskParamSlope = 3 + 2*exp(-((halfBark - 13)/8).^2);
 maskParamMidPt = 1.5 - 0.3*exp(-((halfBark - 10)/10).^2);
-maskParamApproach = 0.8;
-maskParamEquality = 0.05;
+maskParamApproach = 0.4;
 
 % standard epsilon
 epsilon = 1e-12;
