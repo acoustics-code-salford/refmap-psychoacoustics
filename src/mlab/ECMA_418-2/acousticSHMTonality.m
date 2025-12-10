@@ -140,7 +140,7 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford
 %
 % Date created: 07/08/2023
-% Date last modified: 20/11/2025
+% Date last modified: 10/12/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -672,7 +672,7 @@ for chan = chansIn:-1:1
             ax2 = nexttile(2);
             plot(ax2, timeOut, tonalityAvgAnnoy(1, chan)*ones(size(timeOut)),...
                  ':', 'color', cmap_plasma(34, :),...
-                 'LineWidth', 1, 'DisplayName', "Time-" + string(newline) + "average");
+                 'LineWidth', 1.5, 'DisplayName', "Time-" + string(newline) + "average");
             hold on
             plot(ax2, timeOut, tonalityTDepAnnoy(:, chan), 'color',  cmap_plasma(166, :),...
                  'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");

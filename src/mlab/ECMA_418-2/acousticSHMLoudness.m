@@ -106,7 +106,7 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford
 %
 % Date created: 22/09/2023
-% Date last modified: 20/11/2025
+% Date last modified: 10/12/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -323,7 +323,7 @@ if outPlot
 
         ax2 = nexttile(2);
         plot(ax2, timeOut, loudnessPowAvg(1, chan)*ones(size(timeOut)), ':', 'color',...
-             cmap_viridis(34, :), 'LineWidth', 1, 'DisplayName', "Power" + string(newline) + "time-avg");
+             cmap_viridis(34, :), 'LineWidth', 1.5, 'DisplayName', "Power" + string(newline) + "time-avg");
         hold on
         plot(ax2, timeOut, loudnessTDep(:, chan), 'color', cmap_viridis(166, :),...
              'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
