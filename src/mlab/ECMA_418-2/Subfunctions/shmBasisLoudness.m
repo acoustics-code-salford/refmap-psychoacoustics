@@ -1,7 +1,7 @@
 function [signalRectSeg, basisLoudness, blockRMS] = shmBasisLoudness(signalSegmented, bandCentreFreq)
 % [signalRectSeg, basisLoudness, blockRMS] = shmBandBasisLoudness(signalSegmented, bandCentreFreq)
 %
-% Returns rectified input and basis loudness in specified half-Bark
+% Returns rectified input and basis loudness in specified
 % critical band according to ECMA-418-2:2025 (the Sottek Hearing Model)
 % for an input band-limited signal, segmented into processing blocks
 %
@@ -29,7 +29,7 @@ function [signalRectSeg, basisLoudness, blockRMS] = shmBasisLoudness(signalSegme
 % -----------
 % The input signal is a segmented signal (either band-limited, or arranged
 % with critical bands over the third dimension) obtained using
-% acousticSHMAuditoryFiltBank.m and ShmSignalSegment.m
+% shmAuditoryFiltBank.m and shmSignalSegment.m
 %
 % Requirements
 % ------------
@@ -42,7 +42,7 @@ function [signalRectSeg, basisLoudness, blockRMS] = shmBasisLoudness(signalSegme
 % Institution: University of Salford
 %
 % Date created: 27/09/2023
-% Date last modified: 27/06/2025
+% Date last modified: 09/12/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -135,7 +135,7 @@ bandLoudness = squeeze(bandLoudness);
 
 % Section 5.1.9 Equation 25 ECMA-418-2:2025
 if ~isempty(bandCentreFreq) && length(size(signalSegmented)) == 2
-    % half-Bark critical band basis loudness
+    % critical band basis loudness
     basisLoudness = bandLoudness - LTQz(bandCentreFreq == bandCentreFreqs);
     basisLoudness(basisLoudness < 0) = 0;
 else
