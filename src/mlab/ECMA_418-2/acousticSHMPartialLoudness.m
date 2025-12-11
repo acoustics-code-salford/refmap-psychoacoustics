@@ -113,7 +113,7 @@ function partLoudnessSHM = acousticSHMPartialLoudness(pTarget, pMasker, sampleRa
 % Institution: University of Salford
 %
 % Date created: 09/12/2023
-% Date last modified: 09/12/2025
+% Date last modified: 11/12/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -226,22 +226,11 @@ csz_b = [18.21*ones(1, 3), 12.14*ones(1, 13), 417.54*ones(1, 9),...
 dsz_b = [0.36*ones(1, 3), 0.36*ones(1, 13), 0.71*ones(1, 9),...
          0.69*ones(1, 28)]; 
 
-% Scaling factor constants from Section 6.2.8 Table 9 ECMA-418-2:2025
-A = 35;
-B = 0.003;
-
-cal_T = 2.8758615;  % calibration factor in Section 6.2.8 Equation 51 ECMA-418-2:2025 [c_T]
-cal_Tx = 1/0.9999043734252;  % Adjustment to calibration factor (Footnote 22 ECMA-418-2:2025)
-
 % Section 8.1.1 ECMA-418-2:2025
 weight_n = 0.5331;  % Equations 113 & 114 ECMA-418-2:2025 [w_n]
 % Table 12 ECMA-418-2:2025
 a = 0.2918;
 b = 0.5459;
-
-% Output sample rate based on tonality hop sizes (Section 6.2.6
-% ECMA-418-2:2025) [r_sd]
-sampleRate1875 = sampleRate48k/256;
 
 % standardised epsilon
 epsilon = 1e-12;
@@ -259,8 +248,8 @@ else  % don't resample
     pMasker_re = pMasker;
 end
 
-% % memory cleanup
-% clear pTarget pMAsker
+% memory cleanup
+clear pTarget pMAsker
 
 % Section 5.1.2 ECMA-418-2:2025 Fade in weighting and zero-padding
 pTn = shmPreProc(pTarget_re, max(blockSize), max(hopSize));
@@ -486,6 +475,10 @@ for chan = chansIn:-1:1
     % set any tiny negative loudness values to 0
     specTonalLoudness(specTonalLoudness < 0) = 0;
     specNoiseLoudness(specNoiseLoudness < 0) = 0;
+
+    if waitBar
+        close(w)  % close waitbar
+    end
 end
 
 % Section 8.1.1 ECMA-418-2:2025
@@ -555,7 +548,7 @@ if outPlot
         view(2);
         ax1.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
         ax1.YLim = [bandCentreFreqs(1), bandCentreFreqs(end)];
-        ax1.CLim = [0, ceil(max(specLoudness(:, :, chan), [], 'all')*10)/10];
+        ax1.CLim = [0, max(ceil(max(specLoudness(:, :, chan), [], 'all')*10)/10, 0.001)];
         ax1.YTick = [63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3]; 
         ax1.YTickLabel = ["63", "125", "250", "500", "1k", "2k", "4k",...
                           "8k", "16k"];
@@ -566,7 +559,7 @@ if outPlot
         ax1.FontSize = 12;
         colormap(cmap_viridis);
         h = colorbar;
-        set(get(h,'label'),'string', {'Specific partial Loudness,'; '\Delta{}sone_{SHM}/Bark_{SHM}'});        
+        set(get(h,'label'),'string', {'Specific partial loudness,'; '\Delta{}sone_{SHM}/Bark_{SHM}'});        
         chan_lab = chans(chan);
 
         % Create A-weighting filter

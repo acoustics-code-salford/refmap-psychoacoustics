@@ -47,7 +47,7 @@ function [signalRectSegTarget, basisPartLoudness, blockRMSTarget] = shmBasisPart
 % Institution: University of Salford
 %
 % Date created: 09/12/2023
-% Date last modified: 10/12/2025
+% Date last modified: 11/12/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -116,6 +116,25 @@ maskParamSlope = 3 + 2*exp(-((halfBark - 13)/8).^2);
 maskParamMidPt = 1.5 - 0.3*exp(-((halfBark - 10)/10).^2);
 maskParamApproach = 0.4;
 
+% maskParamGamma = 0.3;
+% maskParamSoft = 100;
+
+KdB = ones(size(bandCentreFreqs)).*-3;
+
+mask = bandCentreFreqs < 1000;
+
+logFreq = log10(bandCentreFreqs);
+% logFreq(bandCentreFreqs <= 50) = log10(50);
+
+KdB(mask) = 4.4683421395470813*logFreq(mask).^4 ...
+            - 49.680265975480935*logFreq(mask).^3 ...
+            + 212.89091871289099*logFreq(mask).^2 ...
+            - 418.88552055717832 .* logFreq(mask) + 317.07466358701885;
+K = 10.^(KdB/10);
+
+maskParamGamma = 0.2 + (0.6 - 0.2).*(K./(1 + K));
+maskParamExpt = 6 + (10 - 6).*(K./(1 + K));
+
 % standard epsilon
 epsilon = 1e-12;
 
@@ -163,17 +182,43 @@ bandLoudnessTotal = squeeze(bandLoudnessTotal);
 if ~isempty(bandCentreFreq) && length(size(signalSegmentedTarget)) == 2
     [~, bandIdx] = max(bandCentreFreq == bandCentreFreqs);
 
-    bandLoudnessMaskerEff = max(bandLoudnessMasker, LTQz(bandIdx));
+    bandLoudnessTarget = max(0, bandLoudnessTarget);
+    bandLoudnessMasker = max(0, bandLoudnessMasker);
 
-    bandLoudnessRatio = (bandLoudnessTarget + epsilon)./(bandLoudnessMaskerEff);
+    invT = bandLoudnessTarget.^(1./maskParamGamma(bandIdx));
+    invM = bandLoudnessMasker.^(1./maskParamGamma(bandIdx));
 
-    maskExpt = maskParamSlope(bandIdx).*(log10(bandLoudnessRatio) - log10(maskParamMidPt(bandIdx)));
-    maskWeight = 1./(1 + exp(-maskExpt)).*min(1, (bandLoudnessTarget./LTQz(bandIdx)).^maskParamApproach);
-    maskWeight(bandLoudnessTotal <= LTQz(bandIdx)) = 0;
+    frac = (invT - invM) ./ (invT + invM + epsilon);
+    frac_pos = max(0, frac);
+    
+    % tuneable sharpen/softness
+    r = frac_pos.^maskParamExpt(bandIdx);
+    
+    % compose back and compress to N' units
+    bandPartLoudness = ( r .* invT ) .^ maskParamGamma(bandIdx);
 
-    % critical band partial basis loudness
-    basisPartLoudness = bandLoudnessTarget.*maskWeight;
-    basisPartLoudness(basisPartLoudness < 0) = 0;
+    % diff = invT - invM;
+    % softdiff = (1./maskParamSoft).*log(1 + exp(maskParamSoft .* diff));
+    % bandPartLoudness = ( max(0, diff) ) .^maskParamGamma;
+    % bandPartLoudness = softdiff.^maskParamGamma;
+    
+    basisPartLoudness = max(0, bandPartLoudness - LTQz(bandIdx));
+    basisPartLoudness(bandLoudnessTotal <= LTQz(bandIdx)) = 0;
+
+
+    % bandLoudnessMaskerEff = max(bandLoudnessMasker, LTQz(bandIdx));
+    % 
+    % bandLoudnessRatio = (bandLoudnessTarget + epsilon)./(bandLoudnessMaskerEff + epsilon);
+    % 
+    % maskExpt = maskParamSlope(bandIdx).*(log10(bandLoudnessRatio) - log10(maskParamMidPt(bandIdx)));
+    % maskWeight = 1./(1 + exp(-maskExpt)).*min(1, (bandLoudnessTarget./LTQz(bandIdx)).^maskParamApproach);
+    % maskWeight(bandLoudnessTotal <= LTQz(bandIdx)) = 0;
+    % 
+    % % critical band partial basis loudness
+    % basisPartLoudness = bandLoudnessTarget.*maskWeight;
+    % basisPartLoudness(basisPartLoudness < 0) = 0;
+
+
 
 else
 
