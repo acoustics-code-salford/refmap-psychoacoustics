@@ -11,11 +11,6 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRateIn, axisN, soundField,
 % argument. Options comprise 'aures', 'vonbismarck', or 'widmann' (which
 % is the model standardised in DIN 45692:2009).
 %
-% Since the input matrices will have been calculated using a given sound
-% field option ('freeFrontal' or 'diffuse') for the outer ear filter, this
-% information is not known to the function, so cannot be included in the
-% output.
-%
 % Inputs
 % ------
 % p : vector or 2D matrix
@@ -28,9 +23,13 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRateIn, axisN, soundField,
 % axisN : integer (1 or 2, default: 1)
 %   the time axis along which to calculate the sharpness
 %
-% soundField : keyword string (default: 'free-frontal')
-%   determines whether the 'free-frontal' or 'diffuse' field stages
-%   are applied in the outer-middle ear filter
+% soundField : keyword string (default: 'freeFrontal')
+%   Determines whether the 'freeFrontal' or 'diffuse' field stages
+%   are applied in the outer-middle ear filter, or 'noOuter' uses
+%   only the middle ear stage, or 'noEar' omits ear filtering.
+%   Note: these last two options may be useful if recordings made using
+%   artificial outer/middle ear are to be processed using the
+%   specific recorded responses.
 %
 % method : keyword string (default: 'aures')
 %   the sharpness method to apply. Options: 'aures', 'vonbismarck',
@@ -133,7 +132,7 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRateIn, axisN, soundField,
 % Institution: University of Salford
 %
 % Date created: 01/11/2024
-% Date last modified: 21/11/2025
+% Date last modified: 11/12/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -162,7 +161,8 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRateIn, axisN, soundField,
         soundField (1, :) string {mustBeMember(soundField,...
                                               {'freeFrontal',...
                                                'diffuse',...
-                                               'noOuter'})} = 'freeFrontal'
+                                               'noOuter', ...
+                                               'noEar'})} = 'freeFrontal'
         method (1, :) string {mustBeMember(method,...
                                            {'aures',...
                                             'vonbismarck',...
@@ -218,11 +218,11 @@ dt = 1/187.5;  % time step (resolution, s)
 
 switch method
     case 'aures'
-        calS = 1.0643285;
+        calS = 1.064337788536963;
         acum = "Aur | SHM";
 
     case 'vonbismarck'
-        calS = 0.98393;
+        calS = 0.983923859575781;
         acum = "vBis | SHM";
         q1 = 15;
         q2 = 0.2;
@@ -230,7 +230,7 @@ switch method
         q4 = 0.8;
 
     case 'widmann'
-        calS = 0.9854;
+        calS = 0.985397109771378;
         acum = "Widm | SHM";
         q1 = 15.8;
         q2 = 0.15;
@@ -351,7 +351,7 @@ if outPlot
         movegui(fig, 'center');
         ax = gca();
         plot(ax, timeOut, sharpnessPowAvg(1, chan)*ones(size(timeOut)), ':', 'color',...
-             cmap_viridis(34, :), 'LineWidth', 1, 'DisplayName', "Power" + string(newline) + "time-avg");
+             cmap_viridis(34, :), 'LineWidth', 1.5, 'DisplayName', "Power" + string(newline) + "time-avg");
         hold on
         plot(ax, timeOut, sharpnessTDep(:, chan), 'color', cmap_viridis(166, :),...
              'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
