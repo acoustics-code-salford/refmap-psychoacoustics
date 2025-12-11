@@ -34,7 +34,7 @@ function phon = shmSone2Phon(sone)
 % Institution: University of Salford
 %
 % Date created: 08/12/2025
-% Date last modified: 08/12/2025
+% Date last modified: 11/12/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -51,7 +51,7 @@ function phon = shmSone2Phon(sone)
 %
 %% Arguments validation
     arguments (Input)
-        sone (:, :) double {mustBePositive, mustBeInRange(sone, 0, 200)}
+        sone (:, :) double {mustBeInRange(sone, 0, 200)}
     end
 
 %% Define constants
@@ -91,7 +91,11 @@ if ismatrix(sone)  % flatten matrix to vector
     sone = sone(:);
 end
 
-phon = interp1(soneRange, phonRange, sone, 'linear', 'extrap');
+phon = -Inf(size(sone));
+
+mask = sone ~= 0;
+
+phon(mask) = interp1(soneRange, phonRange, sone(mask), 'linear', 'extrap');
 
 if phonReshape  % reshape matrix to vector
     phon = reshape(phon, soneSize);
