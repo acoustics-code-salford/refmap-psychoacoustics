@@ -1,7 +1,7 @@
 function partLoudnessSHM = acousticSHMPartialLoudness(pTarget, pMasker, sampleRateIn, axisN, soundField, waitBar, outPlot, binaural)
 % partLoudnessSHM = acousticSHMPartialLoudness(pTarget, pMasker, sampleRateIn,
-%                                          axisN, soundField,
-%                                          outPlot, binaural)
+%                                              axisN, soundField,
+%                                              outPlot, binaural)
 %
 % Returns partial loudness values based on ECMA-418-2:2025 (using the Sottek
 % Hearing Model) for an input calibrated single mono or single stereo
@@ -113,7 +113,7 @@ function partLoudnessSHM = acousticSHMPartialLoudness(pTarget, pMasker, sampleRa
 % Institution: University of Salford
 %
 % Date created: 09/12/2023
-% Date last modified: 11/12/2025
+% Date last modified: 12/12/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -234,7 +234,6 @@ b = 0.5459;
 
 % standardised epsilon
 epsilon = 1e-12;
-
 
 %% Signal processing
 

@@ -4,7 +4,7 @@ function [signalRectSegTarget, basisPartLoudness, blockRMSTarget] = shmBasisPart
 %                                                                        bandCentreFreq)
 %
 % Returns rectified input target signal and basis partial loudness in specified
-% critical band with reference to ECMA-418-2:2025 (the Sottek Hearing Model)
+% critical band based on ECMA-418-2:2025 (the Sottek Hearing Model)
 % for an input band-limited target and masker signals, segmented into processing blocks
 %
 % Inputs
@@ -47,7 +47,7 @@ function [signalRectSegTarget, basisPartLoudness, blockRMSTarget] = shmBasisPart
 % Institution: University of Salford
 %
 % Date created: 09/12/2023
-% Date last modified: 11/12/2025
+% Date last modified: 12/12/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -62,6 +62,11 @@ function [signalRectSegTarget, basisPartLoudness, blockRMSTarget] = shmBasisPart
 % This code was developed from an original file 'SottekTonality.m' authored
 % by Matt Torjussen (14/02/2022), based on implementing ECMA-418-2:2020.
 % The original code has been reused and updated here with permission.
+%
+% This code includes an expression obtained from the loudness package
+% developed by Dominic Ward
+% (https://github.com/deeuu/loudness/tree/master), which is re-used under
+% the applicable GPL-3.0 licence terms.
 %
 % Checked by:
 % Date last checked:
@@ -112,30 +117,40 @@ LTQz = [0.3310, 0.1625, 0.1051, 0.0757, 0.0576, 0.0453, 0.0365, 0.0298,...
         0.0296, 0.0339, 0.0398, 0.0485, 0.0622];
 
 % Partial masking parameters
-maskParamSlope = 3 + 2*exp(-((halfBark - 13)/8).^2);
-maskParamMidPt = 1.5 - 0.3*exp(-((halfBark - 10)/10).^2);
-maskParamApproach = 0.4;
-
-% maskParamGamma = 0.3;
-% maskParamSoft = 100;
-
-KdB = ones(size(bandCentreFreqs)).*-3;
-
+% Approx K from Moore & Glasberg, 1997 (K is the post auditory filter
+% signal-to-noise ratio required for threshold excitation in high masking
+% noise, here denoted snrTMN)
+% Expression adapted from https://github.com/deeuu/loudness/blob/master/src/modules/SpecificPartialLoudnessMGB1997.cpp
+% by Dominic Ward
+snrTMNdB = ones(size(bandCentreFreqs)).*-3;
 mask = bandCentreFreqs < 1000;
-
 logFreq = log10(bandCentreFreqs);
-% logFreq(bandCentreFreqs <= 50) = log10(50);
+% NOTE: the clamp at bandCentreFreqs <= 50 Hz applied in the original code
+% [logFreq(bandCentreFreqs <= 50) = log10(50);] is disregarded here in
+% favour of continuing the extrapolation down to the 41 Hz critical band.
+snrTMNdB(mask) = 4.4683421395470813*logFreq(mask).^4 ...
+                 - 49.680265975480935*logFreq(mask).^3 ...
+                 + 212.89091871289099*logFreq(mask).^2 ...
+                 - 418.88552055717832*logFreq(mask)...
+                 + 317.07466358701885;
+snrTMN = 10.^(snrTMNdB/10);
+% End of re-used code from loudness package.
 
-KdB(mask) = 4.4683421395470813*logFreq(mask).^4 ...
-            - 49.680265975480935*logFreq(mask).^3 ...
-            + 212.89091871289099*logFreq(mask).^2 ...
-            - 418.88552055717832 .* logFreq(mask) + 317.07466358701885;
-K = 10.^(KdB/10);
+% limits for masking function parameters
+maskCompressLim = [0.2, 0.25];
+maskResponseLim = [1, 2];
 
-maskParamGamma = 0.2 + (0.6 - 0.2).*(K./(1 + K));
-maskParamExpt = 6 + (10 - 6).*(K./(1 + K));
+% masking function compression parameter
+maskCompress = maskCompressLim(1)...
+               + (maskCompressLim(2)...
+                  - maskCompressLim(1)).*(snrTMN./(1 + snrTMN));
 
-% standard epsilon
+% masking function response parameter
+maskResponse = maskResponseLim(1)...
+               + (maskResponseLim(2)...
+                  - maskResponseLim(1)).*(snrTMN./(1 + snrTMN));
+
+% standardised epsilon
 epsilon = 1e-12;
 
 %% Input check
@@ -180,63 +195,58 @@ bandLoudnessTotal = squeeze(bandLoudnessTotal);
 
 % Section 5.1.9 Equation 25 ECMA-418-2:2025
 if ~isempty(bandCentreFreq) && length(size(signalSegmentedTarget)) == 2
+
     [~, bandIdx] = max(bandCentreFreq == bandCentreFreqs);
 
     bandLoudnessTarget = max(0, bandLoudnessTarget);
     bandLoudnessMasker = max(0, bandLoudnessMasker);
 
-    invT = bandLoudnessTarget.^(1./maskParamGamma(bandIdx));
-    invM = bandLoudnessMasker.^(1./maskParamGamma(bandIdx));
+    % compressed inverse
+    invT = bandLoudnessTarget.^(1./maskCompress(bandIdx));
+    invM = bandLoudnessMasker.^(1./maskCompress(bandIdx));
 
-    frac = (invT - invM) ./ (invT + invM + epsilon);
-    frac_pos = max(0, frac);
+    % compressed difference ratio
+    compDiffRatio = (invT - invM) ./ (invT + invM + epsilon);
+    compDiffRatioPos = max(0, compDiffRatio);
     
-    % tuneable sharpen/softness
-    r = frac_pos.^maskParamExpt(bandIdx);
+    % damping function for compressed difference ratio
+    compDiffRatioPosDamped = compDiffRatioPos.^maskResponse(bandIdx);
     
-    % compose back and compress to N' units
-    bandPartLoudness = ( r .* invT ) .^ maskParamGamma(bandIdx);
+    % partial loudness without LTQ
+    bandPartLoudness = (compDiffRatioPosDamped.*invT).^maskCompress(bandIdx);
 
-    % diff = invT - invM;
-    % softdiff = (1./maskParamSoft).*log(1 + exp(maskParamSoft .* diff));
-    % bandPartLoudness = ( max(0, diff) ) .^maskParamGamma;
-    % bandPartLoudness = softdiff.^maskParamGamma;
-    
+    % basis partial loudness
     basisPartLoudness = max(0, bandPartLoudness - LTQz(bandIdx));
     basisPartLoudness(bandLoudnessTotal <= LTQz(bandIdx)) = 0;
 
-
-    % bandLoudnessMaskerEff = max(bandLoudnessMasker, LTQz(bandIdx));
-    % 
-    % bandLoudnessRatio = (bandLoudnessTarget + epsilon)./(bandLoudnessMaskerEff + epsilon);
-    % 
-    % maskExpt = maskParamSlope(bandIdx).*(log10(bandLoudnessRatio) - log10(maskParamMidPt(bandIdx)));
-    % maskWeight = 1./(1 + exp(-maskExpt)).*min(1, (bandLoudnessTarget./LTQz(bandIdx)).^maskParamApproach);
-    % maskWeight(bandLoudnessTotal <= LTQz(bandIdx)) = 0;
-    % 
-    % % critical band partial basis loudness
-    % basisPartLoudness = bandLoudnessTarget.*maskWeight;
-    % basisPartLoudness(basisPartLoudness < 0) = 0;
-
-
-
 else
 
+    bandLoudnessTarget = max(0, bandLoudnessTarget);
+    bandLoudnessMasker = max(0, bandLoudnessMasker);
+
+    % raise parameter dimensions
     LTQz3D = reshape(repmat(LTQz, size(bandLoudnessMasker, 1)*size(bandLoudnessMasker, 2), 1), size(bandLoudnessMasker));
-    maskParamSlope3D = reshape(repmat(maskParamSlope, size(bandLoudnessMasker, 1)*size(bandLoudnessMasker, 2), 1), size(bandLoudnessMasker));
-    maskParamMidPt3D = reshape(repmat(maskParamMidPt, size(bandLoudnessMasker, 1)*size(bandLoudnessMasker, 2), 1), size(bandLoudnessMasker));
+    maskCompress3D = reshape(repmat(maskCompress, size(bandLoudnessMasker, 1)*size(bandLoudnessMasker, 2), 1), size(bandLoudnessMasker));
+    maskResponse3D = reshape(repmat(maskResponse, size(bandLoudnessMasker, 1)*size(bandLoudnessMasker, 2), 1), size(bandLoudnessMasker));
 
-    bandLoudnessMaskerEff = max(bandLoudnessMasker, LTQz3D);
+    % compressed inverse
+    invT = bandLoudnessTarget.^(1./maskCompress3D);
+    invM = bandLoudnessMasker.^(1./maskCompress3D);
 
-    bandLoudnessRatio = (bandLoudnessTarget + epsilon)./(bandLoudnessMaskerEff);
+    % compressed difference ratio
+    compDiffRatio = (invT - invM) ./ (invT + invM + epsilon);
+    compDiffRatioPos = max(0, compDiffRatio);
+    
+    % damping function for compressed difference ratio
+    compDiffRatioPosDamped = compDiffRatioPos.^maskResponse3D;
+    
+    % partial loudness without LTQ
+    bandPartLoudness = (compDiffRatioPosDamped.*invT).^maskCompress3D;
 
-    maskExpt = maskParamSlope3D.*(log10(bandLoudnessRatio) - log10(maskParamMidPt3D));
-    maskWeight = 1./(1 + exp(-maskExpt)).*min(1, (bandLoudnessTarget./LTQz3D).^maskParamApproach);
-    maskWeight(bandLoudnessTotal <= LTQz3D) = 0;
+    % basis partial loudness
+    basisPartLoudness = max(0, bandPartLoudness - LTQz3D);
+    basisPartLoudness(bandLoudnessTotal <= LTQz3D) = 0;
 
-    % partial basis loudness for all bands
-    basisPartLoudness = bandLoudnessTarget.*maskWeight;
-    basisPartLoudness(basisPartLoudness < 0) = 0;
 end
 
 % end of function
