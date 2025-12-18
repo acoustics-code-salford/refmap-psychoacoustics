@@ -2,33 +2,14 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 % detectDiscount = acousticDetection(signalTarget, sampleRateTarget,
 %                                    signalMasker, sampleRateMasker,
 %                                    axisTarget, axisMasker,
-%                                    timeSkip, timeSkip,
+%                                    timeSkip, timeStep,
 %                                    freqRange, outPlot)
 %
 % Returns detectability and discounted sound levels from input target
 % source and masker signals based on the detectability model originally
 % developed by Bolt, Beranek and Newman consulting engineers, and developed
 % further by NASA, with discounting of target source sound levels using the
-% technique developed by NASA.
-%
-% Fidell, S et al, 1974. Prediction of aural detectability of noise
-% signals, Human Factors 16(4), 373-383.
-% https://doi.org/10.1177/001872087401600405
-%
-% Sneddon, M et al, 2003. Laboratory study of the noticeability and
-% annoyance of low signal-to-noise ratio sounds, Noise Control Engineering
-% Journal, 51(5), 300-305.
-% https://doi.org/10.3397/1.2839726
-%
-% Christian, A, 2021. A construction for the prediction of noise-induced
-% annoyance in the presence of auditory masking, 181st Meeting of the
-% Acoustical Society of America.
-% https://ntrs.nasa.gov/citations/20210024824
-%
-% Rizzi, SA et al, 2024. Annoyance model assessments of urban air mobility
-% vehicle operations. 30th AIAA/CEAS Aeroacoustics Conference, Rome, Italy,
-% June 4-7, 2024. https://doi.org/10.2514/6.2024-3014
-%
+% technique developed by NASA (see References).
 %
 % Inputs
 % ------
@@ -64,9 +45,9 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 %            detectability
 %
 % freqRange : vector (default: [20, 20000])
-%                 the frequency range over which to determine
-%                 detection and discounted spectra (1/3-octave band
-%                 centre-frequencies within this range will be included)
+%             the frequency range over which to determine
+%             detection and discounted spectra (1/3-octave band
+%             centre-frequencies within this range will be included)
 %
 % outPlot : Boolean (default: false)
 %           determines whether to plot outputs from the calculations
@@ -172,7 +153,7 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 %        50% exceeded (median) dB, for each input target signal channel
 %
 % freqBands : vector
-%             1/3-octave band centre-frequencies for input freqBandRange
+%             1/3-octave band centre-frequencies for input freqRange
 %
 % timeOut : vector
 %           the window centre times for the spectrograms
@@ -181,6 +162,26 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 % -----------
 % The input signals are calibrated to units of acoustic pressure in Pascals
 % (Pa).
+%
+% References
+% ----------
+% Fidell, S et al, 1974. Prediction of aural detectability of noise
+% signals, Human Factors 16(4), 373-383.
+% https://doi.org/10.1177/001872087401600405
+%
+% Sneddon, M et al, 2003. Laboratory study of the noticeability and
+% annoyance of low signal-to-noise ratio sounds, Noise Control Engineering
+% Journal, 51(5), 300-305.
+% https://doi.org/10.3397/1.2839726
+%
+% Christian, A, 2021. A construction for the prediction of noise-induced
+% annoyance in the presence of auditory masking, 181st Meeting of the
+% Acoustical Society of America.
+% https://ntrs.nasa.gov/citations/20210024824
+%
+% Rizzi, SA et al, 2024. Annoyance model assessments of urban air mobility
+% vehicle operations. 30th AIAA/CEAS Aeroacoustics Conference, Rome, Italy,
+% June 4-7, 2024. https://doi.org/10.2514/6.2024-3014
 %
 % Requirements
 % ------------
@@ -193,7 +194,7 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 % Institution: University of Salford
 %
 % Date created: 05/11/2024
-% Date last modified: 22/07/2025
+% Date last modified: 17/12/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -236,6 +237,22 @@ if axisMasker == 2
     signalMasker = signalMasker.';
 end
 
+% check input signal sampling frequencies are equal, otherwise resample to
+% match higher rate
+if sampleRateMasker > sampleRateTarget
+    sampleRate = sampleRateMasker;
+    up = sampleRate/gcd(sampleRate, sampleRateTarget);
+    down = sampleRateTarget/gcd(sampleRate, sampleRateTarget);
+    signalTarget = resample(signalTarget, up, down);
+elseif sampleRateTarget > sampleRateMasker
+    sampleRate = sampleRateTarget;
+    up = sampleRate/gcd(sampleRate, sampleRateMasker);
+    down = sampleRateMasker/gcd(sampleRate, sampleRateMasker);
+    signalMasker = resample(signalMasker, up, down);
+else
+    sampleRate = sampleRateTarget;
+end
+
 % check input sizes and if necessary repeat masker
 repMasker = 1;
 targetChans = size(signalTarget, 2);
@@ -253,22 +270,6 @@ if targetChans ~= maskerChans
             repMasker = targetChans/maskerChans;
         end
     end
-end
-
-% check input signal sampling frequencies are equal, otherwise resample to
-% match higher rate
-if sampleRateMasker > sampleRateTarget
-    sampleRate = sampleRateMasker;
-    up = sampleRate/gcd(sampleRate, sampleRateTarget);
-    down = sampleRateTarget/gcd(sampleRate, sampleRateTarget);
-    signalTarget = resample(signalTarget, up, down);
-elseif sampleRateTarget > sampleRateMasker
-    sampleRate = sampleRateTarget;
-    up = sampleRate/gcd(sampleRate, sampleRateMasker);
-    down = sampleRateMasker/gcd(sampleRate, sampleRateMasker);
-    signalMasker = resample(signalMasker, up, down);
-else
-    sampleRate = sampleRateTarget;
 end
 
 % Check time skip
