@@ -44,7 +44,7 @@ for (ii in 1:length(mycolourlist)){
 }
 
 # toggle to save plots
-saveplots = FALSE
+saveplots = TRUE
 
 if (saveplots){
   # set output plot directory
@@ -310,8 +310,14 @@ mtryTune <- function(dataIn, iVars, dVar, seeds, ntrees, minsplit=20, minbucket=
   formVars <- reformulate(iVars, dVar)
   
   # set mtry values and corresponding iVars/mtry ratios
-  iVars_mtrys <- c(10.5, 5.25, 3.5, 2.75, 2.25, 1.75, 1.5, 1.25)
-  mtrys <- as.integer(length(iVars)/iVars_mtrys)
+  if (length(iVars) > 9){
+    iVars_mtrys <- c(10.5, 5.25, 3.5, 2.75, 2.25, 1.75, 1.5, 1.25)
+    mtrys <- as.integer(length(iVars)/iVars_mtrys)
+  }
+  else{
+    mtrys <- seq(2, length(iVars) - 3, by=1)
+    iVars_mtrys <- length(iVars)/mtrys
+  }
   iVars_mtrys <- iVars_mtrys[mtrys >= 2]  # remove 0 or 1 values
   mtrys <- mtrys[mtrys >= 2]  # remove 0 or 1 values
   
@@ -517,8 +523,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1001
-mtry <- as.integer(length(iVars)/1.5)
+ntree <- 2501
+mtry <- as.integer(length(iVars)/3.5)
 
 ```
 
@@ -562,7 +568,7 @@ resdAnnoyMnPermImpAB$AllVars <- resultsOutAbsDiffs$conditional_permimp
 
 #### Plot results
 
-```{r, fig.width=8,fig.height=23}
+```{r, fig.width=8,fig.height=30}
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -572,16 +578,16 @@ pBar <- ggplot(resultsOutAbsDiffs.conimp) + geom_col(aes(x=factor(rownames(resul
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp.svg", width=8, height=23, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp.svg", width=8, height=30, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMnAllVarsConPermimp.svg")
 
-  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp.pdf", width=8, height=23, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp.pdf", width=8, height=30, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMnAllVarsConPermimp.pdf")
 }
 
 ```
 
-```{r, fig.width=8,fig.height=11}
+```{r, fig.width=8,fig.height=18}
 
 # Plot only positive values
 
@@ -594,15 +600,15 @@ pBar <- ggplot(resultsOutAbsDiffs.conimpPtv) + geom_col(aes(x=factor(rownames(re
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimpPtv.svg", width=8, height=11, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimpPtv.svg", width=8, height=18, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMnAllVarsConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimpPtv.pdf", width=8, height=11, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimpPtv.pdf", width=8, height=18, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMnAllVarsConPermimp.pdf")
 }
 
 ```
-```{r, fig.width=8,fig.height=4}
+```{r, fig.width=8,fig.height=6}
 
 # Plot only values within 1% of the maximum
 
@@ -615,10 +621,10 @@ pBar <- ggplot(resultsOutAbsDiffs.conimp1pc) + geom_col(aes(x=factor(rownames(re
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp1pc.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp1pc.svg", width=8, height=6, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMnAllVarsConPermimp1pc.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp1pc.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp1pc.pdf", width=8, height=6, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMnAllVarsConPermimp1pc.pdf")
 }
 
@@ -662,8 +668,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1001
-mtry <- as.integer(length(iVars)/1.25)
+ntree <- 2501
+mtry <- as.integer(length(iVars)/1.75)
 
 ```
 
@@ -793,7 +799,8 @@ absVar <- "UASLAEMaxLR"
 
 ```{r}
 
-iVars <- c(absVar, eventVar, ambVar, "UASSharpAurISO3PowAvgBin", "UASSharpAurISO305ExBin", "UASSharpAurSHMPowAvgBin", "UASSharpAurSHM05ExBin", "UASSharpAurISO1PowAvgBin", "UASSharpAurISO105ExBin", "UASSharpvBISO1PowAvgBin", "UASSharpvBISO105ExBin", "UASSharpDINPowAvgBin", "UASSharpDIN05ExBin", "UASSharpAurISO1MedBin")
+iVars <- c(absVar, eventVar, ambVar, "UASSharpAurISO3PowAvgBin", "UASSharpAurISO305ExBin", "UASSharpAurSHMPowAvgBin", "UASSharpAurSHM05ExBin", "UASSharpAurISO1PowAvgBin", "UASSharpAurISO105ExBin", "UASSharpvBISO1PowAvgBin", "UASSharpvBISO105ExBin", "UASSharpDINPowAvgBin", "UASSharpDIN05ExBin", "UASSharpAurISO1MedBin",
+         "UASTonShpAurSHMPowAvgBin", "UASTonShpAurSHM05ExBin")
 dVar <- "dAnnoyMean"
 
 seeds <- c(7041, 905, 4984651, 6513213, 120651)
@@ -814,7 +821,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1501
+ntree <- 251
 mtry <- as.integer(length(iVars)/1.5)
 
 ```
@@ -895,7 +902,8 @@ sharpVar <- "UASSharpAurISO305ExBin"
 
 ```{r}
 
-iVars <- c(absVar, eventVar, ambVar, "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonalAwSHMAvgMaxLR",	"UASTonalAwSHM05ExMaxLR",	"UASTonalAwSHMIntAvgMaxLR", "UASTonLdECMAPowAvgBin", "UASTonLdECMA05ExBin", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR")
+iVars <- c(absVar, eventVar, ambVar, "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonalAwSHMAvgMaxLR",	"UASTonalAwSHM05ExMaxLR",	"UASTonalAwSHMIntAvgMaxLR", 	"UASTonalAwSHMInt05ExMaxLR", "UASTonLdECMAPowAvgBin", "UASTonLdECMA05ExBin", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR",
+         "UASTonShpAurSHMPowAvgBin", "UASTonShpAurSHM05ExBin")
 dVar <- "dAnnoyMean"
 
 seeds <- c(540, 104798, 456464, 87331, 94564)
@@ -916,8 +924,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1501
-mtry <- as.integer(length(iVars)/1.25)
+ntree <- 251
+mtry <- as.integer(length(iVars)/1.5)
 
 ```
 
@@ -991,13 +999,13 @@ tonLdVar <- "UASTonLdECMAPowAvgBin"
 
 ```
 
-##### Tonality without tonal loudness
+##### Tonality without tonal loudness or tonal sharpness
 
 ###### Set variables
 
 ```{r}
 
-iVars <- c(absVar, eventVar, ambVar, "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonalAwSHMAvgMaxLR",	"UASTonalAwSHM05ExMaxLR",	"UASTonalAwSHMIntAvgMaxLR", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR")
+iVars <- c(absVar, eventVar, ambVar, "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonalAwSHMAvgMaxLR",	"UASTonalAwSHM05ExMaxLR",	"UASTonalAwSHMIntAvgMaxLR", "UASTonalAwSHMInt05ExMaxLR",	"UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR")
 dVar <- "dAnnoyMean"
 
 seeds <- c(156089, 5860, 10528, 89541, 4685146)
@@ -1018,7 +1026,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 2501
+ntree <- 501
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -1092,7 +1100,7 @@ Selected metric
 
 ```{r}
 
-tonalVar <- "UASTonalSHMInt05ExMaxLR"
+tonalVar <- "UASTonalAwSHMInt05ExMaxLR"
 
 ```
 
@@ -1229,7 +1237,7 @@ Selected hyperparameters
 ```{r}
 
 ntree <- 1001
-mtry <- as.integer(length(iVars)/1.25)
+mtry <- as.integer(length(iVars)/1.8)
 
 ```
 
@@ -1435,8 +1443,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 5501
-mtry <- as.integer(length(iVars)/1.25)
+ntree <- 2501
+mtry <- as.integer(length(iVars)/1.6)
 
 ```
 
@@ -1528,8 +1536,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1001
-mtry <- as.integer(length(iVars)/1.5)
+ntree <- 1501
+mtry <- as.integer(length(iVars)/1.6)
 
 ```
 
@@ -1623,8 +1631,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 2501
-mtry <- as.integer(length(iVars)/1.25)
+ntree <- 1501
+mtry <- as.integer(length(iVars)/1.75)
 
 ```
 
@@ -1720,8 +1728,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 501
-mtry <- as.integer(length(iVars)/1.5)
+ntree <- 4001
+mtry <- as.integer(length(iVars)/2.25)
 
 ```
 
@@ -1731,7 +1739,7 @@ Train preliminary model
 
 ```{r}
 
-nperm <- 10
+nperm <- 5
 
 resultsOutDiffs <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
 
@@ -1767,7 +1775,7 @@ resdAnnoyMnPermImpAB$DiffVars <- resultsOutDiffs$conditional_permimp
 
 #### Plot results
 
-```{r, fig.width=8,fig.height=10}
+```{r, fig.width=8,fig.height=18}
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -1777,16 +1785,16 @@ pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimp.svg", width=8, height=10, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimp.svg", width=8, height=18, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMnDiffVarsConPermimp.svg")
 
-  ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimp.pdf", width=8, height=10, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimp.pdf", width=8, height=18, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMnDiffVarsConPermimp.pdf")
 }
 
 ```
 
-```{r, fig.width=8,fig.height=8}
+```{r, fig.width=8,fig.height=12}
 
 # Plot only positive values
 resultsOutDiffs.conimpPtv <- resultsOutDiffs.conimp |>
@@ -1798,15 +1806,15 @@ pBar <- ggplot(resultsOutDiffs.conimpPtv) + geom_col(aes(x=factor(rownames(resul
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimpPtv.svg", width=8, height=8, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimpPtv.svg", width=8, height=12, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMnDiffVarsConPermimpPtv.svg")
 
-  ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimpPtv.pdf", width=8, height=8, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimpPtv.pdf", width=8, height=12, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMnDiffVarsConPermimpPtv.pdf")
 }
 
 ```
-```{r, fig.width=8,fig.height=4}
+```{r, fig.width=8,fig.height=5}
 
 # Plot only values within 1% of the maximum
 resultsOutDiffs.conimp1pc <- resultsOutDiffs.conimp |>
@@ -1818,16 +1826,16 @@ pBar <- ggplot(resultsOutDiffs.conimp1pc) + geom_col(aes(x=factor(rownames(resul
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimp1pc.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimp1pc.svg", width=8, height=5, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMnDiffVarsConPermimp1pc.svg")
 
-  ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimp1pc.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMnDiffVarsConPermimp1pc.pdf", width=8, height=5, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMnDiffVarsConPermimp1pc.pdf")
 }
 
 ```
 
-```{r, fig.width=4,fig.height=4}
+```{r, fig.width=4,fig.height=5}
 
 # Plot only values within 1% of the maximum
 resultsOutDiffs.conimp1pc <- resultsOutDiffs.conimp |>
@@ -1841,10 +1849,10 @@ pBar
 filename = "PtsABdAnnoyMnDiffVarsConPermimp1pcNw"
 
 if (saveplots){
-  ggsave(filename=paste(filename, ".svg"), width=4, height=4, path=file.path(outFigPath, "svg"))
+  ggsave(filename=paste(filename, ".svg"), width=4, height=5, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg"))
 
-  ggsave(filename=paste(filename, ".pdf"), width=4, height=4, path=file.path(outFigPath, "pdf"))
+  ggsave(filename=paste(filename, ".pdf"), width=4, height=5, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".svg"))
 }
 
@@ -1861,8 +1869,6 @@ diffVar <- "LAELAF50diff"
 
 ### dSQM analysis
 
-The ambient-only stimuli are NOT replaced here, as the difference analysis includes dB metrics.
-
 #### Individual SQMs
 
 ##### dSharpness
@@ -1871,7 +1877,8 @@ The ambient-only stimuli are NOT replaced here, as the difference analysis inclu
 
 ```{r}
 
-iVars <- c(diffVar, eventVar, "dSharpAurISO3PowAvgMaxLR", "dSharpAurISO305ExMaxLR", "dSharpAurSHMPowAvgMaxLR", "dSharpAurSHM05ExMaxLR")
+iVars <- c(diffVar, eventVar, "dSharpAurISO3PowAvgBin", "dSharpAurISO305ExBin", "dSharpAurSHMPowAvgBin", "dSharpAurSHM05ExBin", "dTonShpAurSHMPowAvgBin", "dTonShpAurSHM05ExBin", "PartTonShpAurSHMPowAvgBin",
+           "PartTonShpAurSHM05ExBin")
 dVar <- "dAnnoyMean"
 
 seeds <- c(84194, 905, 64815, 928054, 625091)
@@ -1892,8 +1899,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <-251
-mtry <- as.integer(length(iVars)/1.75)
+ntree <-5501
+mtry <- as.integer(length(iVars)/1.25)
 
 ```
 
@@ -1939,7 +1946,7 @@ resdAnnoyMnPermImpAB$DiffSharp <- resultsOutSharp$conditional_permimp
 
 ###### Plot results
 
-```{r, fig.width=8,fig.height=2.6}
+```{r, fig.width=8,fig.height=3.4}
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -1949,10 +1956,10 @@ pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMndSharpConPermimp.svg", width=8, height=2.6, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdAnnoyMndSharpConPermimp.svg", width=8, height=3.4, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMndSharpConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMndSharpConPermimp.pdf", width=8, height=2.6, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMndSharpConPermimp.pdf", width=8, height=3.4, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMndSharpConPermimp.pdf")
 }
 
@@ -1963,7 +1970,7 @@ Selected metric
 
 ```{r}
 
-dSharpVar <- "dSharpAurISO3PowAvgMaxLR"
+dSharpVar <- "dSharpAurISO3PowAvgBin"
 
 ```
 
@@ -1973,7 +1980,8 @@ dSharpVar <- "dSharpAurISO3PowAvgMaxLR"
 
 ```{r}
 
-iVars <- c(diffVar, eventVar, "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR", "dTonLdECMAPowAvgBin", "dTonLdECMA05ExBin")
+iVars <- c(diffVar, eventVar, "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR", "dTonalAwSHMAvgMaxLR",	"dTonalAwSHM05ExMaxLR",	"dTonalAwSHMIntAvgMaxLR", 	"dTonalAwSHMInt05ExMaxLR", "dTonLdECMAPowAvgBin", "dTonLdECMA05ExBin", "dTonShpAurSHMPowAvgBin",
+           "dTonShpAurSHM05ExBin", "PartTonLdSHMPowAvgBin")
 dVar <- "dAnnoyMean"
 
 seeds <- c(561684, 104798, 1536, 48, 48561)
@@ -1994,8 +2002,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1501
-mtry <- as.integer(length(iVars)/1.25)
+ntree <- 1001
+mtry <- as.integer(length(iVars)/1.75)
 
 ```
 
@@ -2015,6 +2023,7 @@ resultsOutTonal1$OOB_RMSE
 resultsOutTonal1$OOB_MAE
 resultsOutTonal1$Rsquared
 ```
+
 Train multiple seeds model
 
 ```{r}
@@ -2040,7 +2049,7 @@ resdAnnoyMnPermImpAB$DiffTonal1 <- resultsOutTonal1$conditional_permimp
 
 ###### Plot results
 
-```{r, fig.width=8,fig.height=2.6}
+```{r, fig.width=8,fig.height=3.6}
 
 par(mai=c(0,3,0,0))
 
@@ -2051,10 +2060,10 @@ pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMndTonalLdConPermimp.svg", width=8, height=2.6, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdAnnoyMndTonalLdConPermimp.svg", width=8, height=3.6, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMndTonalLdConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMndTonalLdConPermimp.pdf", width=8, height=2.6, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMndTonalLdConPermimp.pdf", width=8, height=3.6, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMndTonalLdConPermimp.pdf")
 }
 
@@ -2074,7 +2083,7 @@ dTonLdVar <- "dTonLdECMAPowAvgBin"
 
 ```{r}
 
-iVars <- c(diffVar, eventVar, "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR")
+iVars <- c(diffVar, eventVar, "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR", "dTonalAwSHMAvgMaxLR",	"dTonalAwSHM05ExMaxLR",	"dTonalAwSHMIntAvgMaxLR", 	"dTonalAwSHMInt05ExMaxLR")
 dVar <- "dAnnoyMean"
 
 seeds <- c(410865, 2954, 70812, 203, 7984)
@@ -2095,8 +2104,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1501
-mtry <- as.integer(length(iVars)/1.75)
+ntree <- 5501
+mtry <- as.integer(length(iVars)/1.25)
 
 ```
 
@@ -2146,7 +2155,7 @@ resdAnnoyMnPermImpAB$DiffTonal2 <- resultsOutTonal2$conditional_permimp
 
 ###### Plot results
 
-```{r, fig.width=8,fig.height=2}
+```{r, fig.width=8,fig.height=2.8}
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -2156,17 +2165,17 @@ pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMndTonalConPermimp.svg", width=8, height=2, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdAnnoyMndTonalConPermimp.svg", width=8, height=2.8, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMndTonalConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMndTonalConPermimp.pdf", width=8, height=2, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMndTonalConPermimp.pdf", width=8, height=2.8, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMndTonalConPermimp.pdf")
 }
 
 
 ```
 
-Selectec metric
+Selected metric
 
 ```{r}
 
@@ -2181,7 +2190,7 @@ dTonalVar <- "dTonalSHMIntAvgMaxLR"
 ```{r}
 
 # Fluctuation strength
-iVars <- c(diffVar, eventVar, "dFluctSHM10ExBin", "dFluctSHM05ExBin", "dFluctOV10ExMaxLR", "dFluctOV05ExMaxLR")
+iVars <- c(diffVar, eventVar, "dFluctECMA10ExBin", "dFluctECMA05ExBin", "dFluctOV10ExMaxLR", "dFluctOV05ExMaxLR")
 dVar <- "dAnnoyMean"
 
 seeds <- c(418657, 84, 1630, 18659, 3687)
@@ -2203,8 +2212,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 2501
-mtry <- as.integer(length(iVars)/1.75)
+ntree <- 251
+mtry <- as.integer(length(iVars)/2)
 
 ```
 
@@ -2273,7 +2282,7 @@ Selected metric
 
 ```{r}
 
-dFluctVar <- "dFluctSHM05ExBin"
+dFluctVar <- "dFluctECMA10ExBin"
 
 ```
 
@@ -2307,7 +2316,7 @@ Selected hyperparameters
 ```{r}
 
 ntree <- 5501
-mtry <- as.integer(length(iVars)/1.75)
+mtry <- as.integer(length(iVars)/2)
 
 ```
 
@@ -2376,7 +2385,7 @@ Selected metric
 
 ```{r}
 
-dRoughVar <- "dRoughECMA05ExBin"
+dRoughVar <- "dRoughFZ05ExMaxLR"
 
 ```
 
@@ -2386,7 +2395,9 @@ dRoughVar <- "dRoughECMA05ExBin"
 
 ```{r}
 # Impulsiveness
-iVars <- c(diffVar, eventVar, "dImpulsSHMAvgMaxLR", "dImpulsSHM05ExMaxLR", "dImpulsSHMPowAvgMaxLR")
+iVars <- c(diffVar, eventVar, "dImpulsSHMAvgMaxLR", "dImpulsSHM05ExMaxLR", "dImpulsSHMPowAvgMaxLR",
+           "dImpulsLoudWZAvgMaxLR", "dImpulsLoudWZ05ExMaxLR", "dImpulsLoudWZPowAvgMaxLR",
+           "dImpulsLoudWECMAAvgBin", "dImpulsLoudWECMA05ExBin", "dImpulsLoudWECMAPowAvgBin")
 dVar <- "dAnnoyMean"
 
 seeds <- c(418659, 7805, 38475, 65834, 1653)
@@ -2407,7 +2418,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 2501
+ntree <- 1001
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -2454,7 +2465,7 @@ resdAnnoyMnPermImpAB$DiffImpuls <- resultsOutImpuls$conditional_permimp
 
 ###### Plot results
 
-```{r, fig.width=8,fig.height=2}
+```{r, fig.width=8,fig.height=3.6}
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -2464,10 +2475,10 @@ pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMndImpulsConPermimp.svg", width=8, height=2, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdAnnoyMndImpulsConPermimp.svg", width=8, height=3.6, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMndImpulsConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMndImpulsConPermimp.pdf", width=8, height=2, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMndImpulsConPermimp.pdf", width=8, height=3.6, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMndImpulsConPermimp.pdf")
 }
 
@@ -2477,7 +2488,7 @@ Selected metric
 
 ```{r}
 
-dImpulsVar <- "dImpulsSHM05ExMaxLR"
+dImpulsVar <- "dImpulsLoudWZAvgMaxLR"
 
 ```
 
@@ -2512,8 +2523,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
-mtry <- as.integer(length(iVars)/1.25)
+ntree <- 501
+mtry <- as.integer(length(iVars)/1.75)
 
 ```
 
@@ -2605,8 +2616,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 5501
-mtry <- as.integer(length(iVars)/1.25)
+ntree <- 1501
+mtry <- as.integer(length(iVars)/1.75)
 
 ```
 
@@ -2672,6 +2683,101 @@ if (saveplots){
 
 ```
 
+#### dPsychoacoustic annoyance metrics
+
+##### Set variables
+
+```{r}
+
+iVars <- c(ambVar, "dPsychAnnoyWidmann", "dPsychAnnoyMore", "dPsychAnnoyDi", "dPsychAnnoyTorija", "dPsychAnnoyWillemsen", "dPsychAnnoyBoucher")
+dVar <- "dAnnoyMean"
+
+seeds <- c(47896643, 475, 654, 98987132, 5446)
+
+
+```
+
+##### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2],
+              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 1001
+mtry <-  4
+
+```
+
+##### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutPA <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutPA$OOB_RMSE
+resultsOutPA$OOB_MAE
+resultsOutPA$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutPA <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutPA$OOB_RMSE
+resultsOutPA$OOB_MAE
+resultsOutPA$Rsquared
+
+```
+
+```{r}
+
+# store results
+resdAnnoyMnFitAB['Diff Psychoacoustic annoyance', 'RMSE'] <- resultsOutPA$OOB_RMSE
+resdAnnoyMnFitAB['Diff Psychoacoustic annoyance', 'MAE'] <- resultsOutPA$OOB_MAE
+resdAnnoyMnFitAB['Diff Psychoacoustic annoyance', 'Rsquared'] <- resultsOutPA$Rsquared
+resdAnnoyMnPermImpAB$AbsPA <- resultsOutPA$conditional_permimp
+
+```
+
+##### Plot results
+
+```{r, fig.width=8,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutPA.conimp <- arrange(resultsOutPA$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutPA.conimp) + geom_col(aes(x=factor(rownames(resultsOutPA.conimp), levels=rownames(resultsOutPA.conimp)), y=CondPermImp), fill=mycolours[10], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 1.8))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdAnnoyMndPAConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdAnnoyMndPAConPermimp.svg")
+  
+  ggsave(filename="PtsABdAnnoyMndPAConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdAnnoyMndPAConPermimp.pdf")
+}
+
+```
+
 ### Save the results outputs to file
 
 ```{r}
@@ -2710,11 +2816,11 @@ resdHiAnnoyPermImpAB <- list()
 
 ```{r}
 
-iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEvents'):which(names(stimDataNum) == 'UASImpulsSHM05ExMaxLR')]
+iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEvents'):which(names(stimDataNum) == 'UASPsychAnnoyBoucher')]
 iVars <- iVars[! iVars %in% 'SNRlevel']
 iVars <- c(iVars,
-           names(stimDataNum)[which(colnames(stimDataNum)=="LAeqLAF90diff"):
-                               which(colnames(stimDataNum)=="dImpulsSHM05ExMaxLR")], "SNRlevel")
+           names(stimDataNum)[which(colnames(stimDataNum)=='LAeqLAF90diff'):
+                               which(colnames(stimDataNum)=='dPsychAnnoyBoucher')], 'SNRlevel')
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(2, 312, 1897, 465978, 821659)
@@ -2780,7 +2886,7 @@ resdHiAnnoyPermImpAB$AllVars <- resultsOutAbsDiffs$conditional_permimp
 
 #### Plot results
 
-```{r, fig.width=8,fig.height=20}
+```{r, fig.width=8,fig.height=26}
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -2790,16 +2896,16 @@ pBar <- ggplot(resultsOutAbsDiffs.conimp) + geom_col(aes(x=factor(rownames(resul
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimp.svg", width=8, height=20, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimp.svg", width=8, height=26, path=file.path(outFigPath, "svg"))
   unlink("PtsABdHiAnnoyAllVarsConPermimp.svg")
 
-  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimp.pdf", width=8, height=20, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimp.pdf", width=8, height=26, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdHiAnnoyAllVarsConPermimp.pdf")
 }
 
 ```
 
-```{r, fig.width=8,fig.height=15}
+```{r, fig.width=8,fig.height=22}
 
 # Plot only positive values
 
@@ -2812,10 +2918,10 @@ pBar <- ggplot(resultsOutAbsDiffs.conimpPtv) + geom_col(aes(x=factor(rownames(re
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimpPtv.svg", width=8, height=15, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimpPtv.svg", width=8, height=22, path=file.path(outFigPath, "svg"))
   unlink("PtsABdHiAnnoyAllVarsConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimpPtv.pdf", width=8, height=15, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimpPtv.pdf", width=8, height=22, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdHiAnnoyAllVarsConPermimp.pdf")
 }
 
@@ -2851,7 +2957,7 @@ if (saveplots){
 
 ```{r}
 
-iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEvents'):which(names(stimDataNum) == 'UASImpulsSHM05ExMaxLR')]
+iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEvents'):which(names(stimDataNum) == 'UASPsychAnnoyBoucher')]
 iVars <- iVars[! iVars %in% c('SNRlevel', 'IntermitRatioC2MaxLR', 'IntermitRatioC3MaxLR', 'IntermitRatioC5MaxLR')]
 dVar <- "dHighAnnoyPc"
 
@@ -2881,7 +2987,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 501
+ntree <- 1501
 mtry <- as.integer(length(iVars)/1.75)
 
 ```
@@ -2892,7 +2998,7 @@ Train preliminary model
 
 ```{r}
 
-nperm <- 10
+nperm <- 5
 
 resultsOutAbs <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
 
@@ -2928,7 +3034,7 @@ resdHiAnnoyPermImpAB$AbsVars <- resultsOutAbs$conditional_permimp
 
 #### Plot results
 
-```{r, fig.width=8,fig.height=11.5}
+```{r, fig.width=8,fig.height=14}
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -2939,15 +3045,15 @@ pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOut
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimp.svg", width=8, height=11.5, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimp.svg", width=8, height=14, path=file.path(outFigPath, "svg"))
   unlink("PtsABdHiAnnoyAbsVarsConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimp.pdf", width=8, height=11.5, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimp.pdf", width=8, height=14, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdHiAnnoyAbsVarsConPermimp.pdf")
 }
 ```
 
-```{r, fig.width=8,fig.height=8}
+```{r, fig.width=8,fig.height=10}
 
 # Plot only positive values
 resultsOutAbs.conimpPtv <- resultsOutAbs.conimp |>
@@ -2959,10 +3065,10 @@ pBar <- ggplot(resultsOutAbs.conimpPtv,) + geom_col(aes(x=factor(rownames(result
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimpPtv.svg", width=8, height=8, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimpPtv.svg", width=8, height=10, path=file.path(outFigPath, "svg"))
   unlink("PtsABdHiAnnoyAbsVarsConPermimpPtv.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimpPtv.pdf", width=8, height=8, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimpPtv.pdf", width=8, height=10, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdHiAnnoyAbsVarsConPermimpPtv.pdf")
 }
 
@@ -3000,22 +3106,6 @@ absVar <- "UASLoudECMAPowAvgBin"
 
 ### SQM analysis
 
-#### Replace ambient only stimuli - OMITTED
-
-Here, the 'ambient only' stimuli are replaced, as the SQM analysis can incorporate 0 values (whereas dB metrics cannot be handled in this way).
-
-```{r}
-# 
-# stimDataNum <- rbind(stimDataNum, stimData[stimData['Stimulus']
-#                                               == "A1",
-#                                               colnames(stimDataNum)],
-#                       stimData[stimData['Stimulus']
-#                                               == "A2",
-#                                               colnames(stimDataNum)])
-# stimDataNum <- arrange(stimDataNum, Stimulus)
-
-```
-
 #### Individual SQMs
 
 ##### Sharpness
@@ -3024,7 +3114,8 @@ Here, the 'ambient only' stimuli are replaced, as the SQM analysis can incorpora
 
 ```{r}
 
-iVars <- c(absVar, eventVar, ambVar, "UASSharpAurISO3PowAvgMaxLR", "UASSharpAurISO305ExMaxLR", "UASSharpAurSHMPowAvgMaxLR", "UASSharpAurSHM05ExMaxLR", "UASSharpAurISO1PowAvgMaxLR", "UASSharpAurISO105ExMaxLR", "UASSharpvBISO1PowAvgMaxLR", "UASSharpvBISO105ExMaxLR", "UASSharpDINPowAvgMaxLR", "UASSharpDIN05ExMaxLR")
+iVars <- c(absVar, eventVar, ambVar, "UASSharpAurISO3PowAvgBin", "UASSharpAurISO305ExBin", "UASSharpAurSHMPowAvgBin", "UASSharpAurSHM05ExBin", "UASSharpAurISO1PowAvgBin", "UASSharpAurISO105ExBin", "UASSharpvBISO1PowAvgBin", "UASSharpvBISO105ExBin", "UASSharpDINPowAvgBin", "UASSharpDIN05ExBin", "UASSharpAurISO1MedBin",
+         "UASTonShpAurSHMPowAvgBin", "UASTonShpAurSHM05ExBin")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(7041, 905, 4984651, 6513213, 120651)
@@ -3040,15 +3131,14 @@ p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2],
 p
 
 
-
 ```
 
 Selected hyperparameters
 
 ```{r}
 
-ntree <- 1001
-mtry <- as.integer(length(iVars)/1.5)
+ntree <- 1501
+mtry <- as.integer(length(iVars)/2.25)
 
 ```
 
@@ -3068,6 +3158,7 @@ resultsOutSharp$OOB_MAE
 resultsOutSharp$Rsquared
 
 ```
+
 Train multiple seeds model
 
 ```{r}
@@ -3083,6 +3174,7 @@ resultsOutSharp$Rsquared
 
 
 ```{r}
+
 # store results
 resdHiAnnoyFitAB['Abs sharp', 'RMSE'] <- resultsOutSharp$OOB_RMSE
 resdHiAnnoyFitAB['Abs sharp', 'MAE'] <- resultsOutSharp$OOB_MAE
@@ -3110,14 +3202,13 @@ if (saveplots){
   unlink("PtsABdHiAnnoySharpConPermimp.pdf")
 }
 
-
 ```
 
 Selected metric
 
 ```{r}
 
-sharpVar <- "UASSharpAurISO305ExMaxLR"
+sharpVar <- "UASSharpAurISO3PowAvgBin"
 
 ```
 
@@ -3128,7 +3219,8 @@ sharpVar <- "UASSharpAurISO305ExMaxLR"
 
 ```{r}
 
-iVars <- c(absVar, eventVar, ambVar, "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonLdECMAPowAvgBin", "UASTonLdECMA05ExBin", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR")
+iVars <- c(absVar, eventVar, ambVar, "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonalAwSHMAvgMaxLR",	"UASTonalAwSHM05ExMaxLR",	"UASTonalAwSHMIntAvgMaxLR", 	"UASTonalAwSHMInt05ExMaxLR", "UASTonLdECMAPowAvgBin", "UASTonLdECMA05ExBin", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR",
+         "UASTonShpAurSHMPowAvgBin", "UASTonShpAurSHM05ExBin")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(540, 104798, 456464, 87331, 94564)
@@ -3149,8 +3241,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 501
-mtry <- as.integer(length(iVars)/1.25)
+ntree <- 251
+mtry <- as.integer(length(iVars)/1.5)
 
 ```
 
@@ -3196,7 +3288,7 @@ resdHiAnnoyPermImpAB$AbsTonal1 <- resultsOutTonal1$conditional_permimp
 
 ###### Plot results
 
-```{r, fig.width=8,fig.height=3.8}
+```{r, fig.width=8,fig.height=4.4}
 
 par(mai=c(0,3,0,0))
 
@@ -3207,10 +3299,10 @@ pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyTonalLdConPermimp.svg", width=8, height=3.8, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdHiAnnoyTonalLdConPermimp.svg", width=8, height=4.4, path=file.path(outFigPath, "svg"))
   unlink("PtsABdHiAnnoyTonalLdConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyTonalLdConPermimp.pdf", width=8, height=3.8, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdHiAnnoyTonalLdConPermimp.pdf", width=8, height=4.4, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdHiAnnoyTonalLdConPermimp.pdf")
 }
 
@@ -3231,7 +3323,7 @@ tonLdVar <- "UASTonLdECMAPowAvgBin"
 
 ```{r}
 
-iVars <- c(absVar, eventVar, ambVar, "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR")
+iVars <- c(absVar, eventVar, ambVar, "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonalAwSHMAvgMaxLR",	"UASTonalAwSHM05ExMaxLR",	"UASTonalAwSHMIntAvgMaxLR", "UASTonalAwSHMInt05ExMaxLR",	"UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(156089, 5860, 10528, 89541, 4685146)
@@ -3252,7 +3344,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 5501
+ntree <- 251
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -3305,7 +3397,7 @@ resdHiAnnoyPermImpAB$AbsTonal2 <- resultsOutTonal2$conditional_permimp
 
 ###### Plot results
 
-```{r, fig.width=8,fig.height=3.2}
+```{r, fig.width=8,fig.height=3.8}
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -3315,13 +3407,12 @@ pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyTonalConPermimp.svg", width=8, height=3.2, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdHiAnnoyTonalConPermimp.svg", width=8, height=3.8, path=file.path(outFigPath, "svg"))
   unlink("PtsABdHiAnnoyTonalConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyTonalConPermimp.pdf", width=8, height=3.2, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdHiAnnoyTonalConPermimp.pdf", width=8, height=3.8, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdHiAnnoyTonalConPermimp.pdf")
 }
-
 
 ```
 
@@ -3329,7 +3420,7 @@ Selected metric
 
 ```{r}
 
-tonalVar <- "UASTonalSHMIntAvgMaxLR"
+tonalVar <- "UASTonalAwSHMInt05ExMaxLR"
 
 ```
 
@@ -3340,7 +3431,7 @@ tonalVar <- "UASTonalSHMIntAvgMaxLR"
 ```{r}
 
 # Fluctuation strength
-iVars <- c(absVar, eventVar, ambVar, "UASFluctSHM10ExBin", "UASFluctSHM05ExBin", "UASFluctFZ10ExMaxLR", "UASFluctFZ05ExMaxLR", "UASFluctOV10ExMaxLR", "UASFluctOV05ExMaxLR")
+iVars <- c(absVar, eventVar, ambVar, "UASFluctOldSHM10ExBin", "UASFluctOldSHM05ExBin", "UASFluctECMA10ExBin", "UASFluctECMA05ExBin", "UASFluctFZ10ExMaxLR", "UASFluctFZ05ExMaxLR", "UASFluctOV10ExMaxLR", "UASFluctOV05ExMaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(25107, 546098, 195, 5937, 102658)
@@ -3361,7 +3452,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 501
+ntree <- 251
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -3433,7 +3524,7 @@ Selected metric
 
 ```{r}
 
-fluctVar <- "UASFluctOV10ExMaxLR"
+fluctVar <- "UASFluctECMA10ExBin"
 
 ```
 
@@ -3465,8 +3556,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 2501
-mtry <- as.integer(length(iVars)/1.25)
+ntree <- 4001
+mtry <- as.integer(length(iVars)/1.5)
 
 ```
 
@@ -3547,7 +3638,7 @@ roughVar <- "UASRoughFZ05ExMaxLR"
 
 ```{r}
 # Impulsiveness
-iVars <- c(absVar, eventVar, ambVar, "UASImpulsSHMAvgMaxLR", "UASImpulsSHM05ExMaxLR", "UASImpulsSHMPowAvgMaxLR")
+iVars <- c(absVar, eventVar, ambVar, "UASImpulsSHMAvgMaxLR", "UASImpulsSHM05ExMaxLR", "UASImpulsSHMPowAvgMaxLR", "UASImpulsLoudWZAvgMaxLR", "UASImpulsLoudWZ05ExMaxLR", "UASImpulsLoudWZPowAvgMaxLR", "UASImpulsLoudWECMAAvgBin", "UASImpulsLoudWECMA05ExBin", "UASImpulsLoudWECMAPowAvgBin")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(8495, 59867, 5416, 9843, 86)
@@ -3569,7 +3660,7 @@ Selected hyperparameters
 ```{r}
 
 ntree <- 501
-mtry <- as.integer(length(iVars)/1.75)
+mtry <- as.integer(length(iVars)/1.5)
 
 ```
 
@@ -3616,7 +3707,7 @@ resdHiAnnoyPermImpAB$AbsImpuls <- resultsOutImpuls$conditional_permimp
 
 ###### Plot results
 
-```{r, fig.width=8,fig.height=2}
+```{r, fig.width=8,fig.height=4}
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -3626,10 +3717,10 @@ pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyImpulsConPermimp.svg", width=8, height=2, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdHiAnnoyImpulsConPermimp.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
   unlink("PtsABdHiAnnoyImpulsConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyImpulsConPermimp.pdf", width=8, height=2, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdHiAnnoyImpulsConPermimp.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdHiAnnoyImpulsConPermimp.pdf")
 }
 
@@ -3639,7 +3730,7 @@ Selected metric
 
 ```{r}
 
-impulsVar <- "UASImpulsSHMPowAvgMaxLR"
+impulsVar <- "UASImpulsLoudWZAvgMaxLR"
 
 ```
 
@@ -3675,7 +3766,7 @@ Selected hyperparameters
 ```{r}
 
 ntree <- 1501
-mtry <- as.integer(length(iVars)/1.25)
+mtry <- 3
 
 ```
 
@@ -3768,8 +3859,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1501
-mtry <- as.integer(length(iVars)/1.25)
+ntree <- 4001
+mtry <- 3
 
 ```
 
@@ -3835,6 +3926,101 @@ if (saveplots){
 
 ```
 
+#### Psychoacoustic annoyance metrics
+
+##### Set variables
+
+```{r}
+
+iVars <- c(ambVar, "UASPsychAnnoyWidmann", "UASPsychAnnoyMore", "UASPsychAnnoyDi", "UASPsychAnnoyTorija", "UASPsychAnnoyWillemsen", "UASPsychAnnoyBoucher")
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(48651, 45, 785123, 65, 5163)
+
+
+```
+
+##### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2],
+             ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 4001
+mtry <- 4
+
+```
+
+##### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutPA <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutPA$OOB_RMSE
+resultsOutPA$OOB_MAE
+resultsOutPA$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutPA <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutPA$OOB_RMSE
+resultsOutPA$OOB_MAE
+resultsOutPA$Rsquared
+
+```
+
+```{r}
+
+# store results
+resdHiAnnoyFitAB['Psychoacoustic annoyance', 'RMSE'] <- resultsOutPA$OOB_RMSE
+resdHiAnnoyFitAB['Psychoacoustic annoyance', 'MAE'] <- resultsOutPA$OOB_MAE
+resdHiAnnoyFitAB['Psychoacoustic annoyance', 'Rsquared'] <- resultsOutPA$Rsquared
+resdHiAnnoyPermImpAB$AbsPA <- resultsOutPA$conditional_permimp
+
+```
+
+##### Plot results
+
+```{r, fig.width=8,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutPA.conimp <- arrange(resultsOutPA$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutPA.conimp) + geom_col(aes(x=factor(rownames(resultsOutPA.conimp), levels=rownames(resultsOutPA.conimp)), y=CondPermImp), fill=mycolours[10], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 60))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoyAbsPAConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoyAbsPAConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoyAbsPAConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoyAbsPAConPermimp.pdf")
+}
+
+```
+
 ### Difference variables
 
 Next, the difference metrics are analysed
@@ -3844,7 +4030,7 @@ Next, the difference metrics are analysed
 ```{r}
 
 iVars <- c(names(stimDataNum)[which(colnames(stimDataNum)=="LAeqLAF90diff"):
-                               which(colnames(stimDataNum)=="dImpulsSHM05ExMaxLR")],
+                               which(colnames(stimDataNum)=="dPsychAnnoyBoucher")],
            "UASEvents", "SNRlevel", "IntermitRatioC2MaxLR", "IntermitRatioC3MaxLR", "IntermitRatioC5MaxLR")
 dVar <- "dHighAnnoyPc"
 
@@ -3866,8 +4052,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 4001
-mtry <- as.integer(length(iVars)/2.25)
+ntree <- 1501
+mtry <- as.integer(length(iVars)/5.25)
 
 ```
 
@@ -3913,7 +4099,7 @@ resdHiAnnoyPermImpAB$DiffVars <- resultsOutDiffs$conditional_permimp
 
 #### Plot results
 
-```{r, fig.width=8,fig.height=10}
+```{r, fig.width=8,fig.height=16}
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -3923,15 +4109,16 @@ pBar <- ggplot(resultsOutDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyDiffVarsConPermimp.svg", width=8, height=10, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdHiAnnoyDiffVarsConPermimp.svg", width=8, height=16, path=file.path(outFigPath, "svg"))
   unlink("PtsABdHiAnnoyDiffVarsConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyDiffVarsConPermimp.pdf", width=8, height=10, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdHiAnnoyDiffVarsConPermimp.pdf", width=8, height=16, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdHiAnnoyDiffVarsConPermimp.pdf")
 }
 
 ```
-```{r, fig.width=8,fig.height=9}
+
+```{r, fig.width=8,fig.height=14}
 
 # Plot only positive values
 resultsOutDiffs.conimpPtv <- resultsOutDiffs.conimp |>
@@ -3943,16 +4130,16 @@ pBar <- ggplot(resultsOutDiffs.conimpPtv) + geom_col(aes(x=factor(rownames(resul
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyDiffVarsConPermimpPtv.svg", width=8, height=9, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdHiAnnoyDiffVarsConPermimpPtv.svg", width=8, height=14, path=file.path(outFigPath, "svg"))
   unlink("PtsABdHiAnnoyDiffVarsConPermimpPtv.svg")
   
-  ggsave(filename="PtsABdHiAnnoyDiffVarsConPermimpPtv.pdf", width=8, height=9, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdHiAnnoyDiffVarsConPermimpPtv.pdf", width=8, height=14, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdHiAnnoyDiffVarsConPermimpPtv.pdf")
 }
 
 ```
 
-```{r, fig.width=8,fig.height=4}
+```{r, fig.width=8,fig.height=8}
 
 # Plot only values within 1% of the maximum
 resultsOutDiffs.conimp1pc <- resultsOutDiffs.conimp |>
@@ -3964,10 +4151,10 @@ pBar <- ggplot(resultsOutDiffs.conimp1pc) + geom_col(aes(x=factor(rownames(resul
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyDiffVarsConPermimp1pc.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdHiAnnoyDiffVarsConPermimp1pc.svg", width=8, height=8, path=file.path(outFigPath, "svg"))
   unlink("PtsABdHiAnnoyDiffVarsConPermimp1pc.svg")
   
-  ggsave(filename="PtsABdHiAnnoyDiffVarsConPermimp1pc.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdHiAnnoyDiffVarsConPermimp1pc.pdf", width=8, height=8, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdHiAnnoyDiffVarsConPermimp1pc.pdf")
 }
 
@@ -3977,13 +4164,11 @@ Selected metric
 
 ```{r}
 
-diffVar <- "LAELAeqdiff"
+diffVar <- "EPNLLAeqdiff"
 
 ```
 
 ### dSQM analysis
-
-The ambient-only stimuli are NOT replaced here, as the difference analysis includes dB metrics.
 
 #### Individual SQMs
 
@@ -3993,7 +4178,8 @@ The ambient-only stimuli are NOT replaced here, as the difference analysis inclu
 
 ```{r}
 
-iVars <- c(diffVar, eventVar, "dSharpAurISO3PowAvgMaxLR", "dSharpAurISO305ExMaxLR", "dSharpAurSHMPowAvgMaxLR", "dSharpAurSHM05ExMaxLR")
+iVars <- c(diffVar, eventVar, "dSharpAurISO3PowAvgBin", "dSharpAurISO305ExBin", "dSharpAurSHMPowAvgBin", "dSharpAurSHM05ExBin", "dTonShpAurSHMPowAvgBin", "dTonShpAurSHM05ExBin", "PartTonShpAurSHMPowAvgBin",
+           "PartTonShpAurSHM05ExBin")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(84194, 905, 64815, 928054, 625091, 582031)
@@ -4015,7 +4201,7 @@ Selected hyperparameters
 ```{r}
 
 ntree <- 251
-mtry <- as.integer(length(iVars)/1.75)
+mtry <- as.integer(length(iVars)/2.25)
 
 ```
 
@@ -4085,7 +4271,7 @@ Selected metric
 
 ```{r}
 
-dSharpVar <- "dSharpAurSHMPowAvgMaxLR"
+dSharpVar <- "dSharpAurSHMPowAvgBin"
 
 ```
 
@@ -4096,7 +4282,8 @@ dSharpVar <- "dSharpAurSHMPowAvgMaxLR"
 
 ```{r}
 
-iVars <- c(diffVar, eventVar, "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR", "dTonLdECMAPowAvgBin", "dTonLdECMA05ExBin")
+iVars <- c(diffVar, eventVar, "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR", "dTonalAwSHMAvgMaxLR",	"dTonalAwSHM05ExMaxLR",	"dTonalAwSHMIntAvgMaxLR", 	"dTonalAwSHMInt05ExMaxLR", "dTonLdECMAPowAvgBin", "dTonLdECMA05ExBin", "dTonShpAurSHMPowAvgBin",
+           "dTonShpAurSHM05ExBin", "PartTonLdSHMPowAvgBin")
 dVar <- "dHighAnnoyPc"
 
 ```
@@ -4117,7 +4304,7 @@ Selected hyperparameters
 ```{r}
 
 ntree <- 1001
-mtry <- as.integer(length(iVars)/1.25)
+mtry <- as.integer(length(iVars)/1.5)
 
 ```
 
@@ -4163,7 +4350,7 @@ resdHiAnnoyPermImpAB$DiffTonal1 <- resultsOutTonal1$conditional_permimp
 
 ###### Plot results
 
-```{r, fig.width=8,fig.height=2.6}
+```{r, fig.width=8,fig.height=3.6}
 
 par(mai=c(0,3,0,0))
 
@@ -4174,10 +4361,10 @@ pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoydTonalLdConPermimp.svg", width=8, height=2.6, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdHiAnnoydTonalLdConPermimp.svg", width=8, height=3.6, path=file.path(outFigPath, "svg"))
   unlink("PtsABdHiAnnoydTonalLdConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoydTonalLdConPermimp.pdf", width=8, height=2.6, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdHiAnnoydTonalLdConPermimp.pdf", width=8, height=3.6, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdHiAnnoydTonalLdConPermimp.pdf")
 }
 
@@ -4197,7 +4384,7 @@ dTonLdVar <- "dTonLdECMAPowAvgBin"
 
 ```{r}
 
-iVars <- c(diffVar, eventVar, "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR")
+iVars <- c(diffVar, eventVar, "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR", "dTonalAwSHMAvgMaxLR",	"dTonalAwSHM05ExMaxLR",	"dTonalAwSHMIntAvgMaxLR", 	"dTonalAwSHMInt05ExMaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(410865, 2954, 70812, 203, 7984)
@@ -4212,15 +4399,14 @@ p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
-
 ```
 
 Selected hyperparameters
 
 ```{r}
 
-ntree <- 4001
-mtry <- as.integer(length(iVars)/1.75)
+ntree <- 5501
+mtry <- as.integer(length(iVars)/1.25)
 
 ```
 
@@ -4270,7 +4456,7 @@ resdHiAnnoyPermImpAB$DiffTonal2 <- resultsOutTonal2$conditional_permimp
 
 ###### Plot results
 
-```{r, fig.width=8,fig.height=2}
+```{r, fig.width=8,fig.height=2.8}
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -4280,10 +4466,10 @@ pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoydTonalConPermimp.svg", width=8, height=2, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdHiAnnoydTonalConPermimp.svg", width=8, height=2.8, path=file.path(outFigPath, "svg"))
   unlink("PtsABdHiAnnoydTonalConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoydTonalConPermimp.pdf", width=8, height=2, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdHiAnnoydTonalConPermimp.pdf", width=8, height=2.8, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdHiAnnoydTonalConPermimp.pdf")
 }
 
@@ -4294,7 +4480,7 @@ Selected metric
 
 ```{r}
 
-dTonalVar <- "dTonalSHMIntAvgMaxLR"
+dTonalVar <- "dTonalAwSHMIntAvgMaxLR"
 
 ```
 
@@ -4305,7 +4491,7 @@ dTonalVar <- "dTonalSHMIntAvgMaxLR"
 ```{r}
 
 # Fluctuation strength
-iVars <- c(diffVar, eventVar, "dFluctSHM10ExBin", "dFluctSHM05ExBin", "dFluctOV10ExMaxLR", "dFluctOV05ExMaxLR")
+iVars <- c(diffVar, eventVar, "dFluctECMA10ExBin", "dFluctECMA05ExBin", "dFluctOV10ExMaxLR", "dFluctOV05ExMaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(418657, 84, 1630, 18659, 3687)
@@ -4327,8 +4513,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
-mtry <- as.integer(length(iVars)/1.75)
+ntree <- 2501
+mtry <- 3
 
 ```
 
@@ -4398,7 +4584,7 @@ Selected metric
 
 ```{r}
 
-dFluctVar <- "dFluctSHM10ExBin"
+dFluctVar <- "dFluctOV10ExMaxLR"
 
 ```
 
@@ -4430,8 +4616,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
-mtry <- as.integer(length(iVars)/1.75)
+ntree <- 501
+mtry <- 3
 
 ```
 
@@ -4510,7 +4696,9 @@ dRoughVar <- "dRoughFZ05ExMaxLR"
 
 ```{r}
 # Impulsiveness
-iVars <- c(diffVar, eventVar, "dImpulsSHMAvgMaxLR", "dImpulsSHM05ExMaxLR", "dImpulsSHMPowAvgMaxLR")
+iVars <- c(diffVar, eventVar, "dImpulsSHMAvgMaxLR", "dImpulsSHM05ExMaxLR", "dImpulsSHMPowAvgMaxLR",
+           "dImpulsLoudWZAvgMaxLR", "dImpulsLoudWZ05ExMaxLR", "dImpulsLoudWZPowAvgMaxLR",
+           "dImpulsLoudWECMAAvgBin", "dImpulsLoudWECMA05ExBin", "dImpulsLoudWECMAPowAvgBin")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(418659, 7805, 38475, 65834, 1653)
@@ -4531,7 +4719,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1001
+ntree <- 5501
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -4579,7 +4767,7 @@ resdHiAnnoyPermImpAB$DiffImpuls <- resultsOutImpuls$conditional_permimp
 
 ###### Plot results
 
-```{r, fig.width=8,fig.height=2}
+```{r, fig.width=8,fig.height=3.6}
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -4589,10 +4777,10 @@ pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoydImpulsConPermimp.svg", width=8, height=2, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdHiAnnoydImpulsConPermimp.svg", width=8, height=3.6, path=file.path(outFigPath, "svg"))
   unlink("PtsABdHiAnnoydImpulsConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoydImpulsConPermimp.pdf", width=8, height=2, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdHiAnnoydImpulsConPermimp.pdf", width=8, height=3.6, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdHiAnnoydImpulsConPermimp.pdf")
 }
 
@@ -4602,7 +4790,7 @@ Selected metric
 
 ```{r}
 
-dImpulsVar <- "dImpulsSHMAvgMaxLR"
+dImpulsVar <- "dImpulsLoudWZAvgMaxLR"
 
 ```
 
@@ -4637,8 +4825,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 501
-mtry <- as.integer(length(iVars)/1.25)
+ntree <- 251
+mtry <- as.integer(length(iVars)/1.75)
 
 ```
 
@@ -4731,8 +4919,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
-mtry <- as.integer(length(iVars)/1.25)
+ntree <- 501
+mtry <- as.integer(length(iVars)/1.75)
 
 ```
 
@@ -4793,6 +4981,101 @@ if (saveplots){
   
   ggsave(filename="PtsABdHiAnnoyDiffSQMsNoTonLdConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdHiAnnoyDiffSQMsNoTonLdConPermimp.pdf")
+}
+
+```
+
+#### dPsychoacoustic annoyance metrics
+
+##### Set variables
+
+```{r}
+
+iVars <- c(ambVar, "dPsychAnnoyWidmann", "dPsychAnnoyMore", "dPsychAnnoyDi", "dPsychAnnoyTorija", "dPsychAnnoyWillemsen", "dPsychAnnoyBoucher")
+dVar <- "dHighAnnoyPc"
+
+seeds <- c(835702, 54, 470912, 652, 55297)
+
+
+```
+
+##### Hyperparameter tuning
+
+```{r, fig.width=12, fig.height=4}
+
+p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2],
+              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
+p
+
+```
+
+
+Selected hyperparameters
+
+```{r}
+
+ntree <- 251
+mtry <-  4
+
+```
+
+##### Run model
+
+Train preliminary model
+
+```{r}
+
+nperm <- 5
+
+resultsOutPA <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutPA$OOB_RMSE
+resultsOutPA$OOB_MAE
+resultsOutPA$Rsquared
+
+```
+
+Train multiple seeds model
+
+```{r}
+
+resultsOutPA <- multi_crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds, ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
+
+# print model prediction results
+resultsOutPA$OOB_RMSE
+resultsOutPA$OOB_MAE
+resultsOutPA$Rsquared
+
+```
+
+```{r}
+
+# store results
+resdHiAnnoyFitAB['Diff Psychoacoustic annoyance', 'RMSE'] <- resultsOutPA$OOB_RMSE
+resdHiAnnoyFitAB['Diff Psychoacoustic annoyance', 'MAE'] <- resultsOutPA$OOB_MAE
+resdHiAnnoyFitAB['Diff Psychoacoustic annoyance', 'Rsquared'] <- resultsOutPA$Rsquared
+resdHiAnnoyPermImpAB$AbsPA <- resultsOutPA$conditional_permimp
+
+```
+
+##### Plot results
+
+```{r, fig.width=8,fig.height=2.4}
+par(mai=c(0,3,0,0))
+
+# plot conditional importance
+resultsOutPA.conimp <- arrange(resultsOutPA$conditional_permimp, desc(row_number()))
+
+pBar <- ggplot(resultsOutPA.conimp) + geom_col(aes(x=factor(rownames(resultsOutPA.conimp), levels=rownames(resultsOutPA.conimp)), y=CondPermImp), fill=mycolours[10], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 50))
+pBar
+
+if (saveplots){
+  ggsave(filename="PtsABdHiAnnoydPAConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink("PtsABdHiAnnoydPAConPermimp.svg")
+  
+  ggsave(filename="PtsABdHiAnnoydPAConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink("PtsABdHiAnnoydPAConPermimp.pdf")
 }
 
 ```
@@ -4880,8 +5163,8 @@ if (saveplots){
   unlink("PtsABcrfAbsSQMsSummary.pdf")
 }
 
-
 ```
+
 #### Difference variables
 
 ```{r, fig.width=8, fig.height=4}
@@ -4973,6 +5256,7 @@ if (saveplots){
 }
 
 ```
+
 #### Difference variables
 
 ```{r, fig.width=8, fig.height=4}

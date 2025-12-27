@@ -65,7 +65,7 @@ annoyDataB <- dplyr::mutate_all(annoyDataB, function(x) as.numeric(as.character(
 ```{r}
 
 irr::icc(annoyDataA, model = 'twoway', 
-         type = 'agreement', unit = 'average')
+         type = 'consistency', unit = 'average')
 
 ```
 
@@ -76,7 +76,22 @@ irr::icc(annoyDataA, model = 'twoway',
 
 
 irr::icc(annoyDataB, model = 'twoway', 
-         type = 'agreement', unit = 'average')
+         type = 'consistency', unit = 'average')
+
+
+```
+
+### Combined parts A and B, omitting the extra participant in Part B
+
+```{r}
+
+# row bind the two data frames, omitting the extra participant in Part B by 
+# identifying which column in B does not appear in A
+annoyDataAB <- rbind(annoyDataA, annoyDataB[ , colnames(annoyDataB) %in% colnames(annoyDataA)])
+
+
+irr::icc(annoyDataAB, model = 'twoway', 
+         type = 'consistency', unit = 'average')
 
 
 ```
