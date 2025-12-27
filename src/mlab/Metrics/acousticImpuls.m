@@ -15,7 +15,7 @@ function impulsive = acousticImpuls(p, sampleRateIn, axisN, boundSkip, soundFiel
 % axisN : integer (1 or 2, default: 1)
 %   Time axis along which to calculate the tonality.
 %
-% startSkip : number (default: 0.5)
+% boundSkip : number (default: 0.5)
 %   Amount of time to skip at the start of the signal for
 %   calculating time-aggregated outputs (starts from next input
 %   sample), to account for uncertain boundary behaviour (loudness
@@ -94,7 +94,7 @@ function impulsive = acousticImpuls(p, sampleRateIn, axisN, boundSkip, soundFiel
 % Institution: University of Salford
 %
 % Date created: 18/11/2025
-% Date last modified: 18/11/2025
+% Date last modified: 17/12/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
