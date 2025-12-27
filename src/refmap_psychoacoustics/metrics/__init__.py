@@ -1,5 +1,3 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ["detectability"]
-
-from .detectability import detectBBNNASA
+__all__ = ["detectability", "psych_annoy"]
