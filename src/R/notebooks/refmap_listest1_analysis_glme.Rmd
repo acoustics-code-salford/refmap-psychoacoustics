@@ -113,7 +113,7 @@ stimData <- read.csv(stimDataPath, header=TRUE)
 # definition of ordinal variable levels
 UASLAeqCatsA <- c("No UAS", "42", "48", "54", "60")
 SNRCatsA <- c("No UAS", "-16", "-10", "-4", "2", "8")
-UASOpCatsA <- c("No UAS", "Flyover", "Landing", "Takeoff")
+UASOpCatsA <- c("No UAS", "Overflight", "Landing", "Takeoff")
 UASTypeCatsA <- c("No UAS", "H520", "M300", "T150")
 
 # encode factors

@@ -503,7 +503,7 @@ stimData <- read.csv(stimDataPath, header=TRUE)
 # definition of ordinal variable levels
 UASLAeqCatsA <- c("No UAS", "42", "48", "54", "60")
 SNRCatsA <- c("No UAS", "-16", "-10", "-4", "2", "8")
-UASOpCatsA <- c("No UAS", "Flyover", "Landing", "Takeoff")
+UASOpCatsA <- c("No UAS", "Overflight", "Landing", "Takeoff")
 UASTypeCatsA <- c("No UAS", "H520", "M300", "T150")
 
 # encode factors
@@ -913,21 +913,21 @@ model1predictEnv <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl 
 model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl [-12:13]",
                                                                 "UASEvents [all]",
                                                                 "AmbientEnv [Park]",
-                                                                "UASOperation [Flyover]"),
+                                                                "UASOperation [Overflight]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictEvt2 <- ggeffects::predict_response(model1, terms=c("UASEvents [all]",
                                                                  "UASLAEMaxLRScl [7, 13]",
                                                                  "AmbientEnv [Park]",
-                                                                 "UASOperation [Flyover]"),
+                                                                 "UASOperation [Overflight]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictEvt2lg <- ggeffects::predict_response(model1lgQ, terms=c("UASEvents [all]",
                                                                    "UASLAEMaxLRScl [7, 13]",
                                                                    "AmbientEnv [Park]",
-                                                                   "UASOperation [Flyover]"),
+                                                                   "UASOperation [Overflight]"),
                                                margin='marginalmeans', type='fixed', 
                                               vcov=vcov(model1lgQ, type="bias-corrected"))
 
@@ -1075,7 +1075,7 @@ p5 <- ggplot(data=model1predictEvt2) +
                     axis.text=element_text(family = "serif", size=14)) +
               
               geom_point(data=stimDataNoAmb[(stimDataNoAmb$AmbientEnv=='Park')
-                                            & (stimDataNoAmb$UASOperation=='Flyover')
+                                            & (stimDataNoAmb$UASOperation=='Overflight')
                                             & (stimDataNoAmb$SessionPart=='B'),],
                          aes(x=UASEvents, y=dAnnoyMean,
                              colour=UASLAEMaxLR, shape=UASType),
@@ -1124,7 +1124,7 @@ p5 <- ggplot(data=model1predictEvt2) +
               scale_x_continuous(breaks=c(1, 3, 5, 9), labels=c(1, 3, 5, 9)) +
               scale_y_continuous(breaks=seq(-2, 10, by=1)) +
               
-              labs(x="Number of UAS flyover events", y="Mean change in annoyance")
+              labs(x="Number of UAS Overflight events", y="Mean change in annoyance")
 
 p5
 
@@ -1239,14 +1239,14 @@ model1predictEnv <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl 
 model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl [-12:13]",
                                                                 "UASEvents [all]",
                                                                 "AmbientEnv [Park]",
-                                                                "UASOperation [Flyover]"),
+                                                                "UASOperation [Overflight]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictEvt2 <- ggeffects::predict_response(model1, terms=c("UASEvents [all]",
                                                                  "UASLAEMaxLRScl [7, 13]",
                                                                  "AmbientEnv [Park]",
-                                                                 "UASOperation [Flyover]"),
+                                                                 "UASOperation [Overflight]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
@@ -3624,7 +3624,7 @@ mABdHTypexOpxLAExEnv1_QxLAE.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ UASLAEMaxLRSc
 model1predictEvt2CopyOver <- ggeffects::predict_response(mABdHTypexOpxLAExEnv1_QxLAE.GEE, terms=c("UASEvents [all]",
                                                                  "UASLAEMaxLRScl [7, 13]",
                                                                  "AmbientEnv [Park]",
-                                                                 "UASOperation [Flyover]"),
+                                                                 "UASOperation [Overflight]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
@@ -3693,14 +3693,14 @@ model1predictEnv <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl 
 model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl [-12:13]",
                                                                 "UASEvents [all]",
                                                                 "AmbientEnv [Park]",
-                                                                "UASOperation [Flyover]"),
+                                                                "UASOperation [Overflight]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictEvt2 <- ggeffects::predict_response(model1, terms=c("UASEvents [all]",
                                                                  "UASLAEMaxLRScl [7, 13]",
                                                                  "AmbientEnv [Park]",
-                                                                 "UASOperation [Flyover]"),
+                                                                 "UASOperation [Overflight]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
@@ -4241,7 +4241,7 @@ p5 <- ggplot(data=model1predictEvt2) +
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_point(data=stimDataNoAmb[(stimDataNoAmb$UASOperation=='Flyover')
+              geom_point(data=stimDataNoAmb[(stimDataNoAmb$UASOperation=='Overflight')
                                             & (stimDataNoAmb$SessionPart=='B'),],
                          aes(x=UASEvents, y=dHighAnnoyProp,
                              colour=UASLAEMaxLR, shape=UASType),
@@ -4280,7 +4280,7 @@ p5 <- ggplot(data=model1predictEvt2) +
               scale_x_continuous(breaks=c(1, 3, 5, 9), labels=c(1, 3, 5, 9)) +
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
               
-              labs(x="Number of UAS flyover events", y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
+              labs(x="Number of UAS Overflight events", y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
 p5
 

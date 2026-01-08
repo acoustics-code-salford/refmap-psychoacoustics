@@ -114,8 +114,7 @@ stimDataPCA <- stimDataNoAmb |>
                 UASImpulsLoudWZAvgMaxLR,
                 UASFluctECMA10ExBin,
                 UASRoughFZ05ExMaxLR,
-                UASSharpAurISO305ExBin,
-                UASEvents)
+                UASSharpAurISO305ExBin)
 
 res.pca <- PCA(stimDataPCA, scale.unit = T, graph = T)
 
@@ -135,7 +134,7 @@ fviz_screeplot(res.pca, addlabels = TRUE, ylim = c( 0, 100))
 
 fviz_pca_ind(res.pca,
              label = "none", # hide individual labels
-             habillage = stimDataNoAmb$UASType, # color by groups
+             habillage = stimDataNoAmb$UASOperation, # color by groups
              palette = c("#00AFBB", "#E7B800", "#FC4E07"),
              addEllipses = TRUE # Concentration ellipses
              )
