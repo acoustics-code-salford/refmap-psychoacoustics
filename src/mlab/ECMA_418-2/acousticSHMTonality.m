@@ -140,7 +140,7 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford
 %
 % Date created: 07/08/2023
-% Date last modified: 10/12/2025
+% Date last modified: 16/01/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -600,7 +600,7 @@ for chan = chansIn:-1:1
         ax1.FontSize = 12;
         colormap(cmap_plasma);
         h = colorbar;
-        set(get(h,'label'),'string', {'Specific Tonality,'; 'tu_{SHM}/Bark_{SHM}'});
+        set(get(h,'label'),'string', {'Specific tonality,'; 'tu_{SHM}/Bark_{SHM}'});
 
         % Create A-weighting filter
         weightFilt = weightingFilter('A-weighting', sampleRate48k);
@@ -657,7 +657,7 @@ for chan = chansIn:-1:1
             ax1.FontSize = 12;
             colormap(cmap_plasma);
             h = colorbar;
-            set(get(h,'label'),'string', {'Specific tonality; (tonal annoyance-weighted),; tu_{SHMaw}/Bark_{SHM}'});
+            set(get(h,'label'),'string', {'Specific tonality'; '(tonal annoyance-weighted),'; 'tu_{SHMaw}/Bark_{SHM}'});
     
             % Create A-weighting filter
             weightFilt = weightingFilter('A-weighting', sampleRate48k);
