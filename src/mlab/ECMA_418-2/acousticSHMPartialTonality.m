@@ -642,8 +642,8 @@ for chan = chansIn:-1:1
                      'FontWeight', 'normal', 'FontName', 'Arial');
 
         ax2 = nexttile(2);
-        plot(ax2, timeOut, partTonalityAvg(1, chan)*ones(size(timeOut)), 'color', cmap_plasma(34, :),...
-             ':', 'LineWidth', 1, 'DisplayName', "Time-" + string(newline) + "average");
+        plot(ax2, timeOut, partTonalityAvg(1, chan)*ones(size(timeOut)), ':', 'color', cmap_plasma(34, :),...
+             'LineWidth', 1, 'DisplayName', "Time-" + string(newline) + "average");
         hold on
         plot(ax2, timeOut, partTonalityTDep(:, chan), 'color',  cmap_plasma(166, :),...
              'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
