@@ -1,14 +1,9 @@
-function partLoudnessSHM = acousticSHMPartialLoudness(pTarget, pMasker, sampleRateIn, axisN, soundField, waitBar, outPlot, binaural)
-% partLoudnessSHM = acousticSHMPartialLoudness(pTarget, pMasker, sampleRateIn,
-%                                              axisN, soundField,
-%                                              outPlot, binaural)
+function partTonalitySHM = acousticSHMPartialTonality(p, sampleRateIn, axisN, soundField, waitBar, outPlot, annoyWeight)
+% partTonalitySHM = acousticSHMPartialTonality(p, sampleRateIn, axisN, soundField, waitBar, outPlot, annoyWeight)
 %
-% Returns partial loudness values based on ECMA-418-2:2025 (using the Sottek
-% Hearing Model) for an input calibrated single mono or single stereo
-% audio (sound pressure) time-series target signal, pTarget, against a
-% corresponding audio time-series masking signal, pMasker. For stereo
-% signals, the binaural partial loudness can be calculated, and each
-% channel is also analysed separately.
+% Returns tonality values and frequencies according to ECMA-418-2:2025
+% (using the Sottek Hearing Model) for an input calibrated single mono
+% or single stereo audio (sound pressure) time-series signal, p.
 %
 % Inputs
 % ------
@@ -37,82 +32,118 @@ function partLoudnessSHM = acousticSHMPartialLoudness(pTarget, pMasker, sampleRa
 %
 % waitBar : keyword string (default: true)
 %   Determines whether a progress bar displays during processing.
-%   (set waitBar to false for doing multi-file parallel calculations)
 %
 % outPlot : Boolean true/false (default: false)
 %   Flag indicating whether to generate a figure from the output
+%   (set outPlot to false for doing multi-file parallel calculations).
 %
-% binaural : Boolean true/false (default: true)
-%   Flag indicating whether to output combined binaural loudness
-%   for stereo input signal.
+% annoyWeight : Boolean true/false (default: false)
+%   Flag indicating whether to include tonal annoyance-weighted results in
+%   the output. This weighting is not currently included in the ECMA-418-2
+%   standard, but was initially proposed by Sottek & Becker (2019).
 % 
 % Returns
 % -------
 %
-% partLoudnessSHM : structure
+% partTonalitySHM : structure
 %   Contains the output.
 %
-% partLoudnessSHM contains the following outputs:
+% partTonalitySHM contains the following outputs:
 %
-% specPartLoudness : matrix
-%   Time-dependent specific partial loudness for each critical band.
-%   arranged as [time, bands(, channels)].
+% specTonality : matrix
+%   Time-dependent specific tonality for each critical band
+%   arranged as [time, bands(, channels)]
 %
-% specPartloudnessPowAvg : matrix
-%   Time-power-averaged specific partial loudness for eac
-%   critical band arranged as [bands(, channels)].
+% specTonalityFreqs : matrix
+%   Time-dependent frequencies of the dominant tonal
+%   components corresponding with each of the time-dependent specific
+%   tonality values in each critical band
+%   arranged as [time, bands(, channels)]
 %
-% specPartTonalLoudness : matrix
-%   Time-dependent specific partial tonal loudness for each critical band
-%   arranged as [time, bands(, channels)].
+% specTonalityAvg : matrix
+%   Time-averaged specific tonality for each critical band
+%   arranged as [bands(, channels)]
 %
-% specPartNoiseLoudness : matrix
-%   Time-dependent specific partial noise loudness for each
-%   critical band arranged as [time, bands(, channels)].
+% specTonalityAvgFreqs : matrix
+%   Frequencies of the dominant tonal components
+%   corresponding with each of the
+%   time-averaged specific tonality values in each critical band
+%   arranged as [bands(, channels)]
 %
-% partLoudnessTDep : vector or matrix
-%   Time-dependent overall partial loudness arranged as [time(, channels)].
-% 
-% partLoudnessPowAvg : number or vector
-%   Time-power-averaged overall partial loudness
-%   arranged as [loudness(, channels)].
+% specTonalLoudness : matrix
+%   Time-dependent specific tonal loudness for each critical band
+%   arranged as [time, bands(, channels)]
+%
+% specNoiseLoudness : matrix
+%   Time-dependent specific noise loudness for each critical band
+%   arranged as [time, bands(, channels)]
+%
+% tonalityTDep : vector or matrix
+%   Time-dependent overall tonality arranged as [time(, channels)]
+%
+% tonalityTDepFreqs : vector or matrix
+%   Time-dependent frequencies of the dominant tonal components
+%   corresponding with the time-dependent overall tonality values
+%   arranged as [time(, channels)]
+%
+% tonalityAvg : number or vector
+%   Time-averaged overall tonality arranged as [tonality(, channels)]
 %
 % bandCentreFreqs : vector
-%   Centre frequencies corresponding with each critical band rate.
+%   Centre frequencies corresponding with each critical band rate
 %
 % timeOut : vector
-%   Time (seconds) corresponding with time-dependent outputs.
+%   Time (seconds) corresponding with time-dependent outputs
 %
 % soundField : string
-%   Identifies the soundfield type applied (= input argument).
+%   Identifies the soundfield type applied (= input argument)
 %
-% If binaural=true, a corresponding set of outputs for the combined
-% binaural partial loudness are also contained in partLoudnessSHM.
+% If annoyWeight=true, additional outputs are included in tonality:
+%
+% specTonalityAnnoy : matrix
+%   Tonal annoyance-weighted, time-dependent specific tonality for each
+%   critical band arranged as [time, bands(, channels)]
+%
+% specTonalityAvgAnnoy : matrix
+%   Tonal annoyance-weighted, time-averaged specific tonality for each
+%   critical band arranged as [bands(, channels)]
+%
+% tonalityTDepAnnoy : vector or matrix
+%   Tonal annoyance-weighted, time-dependent overall tonality
+%   arranged as [time(, channels)]
+%
+% tonalityAvgAnnoy : number or vector
+%   Tonal annoyance-weighted, time-averaged overall tonality
+%   arranged as [tonality(, channels)]
 %
 % If outPlot=true, a set of plots is returned illustrating the energy
 % time-averaged A-weighted sound level, the time-dependent specific and
-% overall partial loudness, with the latter also indicating the time-
-% aggregated value. A set of plots is returned for each input channel, with
-% another set for the combined binaural partial loudness, if binaural=true.
-% In that case, the indicated sound level corresponds with the channel with
-% the highest sound level.
+% overall tonality, with the latter also indicating the time-aggregated
+% value. A set of plots is returned for each input channel.
 %
 % Assumptions
 % -----------
 % The input signal is calibrated to units of acoustic pressure in Pascals
-% (Pa). The target and masker sigals have the same sample rate.
+% (Pa).
 %
 % Requirements
 % ------------
 % Signal Processing Toolbox
 % Audio Toolbox
 %
+% References
+% ----------
+% Sottek, R & Becker, J (2019). Tonal annoyance vs. tonal loudness and
+% tonality. In: Proceedings of Inter-noise 2019, Madrid, Spain, 13-16 June
+% 2019.
+%
 % Ownership and Quality Assurance
 % -------------------------------
-% Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
+% Authors: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk) &
+%          Matt Torjussen (m.c.torjussen@edu.salford.ac.uk)
 % Institution: University of Salford
 %
-% Date created: 09/12/2023
+% Date created: 16/01/2026
 % Date last modified: 16/01/2026
 % MATLAB version: 2023b
 %
@@ -125,19 +156,22 @@ function partLoudnessSHM = acousticSHMPartialLoudness(pTarget, pMasker, sampleRa
 % WITHOUT ANY WARRANTY; without even the implied warranty of
 % MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 %
-% This code calls sub-component file 'cmap_viridis.txt'. The contents of
+% This code calls sub-component file 'cmap_plasma.txt'. The contents of
 % the file includes a copy of data obtained from the repository 
 % https://github.com/BIDS/colormap, and is CC0 1.0 licensed for modified
 % use, see https://creativecommons.org/publicdomain/zero/1.0 for
 % information.
+%
+% This code was developed from an original file 'SottekTonality.m' authored
+% by Matt Torjussen (14/02/2022), based on implementing ECMA-418-2:2020.
+% The original code has been reused and updated here with permission.
 %
 % Checked by:
 % Date last checked:
 %
 %% Arguments validation
     arguments (Input)
-        pTarget (:, :) double {mustBeReal}
-        pMasker (:, :) double {mustBeReal}
+        p (:, :) double {mustBeReal}
         sampleRateIn (1, 1) double {mustBePositive, mustBeInteger}
         axisN (1, 1) {mustBeInteger, mustBeInRange(axisN, 1, 2)} = 1
         soundField (1, :) string {mustBeMember(soundField,...
@@ -147,34 +181,28 @@ function partLoudnessSHM = acousticSHMPartialLoudness(pTarget, pMasker, sampleRa
                                                 'noEar'})} = 'freeFrontal'
         waitBar {mustBeNumericOrLogical} = true
         outPlot {mustBeNumericOrLogical} = false
-        binaural {mustBeNumericOrLogical} = true
+        annoyWeight {mustBeNumericOrLogical} = false
     end
 
 %% Load path (assumes root directory is refmap-psychoacoustics)
 addpath(genpath(fullfile("src", "mlab")))
 
 %% Input checks
-% Target and masker signal size check
-if size(pTarget) ~= size(pMasker)
-    error("Error: Input target and masker signals must match in size.")
-end
-
 % Orient input matrix
 if axisN == 2
-    pTarget = pTarget.';
-    pMasker = pMasker.';
+    p = p.';
 end
 
 % Check the length of the input data (must be longer than 300 ms)
-if size(pTarget, 1) <  300/1000*sampleRateIn
-    error("Error: Input signal is too short along the specified axis to calculate partial loudness (must be longer than 300 ms)")
+if size(p, 1) <=  300/1000*sampleRateIn
+    error('Error: Input signal is too short along the specified axis to calculate tonality (must be longer than 300 ms)')
 end
 
 % Check the channel number of the input data
-if size(pTarget, 2) > 2
+if size(p, 2) > 2
     error('Error: Input signal comprises more than two channels')
 else
-    chansIn = size(pTarget, 2);
+    chansIn = size(p, 2);
     if chansIn > 1
         chans = ["Stereo left";
                  "Stereo right"];
@@ -226,11 +254,12 @@ csz_b = [18.21*ones(1, 3), 12.14*ones(1, 13), 417.54*ones(1, 9),...
 dsz_b = [0.36*ones(1, 3), 0.36*ones(1, 13), 0.71*ones(1, 9),...
          0.69*ones(1, 28)]; 
 
-% Section 8.1.1 ECMA-418-2:2025
-weight_n = 0.5331;  % Equations 113 & 114 ECMA-418-2:2025 [w_n]
-% Table 12 ECMA-418-2:2025
-a = 0.2918;
-b = 0.5459;
+% Scaling factor constants from Section 6.2.8 Table 9 ECMA-418-2:2025
+A = 35;
+B = 0.003;
+
+cal_T = 2.8758615;  % calibration factor in Section 6.2.8 Equation 51 ECMA-418-2:2025 [c_T]
+cal_Tx = 1/0.9999043734252;  % Adjustment to calibration factor (Footnote 22 ECMA-418-2:2025)
 
 % standardised epsilon
 epsilon = 1e-12;
@@ -240,29 +269,21 @@ epsilon = 1e-12;
 % Input pre-processing
 % --------------------
 if sampleRateIn ~= sampleRate48k  % Resample signal
-    [pTarget_re, ~] = shmResample(pTarget, sampleRateIn);
-    [pMasker_re, ~] = shmResample(pMasker, sampleRateIn);
+    [p_re, ~] = shmResample(p, sampleRateIn);
 else  % don't resample
-    pTarget_re = pTarget;
-    pMasker_re = pMasker;
+    p_re = p;
 end
 
-% memory cleanup
-clear pTarget pMAsker
-
 % Section 5.1.2 ECMA-418-2:2025 Fade in weighting and zero-padding
-pTn = shmPreProc(pTarget_re, max(blockSize), max(hopSize));
-pMn = shmPreProc(pMasker_re, max(blockSize), max(hopSize));
+pn = shmPreProc(p_re, max(blockSize), max(hopSize));
 
 % Apply outer & middle ear filter
 % -------------------------------
 %
 % Section 5.1.3.2 ECMA-418-2:2025 Outer and middle/inner ear signal filtering
-pTn_om = shmOutMidEarFilter(pTn, soundField);
-pMn_om = shmOutMidEarFilter(pMn, soundField);
+pn_om = shmOutMidEarFilter(pn, soundField);
 
 n_steps = 115;  % approximate number of calculation steps
-
 
 % Loop through channels in file
 % -----------------------------
@@ -278,12 +299,11 @@ for chan = chansIn:-1:1
         waitbar(i_step/n_steps, w, 'Applying auditory filters...');
         i_step = i_step + 1;
 
-    end  % end of if branch for waitBar
+    end % end of if branch for waitBar
 
     % Filter equalised signal using 53 1/2-overlapping Bark filters
     % according to Section 5.1.4.2 ECMA-418-2:2025
-    pTn_omz = shmAuditoryFiltBank(pTn_om(:, chan));
-    pMn_omz = shmAuditoryFiltBank(pMn_om(:, chan));
+    pn_omz = shmAuditoryFiltBank(pn_om(:, chan));
 
     % Autocorrelation function analysis
     % ---------------------------------
@@ -293,14 +313,8 @@ for chan = chansIn:-1:1
     % to variables to indicate that the vectors/matrices have been modified
     % for duplicated neigbouring bands.
 
-    pTn_omzDupe = [pTn_omz(:, 1:5), pTn_omz(:, 2:18), pTn_omz(:, 16:26),...
-                   pTn_omz(:, 26:53)];
-
-    pMn_omzDupe = [pMn_omz(:, 1:5), pMn_omz(:, 2:18), pMn_omz(:, 16:26),...
-                   pMn_omz(:, 26:53)];
-
-    clear pTn_omz pMn_omz
-    
+    pn_omzDupe = [pn_omz(:, 1:5), pn_omz(:, 2:18), pn_omz(:, 16:26),...
+                  pn_omz(:, 26:53)];
     blockSizeDupe = [8192*ones(1, 5), 4096*ones(1, 17), 2048*ones(1, 11),...
                      1024*ones(1, 28)];
     bandCentreFreqsDupe = [bandCentreFreqs(1:5),...
@@ -315,31 +329,29 @@ for chan = chansIn:-1:1
         if waitBar
             waitbar(((62 - zBand) + i_step)/n_steps, w, strcat("Applying ACF in 61 bands, ",...
                 num2str(zBand), " to go..."));
-        end  % end of if branch for waitBar
+        end % end of if branch for waitBar
 
         % Segmentation into blocks
         % ------------------------
         % Section 5.1.5 ECMA-418-2:2025
         i_start = blockSizeDupe(1) - blockSizeDupe(zBand) + 1;
-        [pTn_lz, ~] = shmSignalSegment(pTn_omzDupe(:, zBand), 1,...
-                                       blockSizeDupe(zBand), overlap, i_start);
-        [pMn_lz, ~] = shmSignalSegment(pMn_omzDupe(:, zBand), 1,...
-                                       blockSizeDupe(zBand), overlap, i_start);
+        [pn_lz, ~] = shmSignalSegment(pn_omzDupe(:, zBand), 1,...
+                                      blockSizeDupe(zBand), overlap, i_start);
 
         % Transformation into Loudness
         % ----------------------------
         % Sections 5.1.6 to 5.1.9 ECMA-418-2:2025 [N'_basis(z)]
-        [pTn_rlz, bandPartBasisLoudness, ~]...
-            = shmBasisPartialLoudness(pTn_lz, pMn_lz, bandCentreFreqsDupe(zBand));
+        [pn_rlz, bandBasisLoudness, ~]...
+            = shmBasisLoudness(pn_lz, bandCentreFreqsDupe(zBand));
 
         % Apply ACF
         % ACF implementation using DFT
         % Section 6.2.2 Equations 27 & 28 ECMA-418-2:2025
         % [phi_unscaled,l,z(m)]
-        unscaledACF = ifft(abs(fft(pTn_rlz, 2*blockSizeDupe(zBand), 1)).^2,...
+        unscaledACF = ifft(abs(fft(pn_rlz, 2*blockSizeDupe(zBand), 1)).^2,...
                            2*blockSizeDupe(zBand), 1);
         % Section 6.2.2 Equation 29 ECMA-418-2:2025 [phi_l,z(m)]
-        denom = sqrt(cumsum(pTn_rlz.^2, 1, 'reverse').*flipud(cumsum(pTn_rlz.^2, 1)))...
+        denom = sqrt(cumsum(pn_rlz.^2, 1, 'reverse').*flipud(cumsum(pn_rlz.^2, 1)))...
                 + epsilon;
 
         % note that the block length is used here, rather than the 2*s_b,
@@ -349,7 +361,7 @@ for chan = chansIn:-1:1
         unbiasedNormACF((0.75*blockSizeDupe(zBand) + 1):blockSizeDupe(zBand), :) = 0;
 
         % Section 6.2.2 Equation 30 ECMA-418-2:2025 [phi_z'(m)
-        unbiasedNormACFDupe{zBand} = bandPartBasisLoudness.*unbiasedNormACF;
+        unbiasedNormACFDupe{zBand} = bandBasisLoudness.*unbiasedNormACF;
 
     end
 
@@ -403,6 +415,12 @@ for chan = chansIn:-1:1
         mask = 2*max(magFFTlagWindowACF, [], 1)/(M/2) <= meanScaledACF(1, :);
         bandTonalLoudness(mask) = 2*max(magFFTlagWindowACF(:, mask), [], 1)/(M/2);
 
+        % Section 6.2.5 Equation 38 & 39 ECMA-418-2:2025
+        % [k_max(z)]
+        [~, kz_max] = max(magFFTlagWindowACF, [], 1);
+        % frequency of maximum tonal component in critical band [f_ton(z)]
+        bandTonalFreqs = (kz_max - 1)*(sampleRate48k/(2*max(blockSize)));
+
         % Section 6.2.7 Equation 41 ECMA-418-2:2025 [N'_signal(l,z)]
         % specific loudness of complete band-pass signal in critical band
         bandLoudness = meanScaledACF(1, :);
@@ -418,13 +436,15 @@ for chan = chansIn:-1:1
 
             bandTonalLoudness = interp1(x, bandTonalLoudness, xq);
             bandLoudness = interp1(x, bandLoudness, xq);
+            bandTonalFreqs = interp1(x, bandTonalFreqs, xq);
 
         end  % end of if branch for interpolation
 
         % Remove end zero-padded samples Section 6.2.6 ECMA-418-2:2025
-        l_end = ceil(size(pTarget_re, 1)/sampleRate48k*sampleRate1875) + 1;  % Equation 40 ECMA-418-2:2025
+        l_end = ceil(size(p_re, 1)/sampleRate48k*sampleRate1875) + 1;  % Equation 40 ECMA-418-2:2025
         bandTonalLoudness = bandTonalLoudness(1:l_end);
         bandLoudness = bandLoudness(1:l_end);
+        bandTonalFreqs = bandTonalFreqs(1:l_end);
 
         % Noise reduction Section 6.2.7 ECMA-418-2:2020
         % ---------------------------------------------
@@ -469,139 +489,144 @@ for chan = chansIn:-1:1
         % specific time-dependent loudness of non-tonal component in each critical band [N'_noise(l,z)]
         specNoiseLoudness(:, zBand, chan) = bandNoiseLoudness;
 
+        % time-dependent frequency of tonal component in each critical band [f_ton(z)]
+        specTonalityFreqs(:, zBand, chan) = bandTonalFreqs;
+
     end  % end of for loop over ACF bands
 
     % set any tiny negative loudness values to 0
     specTonalLoudness(specTonalLoudness < 0) = 0;
     specNoiseLoudness(specNoiseLoudness < 0) = 0;
 
+    % Calculation of specific tonality
+    % --------------------------------
+    % Section 6.2.8 Equation 49 ECMA-418-2:2025 [SNR(l)]
+    overallSNR = max(specTonalLoudness, [], 2)./(sum(specNoiseLoudness, 2) + epsilon);  % loudness signal-noise-ratio
+
+    % Section 6.2.8 Equation 50 ECMA-418-2:2025 [q(l)]
+    crit = exp(-A*(overallSNR - B));
+    ql = 1 - crit;  % sigmoidal scaling factor
+    ql(crit >= 1) = 0;
+
+    % Section 6.2.8 Equation 51 ECMA-418-2:2025 [T'(l,z)]
+    specTonality = cal_T*cal_Tx*ql.*specTonalLoudness;  % time-dependent specific tonality
+
+    % Calculation of time-averaged specific tonality Section 6.2.9
+    % ECMA-418-2:2025 [T'(z)]
+    for zBand = 53:-1:1
+        mask = specTonality(:, zBand, chan) > 0.02;  % criterion Section 6.2.9 point 2
+        mask(1:(58 - 1)) = 0;  % criterion Section 6.2.9 point 1
+
+        % Section 6.2.9 Equation 53 ECMA-418-2:2025
+        specTonalityAvg(1, zBand, chan)...
+            = sum(specTonality(mask, zBand, chan), 1)./(nnz(mask) + epsilon);
+        specTonalityAvgFreqs(1, zBand, chan)...
+            = sum(specTonalityFreqs(mask, zBand, chan), 1)./(nnz(mask) + epsilon);
+    end
+
+    % Calculation of overall tonality Section 6.2.10
+    % ----------------------------------------------
+    % Further update can add the user input frequency range to determine
+    % total tonality - not yet incorporated
+
+    % Section 6.2.8 Equation 52 ECMA-418-2:2025
+    % time (s) corresponding with results output [t]
+    timeOut = transpose((0:(size(specTonality, 1) - 1))/sampleRate1875);
+
+    % Section 6.2.10 Equation 61 ECMA-418-2:2025
+    % Time-dependent total tonality [T(l)]
+    [tonalityTDep(:, chan), zmax] = max(specTonality(:, :, chan),...
+                                           [], 2);
+    for ll = size(specTonalityFreqs, 1):-1:1
+        tonalityTDepFreqs(ll, chan) = specTonalityFreqs(ll, zmax(ll), chan);
+    end
+
+    % Calculation of representative values Section 6.2.11 ECMA-418-2:2025
+    % Time-averaged total tonality
+    mask = tonalityTDep(:, chan) > 0.02;  % criterion Section 6.2.9 point 2
+    mask(1:(58 - 1)) = 0;    % criterion Section 6.2.9 point 1
+
+    % Section 6.2.11 Equation 63 ECMA-418-2:2025
+    % Time-averaged total tonality [T]
+    tonalityAvg(chan) = sum(tonalityTDep(mask, chan))/(nnz(mask) + epsilon);
+
+    if annoyWeight
+        % Tonal annoyance weighted results
+        annoyWeightx = ones(size(bandCentreFreqs));
+        annoyWeightx(bandCentreFreqs...
+                     >= 1e3) = 2.3*(log10(bandCentreFreqs(bandCentreFreqs...
+                                                          >= 1e3)) - 3) + 1;
+        specTonalityAnnoy(:, :, chan) = specTonality(:, :, chan).*annoyWeightx;
+
+        for zBand = 53:-1:1
+            mask = specTonalityAnnoy(:, zBand, chan) > 0.02;
+            mask(1:(58 - 1)) = 0;
+            specTonalityAvgAnnoy(1, zBand, chan)...
+                = sum(specTonalityAnnoy(mask, zBand, chan), 1)./(nnz(mask) + epsilon);
+        end
+
+        tonalityTDepAnnoy(:, chan) = max(specTonalityAnnoy(:, :, chan), [], 2);
+        mask = tonalityTDepAnnoy(:, chan) > 0.02;
+        mask(1:(58 - 1)) = 0;
+        tonalityAvgAnnoy(chan) = sum(tonalityTDepAnnoy(mask, chan))/(nnz(mask) + epsilon);
+    end
+
     if waitBar
         close(w)  % close waitbar
     end
-end
-
-% Section 8.1.1 ECMA-418-2:2025
-% Weight and combine component specific loudnesses
-for chan = chansIn:-1:1
-
-    % Equation 114 ECMA-418-2:2025 [e(z)]
-    maxLoudnessFuncel = a./(max(specTonalLoudness(:, :, chan)...
-                                + specNoiseLoudness(:, :, chan), [],...
-                                2, 'omitnan') + epsilon) + b;
-
-    % Equation 113 ECMA-418-2:2025 [N'(l,z)]
-    specLoudness(:, :, chan) = (specTonalLoudness(:, :, chan).^maxLoudnessFuncel...
-                                + (weight_n.*specNoiseLoudness(:, :, chan)).^maxLoudnessFuncel).^(1./maxLoudnessFuncel);
-end
-
-if chansIn == 2 && binaural
-    % Binaural loudness
-    % Section 8.1.5 ECMA-418-2:2025 Equation 118 [N'_B(l,z)]
-    specLoudness(:, :, 3) = sqrt(sum(specLoudness(:, :, 1:2).^2, 3)/2);
-    specTonalLoudness(:, :, 3) = sqrt(sum(specTonalLoudness(:, :, 1:2).^2, 3)/2);
-    specNoiseLoudness(:, :, 3) = sqrt(sum(specNoiseLoudness(:, :, 1:2).^2, 3)/2);
-    chansOut = 3;  % set number of 'channels' to stereo plus single binaural
-    chans = [chans;
-             "Binaural"];
-else
-    chansOut = chansIn;  % assign number of output channels
-end
-
-% Section 8.1.2 ECMA-418-2:2025
-% Time-averaged specific loudness Equation 115 [N'(z)]
-specLoudnessPowAvg = (sum(specLoudness((57 + 1):end, :, :).^(1/log10(2)), 1)./size(specLoudness((57 + 1):end, :, :), 1)).^log10(2);
-
-% Section 8.1.3 ECMA-418-2:2025
-% Time-dependent loudness Equation 116 [N(l)]
-% Discard singleton dimensions
-if chansOut == 1
-    loudnessTDep = sum(specLoudness.*dz, 2);
-    specLoudnessPowAvg = transpose(specLoudnessPowAvg);
-else
-    loudnessTDep = squeeze(sum(specLoudness.*dz, 2));
-    specLoudnessPowAvg = squeeze(specLoudnessPowAvg);
-end
-
-% Section 8.1.4 ECMA-418-2:2025
-% Overall loudness Equation 117 [N]
-loudnessPowAvg = (sum(loudnessTDep((57 + 1):end, :).^(1/log10(2)), 1)./size(loudnessTDep((57 + 1):end, :), 1)).^log10(2);
-
-% time (s) corresponding with results output [t]
-timeOut = transpose((0:(size(specLoudness, 1) - 1))/sampleRate1875);
 
 %% Output plotting
 
-if outPlot
     % Plot figures
     % ------------
-    for chan = chansOut:-1:1
-        cmap_viridis = load('cmap_viridis.txt');
+    if outPlot
+        cmap_plasma = load('cmap_plasma.txt');
         % Plot results
+        chan_lab = chans(chan);
         fig = figure;
         tiledlayout(fig, 2, 1);
         movegui(fig, 'center');
         ax1 = nexttile(1);
-        surf(ax1, timeOut, bandCentreFreqs, permute(specLoudness(:, :, chan),...
-                                                    [2, 1, 3]),...
+        surf(ax1, timeOut, bandCentreFreqs, permute(specTonality(:, :, chan),...
+                                              [2, 1, 3]),...
              'EdgeColor', 'none', 'FaceColor', 'interp');
         view(2);
         ax1.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
         ax1.YLim = [bandCentreFreqs(1), bandCentreFreqs(end)];
-        ax1.CLim = [0, max(ceil(max(specLoudness(:, :, chan), [], 'all')*10)/10, 0.001)];
+        ax1.CLim = [0, ceil(max(tonalityTDep(:, chan))*10)/10];
         ax1.YTick = [63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3]; 
         ax1.YTickLabel = ["63", "125", "250", "500", "1k", "2k", "4k",...
-                          "8k", "16k"];
+                          "8k", "16k"]; 
         ax1.YScale = 'log';
-        ax1.YLabel.String = 'Frequency, Hz';
-        ax1.XLabel.String = 'Time, s';
+        ax1.YLabel.String = "Frequency, Hz";
+        ax1.XLabel.String = "Time, s";
         ax1.FontName =  'Arial';
         ax1.FontSize = 12;
-        colormap(cmap_viridis);
+        colormap(cmap_plasma);
         h = colorbar;
-        set(get(h,'label'),'string', {'Specific partial loudness,'; '\Delta{}sone_{SHM}/Bark_{SHM}'});        
-        chan_lab = chans(chan);
+        set(get(h,'label'),'string', {'Specific Tonality,'; 'tu_{SHM}/Bark_{SHM}'});
 
         % Create A-weighting filter
         weightFilt = weightingFilter('A-weighting', sampleRate48k);
         % Filter signal to determine A-weighted time-averaged level
-        if chan == 3
-            pA = weightFilt(pTarget_re);
-            LAeq2 = 20*log10(rms(pA, 1)/2e-5);
-            % take the higher channel level as representative (PD ISO/TS
-            % 12913-3:2019 Annex D)
-            [LAeq, LR] = max(LAeq2);
-            % if branch to identify which channel is higher
-            if LR == 1
-                whichEar = ' left ear';
-            else
-                whichEar = ' right ear';
-            end  % end of if branch
-
-            chan_lab = chan_lab + whichEar;
-
-        else
-            pA = weightFilt(pTarget_re(:, chan));
-            LAeq = 20*log10(rms(pA)/2e-5);
-        end
-        
+        pA = weightFilt(p_re(:, chan));
+        LAeq = 20*log10(rms(pA)/2e-5);
         title(strcat(chan_lab,...
-                     ' signal sound pressure level =', {' '},...
+                     " signal sound pressure level =", {' '},...
                      num2str(round(LAeq,1)), "dB {\itL}_{Aeq}"),...
                      'FontWeight', 'normal', 'FontName', 'Arial');
 
         ax2 = nexttile(2);
-        plot(ax2, timeOut, loudnessPowAvg(1, chan)*ones(size(timeOut)), ':', 'color',...
-             cmap_viridis(34, :), 'LineWidth', 1.5, 'DisplayName', "Power" + string(newline) + "time-avg");
+        plot(ax2, timeOut, tonalityAvg(1, chan)*ones(size(timeOut)), 'color', cmap_plasma(34, :),...
+             'LineWidth', 1, 'DisplayName', "Time-" + string(newline) + "average");
         hold on
-        plot(ax2, timeOut, loudnessTDep(:, chan), 'color', cmap_viridis(166, :),...
+        plot(ax2, timeOut, tonalityTDep(:, chan), 'color',  cmap_plasma(166, :),...
              'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
         hold off
         ax2.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
-        if max(loudnessTDep(:, chan)) > 0
-            ax2.YLim = [0, 1.1*ceil(max(loudnessTDep(:, chan))*10)/10];
-        end
-        ax2.XLabel.String = 'Time, s';
-        ax2.YLabel.String = 'Partial loudness, \Delta{}sone_{SHM}';
+        ax2.YLim = [0, 1.1*ceil(max(tonalityTDep(:, chan))*10)/10];
+        ax2.XLabel.String = "Time, s";
+        ax2.YLabel.String = "Tonality, tu_{SHM}";
         ax2.XGrid = 'on';
         ax2.YGrid = 'on';
         ax2.GridAlpha = 0.075;
@@ -611,38 +636,106 @@ if outPlot
         ax2.FontSize = 12;
         lgd = legend('Location', 'eastoutside', 'FontSize', 8);
         lgd.Title.String = "Overall";
-    end  % end of for loop for plotting over channels
-end  % end of if branch for plotting
+
+        if annoyWeight
+            % Plot tonal annoyance-weighted results
+            chan_lab = chans(chan);
+            fig = figure;
+            tiledlayout(fig, 2, 1);
+            movegui(fig, 'center');
+            ax1 = nexttile(1);
+            surf(ax1, timeOut, bandCentreFreqs, permute(specTonalityAnnoy(:, :, chan),...
+                                                  [2, 1, 3]),...
+                 'EdgeColor', 'none', 'FaceColor', 'interp');
+            view(2);
+            ax1.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
+            ax1.YLim = [bandCentreFreqs(1), bandCentreFreqs(end)];
+            ax1.CLim = [0, ceil(max(tonalityTDep(:, chan))*10)/10];
+            ax1.YTick = [63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3]; 
+            ax1.YTickLabel = ["63", "125", "250", "500", "1k", "2k", "4k",...
+                              "8k", "16k"]; 
+            ax1.YScale = 'log';
+            ax1.YLabel.String = "Frequency, Hz";
+            ax1.XLabel.String = "Time, s";
+            ax1.FontName =  'Arial';
+            ax1.FontSize = 12;
+            colormap(cmap_plasma);
+            h = colorbar;
+            set(get(h,'label'),'string', {'Specific tonality; (tonal annoyance-weighted),; tu_{SHMaw}/Bark_{SHM}'});
+    
+            % Create A-weighting filter
+            weightFilt = weightingFilter('A-weighting', sampleRate48k);
+            % Filter signal to determine A-weighted time-averaged level
+            pA = weightFilt(p_re(:, chan));
+            LAeq = 20*log10(rms(pA)/2e-5);
+            title(strcat(chan_lab,...
+                         " signal sound pressure level =", {' '},...
+                         num2str(round(LAeq,1)), "dB {\itL}_{Aeq}"),...
+                         'FontWeight', 'normal', 'FontName', 'Arial');
+    
+            ax2 = nexttile(2);
+            plot(ax2, timeOut, tonalityAvgAnnoy(1, chan)*ones(size(timeOut)),...
+                 ':', 'color', cmap_plasma(34, :),...
+                 'LineWidth', 1.5, 'DisplayName', "Time-" + string(newline) + "average");
+            hold on
+            plot(ax2, timeOut, tonalityTDepAnnoy(:, chan), 'color',  cmap_plasma(166, :),...
+                 'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
+            hold off
+            ax2.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
+            ax2.YLim = [0, 1.1*ceil(max(tonalityTDep(:, chan))*10)/10];
+            ax2.XLabel.String = "Time, s";
+            ax2.YLabel.String = "Tonality (tonal annoyance-weighted), tu_{SHMaw}";
+            ax2.XGrid = 'on';
+            ax2.YGrid = 'on';
+            ax2.GridAlpha = 0.075;
+            ax2.GridLineStyle = '--';
+            ax2.GridLineWidth = 0.25;
+            ax2.FontName = 'Arial';
+            ax2.FontSize = 12;
+            lgd = legend('Location', 'eastoutside', 'FontSize', 8);
+            lgd.Title.String = "Overall";
+        end
+    end
+
+end  % end of for loop over channels
+
+% Discard singleton dimensions (must come after channels loop)
+if chansIn > 1
+    specTonalityAvg = squeeze(specTonalityAvg);
+    specTonalityAvgFreqs = squeeze(specTonalityAvgFreqs);
+    if annoyWeight
+        specTonalityAvgAnnoy = squeeze(specTonalityAvgAnnoy);
+    end
+else
+    specTonalityAvg = transpose(specTonalityAvg);
+    specTonalityAvgFreqs = transpose(specTonalityAvgFreqs);
+    if annoyWeight
+        specTonalityAvgAnnoy = transpose(specTonalityAvgAnnoy);
+    end
+end
 
 %% Output assignment
 
 % Assign outputs to structure
-if chansOut == 3
-    partLoudnessSHM.specPartLoudness = specLoudness(:, :, 1:2);
-    partLoudnessSHM.specTonalPartLoudness = specTonalLoudness(:, :, 1:2);
-    partLoudnessSHM.specNoisePartLoudness = specNoiseLoudness(:, :, 1:2);
-    partLoudnessSHM.specPartLoudnessPowAvg = specLoudnessPowAvg(:, 1:2);
-    partLoudnessSHM.partLoudnessTDep = loudnessTDep(:, 1:2);
-    partLoudnessSHM.partLoudnessPowAvg = loudnessPowAvg(1:2);
-    partLoudnessSHM.specPartLoudnessBin = specLoudness(:, :, 3);
-    partLoudnessSHM.specPartTonalLoudnessBin = specTonalLoudness(:, :, 3);
-    partLoudnessSHM.specPartNoiseLoudnessBin = specNoiseLoudness(:, :, 3);
-    partLoudnessSHM.specPartLoudnessPowAvgBin = specLoudnessPowAvg(:, 3);
-    partLoudnessSHM.partLoudnessTDepBin = loudnessTDep(:, 3);
-    partLoudnessSHM.partLoudnessPowAvgBin = loudnessPowAvg(:, 3);
-    partLoudnessSHM.bandCentreFreqs = bandCentreFreqs;
-    partLoudnessSHM.timeOut = timeOut;
-    partLoudnessSHM.soundField = soundField;
-else
-    partLoudnessSHM.specPartLoudness = specLoudness;
-    partLoudnessSHM.specPartTonalLoudness = specTonalLoudness;
-    partLoudnessSHM.specPartNoiseLoudness = specNoiseLoudness;
-    partLoudnessSHM.specPartLoudnessPowAvg = specLoudnessPowAvg;
-    partLoudnessSHM.partLoudnessTDep = loudnessTDep;
-    partLoudnessSHM.partLoudnessPowAvg = loudnessPowAvg;
-    partLoudnessSHM.bandCentreFreqs = bandCentreFreqs;
-    partLoudnessSHM.timeOut = timeOut;
-    partLoudnessSHM.soundField = soundField;
+partTonalitySHM.specTonality = specTonality;
+partTonalitySHM.specTonalityAvg = specTonalityAvg;
+partTonalitySHM.specTonalityFreqs = specTonalityFreqs;
+partTonalitySHM.specTonalityAvgFreqs = specTonalityAvgFreqs;
+partTonalitySHM.specTonalLoudness = specTonalLoudness;
+partTonalitySHM.specNoiseLoudness = specNoiseLoudness;
+partTonalitySHM.tonalityTDep = tonalityTDep;
+partTonalitySHM.tonalityAvg = tonalityAvg;
+partTonalitySHM.tonalityTDepFreqs = tonalityTDepFreqs;
+partTonalitySHM.bandCentreFreqs = bandCentreFreqs;
+partTonalitySHM.timeOut = timeOut;
+partTonalitySHM.soundField = soundField;
+
+% additional outputs for tonal annoyance weighting
+if annoyWeight
+    partTonalitySHM.specTonalityAnnoy = specTonalityAnnoy;
+    partTonalitySHM.specTonalityAvgAnnoy = specTonalityAvgAnnoy;
+    partTonalitySHM.tonalityTDepAnnoy = tonalityTDepAnnoy;
+    partTonalitySHM.tonalityAvgAnnoy = tonalityAvgAnnoy;
 end
 
 % end of function

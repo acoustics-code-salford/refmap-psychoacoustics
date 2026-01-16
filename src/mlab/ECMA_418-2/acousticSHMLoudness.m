@@ -20,10 +20,6 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, w
 % axisN : integer (1 or 2, default: 1)
 %   Time axis along which to calculate the tonality
 %
-% waitBar : keyword string (default: true)
-%   Determines whether a progress bar displays during processing
-%   (set waitBar to false for doing multi-file parallel calculations)
-%
 % soundField : keyword string (default: 'freeFrontal')
 %   Determines whether the 'freeFrontal' or 'diffuse' field stages
 %   are applied in the outer-middle ear filter, or 'noOuter' uses
@@ -32,6 +28,10 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, w
 %   standard, but may be useful if recordings made using
 %   artificial outer/middle ear are to be processed using the
 %   specific recorded responses.
+%
+% waitBar : keyword string (default: true)
+%   Determines whether a progress bar displays during processing
+%   (set waitBar to false for doing multi-file parallel calculations)
 %
 % outPlot : Boolean true/false (default: false)
 %   Flag indicating whether to generate a figure from the output
@@ -106,7 +106,7 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford
 %
 % Date created: 22/09/2023
-% Date last modified: 10/12/2025
+% Date last modified: 16/01/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
