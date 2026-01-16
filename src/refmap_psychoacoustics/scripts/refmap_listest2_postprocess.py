@@ -73,6 +73,15 @@ for ii, file in enumerate(testStimIndices):
     dataByStim.loc[file, 'StimID'] = ii + 1
 dataByStim['StimID'] = dataByStim['StimID'].astype('Int64')
 
+# ambient env ref
+dataByStim.loc[dataByStim.index.str.find("Background") == -1, 'AmbientRef'] = "UAS only"
+dataByStim.loc[dataByStim.index.str.find("BusyStreet6") != -1, 'AmbientRef'] = "BusyStreet6"
+dataByStim.loc[dataByStim.index.str.find("BusyStreet6Quiet") != -1, 'AmbientRef'] = "BusyStreet6Quiet"
+dataByStim.loc[dataByStim.index.str.find("BusyStreet8") != -1, 'AmbientRef'] = "BusyStreet8"
+dataByStim.loc[dataByStim.index.str.find("Park3") != -1, 'AmbientRef'] = "Park3"
+dataByStim.loc[dataByStim.index.str.find("Park3Loud") != -1, 'AmbientRef'] = "Park3Loud"
+dataByStim.loc[dataByStim.index.str.find("QuietStreet7") != -1, 'AmbientRef'] = "QuietStreet7"
+
 # ambient env category
 dataByStim.loc[dataByStim.index.str.find("Background") == -1, 'AmbientEnv'] = "UAS only"
 dataByStim.loc[dataByStim.index.str.find("BusyStreet6") != -1, 'AmbientEnv'] = "Highway"
@@ -151,13 +160,13 @@ for ii, file in enumerate(filelist):
 
     # calculate percentile metrics
     signalLAFmax = signaldBAF.max(axis=0)
-    signalLAF5 = np.percentile(signaldBAF, q=95, axis=0, method='median_unbiased')
-    signalLAF10 = np.percentile(signaldBAF, q=90, axis=0, method='median_unbiased')
-    signalLAF25 = np.percentile(signaldBAF, q=75, axis=0, method='median_unbiased')
-    signalLAF50 = np.percentile(signaldBAF, q=50, axis=0, method='median_unbiased')
-    signalLAF75 = np.percentile(signaldBAF, q=25, axis=0, method='median_unbiased')
-    signalLAF90 = np.percentile(signaldBAF, q=10, axis=0, method='median_unbiased')
-    signalLAF95 = np.percentile(signaldBAF, q=5, axis=0, method='median_unbiased')
+    signalLAF5 = np.percentile(signaldBAF, q=95, axis=0)
+    signalLAF10 = np.percentile(signaldBAF, q=90, axis=0)
+    signalLAF25 = np.percentile(signaldBAF, q=75, axis=0)
+    signalLAF50 = np.percentile(signaldBAF, q=50, axis=0)
+    signalLAF75 = np.percentile(signaldBAF, q=25, axis=0)
+    signalLAF90 = np.percentile(signaldBAF, q=10, axis=0)
+    signalLAF95 = np.percentile(signaldBAF, q=5, axis=0)
     signalLASmax = signaldBAS.max(axis=0)
 
     # calculate energy metrics
@@ -315,8 +324,18 @@ indicesPsycho = ["LoudECMAPowAvg",
                  "PsychAnnoyBoucher",
                  "PartLoudSHMPowAvg",
                  "PartTonLdSHMPowAvg",
+                 "PartSharpAurSHMPowAvg",
+                 "PartSharpAurSHM05Ex",
+                 "PartSharpWidSHMPowAvg",
+                 "PartSharpWidSHM05Ex",
+                 "PartSharpvBSHMPowAvg",
+                 "PartSharpvBSHM05Ex",
                  "PartTonShpAurSHMPowAvg",
                  "PartTonShpAurSHM05Ex",
+                 "PartTonShpWidSHMPowAvg",
+                 "PartTonShpWidSHM05Ex",
+                 "PartTonShpvBSHMPowAvg",
+                 "PartTonShpvBSHM05Ex",
                  "dTonalECMAAvg",
                  "dTonalECMA05Ex",
                  "dTonalSHMIntAvg",
@@ -410,7 +429,7 @@ filelistMAT.sort()
 filelist = filelistXLSX + filelistMAT
 
 filenames = [filepath.split('/')[-1] for filepath in filelist]
-renderNames = [filename.split('_CALHEQ_Pa')[0] for filename in filenames]
+renderNames = [filename.split('_MA220_Pa')[0] for filename in filenames]
 
 # loop over files to analyse
 for ii, file in enumerate(filelist):
@@ -438,12 +457,10 @@ for ii, file in enumerate(filelist):
                                                  - end_skipT).transpose()]
 
             # overall 5% exceeded fluctuation strength
-            fluctFZ05Ex = np.percentile(fluctFZTDepMask, q=95, axis=0, 
-                                        method='median_unbiased')
+            fluctFZ05Ex = fluctFZTDepMask.quantile(q=0.95).iloc[0]
 
             # overall 10% exceeded fluctuation strength
-            fluctFZ10Ex = np.percentile(fluctFZTDepMask, q=90, axis=0,
-                                        method='median_unbiased')
+            fluctFZ10Ex = fluctFZTDepMask.quantile(q=0.90).iloc[0]
             
             # add results to output DataFrame
             dataByStim.loc[renderNames[ii], 'FluctFZ10Ex'] = fluctFZ10Ex
@@ -468,12 +485,10 @@ for ii, file in enumerate(filelist):
                                                  - end_skipT).transpose()]
 
             # overall 5% exceeded roughness
-            roughFZ05Ex = np.percentile(roughFZTDepMask, q=95, axis=0, 
-                                        method='median_unbiased')
+            roughFZ05Ex = roughFZTDepMask.quantile(q=0.95).iloc[0]
 
             # overall 10% exceeded roughness
-            roughFZ10Ex = np.percentile(roughFZTDepMask, q=90, axis=0,
-                                        method='median_unbiased')
+            roughFZ10Ex = roughFZTDepMask.quantile(q=0.90).iloc[0]
 
             # add results to output DataFrame
             dataByStim.loc[renderNames[ii], 'RoughFZ10Ex'] = roughFZ10Ex
@@ -528,8 +543,7 @@ for ii, file in enumerate(filelist):
             tonLdECMAPowAvg = tonLdECMATDepMask.pow(1/np.log10(2)).mean()**np.log10(2)
 
             # 5% exceeded tonal loudness
-            tonLdECMA05Ex = np.percentile(tonLdECMATDepMask, q=95, axis=0,
-                                          method='median_unbiased')
+            tonLdECMA05Ex = tonLdECMATDepMask.quantile(q=0.95)
             
             # add results to output DataFrame
             dataByStim.loc[renderNames[ii], 'TonLdECMAPowAvg'] = tonLdECMAPowAvg
@@ -571,19 +585,17 @@ for ii, file in enumerate(filelist):
                                                            > 0.02)]  # see NOTE above
 
             # time-averaged tonality (omitting T<=0.02)
-            tonalECMAAvg = tonalECMATDepMask.mean(axis=0)
+            tonalECMAAvg = tonalECMATDepMask.mean()
 
             # 5% exceeded tonality (omitting T<=0.02)
-            tonalECMA05Ex = np.percentile(tonalECMATDepMask, q=95, axis=0,
-                                          method='median_unbiased')
+            tonalECMA05Ex = tonalECMATDepMask.quantile(q=0.95)
 
             # time-averaged integrated tonality (omitting T<=0.02)
             # NOTE: uses mask from ECMA tonality
-            tonalSHMIntAvg = tonalSHMIntTDepMask.mean(axis=0)
+            tonalSHMIntAvg = tonalSHMIntTDepMask.mean()
 
-            # max l/r 5% exceeded integrated tonality (omitting T<=0.02)
-            tonalSHMInt05Ex = np.percentile(tonalSHMIntTDepMask, q=95, axis=0,
-                                            method='median_unbiased')
+            # 5% exceeded integrated tonality (omitting T<=0.02)
+            tonalSHMInt05Ex = tonalSHMIntTDepMask.quantile(q=0.95)
 
             # add results to output DataFrame            
             dataByStim.loc[renderNames[ii], 'TonalECMAAvg'] = tonalECMAAvg
@@ -630,19 +642,17 @@ for ii, file in enumerate(filelist):
                                                              > 0.02)]  # see NOTE above
 
             # time-averaged tonal annoyance-weighted tonality (omitting T<=0.02)
-            tonalAwSHMAvg = tonalAwSHMTDepMask.mean(axis=0)
+            tonalAwSHMAvg = tonalAwSHMTDepMask.mean()
 
             # 5% exceeded tonal annoyance-weighted tonality (omitting T<=0.02)
-            tonalAwSHM05Ex = np.percentile(tonalAwSHMTDepMask, q=95, axis=0,
-                                           method='median_unbiased')
+            tonalAwSHM05Ex = tonalAwSHMTDepMask.quantile(q=0.95)
 
             # time-averaged integrated tonal annoyance-weighted tonality (omitting T<=0.02)
             # NOTE: uses mask from ECMA tonal annoyance-weighted tonality
-            tonalAwSHMIntAvg = tonalAwSHMIntTDepMask.mean(axis=0)
+            tonalAwSHMIntAvg = tonalAwSHMIntTDepMask.mean()
 
             # 5% exceeded integrated tonal annoyance-weighted tonality (omitting T<=0.02)
-            tonalAwSHMInt05Ex = np.percentile(tonalAwSHMIntTDepMask, q=95, axis=0,
-                                              method='median_unbiased')
+            tonalAwSHMInt05Ex = tonalAwSHMIntTDepMask.quantile(q=0.95)
 
             # add results to output DataFrame            
             dataByStim.loc[renderNames[ii], 'TonalAwSHMAvg'] = tonalAwSHMAvg
@@ -670,11 +680,10 @@ for ii, file in enumerate(filelist):
                                                      - end_skipT)]
 
             # overall (90th percentile = 10% exceeded) roughness
-            roughECMA10Ex = np.percentile(roughECMATDepMask, q=90, axis=0,
-                                          method='median_unbiased')
+            roughECMA10Ex = roughECMATDepMask.quantile(q=0.90)
+
             # overall (95th percentile = 5% exceeded) roughness
-            roughECMA05Ex = np.percentile(roughECMATDepMask, q=95, axis=0,
-                                          method='median_unbiased')
+            roughECMA05Ex = roughECMATDepMask.quantile(q=0.95)
 
             # overall time-averaged roughness
             roughECMAAvg = roughECMATDepMask.mean()
@@ -704,12 +713,10 @@ for ii, file in enumerate(filelist):
                                                  - end_skipT).transpose()]
 
             # overall (90th percentile = 10% exceeded) fluctuation strength
-            fluctOV10Ex = np.percentile(fluctOVTDepMask, q=90, axis=0,
-                                        method='median_unbiased')
+            fluctOV10Ex = fluctOVTDepMask.quantile(q=0.90)
 
             # overall (95th percentile = 5% exceeded) fluctuation strength
-            fluctOV05Ex = np.percentile(fluctOVTDepMask, q=95, axis=0,
-                                        method='median_unbiased')
+            fluctOV05Ex = fluctOVTDepMask.quantile(q=0.95)
 
             # add results to output DataFrame
             dataByStim.loc[renderNames[ii], 'FluctOV10Ex'] = fluctOV10Ex
@@ -728,14 +735,13 @@ for ii, file in enumerate(filelist):
                                                          > start_skipT)
                                                         & (impulsLoudWZTDep.index.values
                                                            < impulsLoudWZTDep.index.values.max()
-                                                           - end_skipT), :]
+                                                           - end_skipT)]
             
             # overall (averaged) impulsive loudness
-            impulsLoudWZAvg = impulsLoudWZTDepMask.mean(axis=0).iloc[0]
+            impulsLoudWZAvg = impulsLoudWZTDepMask.mean().iloc[0]
 
             # overall (95th percentile = 5% exceeded) impulsive loudness
-            impulsLoudWZ05Ex = np.percentile(impulsLoudWZTDepMask, q=95, axis=0,
-                                             method='median_unbiased')
+            impulsLoudWZ05Ex = impulsLoudWZTDepMask.quantile(q=0.95).iloc[0]
 
             # overall (power-averaged) impulsive loudness
             impulsLoudWZPowAvg = (impulsLoudWZTDepMask.pow(1/np.log10(2)).mean(axis=0)**np.log10(2)).iloc[0]
@@ -751,21 +757,20 @@ for ii, file in enumerate(filelist):
             # Calculate Willemen et al overall impulsive loudness from
             # time-dependent values
             impulsLoudWECMATDep = pd.DataFrame(filedata[1:, 1:],
-                                                  index=filedata[1:, 0],
-                                                  columns=["Monaural"])
+                                               index=filedata[1:, 0],
+                                               columns=["Monaural"])
             # mask for start/end skip
             impulsLoudWECMATDepMask = impulsLoudWECMATDep.loc[(impulsLoudWECMATDep.index.values
                                                                > start_skipT)
                                                               & (impulsLoudWECMATDep.index.values
                                                                  < impulsLoudWECMATDep.index.values.max()
-                                                                 - end_skipT), :]
+                                                                 - end_skipT)]
 
             # overall (averaged) impulsive loudness
             impulsLoudWECMAAvg = impulsLoudWECMATDepMask.mean().iloc[0]
 
             # overall (95th percentile = 5% exceeded) impulsive loudness
-            impulsLoudWECMA05Ex = np.percentile(impulsLoudWECMATDepMask, q=95, axis=0,
-                                                method='median_unbiased')
+            impulsLoudWECMA05Ex = impulsLoudWECMATDepMask.quantile(q=0.95).iloc[0]
 
             # overall (power-averaged) impulsive loudness
             impulsLoudWECMAPowAvg = (impulsLoudWECMATDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
@@ -797,7 +802,7 @@ for ii, file in enumerate(filelist):
                                                          - end_skipT)]
 
             # overall (power-averaged) partial loudness (ECMA-418-2:2022 Equation 117)
-            partLoudSHMPowAvg = (partLoudSHMTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
+            partLoudSHMPowAvg = partLoudSHMTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)
 
             # add results to output DataFrame
             dataByStim.loc[renderNames[ii], 'PartLoudSHMPowAvg'] = partLoudSHMPowAvg
@@ -823,7 +828,7 @@ for ii, file in enumerate(filelist):
                                                            - end_skipT)]
 
             # overall (power-averaged) partial tonal loudness (ECMA-418-2:2022 Equation 117)
-            partTonLdSHMPowAvg = (partTonLdSHMTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
+            partTonLdSHMPowAvg = partTonLdSHMTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)
 
             # add results to output DataFrame
             dataByStim.loc[renderNames[ii], 'PartTonLdSHMPowAvg'] = partTonLdSHMPowAvg
@@ -894,12 +899,10 @@ for ii, file in enumerate(filelist):
                                                            - end_skipT)]
 
                     # overall (90th percentile = 10% exceeded) roughness
-                    dRoughFZ10Ex = np.percentile(dRoughFZTDepMask, q=90, axis=0,
-                                                 method='median_unbiased')
+                    dRoughFZ10Ex = dRoughFZTDepMask.quantile(q=0.90).iloc[0]
 
                     # overall (95th percentile = 5% exceeded) roughness
-                    dRoughFZ05Ex = np.percentile(dRoughFZTDepMask, q=95, axis=0,
-                                                 method='median_unbiased')
+                    dRoughFZ05Ex = dRoughFZTDepMask.quantile(q=0.95).iloc[0]
 
                     # add results to output DataFrame
                     dataByStim.loc[renderNames[ii], 'dRoughFZ10Ex'] = dRoughFZ10Ex
@@ -913,7 +916,7 @@ for ii, file in enumerate(filelist):
                                                 - ambSpecTonalECMAMovAvg, 0)
 
                     # time-dependent tonality (max, not integration)
-                    dTonalECMATDep = dSpecTonalECMAL.max(axis=1).to_frame(name="Monaural")
+                    dTonalECMATDep = dSpecTonalECMA.max(axis=1).to_frame(name="Monaural")
                     
                     # time-dependent integrated tonality
                     dTonalSHMIntTDep = (dSpecTonalECMA.sum(axis=1)*bandDiff0p5*0.348088948583815).to_frame(name="Monaural")
@@ -924,8 +927,8 @@ for ii, file in enumerate(filelist):
                                                             & (dTonalECMATDep.index.values
                                                                < dTonalECMATDep.index.values.max()
                                                                - end_skipT)
-                                                            & (dTonalECMATDep.loc[:, 0].values
-                                                               > 0.02), 0]
+                                                            & (dTonalECMATDep.values
+                                                               > 0.02)]
 
                     # mask for start/end skip and values <= 0.02
                     # NOTE: uses tonality magnitude mask from ECMA tonality
@@ -934,22 +937,19 @@ for ii, file in enumerate(filelist):
                                                                 & (dTonalSHMIntTDep.index.values
                                                                    < dTonalSHMIntTDep.index.values.max()
                                                                    - end_skipT)
-                                                                & (dTonalECMATDep.loc[:, 0].values
-                                                                   > 0.02), 0]  # see NOTE above
+                                                                & (dTonalECMATDep.values
+                                                                   > 0.02)]  # see NOTE above
 
                     # time-averaged tonality (omitting T<=0.02)
-                    dTonalECMAAvg = dTonalECMATDepMaskL.mean(axis=0).iloc[0]
+                    dTonalECMAAvg = dTonalECMATDepMask.mean().iloc[0]
 
                     # 5% exceeded tonality (automatically omitting T<=0.02)
-                    dTonalECMA05Ex = np.percentile(dTonalECMATDepMaskL, q=95, axis=0,
-                                                   method='median_unbiased')
+                    dTonalECMA05Ex = dTonalECMATDepMask.quantile(q=0.95).iloc[0]
 
                     # time-averaged integrated tonality (omitting T<=0.02)
-                    dTonalSHMIntAvg = dTonalSHMIntTDepMask.mean(axis=0).iloc[0]
-
+                    dTonalSHMIntAvg = dTonalSHMIntTDepMask.mean().iloc[0]
                     # 5% exceeded integated tonality (automatically omitting T<=0.02)
-                    dTonalSHMInt05Ex = np.percentile(dTonalSHMIntTDepMask, q=95, axis=0,
-                                                     method='median_unbiased')
+                    dTonalSHMInt05Ex = dTonalSHMIntTDepMask.quantile(q=0.95).iloc[0]
 
                     # add results to output DataFrame
                     dataByStim.loc[renderNames[ii], 'dTonalECMAAvg'] = dTonalECMAAvg
@@ -962,10 +962,10 @@ for ii, file in enumerate(filelist):
         
                     # calculate differences and make negative values 0
                     dSpecTonalAwSHM = np.maximum(specTonalAwSHMMovAvg
-                                                 - ambSpecTonalAwSHMLMovAvg, 0)
+                                                 - ambSpecTonalAwSHMMovAvg, 0)
 
                     # time-dependent tonal annoyance-weighted tonality
-                    dTonalAwSHMTDep = dSpecTonalAwSHML.max(axis=1).to_frame(name="Monaural")
+                    dTonalAwSHMTDep = dSpecTonalAwSHM.max(axis=1).to_frame(name="Monaural")
 
                     # time-dependent integrated tonal annoyance-weighted tonality
                     dTonalAwSHMIntTDep = (dSpecTonalAwSHM.sum(axis=1)*bandDiff0p5*0.348088948583815).to_frame(name="Monaural")
@@ -976,8 +976,8 @@ for ii, file in enumerate(filelist):
                                                               & (dTonalAwSHMTDep.index.values
                                                                  < dTonalAwSHMTDep.index.values.max()
                                                                  - end_skipT)
-                                                              & (dTonalAwSHMTDep.loc[:, 0].values
-                                                                 > 0.02), 0]
+                                                              & (dTonalAwSHMTDep.values
+                                                                 > 0.02)]
 
                     # mask for start/end skip and values <= 0.02
                     # NOTE: uses tonality magnitude mask from ECMA tonality
@@ -986,22 +986,20 @@ for ii, file in enumerate(filelist):
                                                                     & (dTonalAwSHMIntTDep.index.values
                                                                        < dTonalAwSHMIntTDep.index.values.max()
                                                                        - end_skipT)
-                                                                    & (dTonalAwSHMTDep.loc[:, 0].values
-                                                                       > 0.02), 0]  # see NOTE above
+                                                                    & (dTonalAwSHMTDep.values
+                                                                       > 0.02)]  # see NOTE above
 
                     # time-averaged tonality (omitting T<=0.02)
-                    dTonalAwSHMAvg = dTonalAwSHMTDepMask.mean(axis=0).iloc[0]
+                    dTonalAwSHMAvg = dTonalAwSHMTDepMask.mean().iloc[0]
 
                     # 5% exceeded tonality (automatically omitting T<=0.02)
-                    dTonalAwSHM05ExMaxLR = np.percentile(dTonalAwSHMTDepMask, q=95, axis=0,
-                                                         method='median_unbiased')
+                    dTonalAwSHM05Ex = dTonalAwSHMTDepMask.quantile(q=0.95).iloc[0]
 
                     # time-averaged integrated tonality (omitting T<=0.02)
-                    dTonalAwSHMIntAvgMaxLR = dTonalAwSHMIntTDepMaskL.mean(axis=0).iloc[0]
+                    dTonalAwSHMIntAvg = dTonalAwSHMIntTDepMask.mean().iloc[0]
 
                     # 5% exceeded integrated tonality (automatically omitting T<=0.02)
-                    dTonalAwSHMInt05Ex = np.percentile(dTonalAwSHMIntTDepMaskL, q=95, axis=0,
-                                                       method='median_unbiased')
+                    dTonalAwSHMInt05Ex = dTonalAwSHMIntTDepMask.quantile(q=0.95).iloc[0]
 
                     # add results to output DataFrame
                     dataByStim.loc[renderNames[ii], 'dTonalAwSHMAvg'] = dTonalAwSHMAvg
@@ -1031,8 +1029,7 @@ for ii, file in enumerate(filelist):
                     dTonLdECMAPowAvg = dTonLdECMATDepMask.pow(1/np.log10(2)).mean()**np.log10(2)
 
                     # 5% exceeded tonal loudness
-                    dTonLdECMA05Ex = np.percentile(dTonLdECMATDepMask, q=95, axis=0,
-                                                   method='median_unbiased')
+                    dTonLdECMA05Ex = dTonLdECMATDepMask.quantile(q=0.95)
 
                     # add results to output DataFrame
                     dataByStim.loc[renderNames[ii], 'dTonLdECMAPowAvg'] = dTonLdECMAPowAvg
@@ -1056,12 +1053,10 @@ for ii, file in enumerate(filelist):
                                                                - end_skipT)]
 
                     # overall (90th percentile = 10% exceeded) roughness
-                    dRoughECMA10Ex = np.percentile(dRoughECMATDepMask, q=90, axis=0,
-                                                   method='median_unbiased')
+                    dRoughECMA10Ex = dRoughECMATDepMask.quantile(q=0.90)
                     
                     # overall (95th percentile = 5% exceeded) roughness
-                    dRoughECMA05Ex = np.percentile(dRoughECMATDepMask, q=95, axis=0,
-                                                   method='median_unbiased')
+                    dRoughECMA05Ex = dRoughECMATDepMask.quantile(q=0.95)
 
                     # add results to output DataFrame
                     dataByStim.loc[renderNames[ii], 'dRoughECMA10Ex'] = dRoughECMA10Ex
@@ -1075,7 +1070,7 @@ for ii, file in enumerate(filelist):
                                               - ambSpecFluctOVMovAvg, 0)
 
                     # time-dependent integrated fluctuation strength
-                    dFluctOVTDep = dSpecFluctOVL.sum(axis=1)*bandDiff0p5
+                    dFluctOVTDep = dSpecFluctOV.sum(axis=1)*bandDiff0p5
                     
                     # fluctuation strength masked for start/end skip
                     dFluctOVTDepMask = dFluctOVTDep.loc[(dFluctOVTDep.index.values
@@ -1085,12 +1080,10 @@ for ii, file in enumerate(filelist):
                                                            - end_skipT).transpose()]
 
                     # overall 5% exceeded fluctuation strength 
-                    dFluctOV05Ex = np.percentile(dFluctOVTDepMask, q=95, axis=0,
-                                                 method='median_unbiased')
+                    dFluctOV05Ex = dFluctOVTDepMask.quantile(q=0.95)
 
                     # overall 10% exceeded fluctuation strength 
-                    dFluctOV10Ex = np.percentile(dFluctOVTDepMask, q=90, axis=0,
-                                                 method='median_unbiased')
+                    dFluctOV10Ex = dFluctOVTDepMask.quantile(q=0.90)
                     
                     # add results to output DataFrame
                     dataByStim.loc[renderNames[ii], 'dFluctOV10Ex'] = dFluctOV10Ex
@@ -1108,17 +1101,16 @@ for ii, file in enumerate(filelist):
                                                                    > start_skipT)
                                                                   & (dImpulsLoudWZTDep.index.values
                                                                      < dImpulsLoudWZTDep.index.values.max()
-                                                                     - end_skipT), :]
+                                                                     - end_skipT)]
 
                     # overall (averaged) impulsive loudness
-                    dImpulsLoudWZAvg = dImpulsLoudWZTDepMask.mean(axis=0).iloc[0]
+                    dImpulsLoudWZAvg = dImpulsLoudWZTDepMask.mean().iloc[0]
                     
                     # overall (95th percentile = 5% exceeded) impulsive loudness
-                    dImpulsLoudWZ05Ex = np.percentile(dImpulsLoudWZTDepMask, q=95, axis=0,
-                                                      method='median_unbiased')
+                    dImpulsLoudWZ05Ex = dImpulsLoudWZTDepMask.quantile(q=0.95).iloc[0]
                     
                     # overall (power-averaged) impulsive loudness
-                    dImpulsLoudWZPowAvg = (dImpulsLoudWZTDepMask.pow(1/np.log10(2)).mean(axis=0)**np.log10(2)).iloc[0]
+                    dImpulsLoudWZPowAvg = (dImpulsLoudWZTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
 
                     # add results to output DataFrame
                     dataByStim.loc[renderNames[ii], 'dImpulsLoudWZAvg'] = dImpulsLoudWZAvg
@@ -1137,14 +1129,13 @@ for ii, file in enumerate(filelist):
                                                                          > start_skipT)
                                                                         & (dImpulsLoudWECMATDep.index.values
                                                                            < dImpulsLoudWECMATDep.index.values.max()
-                                                                           - end_skipT), :]
+                                                                           - end_skipT)]
 
                     # overall (averaged) impulsive loudness
                     dImpulsLoudWECMAAvg = dImpulsLoudWECMATDepMask.mean().iloc[0]
                     
                     # overall (95th percentile = 5% exceeded) impulsive loudness
-                    dImpulsLoudWECMA05Ex = np.percentile(dImpulsLoudWECMATDepMask, q=95, axis=0,
-                                                         method='median_unbiased')
+                    dImpulsLoudWECMA05Ex = dImpulsLoudWECMATDepMask.quantile(q=0.95, axis=0).iloc[0]
                     
                     # overall (power-averaged) impulsive loudness
                     dImpulsLoudWECMAPowAvg = (dImpulsLoudWECMATDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
@@ -1168,17 +1159,16 @@ for ii, file in enumerate(filelist):
 
         # mask for start/end skip
         loudQZ5321TDepMask = loudQZ5321TDep.loc[(loudQZ5321TDep.index.values
-                                               > start_skipT)
-                                              & (loudQZ5321TDep.index.values
-                                                 < loudQZ5321TDep.index.values.max()
-                                                 - end_skipT), :]
+                                                 > start_skipT)
+                                                & (loudQZ5321TDep.index.values
+                                                   < loudQZ5321TDep.index.values.max()
+                                                   - end_skipT), :]
 
         # overall (power-averaged) loudness
-        loudQZ5321PowAvg = (loudQZ5321TDepMask.pow(1/np.log10(2)).mean(axis=0)**np.log10(2)).iloc[0]
+        loudQZ5321PowAvg = (loudQZ5321TDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
 
         # overall 5% exceeded loudness
-        loudQZ532105Ex = np.percentile(loudQZ5321TDepMask, q=95, axis=0,
-                                       method='median_unbiased')
+        loudQZ532105Ex = loudQZ5321TDepMask.quantile(q=0.95).iloc[0]
         
         # Calculate overall Aures+quasi-Zwicker (ISO 532-3 adjusted) loudness from
         # time-dependent loudness
@@ -1194,11 +1184,10 @@ for ii, file in enumerate(filelist):
                                                    - end_skipT), :]
 
         # overall (power-averaged) loudness
-        loudQZ5323PowAvg = (loudQZ5323TDepMask.pow(1/np.log10(2)).mean(axis=0)**np.log10(2)).iloc[0]
+        loudQZ5323PowAvg = (loudQZ5323TDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
 
         # overall 5% exceeded loudness
-        loudQZ532305Ex = np.percentile(loudQZ5323TDepMask, q=95, axis=0,
-                                       method='median_unbiased')
+        loudQZ532305Ex = loudQZ5323TDepMask.quantile(q=0.95).iloc[0]
 
         # Calculate overall Aures+quasi-Zwicker (ECMA-418-2 ear filter and
         # transformation) loudness from time-dependent loudness
@@ -1214,11 +1203,10 @@ for ii, file in enumerate(filelist):
                                                    - end_skipT), :]
         
         # overall (power-averaged) loudness
-        loudQZ4182PowAvg = (loudQZ4182TDepMask.pow(1/np.log10(2)).mean(axis=0)**np.log10(2)).iloc[0]
+        loudQZ4182PowAvg = (loudQZ4182TDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
     
         # overall 5% exceeded loudness
-        loudQZ418205Ex = np.percentile(loudQZ4182TDepMask, q=95, axis=0,
-                                       method='median_unbiased')
+        loudQZ418205Ex = loudQZ4182TDepMask.quantile(q=0.95).iloc[0]
 
         # Calculate overall Aures+quasi-Zwicker sharpness from
         # time-dependent sharpness
@@ -1237,8 +1225,7 @@ for ii, file in enumerate(filelist):
         sharpAQZ5321PowAvg = (sharpAQZ5321TDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
 
         # overall 5% exceeded sharpness
-        sharpAQZ532105Ex = np.percentile(sharpAQZ5321TDepMask, q=95, axis=0,
-                                         method='median_unbiased')
+        sharpAQZ532105Ex = sharpAQZ5321TDepMask.quantile(q=0.95).iloc[0]
 
         # Calculate overall Aures+quasi-Zwicker (ISO 532-3 adjusted) sharpness from
         # time-dependent sharpness
@@ -1257,8 +1244,7 @@ for ii, file in enumerate(filelist):
         sharpAQZ5323PowAvg = (sharpAQZ5323TDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
 
         # overall 5% exceeded sharpness
-        sharpAQZ532305Ex = np.percentile(sharpAQZ5323TDepMask, q=95, axis=0,
-                                         method='median_unbiased')
+        sharpAQZ532305Ex = sharpAQZ5323TDepMask.quantile(q=0.95).iloc[0]
         
         # Calculate overall Aures+quasi-Zwicker (ECMA-418-2 ear filter and
         # transformation) sharpness from time-dependent sharpness
@@ -1277,10 +1263,9 @@ for ii, file in enumerate(filelist):
         sharpAQZ4182PowAvg = (sharpAQZ4182TDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
 
         # overall 5% exceeded sharpness
-        sharpAQZ418205Ex = np.percentile(sharpAQZ4182TDepMask, q=95, axis=0,
-                                         method='median_unbiased')
+        sharpAQZ418205Ex = sharpAQZ4182TDepMask.quantile(q=0.95).iloc[0]
         
-        # Calculate overall Aures tonality from 2-channel time-dependent
+        # Calculate overall Aures tonality from time-dependent
         # tonality
         tonalAurTDep = pd.DataFrame(workbookdata['TonalAures'].iloc[0:, 1:].values,
                                     columns=workbookdata['TonalAures'].iloc[0, 1:].index,
@@ -1294,15 +1279,13 @@ for ii, file in enumerate(filelist):
                                                - end_skipT), :]
 
         # overall mean tonality
-        tonalAurAvg = tonalAurTDepMask.mean(axis=0).iloc[0]
+        tonalAurAvg = tonalAurTDepMask.mean().iloc[0]
 
         # overall 5% exceeded tonality
-        tonalAur05Ex = np.percentile(tonalAurTDepMask, q=95, axis=0,
-                                     method='median_unbiased')
+        tonalAur05Ex = tonalAurTDepMask.quantile(q=0.95).iloc[0]
 
         # overall 10% exceeded tonality
-        tonalAur10Ex = np.percentile(tonalAurTDepMask, q=90, axis=0,
-                                     method='median_unbiased')
+        tonalAur10Ex = tonalAurTDepMask.quantile(q=0.90).iloc[0]
 
         # Calculate Daniel & Weber overall roughness from specific roughness
         specRoughDW = pd.DataFrame(workbookdata['RoughDanWeb'].iloc[:, 1:].values.T,
@@ -1320,12 +1303,10 @@ for ii, file in enumerate(filelist):
                                               - end_skipT)]
 
         # overall (90th percentile = 10% exceeded) roughness
-        roughDW10ExMaxLR = np.percentile(roughDWTDepMask, q=90, axis=0,
-                                         method='median_unbiased')
+        roughDW10Ex = roughDWTDepMask.quantile(q=0.90)
 
         # overall (95th percentile = 5% exceeded) roughness
-        roughDW05ExMaxLR = np.percentile(roughDWTDepMask, q=95, axis=0,
-                                         method='median_unbiased')
+        roughDW05Ex = roughDWTDepMask.quantile(q=0.95)
 
         # Calculate overall Aures+Sottek Hearing Model sharpness from
         # time-dependent sharpness
@@ -1341,12 +1322,10 @@ for ii, file in enumerate(filelist):
                                                  - end_skipT)]
 
         # overall (power-averaged) sharpness
-        sharpASHMPowAvg = sharpASHMTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)
-        sharpASHMPowAvg = sharpASHMPowAvg.iloc[0]
+        sharpASHMPowAvg = (sharpASHMTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
 
         # overall 5% exceeded sharpness
-        sharpASHM05Ex = np.percentile(sharpASHMTDepMask, q=95, axis=0,
-                                      method='median_unbiased')
+        sharpASHM05Ex = sharpASHMTDepMask.quantile(q=0.95).iloc[0]
 
         # Calculate overall Aures+Sottek Hearing Model tonal sharpness from
         # time-dependent tonal sharpness
@@ -1365,8 +1344,7 @@ for ii, file in enumerate(filelist):
         tonShpASHMPowAvg = (tonShpASHMTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
 
         # overall 5% exceeded tonal sharpness
-        tonShpASHM05Ex = np.percentile(tonShpASHMTDepMask, q=95, axis=0,
-                                       method='median_unbiased')
+        tonShpASHM05Ex = tonShpASHMTDepMask.quantile(q=0.95).iloc[0]
 
         # add results to output DataFrame
         dataByStim.loc[renderNames[ii], 'LoudQZ5321PowAvg'] = loudQZ5321PowAvg
@@ -1393,6 +1371,83 @@ for ii, file in enumerate(filelist):
         dataByStim.loc[renderNames[ii], 'TonShpAurSHMPowAvg'] = tonShpASHMPowAvg
         dataByStim.loc[renderNames[ii], 'TonShpAurSHM05Ex'] = tonShpASHM05Ex
 
+        # calculation section for Aures+Sottek Hearing Model partial sharpness
+        if workbookdata.keys().__contains__('PartShpAuresSHM'):
+
+            # Calculate overall Aures+Sottek Hearing Model partial tonal sharpness from 2-channel
+            # time-dependent partial sharpness
+            partSharpASHMTDep = pd.DataFrame(workbookdata['PartShpAuresSHM'].iloc[0:, 1:].values,
+                                             columns=workbookdata['PartShpAuresSHM'].iloc[0, 1:].index,
+                                             index=workbookdata['PartShpAuresSHM'].iloc[:, 0])
+
+            # mask for start/end skip
+            partSharpASHMTDepMask = partSharpASHMTDep.loc[(partSharpASHMTDep.index.values
+                                                           > start_skipT)
+                                                          & (partSharpASHMTDep.index.values
+                                                             < partSharpASHMTDep.index.values.max()
+                                                             - end_skipT)]
+
+            # overall (power-averaged) partial sharpness
+            partSharpASHMPowAvg = (partSharpASHMTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
+
+            # overall 5% exceeded partial sharpness
+            partSharpASHM05Ex = partSharpASHMTDepMask.quantile(q=0.95).iloc[0]
+
+            # add results to output DataFrame
+            dataByStim.loc[renderNames[ii], 'PartSharpAurSHMPowAvg'] = partSharpASHMPowAvg
+            dataByStim.loc[renderNames[ii], 'PartSharpAurSHM05Ex'] = partSharpASHM05Ex
+        
+        # calculation section for Widmann+Sottek Hearing Model partial sharpness
+        if workbookdata.keys().__contains__('PartShpDINSHM'):
+
+            # Calculate overall Widmann+Sottek Hearing Model partial tonal sharpness from 2-channel
+            # time-dependent partial sharpness
+            partSharpWSHMTDep = pd.DataFrame(workbookdata['PartShpDINSHM'].iloc[0:, 1:].values,
+                                             columns=workbookdata['PartShpDINSHM'].iloc[0, 1:].index,
+                                             index=workbookdata['PartShpDINSHM'].iloc[:, 0])
+
+            # mask for start/end skip
+            partSharpWSHMTDepMask = partSharpWSHMTDep.loc[(partSharpWSHMTDep.index.values
+                                                           > start_skipT)
+                                                          & (partSharpWSHMTDep.index.values
+                                                             < partSharpWSHMTDep.index.values.max()
+                                                             - end_skipT)]
+
+            # overall (power-averaged) partial sharpness
+            partSharpWSHMPowAvg = (partSharpWSHMTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
+
+            # overall 5% exceeded partial sharpness
+            partSharpWSHM05Ex = partSharpWSHMTDepMask.quantile(q=0.95).iloc[0]
+
+            # add results to output DataFrame
+            dataByStim.loc[renderNames[ii], 'PartSharpWidSHMPowAvg'] = partSharpWSHMPowAvg
+            dataByStim.loc[renderNames[ii], 'PartSharpWidSHM05Ex'] = partSharpWSHM05Ex
+
+        # calculation section for von Bismarck+Sottek Hearing Model partial sharpness
+        if workbookdata.keys().__contains__('PartShpvBSHM'):
+
+            # Calculate overall von Bismarck+Sottek Hearing Model partial tonal sharpness from 2-channel
+            # time-dependent partial sharpness
+            partSharpvBSHMTDep = pd.DataFrame(workbookdata['PartShpvBSHM'].iloc[0:, 1:].values,
+                                              columns=workbookdata['PartShpvBSHM'].iloc[0, 1:].index,
+                                              index=workbookdata['PartShpvBSHM'].iloc[:, 0])
+            # mask for start/end skip
+            partSharpvBSHMTDepMask = partSharpvBSHMTDep.loc[(partSharpvBSHMTDep.index.values
+                                                             > start_skipT)
+                                                            & (partSharpvBSHMTDep.index.values
+                                                               < partSharpvBSHMTDep.index.values.max()
+                                                               - end_skipT)]
+
+            # overall (power-averaged) partial sharpness
+            partSharpvBSHMPowAvg = (partSharpvBSHMTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
+
+            # overall 5% exceeded partial sharpness
+            partSharpvBSHM05Ex = partSharpvBSHMTDepMask.quantile(q=0.95).iloc[0]
+
+            # add results to output DataFrame
+            dataByStim.loc[renderNames[ii], 'PartSharpvBSHMPowAvg'] = partSharpvBSHMPowAvg
+            dataByStim.loc[renderNames[ii], 'PartSharpvBSHM05Ex'] = partSharpvBSHM05Ex
+
         # calculation section for Aures+Sottek Hearing Model partial tonal sharpness        
         if workbookdata.keys().__contains__('PartTonShpAuresSHM'):
 
@@ -1410,16 +1465,66 @@ for ii, file in enumerate(filelist):
                                                                - end_skipT)]
 
             # overall (power-averaged) partial tonal sharpness
-            partTonShpASHMPowAvg = partTonShpASHMTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)
-            partTonShpASHMPowAvgBin = partTonShpASHMPowAvgBin.iloc[0]
+            partTonShpASHMPowAvg = (partTonShpASHMTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
 
             # overall 5% exceeded partial tonal sharpness
-            partTonShpASHM05Ex = np.percentile(partTonShpASHMTDepMask, q=95, axis=0,
-                                               method='median_unbiased')
+            partTonShpASHM05Ex = partTonShpASHMTDepMask.quantile(q=0.95).iloc[0]
 
             # add results to output DataFrame
             dataByStim.loc[renderNames[ii], 'PartTonShpAurSHMPowAvg'] = partTonShpASHMPowAvg
             dataByStim.loc[renderNames[ii], 'PartTonShpAurSHM05Ex'] = partTonShpASHM05Ex
+        
+        # calculation section for Widmann+Sottek Hearing Model partial tonal sharpness        
+        if workbookdata.keys().__contains__('PartTonShpDINSHM'):
+
+            # Calculate overall Widmann+Sottek Hearing Model partial tonal sharpness from
+            # time-dependent partial tonal sharpness
+            partTonShpWSHMTDep = pd.DataFrame(workbookdata['PartTonShpDINSHM'].iloc[0:, 1:].values,
+                                              columns=workbookdata['PartTonShpDINSHM'].iloc[0, 1:].index,
+                                              index=workbookdata['PartTonShpDINSHM'].iloc[:, 0])
+
+            # mask for start/end skip
+            partTonShpWSHMTDepMask = partTonShpWSHMTDep.loc[(partTonShpWSHMTDep.index.values
+                                                             > start_skipT)
+                                                            & (partTonShpWSHMTDep.index.values
+                                                               < partTonShpWSHMTDep.index.values.max()
+                                                               - end_skipT)]
+
+            # overall (power-averaged) partial tonal sharpness
+            partTonShpWSHMPowAvg = (partTonShpWSHMTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
+
+            # overall 5% exceeded partial tonal sharpness
+            partTonShpWSHM05Ex = partTonShpWSHMTDepMask.quantile(q=0.95).iloc[0]
+
+            # add results to output DataFrame
+            dataByStim.loc[renderNames[ii], 'PartTonShpWidSHMPowAvg'] = partTonShpWSHMPowAvg
+            dataByStim.loc[renderNames[ii], 'PartTonShpWidSHM05Ex'] = partTonShpWSHM05Ex
+
+        # calculation section for von Bismarck+Sottek Hearing Model partial tonal sharpness        
+        if workbookdata.keys().__contains__('PartTonShpvBSHM'):
+
+            # Calculate overall von Bismarck+Sottek Hearing Model partial tonal sharpness from
+            # time-dependent partial tonal sharpness
+            partTonShpvBSHMTDep = pd.DataFrame(workbookdata['PartTonShpvBSHM'].iloc[0:, 1:].values,
+                                               columns=workbookdata['PartTonShpvBSHM'].iloc[0, 1:].index,
+                                               index=workbookdata['PartTonShpvBSHM'].iloc[:, 0])
+
+            # mask for start/end skip
+            partTonShpvBSHMTDepMask = partTonShpvBSHMTDep.loc[(partTonShpvBSHMTDep.index.values
+                                                               > start_skipT)
+                                                              & (partTonShpvBSHMTDep.index.values
+                                                                 < partTonShpvBSHMTDep.index.values.max()
+                                                                 - end_skipT)]
+
+            # overall (power-averaged) partial tonal sharpness
+            partTonShpvBSHMPowAvg = (partTonShpvBSHMTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
+
+            # overall 5% exceeded partial tonal sharpness
+            partTonShpvBSHM05Ex = partTonShpvBSHMTDepMask.quantile(q=0.95).iloc[0]
+
+            # add results to output DataFrame
+            dataByStim.loc[renderNames[ii], 'PartTonShpvBSHMPowAvg'] = partTonShpvBSHMPowAvg
+            dataByStim.loc[renderNames[ii], 'PartTonShpvBSHM05Ex'] = partTonShpvBSHM05Ex
 
         # calculation section for SQM differences
         # NOTE: THIS SECTION RELIES ON THE ALPHABETIC ORDER OF THE STIMULI FILES AS
@@ -1461,8 +1566,7 @@ for ii, file in enumerate(filelist):
             dSharpASHMPowAvg = (dSharpASHMTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
 
             # overall 5% exceeded sharpness
-            dSharpASHM05Ex = np.percentile(dSharpASHMTDepMask, q=95, axis=0,
-                                           method='median_unbiased')
+            dSharpASHM05Ex = dSharpASHMTDepMask.quantile(q=0.95).iloc[0]
 
             # add results to output DataFrame
             dataByStim.loc[renderNames[ii], 'dSharpAurSHMPowAvg'] = dSharpASHMPowAvg
@@ -1479,8 +1583,7 @@ for ii, file in enumerate(filelist):
             dTonShpASHMPowAvg = (dTonShpASHMTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
 
             # overall 5% exceeded tonal sharpness
-            dTonShpASHM05Ex = np.percentile(dTonShpASHMTDepMask, q=95, axis=0,
-                                            method='median_unbiased')
+            dTonShpASHM05Ex = dTonShpASHMTDepMask.quantile(q=0.95).iloc[0]
             
             # add results to output DataFrame
             dataByStim.loc[renderNames[ii], 'dTonShpAurSHMPowAvg'] = dTonShpASHMPowAvg
@@ -1493,28 +1596,21 @@ for ii, file in enumerate(filelist):
 
 # open xlsx file selection dialog and assign filepaths to list
 # PROJECT NOTE: the calculated files are stored in
-# https://testlivesalfordac.sharepoint.com/:f:/r/sites/REFMAP/Shared%20Documents/General/03%20Experiment/Experiment%201/Analysis/ArtemiS/CALHEQ?csf=1&web=1&e=R2uFcs
+# https://testlivesalfordac.sharepoint.com/:f:/r/sites/REFMAP/Shared%20Documents/General/03%20Experiment/Experiment%202/Analysis/ArtemiS?csf=1&web=1&e=mIwerm
 # check/open QApplication instance
 if not QApplication.instance():
     app = QApplication(sys.argv)
 else:
     app = QApplication.instance()
 
-fileExtsXLSX = "*.xlsx"
-filelistXLSX = list(QFileDialog.getOpenFileNames(filter=fileExtsXLSX,
-                                                 caption=r"Select ArtemiS output files in '03 Experiment\Experiment 1\Analysis\ArtemiS\CALHEQ\xlsx'"))[0]
-filelistXLSX.sort()
+fileExts = "*.asc"
+filelist = list(QFileDialog.getOpenFileNames(filter=fileExts,
+                                             caption=r"Select ArtemiS output files in '03 Experiment\Experiment 2\Analysis\ArtemiS\asc'"))[0]
 
-fileExtsASC = "*.asc"
-filelistASC = list(QFileDialog.getOpenFileNames(filter=fileExtsASC,
-                                                caption=r"Select ArtemiS output files in '03 Experiment\Experiment 1\Analysis\ArtemiS\CALHEQ\asc'"))[0]
-
-filelistASC.sort()
-
-filelist = filelistXLSX + filelistASC
+filelist.sort()
 
 filenames = [filepath.split('/')[-1] for filepath in filelist]
-renderNames = [filename.split('_CALHEQ_Pa')[0] for filename in filenames]
+renderNames = [filename.split('_MA220_Pa')[0] for filename in filenames]
 
 # loop over files to analyse
 for ii, file in enumerate(filelist):
@@ -1522,390 +1618,82 @@ for ii, file in enumerate(filelist):
         print("Processing sound quality metrics...\n")
     print(file.split('/')[-1])
 
-    if file[-3:] == "asc":
+    if file.find("Specific") != -1:
 
-        if file.find("Specific") != -1:
-
-            if file.find("Impulsiveness") != -1:
-                # Sottek Hearing Model impulsiveness
-                # ----------------------------------
-                filedata = np.array(pd.read_csv(file, sep="	", header=None))
-                chan2row = np.arange(0, filedata.shape[0])[np.isnan(filedata[:, 0])][-1]
-        
-                # specific time-dependent impulsiveness
-                specImpulsSHML = pd.DataFrame(filedata[1:chan2row, 1:],
-                                            index=filedata[1:chan2row, 0],
+        if file.find("Impulsiveness") != -1:
+            # Sottek Hearing Model impulsiveness
+            # ----------------------------------
+            filedata = np.array(pd.read_csv(file, sep="	", header=None))
+    
+            # specific time-dependent impulsiveness
+            specImpulsSHM = pd.DataFrame(filedata[1:, 1:],
+                                            index=filedata[1:, 0],
                                             columns=filedata[0, 1:])
-                specImpulsSHMR = pd.DataFrame(filedata[chan2row + 1:, 1:],
-                                            index=filedata[chan2row + 1:, 0],
-                                            columns=filedata[chan2row, 1:])
-            
-            elif file.find("Fluctuation") != -1:
-                # ECMA-418-2:2025 Fluctuation strength
-                # -----------------------------------
-                filedata = np.array(pd.read_csv(file, sep="	", header=None))
-                chan2row = np.arange(0, filedata.shape[0])[np.isnan(filedata[:, 0])][-1]
-
-                # specific ECMA-418-2:2025 Fluctuation strength
-                specFluctECMAL = pd.DataFrame(filedata[1:chan2row, 1:],
-                                              index=filedata[1:chan2row, 0],
-                                              columns=filedata[0, 1:])
-                specFluctECMAR = pd.DataFrame(filedata[chan2row + 1:, 1:],
-                                              index=filedata[chan2row + 1:, 0],
-                                              columns=filedata[chan2row, 1:])
-
-                # calculate binaural fluctuation strength
-                specFluctECMABin = ((specFluctECMAL**2
-                                     + specFluctECMAR**2)/2).pow(0.5)
-
-                # binaural time-dependent binaural fluctuation strength
-                fluctECMASHMTDepBin = specFluctECMABin.sum(axis=1)*bandDiff0p5
-
-                # binaural fluctuation strength masked for start/end skip
-                fluctECMASHMTDepBinMask = fluctECMASHMTDepBin.loc[(fluctECMASHMTDepBin.index.values
-                                                                   > start_skipT).transpose()
-                                                                  & (fluctECMASHMTDepBin.index.values
-                                                                     < fluctECMASHMTDepBin.index.values.max()
-                                                                     - end_skipT).transpose()]
-
-                # binaural overall 10% exceeded binaural fluctuation strength
-                fluctECMA10ExBin = fluctECMASHMTDepBinMask.quantile(q=0.90)
-
-                # binaural overall 5% exceeded binaural fluctuation strength
-                fluctECMA05ExBin = fluctECMASHMTDepBinMask.quantile(q=0.95)
-
-                # add results to output DataFrame
-                dataByStim.loc[renderNames[ii], 'FluctECMA10ExBin'] = fluctECMA10ExBin
-                dataByStim.loc[renderNames[ii], 'FluctECMA05ExBin'] = fluctECMA05ExBin
-
-            # calculation section for SQM differences
-            # NOTE: THIS SECTION RELIES ON THE ALPHABETIC ORDER OF THE STIMULI FILES AS
-            # ORIGINALLY NAMED: EACH AMBIENT SOUND FILE PRECEDING THE CORRESPONDING
-            # COMBINED STIMULI FILES. IF THE ORDERING OR FILE NAMING IS CHANGED, THIS
-            # CALCULATION WILL BE INVALIDATED AND *MAY ALSO* CAUSE AN ERROR.
-            # a rolling 50 ms window is applied to average the SQM values over time -
-            # this is to reduce uncertainty due to imperfect time-alignment between the
-            # ambient vs combined stimuli files (all are from recordings, so there will
-            # be some slippage due to imperfect editing)
-            if renderNames[ii] in ["A1", "A2", "B2"]:
-                # NOTE: we could dropna() the first <windowT values, but these will be
-                # ignored anyway in the statistical analysis, assuming start_skipT >
-                # windowT
-    
-                # calculate moving average values for ambient stimulus
-                if file.find("Impulsiveness") != -1:
-                    ambSpecImpulsSHMLMovAvg = specImpulsSHML.rolling(window=int(np.ceil(sampleRateImpulsSHM*windowT))).mean()
-                    ambSpecImpulsSHMRMovAvg = specImpulsSHMR.rolling(window=int(np.ceil(sampleRateImpulsSHM*windowT))).mean()
-                
-                elif file.find("Fluctuation") != -1:
-                    ambSpecFluctECMASHMLMovAvg = specFluctECMAL.rolling(window=int(np.ceil((sampleRateModECMA)*windowT))).mean()
-                    ambSpecFluctECMASHMRMovAvg = specFluctECMAR.rolling(window=int(np.ceil((sampleRateModECMA)*windowT))).mean()
-                
-            elif renderNames[ii][0:3] in ["A1_", "A2_", "B2_"]:
-                # calculate moving average values for combined stimulus
-                # impulsiveness
-                if file.find("Impulsiveness") != -1:
-                    specImpulsSHMLMovAvg = specImpulsSHML.rolling(window=int(np.ceil(sampleRateImpulsSHM*windowT))).mean()
-                    specImpulsSHMRMovAvg = specImpulsSHMR.rolling(window=int(np.ceil(sampleRateImpulsSHM*windowT))).mean()
-    
-                    dImpulsSHMTDep = pd.concat([np.maximum(specImpulsSHMLMovAvg
-                                                - ambSpecImpulsSHMLMovAvg, 0).sum(axis=1).to_frame(name="Channel 1"),
-                                                np.maximum(specImpulsSHMRMovAvg
-                                                - ambSpecImpulsSHMRMovAvg, 0).sum(axis=1).to_frame(name="Channel 2")],
-                                               axis=1)
         
-                    # calculate aggregated difference values
-                    # 2-channel impulsiveness masked for start/end skip
-                    dImpulsSHMTDepMask = dImpulsSHMTDep.loc[(dImpulsSHMTDep.index.values
-                                                             > start_skipT).transpose()
-                                                            & (dImpulsSHMTDep.index.values
-                                                               < dImpulsSHMTDep.index.values.max()
-                                                               - end_skipT).transpose()]
-                    
-                    # max l/r overall (power-averaged) impulsiveness
-                    dImpulsSHMPowAvgMaxLR = (dImpulsSHMTDepMask.pow(1/np.log10(2)).mean(axis=0)**np.log10(2)).max()
+        elif file.find("Fluctuation") != -1 and file.find("ECMA") != -1:
+            # ECMA-418-2:2025 Fluctuation strength
+            # -----------------------------------
+            filedata = np.array(pd.read_csv(file, sep="	", header=None))
 
-                    # max l/r overall (mean) impulsiveness
-                    dImpulsSHMMeanMaxLR = dImpulsSHMTDepMask.mean(axis=0).max()
-        
-                    # max l/r overall 5% exceeded impulsiveness
-                    dImpulsSHM05ExMaxLR = dImpulsSHMTDepMask.quantile(q=0.95, axis=0).max()
-    
-                    # add results to output DataFrame
-                    dataByStim.loc[renderNames[ii], 'dImpulsSHMPowAvgMaxLR'] = dImpulsSHMPowAvgMaxLR
-                    dataByStim.loc[renderNames[ii], 'dImpulsSHMAvgMaxLR'] = dImpulsSHMMeanMaxLR
-                    dataByStim.loc[renderNames[ii], 'dImpulsSHM05ExMaxLR'] = dImpulsSHM05ExMaxLR
+            # specific ECMA-418-2:2025 Fluctuation strength
+            specFluctECMA = pd.DataFrame(filedata[1:, 1:],
+                                            index=filedata[1:, 0],
+                                            columns=filedata[0, 1:])
 
-                # fluctuation strength
-                if file.find("Fluctuation") != -1:
-                    specFluctECMALMovAvg = specFluctECMAL.rolling(window=int(np.ceil((sampleRateModECMA)*windowT))).mean()
-                    specFluctECMARMovAvg = specFluctECMAR.rolling(window=int(np.ceil((sampleRateModECMA)*windowT))).mean()
-                
-                    # calculate differences and make negative values 0
-                    # fluctuation strength
-                    dSpecFluctECMAL = np.maximum(specFluctECMALMovAvg
-                                                 - ambSpecFluctECMASHMLMovAvg, 0)
-                    dSpecFluctECMAR = np.maximum(specFluctECMARMovAvg
-                                                 - ambSpecFluctECMASHMRMovAvg, 0)
 
-                    # binaural specific fluctuation strength
-                    dSpecFluctECMABin = ((dSpecFluctECMAL**2
-                                         + dSpecFluctECMAR**2)/2).pow(0.5) 
-                    
-                    # binaural time-dependent binaural fluctuation strength
-                    dFluctECMASHMTDepBin = dSpecFluctECMABin.sum(axis=1)*bandDiff0p5
+            # time-dependent binaural fluctuation strength
+            fluctECMASHMTDep = specFluctECMA.sum(axis=1)*bandDiff0p5
 
-                    # binaural fluctuation strength masked for start/end skip
-                    dFluctECMASHMTDepBinMask = dFluctECMASHMTDepBin.loc[(dFluctECMASHMTDepBin.index.values
-                                                                         > start_skipT).transpose()
-                                                                        & (dFluctECMASHMTDepBin.index.values
-                                                                           < dFluctECMASHMTDepBin.index.values.max()
-                                                                           - end_skipT).transpose()]
+            #  fluctuation strength masked for start/end skip
+            fluctECMASHMTDepMask = fluctECMASHMTDep.loc[(fluctECMASHMTDep.index.values
+                                                            > start_skipT).transpose()
+                                                        & (fluctECMASHMTDep.index.values
+                                                            < fluctECMASHMTDep.index.values.max()
+                                                            - end_skipT).transpose()]
 
-                    # binaural overall 10% exceeded fluctuation strength
-                    dFluctECMA10ExBin = dFluctECMASHMTDepBinMask.quantile(q=0.90)
+            # overall 10% exceeded binaural fluctuation strength
+            fluctECMA10Ex = fluctECMASHMTDepMask.quantile(q=0.90)
 
-                    # binaural overall 5% exceeded fluctuation strength
-                    dFluctECMA05ExBin = dFluctECMASHMTDepBinMask.quantile(q=0.95)
-
-                    # add results to output DataFrame
-                    dataByStim.loc[renderNames[ii], 'dFluctECMA10ExBin'] = dFluctECMA10ExBin
-                    dataByStim.loc[renderNames[ii], 'dFluctECMA05ExBin'] = dFluctECMA05ExBin
-                    
-                
-        # if-else branch for not specific impulsiveness (overall)
-        else:
-            
-            # read in time-dependent impulsiveness
-            impulsSHMTDep = pd.read_csv(file, sep="	", header=None, index_col=0)
-            
-            # mask for start/end skip and 0 values
-            impulsSHMTDepMask = impulsSHMTDep.loc[(impulsSHMTDep.index.values
-                                                   > start_skipT).transpose()
-                                                  & (impulsSHMTDep.index.values
-                                                     < impulsSHMTDep.index.values.max()
-                                                     - end_skipT).transpose()]
-
-            # max l/r overall (power-averaged) impulsiveness
-            impulsSHMPowAvgMaxLR = (impulsSHMTDepMask.pow(1/np.log10(2)).mean(axis=0)**np.log10(2)).max()
- 
-            # max l/r overall (mean) impulsiveness
-            impulsSHMMeanMaxLR = impulsSHMTDepMask.mean(axis=0).max()
-
-            # max l/r overall 5% exceeded impulsiveness
-            impulsSHM05ExMaxLR = impulsSHMTDepMask.quantile(q=0.95).max()
+            # overall 5% exceeded fluctuation strength
+            fluctECMA05Ex = fluctECMASHMTDepMask.quantile(q=0.95)
 
             # add results to output DataFrame
-            dataByStim.loc[renderNames[ii], 'ImpulsSHMPowAvgMaxLR'] = impulsSHMPowAvgMaxLR
-            dataByStim.loc[renderNames[ii], 'ImpulsSHMAvgMaxLR'] = impulsSHMMeanMaxLR
-            dataByStim.loc[renderNames[ii], 'ImpulsSHM05ExMaxLR'] = impulsSHM05ExMaxLR
-
-    # end of if branch for .asc files
-
-    elif file[-4:] == "xlsx":
-        workbookdata = pd.read_excel(io=file, sheet_name=None, engine='calamine')
-
-        recFile = workbookdata['Sheet1'].columns[5].split(sep='\'')[1]
-
-        # check file is correct and added sheets match first sheet
-        if filenames[ii].split(".xlsx")[0] != recFile.split(".wav")[0]:
-            raise ValueError("Error: The recording analysis does not match the filename. Check file " + filenames[ii])
-        elif recFile != workbookdata['Sheet8'].columns[5].split(sep='\'')[1]:
-            raise ValueError("Error: The recording analysis does not match across sheets. Check file " + filenames[ii])
-        elif recFile != workbookdata['Sheet9'].columns[5].split(sep='\'')[1]:
-            raise ValueError("Error: The recording analysis does not match across sheets. Check file " + filenames[ii])
-
-        # fix any problem filenames (legacy: should be unnecessary)
-        if recFile.find("YnTy") != -1:
-            recFile = recFile.replace("YnTy", "H520")
-        if recFile.find(".wav_Pa.wav") != -1:
-            recFile = recFile.replace(".wav_Pa.wav", "_Pa.wav")
-
-        # Calculate overall Sottek Hearing Model fluctuation strength from
-        # 2-channel specific fluctuation strength
-        # calculate according to ECMA-418-2:2022 approach for roughness
-        # left channel
-        specFluctOldSHML = pd.DataFrame(workbookdata['Sheet6'].iloc[14:, 1:].values,
-                                        columns=workbookdata['Sheet6'].iloc[13, 1:],
-                                        index=workbookdata['Sheet6'].iloc[14:, 0])
-        # right channel
-        specFluctOldSHMR = pd.DataFrame(workbookdata['Sheet7'].iloc[14:, 1:].values,
-                                        columns=workbookdata['Sheet7'].iloc[13, 1:],
-                                        index=workbookdata['Sheet7'].iloc[14:, 0])
-
-        # binaural specific fluctuation strength
-        # (using ECMA-418-2:2022 Equation 112 for roughness)
-        specFluctOldSHMBin = ((specFluctOldSHML**2
-                               + specFluctOldSHMR**2)/2).pow(0.5)
-        # binaural time-dependent fluctuation strength
-        # (using ECMA-418-2:2022 Equation 111 for roughness)
-        FluctOldSHMTDepBin = specFluctOldSHMBin.sum(axis=0)*bandDiff0p5
-
-        # mask for start/end skip
-        FluctOldSHMTDepBinMask = FluctOldSHMTDepBin.loc[(FluctOldSHMTDepBin.index.values
-                                                         > start_skipT)
-                                                        & (FluctOldSHMTDepBin.index.values
-                                                           < FluctOldSHMTDepBin.index.values.max()
-                                                           - end_skipT)]
-
-        # binaural overall (90th percentile = 10% exceeded) fluctuation strength
-        # (using ECMA-418-2:2022 Section 7.1.8 for roughness)
-        FluctOldSHM10ExBin = FluctOldSHMTDepBinMask.quantile(q=0.90)
-
-        # binaural overall (95th percentile = 5% exceeded) fluctuation strength
-        FluctOldSHM05ExBin = FluctOldSHMTDepBinMask.quantile(q=0.95)
-
-        # binaural overall time-averaged fluctuation strength
-        FluctOldSHMAvgBin = FluctOldSHMTDepBinMask.mean()
-
-        # Calculate overall ISO 532-1 loudness from 2-channel time-varing loudness
-        loudISO1TDep = pd.DataFrame(workbookdata['Sheet1'].iloc[13:, 1:3].values,
-                                    columns=workbookdata['Sheet1'].iloc[12, 1:3],
-                                    index=workbookdata['Sheet1'].iloc[13:, 0])
-
-        # mask for start/end skip and 0 values
-        loudISO1TDepMask = loudISO1TDep.loc[(loudISO1TDep.index.values
-                                             > start_skipT).transpose()
-                                            & (loudISO1TDep.index.values
-                                               < loudISO1TDep.index.values.max()
-                                               - end_skipT).transpose()]
-
-        # max l/r overall (5% exceeded = 95th percentile) loudness
-        loudISO105ExMaxLR = loudISO1TDepMask.quantile(q=0.95).max()
-
-        # max l/r overall (power-averaged) loudness
-        loudISO1PowAvgMaxLR = (loudISO1TDepMask.pow(1/np.log10(2)).mean(axis=0)**np.log10(2)).max()
-
-        # Calculate overall ISO 532-3 loudness from binaural time-varing loudness
-        loudISO3TDepBin = pd.DataFrame(workbookdata['Sheet9'].iloc[13:, 1:2].values,
-                                       columns=workbookdata['Sheet9'].iloc[12, 1:2],
-                                       index=workbookdata['Sheet9'].iloc[13:, 0])
-
-        # mask for start/end skip
-        loudISO3TDepBinMask = loudISO3TDepBin.loc[(loudISO3TDepBin.index.values
-                                                   > start_skipT)
-                                                  & (loudISO3TDepBin.index.values
-                                                     < loudISO3TDepBin.index.values.max()
-                                                     - end_skipT)]
-
-        # binaural overall (power-averaged) loudness
-        loudISO3PowAvgBin = (loudISO3TDepBinMask.pow(1/np.log10(2)).mean(axis=0)**np.log10(2)).iloc[0]
-
-        # binaural overall 5% exceeded loudness
-        loudISO305ExBin = loudISO3TDepBinMask.quantile(q=0.95).iloc[0]
-
-        # Calculate overall DIN 45692 sharpness from 2-channel time-dependent
-        # sharpness
-        sharpDINTDep = pd.DataFrame(workbookdata['Sheet3'].iloc[13:, 1:3].values,
-                                    columns=workbookdata['Sheet3'].iloc[12, 1:3],
-                                    index=workbookdata['Sheet3'].iloc[13:, 0])
-
-        # binaural sharpness
-        sharpDINTDepBin = ((sharpDINTDep.iloc[:, 0]**2
-                            + sharpDINTDep.iloc[:, 1]**2)/2).pow(0.5)
-
-        # mask for start/end skip
-        sharpDINTDepBinMask = sharpDINTDepBin.loc[(sharpDINTDepBin.index.values
-                                                   > start_skipT)
-                                                  & (sharpDINTDepBin.index.values
-                                                     < sharpDINTDepBin.index.values.max()
-                                                     - end_skipT)]
-
-        # binaural overall (power-averaged) sharpness
-        sharpDINPowAvgBin = sharpDINTDepBinMask.pow(1/np.log10(2)).mean()**np.log10(2)
-
-        # binaural overall 5% exceeded sharpness
-        sharpDIN05ExBin = sharpDINTDepBinMask.quantile(q=0.95)
-
-        # Calculate overall von Bismarck | ISO 532-1 sharpness from 2-channel
-        # time-dependent sharpness
-        sharpvBISO1TDep = pd.DataFrame(workbookdata['Sheet4'].iloc[13:, 1:3].values,
-                                       columns=workbookdata['Sheet4'].iloc[12, 1:3],
-                                       index=workbookdata['Sheet4'].iloc[13:, 0])
+            dataByStim.loc[renderNames[ii], 'FluctECMA10Ex'] = fluctECMA10Ex
+            dataByStim.loc[renderNames[ii], 'FluctECMA05Ex'] = fluctECMA05Ex
         
-        # binaural sharpness
-        sharpvBISO1TDepBin = ((sharpvBISO1TDep.iloc[:, 0]**2
-                               + sharpvBISO1TDep.iloc[:, 1]**2)/2).pow(0.5)
+        elif file.find("Fluctuation") != -1:
+            # Old Sottek Hearing Model Fluctuation strength
+            # -----------------------------------
+            filedata = np.array(pd.read_csv(file, sep="	", header=None))
 
-        # mask for start/end skip
-        sharpvBISO1TDepBinMask = sharpvBISO1TDepBin.loc[(sharpvBISO1TDepBin.index.values
-                                                         > start_skipT)
-                                                        & (sharpvBISO1TDepBin.index.values
-                                                           < sharpvBISO1TDepBin.index.values.max()    
-                                                           - end_skipT)]
+            # specific fluctuation strength
+            specFluctOldSHM = pd.DataFrame(filedata[1:, 1:],
+                                           index=filedata[1:, 0],
+                                           columns=filedata[0, 1:])
 
-        # binaural overall (power-averaged) sharpness
-        sharpvBISO1PowAvgBin = sharpvBISO1TDepBinMask.pow(1/np.log10(2)).mean()**np.log10(2)
+            # time-dependent fluctuation strength
+            FluctOldSHMTDep = specFluctOldSHM.sum(axis=1)*bandDiff0p5
 
-        # binaural overall 5% exceeded sharpness
-        sharpvBISO105ExBin = sharpvBISO1TDepBinMask.quantile(q=0.95)
+            # mask for start/end skip
+            FluctOldSHMTDepMask = FluctOldSHMTDep.loc[(FluctOldSHMTDep.index.values
+                                                        > start_skipT)
+                                                        & (FluctOldSHMTDep.index.values
+                                                            < FluctOldSHMTDep.index.values.max()
+                                                            - end_skipT)]
 
-        # Calculate overall Aures+ISO532-3 sharpness from 2-channel time-dependent
-        # sharpness
-        sharpAISO3TDep = pd.DataFrame(workbookdata['Sheet8'].iloc[13:, 1:3].values,
-                                      columns=workbookdata['Sheet8'].iloc[12, 1:3],
-                                      index=workbookdata['Sheet8'].iloc[13:, 0])
+            # overall (90th percentile = 10% exceeded) fluctuation strength
+            FluctOldSHM10Ex = FluctOldSHMTDepMask.quantile(q=0.90)
 
-        # binaural sharpness
-        sharpAISO3TDepBin = ((sharpAISO3TDep.iloc[:, 0]**2
-                              + sharpAISO3TDep.iloc[:, 1]**2)/2).pow(0.5)
+            # overall (95th percentile = 5% exceeded) fluctuation strength
+            FluctOldSHM05Ex = FluctOldSHMTDepMask.quantile(q=0.95)
 
-        # mask for start/end skip
-        sharpAISO3TDepBinMask = sharpAISO3TDepBin.loc[(sharpAISO3TDepBin.index.values
-                                                       > start_skipT)
-                                                      & (sharpAISO3TDepBin.index.values
-                                                         < sharpAISO3TDepBin.index.values.max()
-                                                         - end_skipT)]
+            # overall time-averaged fluctuation strength
+            FluctOldSHMAvg = FluctOldSHMTDepMask.mean()
 
-        # binaural overall (power-averaged) sharpness
-        sharpAISO3PowAvgBin = sharpAISO3TDepBinMask.pow(1/np.log10(2)).mean()**np.log10(2)
-
-        # binaural overall 5% exceeded sharpness
-        sharpAISO305ExBin = sharpAISO3TDepBinMask.quantile(q=0.95)
-
-        # Calculate overall Aures+ISO532-1 sharpness from 2-channel time-dependent
-        # sharpness
-        sharpAISO1TDep = pd.DataFrame(workbookdata['Sheet5'].iloc[13:, 1:3].values,
-                                      columns=workbookdata['Sheet5'].iloc[12, 1:3],
-                                      index=workbookdata['Sheet5'].iloc[13:, 0])
-
-        # binaural sharpness
-        sharpAISO1TDepBin = ((sharpAISO1TDep.iloc[:, 0]**2
-                              + sharpAISO1TDep.iloc[:, 1]**2)/2).pow(0.5)
-
-        # mask for start/end skip
-        sharpAISO1TDepBinMask = sharpAISO1TDepBin.loc[(sharpAISO1TDepBin.index.values
-                                                       > start_skipT)
-                                                      & (sharpAISO1TDepBin.index.values
-                                                         < sharpAISO1TDepBin.index.values.max()
-                                                         - end_skipT)]
-
-        # binaural overall (power-averaged) sharpness
-        sharpAISO1PowAvgBin = sharpAISO1TDepBinMask.pow(1/np.log10(2)).mean()**np.log10(2)
-
-        # binaural overall 5% exceeded sharpness
-        sharpAISO105ExBin = sharpAISO1TDepBinMask.quantile(q=0.95)
-
-        # binaural overall median sharpness
-        sharpAISO1MedBin = sharpAISO1TDepBinMask.median()
-
-        # add results to output DataFrame
-        dataByStim.loc[renderNames[ii], 'FluctOldSHM10ExBin'] = FluctOldSHM10ExBin
-        dataByStim.loc[renderNames[ii], 'FluctOldSHM05ExBin'] = FluctOldSHM05ExBin
-        dataByStim.loc[renderNames[ii], 'FluctOldSHMAvgBin'] = FluctOldSHMAvgBin
-        dataByStim.loc[renderNames[ii], 'LoudISO105ExMaxLR'] = loudISO105ExMaxLR
-        dataByStim.loc[renderNames[ii], 'LoudISO1PowAvgMaxLR'] = loudISO1PowAvgMaxLR
-        dataByStim.loc[renderNames[ii], 'LoudISO3PowAvgBin'] = loudISO3PowAvgBin
-        dataByStim.loc[renderNames[ii], 'LoudISO305ExBin'] = loudISO305ExBin
-        dataByStim.loc[renderNames[ii], 'SharpAurISO3PowAvgBin'] = sharpAISO3PowAvgBin
-        dataByStim.loc[renderNames[ii], 'SharpAurISO305ExBin'] = sharpAISO305ExBin
-        dataByStim.loc[renderNames[ii], 'SharpAurISO1PowAvgBin'] = sharpAISO1PowAvgBin
-        dataByStim.loc[renderNames[ii], 'SharpAurISO105ExBin'] = sharpAISO105ExBin
-        dataByStim.loc[renderNames[ii], 'SharpvBISO1PowAvgBin'] = sharpvBISO1PowAvgBin
-        dataByStim.loc[renderNames[ii], 'SharpvBISO105ExBin'] = sharpvBISO105ExBin
-        dataByStim.loc[renderNames[ii], 'SharpDINPowAvgBin'] = sharpDINPowAvgBin
-        dataByStim.loc[renderNames[ii], 'SharpDIN05ExBin'] = sharpDIN05ExBin
-        dataByStim.loc[renderNames[ii], 'SharpAISO1MedBin'] = sharpAISO1MedBin
+            # add results to output DataFrame
+            dataByStim.loc[renderNames[ii], 'FluctOldSHM10Ex'] = FluctOldSHM10Ex
+            dataByStim.loc[renderNames[ii], 'FluctOldSHM05Ex'] = FluctOldSHM05Ex
+            dataByStim.loc[renderNames[ii], 'FluctOldSHMAvg'] = FluctOldSHMAvg
 
         # calculation section for SQM differences
         # NOTE: THIS SECTION RELIES ON THE ALPHABETIC ORDER OF THE STIMULI FILES AS
@@ -1916,7 +1704,258 @@ for ii, file in enumerate(filelist):
         # this is to reduce uncertainty due to imperfect time-alignment between the
         # ambient vs combined stimuli files (all are from recordings, so there will
         # be some slippage due to imperfect editing)
-        if renderNames[ii] in ["A1", "A2", "B2"]:
+        if renderNames[ii].__contains__("_Baseline_"):
+            # NOTE: we could dropna() the first <windowT values, but these will be
+            # ignored anyway in the statistical analysis, assuming start_skipT >
+            # windowT
+
+            # calculate moving average values for ambient stimulus
+            if file.find("Impulsiveness") != -1:
+                ambSpecImpulsSHMMovAvg = specImpulsSHM.rolling(window=int(np.ceil(sampleRateImpulsSHM*windowT))).mean()
+            
+            elif file.find("Fluctuation") != -1 and file.find("ECMA") != -1:
+                ambSpecFluctECMAMovAvg = specFluctECMA.rolling(window=int(np.ceil((sampleRateModECMA)*windowT))).mean()
+            
+        elif renderNames[ii].__contains__("Street") or renderNames[ii].__contains__("Park"):
+            # calculate moving average values for combined stimulus
+            # impulsiveness
+            if file.find("Impulsiveness") != -1:
+                specImpulsSHMMovAvg = specImpulsSHM.rolling(window=int(np.ceil(sampleRateImpulsSHM*windowT))).mean()
+
+                dImpulsSHMTDep = np.maximum(specImpulsSHMMovAvg
+                                            - ambSpecImpulsSHMMovAvg, 0).sum(axis=1).to_frame(name="Monaural")
+    
+                # calculate aggregated difference values
+                # impulsiveness masked for start/end skip
+                dImpulsSHMTDepMask = dImpulsSHMTDep.loc[(dImpulsSHMTDep.index.values
+                                                            > start_skipT).transpose()
+                                                        & (dImpulsSHMTDep.index.values
+                                                            < dImpulsSHMTDep.index.values.max()
+                                                            - end_skipT).transpose()]
+                
+                # overall (power-averaged) impulsiveness
+                dImpulsSHMPowAvg = (dImpulsSHMTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).max()
+
+                # overall (mean) impulsiveness
+                dImpulsSHMAvg = dImpulsSHMTDepMask.mean()
+    
+                # overall 5% exceeded impulsiveness
+                dImpulsSHM05Ex = dImpulsSHMTDepMask.quantile(q=0.95)
+
+                # add results to output DataFrame
+                dataByStim.loc[renderNames[ii], 'dImpulsSHMPowAvg'] = dImpulsSHMPowAvg
+                dataByStim.loc[renderNames[ii], 'dImpulsSHMAvg'] = dImpulsSHMAvg
+                dataByStim.loc[renderNames[ii], 'dImpulsSHM05Ex'] = dImpulsSHM05Ex
+
+            # ECMA Sottek Hearing Model fluctuation strength
+            elif file.find("Fluctuation") != -1 and file.find("ECMA") != -1:
+                specFluctECMAMovAvg = specFluctECMA.rolling(window=int(np.ceil((sampleRateModECMA)*windowT))).mean()
+            
+                # calculate differences and make negative values 0
+                # fluctuation strength
+                dSpecFluctECMA = np.maximum(specFluctECMAMovAvg
+                                            - ambSpecFluctECMAMovAvg, 0)
+
+                # time-dependent fluctuation strength
+                dFluctECMASHMTDep = dSpecFluctECMA.sum(axis=1)*bandDiff0p5
+
+                # fluctuation strength masked for start/end skip
+                dFluctECMASHMTDepMask = dFluctECMASHMTDep.loc[(dFluctECMASHMTDep.index.values
+                                                                > start_skipT).transpose()
+                                                                & (dFluctECMASHMTDep.index.values
+                                                                    < dFluctECMASHMTDep.index.values.max()
+                                                                    - end_skipT).transpose()]
+
+                # overall 10% exceeded fluctuation strength
+                dFluctECMA10Ex = dFluctECMASHMTDepMask.quantile(q=0.90)
+
+                # overall 5% exceeded fluctuation strength
+                dFluctECMA05Ex = dFluctECMASHMTDepMask.quantile(q=0.95)
+
+                # add results to output DataFrame
+                dataByStim.loc[renderNames[ii], 'dFluctECMA10Ex'] = dFluctECMA10Ex
+                dataByStim.loc[renderNames[ii], 'dFluctECMA05Ex'] = dFluctECMA05Ex
+            
+    # if-else branch for non-specific sound quality
+    else:
+        # calculation section for Sottek Hearing Model impulsiveness
+        if file.find("Impulsiveness") != -1:
+        
+            # read in time-dependent impulsiveness
+            impulsSHMTDep = pd.read_csv(file, sep="	", header=None, index_col=0)
+            
+            # mask for start/end skip and 0 values
+            impulsSHMTDepMask = impulsSHMTDep.loc[(impulsSHMTDep.index.values
+                                                   > start_skipT).transpose()
+                                                  & (impulsSHMTDep.index.values
+                                                     < impulsSHMTDep.index.values.max()
+                                                     - end_skipT).transpose()]
+
+            # overall (power-averaged) impulsiveness
+            impulsSHMPowAvg = (impulsSHMTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
+
+            # overall (mean) impulsiveness
+            impulsSHMAvg = impulsSHMTDepMask.mean().iloc[0]
+
+            # overall (5% exceeded) impulsiveness
+            impulsSHM05Ex = impulsSHMTDepMask.quantile(q=0.95).iloc[0]
+
+            # add results to output DataFrame
+            dataByStim.loc[renderNames[ii], 'ImpulsSHMPowAvg'] = impulsSHMPowAvg
+            dataByStim.loc[renderNames[ii], 'ImpulsSHMAvg'] = impulsSHMAvg
+            dataByStim.loc[renderNames[ii], 'ImpulsSHM05Ex'] = impulsSHM05Ex
+
+        elif file.find("Loudness") != -1 and file.find("ISO 532-1") != -1:
+
+            # Calculate overall ISO 532-1 loudness from time-varing loudness
+            loudISO1TDep = pd.read_csv(file, sep="	", header=None, index_col=0)
+
+            # mask for start/end skip and 0 values
+            loudISO1TDepMask = loudISO1TDep.loc[(loudISO1TDep.index.values
+                                                 > start_skipT).transpose()
+                                                & (loudISO1TDep.index.values
+                                                   < loudISO1TDep.index.values.max()
+                                                   - end_skipT).transpose()]
+
+            # overall (5% exceeded = 95th percentile) loudness
+            loudISO105Ex = loudISO1TDepMask.quantile(q=0.95).iloc[0]
+
+            # overall (power-averaged) loudness
+            loudISO1PowAvg = (loudISO1TDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
+        
+            # add results to output DataFrame
+            dataByStim.loc[renderNames[ii], 'LoudISO105Ex'] = loudISO105Ex
+            dataByStim.loc[renderNames[ii], 'LoudISO1PowAvg'] = loudISO1PowAvg
+
+        elif file.find("Loudness") != -1 and file.find("ISO 532-3") != -1:
+
+            # Calculate overall ISO 532-3 loudness from time-varing loudness
+            loudISO3TDep = pd.read_csv(file, sep="	", header=None, index_col=0)
+
+            # mask for start/end skip
+            loudISO3TDepMask = loudISO3TDep.loc[(loudISO3TDep.index.values
+                                                 > start_skipT)
+                                                & (loudISO3TDep.index.values
+                                                   < loudISO3TDep.index.values.max()
+                                                    - end_skipT)]
+
+            # overall (power-averaged) loudness
+            loudISO3PowAvg = (loudISO3TDepMask.pow(1/np.log10(2)).mean(axis=0)**np.log10(2)).iloc[0]
+
+            # overall 5% exceeded loudness
+            loudISO305Ex = loudISO3TDepMask.quantile(q=0.95).iloc[0]
+
+            # add results to output DataFrame
+            dataByStim.loc[renderNames[ii], 'LoudISO3PowAvg'] = loudISO3PowAvg
+            dataByStim.loc[renderNames[ii], 'LoudISO305Ex'] = loudISO305Ex
+        
+        
+        elif file.find("Sharpness") != -1 and file.find("DIN") != -1:
+
+            # Calculate overall DIN 45692 sharpness from time-dependent
+            # sharpness
+            sharpDINTDep = pd.read_csv(file, sep="	", header=None, index_col=0)
+
+            # mask for start/end skip
+            sharpDINTDepMask = sharpDINTDep.loc[(sharpDINTDep.index.values
+                                                    > start_skipT)
+                                                    & (sharpDINTDep.index.values
+                                                        < sharpDINTDep.index.values.max()
+                                                        - end_skipT)]
+
+            # overall (power-averaged) sharpness
+            sharpDINPowAvg = (sharpDINTDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
+
+            # overall 5% exceeded sharpness
+            sharpDIN05Ex = sharpDINTDepMask.quantile(q=0.95).iloc[0]
+
+            # add results to output DataFrame
+            dataByStim.loc[renderNames[ii], 'SharpDINPowAvg'] = sharpDINPowAvg
+            dataByStim.loc[renderNames[ii], 'SharpDIN05Ex'] = sharpDIN05Ex
+                
+        elif file.find("Sharpness") != -1 and file.find("von Bismarck") != -1:
+
+            # Calculate overall von Bismarck | ISO 532-1 sharpness from
+            # time-dependent sharpness
+            sharpvBISO1TDep = pd.read_csv(file, sep="	", header=None, index_col=0)
+
+            # mask for start/end skip
+            sharpvBISO1TDepMask = sharpvBISO1TDep.loc[(sharpvBISO1TDep.index.values
+                                                       > start_skipT)
+                                                      & (sharpvBISO1TDep.index.values
+                                                         < sharpvBISO1TDep.index.values.max()    
+                                                         - end_skipT)]
+
+            # overall (power-averaged) sharpness
+            sharpvBISO1PowAvg = (sharpvBISO1TDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
+
+            # overall 5% exceeded sharpness
+            sharpvBISO105Ex = sharpvBISO1TDepMask.quantile(q=0.95).iloc[0]
+
+            # add results to output DataFrame
+            dataByStim.loc[renderNames[ii], 'SharpvBISO1PowAvg'] = sharpvBISO1PowAvg
+            dataByStim.loc[renderNames[ii], 'SharpvBISO105Ex'] = sharpvBISO105Ex
+        
+        elif file.find("Sharpness") != -1 and file.find("ISO 532-3") != -1 and file.find("Aures") != -1:
+
+            # Calculate overall Aures+ISO532-3 sharpness from time-dependent
+            # sharpness
+            sharpAISO3TDep = pd.read_csv(file, sep="	", header=None, index_col=0)
+
+            # mask for start/end skip
+            sharpAISO3TDepMask = sharpAISO3TDep.loc[(sharpAISO3TDep.index.values
+                                                    > start_skipT)
+                                                    & (sharpAISO3TDep.index.values
+                                                    < sharpAISO3TDep.index.values.max()
+                                                    - end_skipT)]
+
+            # overall (power-averaged) sharpness
+            sharpAISO3PowAvg = (sharpAISO3TDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
+
+            # overall 5% exceeded sharpness
+            sharpAISO305Ex = sharpAISO3TDepMask.quantile(q=0.95).iloc[0]
+
+            # add results to output DataFrame    
+            dataByStim.loc[renderNames[ii], 'SharpAurISO3PowAvg'] = sharpAISO3PowAvg
+            dataByStim.loc[renderNames[ii], 'SharpAurISO305Ex'] = sharpAISO305Ex
+        
+        elif file.find("Sharpness") != -1 and file.find("ISO 532-1") != -1 and file.find("Aures") != -1:
+
+            # Calculate overall Aures+ISO532-1 sharpness from time-dependent
+            # sharpness
+            sharpAISO1TDep = pd.read_csv(file, sep="	", header=None, index_col=0)
+
+            # mask for start/end skip
+            sharpAISO1TDepMask = sharpAISO1TDep.loc[(sharpAISO1TDep.index.values
+                                                    > start_skipT)
+                                                    & (sharpAISO1TDep.index.values
+                                                    < sharpAISO1TDep.index.values.max()
+                                                    - end_skipT)]
+
+            # overall (power-averaged) sharpness
+            sharpAISO1PowAvg = (sharpAISO1TDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
+
+            # overall 5% exceeded sharpness
+            sharpAISO105Ex = sharpAISO1TDepMask.quantile(q=0.95).iloc[0]
+
+            # overall median sharpness
+            sharpAISO1Med = sharpAISO1TDepMask.median().iloc[0]
+
+            # add results to output DataFrame
+            dataByStim.loc[renderNames[ii], 'SharpAurISO1Med'] = sharpAISO1Med
+            dataByStim.loc[renderNames[ii], 'SharpAurISO1PowAvg'] = sharpAISO1PowAvg
+            dataByStim.loc[renderNames[ii], 'SharpAurISO105Ex'] = sharpAISO105Ex
+
+        # calculation section for SQM differences
+        # NOTE: THIS SECTION RELIES ON THE ALPHABETIC ORDER OF THE STIMULI FILES AS
+        # ORIGINALLY NAMED: EACH AMBIENT SOUND FILE PRECEDING THE CORRESPONDING
+        # COMBINED STIMULI FILES. IF THE ORDERING OR FILE NAMING IS CHANGED, THIS
+        # CALCULATION WILL BE INVALIDATED AND *MAY ALSO* CAUSE AN ERROR.
+        # a rolling 50 ms window is applied to average the SQM values over time -
+        # this is to reduce uncertainty due to imperfect time-alignment between the
+        # ambient vs combined stimuli files (all are from recordings, so there will
+        # be some slippage due to imperfect editing)
+        if renderNames[ii].__contains__("_Baseline_"):
             # NOTE: we could dropna() the first <windowT values, but these will be
             # ignored anyway in the statistical analysis, assuming start_skipT >
             # windowT
@@ -1924,7 +1963,7 @@ for ii, file in enumerate(filelist):
             # calculate moving average values for ambient stimulus
             ambSharpAISO3TDepMovAvg = sharpAISO3TDep.rolling(window=int(np.ceil(sampleRateLoudISO3*windowT))).mean()
 
-        elif renderNames[ii][0:3] in ["A1_", "A2_", "B2_"]:
+        elif renderNames[ii].__contains__("Street") or renderNames[ii].__contains__("Park"):
             # calculate moving average values for combined stimulus
             sharpAISO3TDepMovAvg = sharpAISO3TDep.rolling(window=int(np.ceil(sampleRateLoudISO3*windowT))).mean()
 
@@ -1932,27 +1971,23 @@ for ii, file in enumerate(filelist):
             dSharpAISO3TDep = np.maximum(sharpAISO3TDepMovAvg
                                          - ambSharpAISO3TDepMovAvg, 0)
 
-            # binaural sharpness difference
-            dSharpAISO3TDepBin = ((dSharpAISO3TDep.iloc[:, 0]**2
-                                   + dSharpAISO3TDep.iloc[:, 1]**2)/2).pow(0.5)   
-
             # calculate aggregated difference values
-            # binaural sharpness masked for start/end skip
-            dSharpAISO3TDepBinMask = dSharpAISO3TDepBin.loc[(dSharpAISO3TDepBin.index.values
-                                                             > start_skipT).transpose()
-                                                            & (dSharpAISO3TDepBin.index.values
-                                                               < dSharpAISO3TDepBin.index.values.max()
-                                                               - end_skipT).transpose()]
+            # sharpness masked for start/end skip
+            dSharpAISO3TDepMask = dSharpAISO3TDep.loc[(dSharpAISO3TDep.index.values
+                                                       > start_skipT).transpose()
+                                                      & (dSharpAISO3TDep.index.values
+                                                         < dSharpAISO3TDep.index.values.max()
+                                                         - end_skipT).transpose()]
 
-            # binaural overall (power-averaged) sharpness
-            dSharpAISO3PowAvgBin = dSharpAISO3TDepBinMask.pow(1/np.log10(2)).mean()**np.log10(2)
+            # overall (power-averaged) sharpness
+            dSharpAISO3PowAvg = (dSharpAISO3TDepMask.pow(1/np.log10(2)).mean()**np.log10(2)).iloc[0]
 
-            # 2-channel overall 5% exceeded sharpness
-            dSharpAISO305ExBin = dSharpAISO3TDepBinMask.quantile(q=0.95)
+            # overall 5% exceeded sharpness
+            dSharpAISO305Ex = dSharpAISO3TDepMask.quantile(q=0.95).iloc[0]
 
             # add results to output DataFrame
-            dataByStim.loc[renderNames[ii], 'dSharpAurISO3PowAvgBin'] = dSharpAISO3PowAvgBin
-            dataByStim.loc[renderNames[ii], 'dSharpAurISO305ExBin'] = dSharpAISO305ExBin
+            dataByStim.loc[renderNames[ii], 'dSharpAurISO3PowAvg'] = dSharpAISO3PowAvg
+            dataByStim.loc[renderNames[ii], 'dSharpAurISO305Ex'] = dSharpAISO305Ex
 
 # end of for loop over ArtemiS SQM files
 
@@ -1960,65 +1995,78 @@ for ii, file in enumerate(filelist):
 # %% Psychoacoustic annoyance metrics single values
 # --------------------------------------------------
 
-dataByStim['PsychAnnoyWidmann'] = psych_annoy.widmannPA(dataByStim.loc[:, 'LoudISO105ExMaxLR'],
-                                                        dataByStim.loc[:, 'SharpDIN05ExBin'],
-                                                        dataByStim.loc[:, 'RoughFZ05ExMaxLR'],
-                                                        dataByStim.loc[:, 'FluctFZ05ExMaxLR'])
+dataByStim['PsychAnnoyWidmann'] = psych_annoy.widmannPA(dataByStim.loc[:, 'LoudISO105Ex'],
+                                                        dataByStim.loc[:, 'SharpDIN05Ex'],
+                                                        dataByStim.loc[:, 'RoughFZ05Ex'],
+                                                        dataByStim.loc[:, 'FluctFZ05Ex'])
 
-dataByStim['PsychAnnoyMore'] = psych_annoy.morePA(dataByStim.loc[:, 'LoudISO105ExMaxLR'],
-                                                  dataByStim.loc[:, 'SharpvBISO105ExBin'],
-                                                  dataByStim.loc[:, 'RoughFZ05ExMaxLR'],
-                                                  dataByStim.loc[:, 'FluctFZ05ExMaxLR'],
-                                                  dataByStim.loc[:, 'TonalAur05ExMaxLR'])
+dataByStim['PsychAnnoyMore'] = psych_annoy.morePA(dataByStim.loc[:, 'LoudISO105Ex'],
+                                                  dataByStim.loc[:, 'SharpvBISO105Ex'],
+                                                  dataByStim.loc[:, 'RoughFZ05Ex'],
+                                                  dataByStim.loc[:, 'FluctFZ05Ex'],
+                                                  dataByStim.loc[:, 'TonalAur05Ex'])
 
-dataByStim['PsychAnnoyDi'] = psych_annoy.diPA(dataByStim.loc[:, 'LoudISO105ExMaxLR'],
-                                              dataByStim.loc[:, 'SharpvBISO105ExBin'],
-                                              dataByStim.loc[:, 'RoughECMAAvgBin'],
-                                              dataByStim.loc[:, 'FluctOldSHMAvgBin'],
-                                              dataByStim.loc[:, 'TonalAurAvgMaxLR'])
+dataByStim['PsychAnnoyDi'] = psych_annoy.diPA(dataByStim.loc[:, 'LoudISO105Ex'],
+                                              dataByStim.loc[:, 'SharpvBISO105Ex'],
+                                              dataByStim.loc[:, 'RoughECMAAvg'],
+                                              dataByStim.loc[:, 'FluctOldSHMAvg'],
+                                              dataByStim.loc[:, 'TonalAurAvg'])
 
-dataByStim['PsychAnnoyTorija'] = psych_annoy.torijaPA(dataByStim.loc[:, 'LoudISO105ExMaxLR'],
-                                                      dataByStim.loc[:, 'SharpDIN05ExBin'],
-                                                      dataByStim.loc[:, 'RoughECMA05ExBin'],
-                                                      dataByStim.loc[:, 'FluctECMA05ExBin'],
-                                                      dataByStim.loc[:, 'TonalECMA05ExMaxLR'],
-                                                      dataByStim.loc[:, 'ImpulsSHM05ExMaxLR'])
+dataByStim['PsychAnnoyTorija'] = psych_annoy.torijaPA(dataByStim.loc[:, 'LoudISO105Ex'],
+                                                      dataByStim.loc[:, 'SharpDIN05Ex'],
+                                                      dataByStim.loc[:, 'RoughECMA05Ex'],
+                                                      dataByStim.loc[:, 'FluctECMA05Ex'],
+                                                      dataByStim.loc[:, 'TonalECMA05Ex'],
+                                                      dataByStim.loc[:, 'ImpulsSHM05Ex'])
 
-dataByStim['PsychAnnoyWillemsen'] = psych_annoy.willemsenPA(dataByStim.loc[:, 'LoudISO105ExMaxLR'],
-                                                            dataByStim.loc[:, 'SharpAISO1MedBin'],
-                                                            dataByStim.loc[:, 'RoughECMA05ExBin'],
-                                                            dataByStim.loc[:, 'ImpulsLoudWZAvgMaxLR'])
+dataByStim['PsychAnnoyWillemsen'] = psych_annoy.willemsenPA(dataByStim.loc[:, 'LoudISO105Ex'],
+                                                            dataByStim.loc[:, 'SharpAurISO1Med'],
+                                                            dataByStim.loc[:, 'RoughECMA05Ex'],
+                                                            dataByStim.loc[:, 'ImpulsLoudWZAvg'])
 
-dataByStim['PsychAnnoyBoucher'] = psych_annoy.boucherPA(dataByStim.loc[:, 'LoudISO105ExMaxLR'],
-                                                        dataByStim.loc[:, 'SharpDIN05ExBin'],
-                                                        dataByStim.loc[:, 'RoughECMAAvgBin'],
-                                                        dataByStim.loc[:, 'FluctOldSHMAvgBin'],
-                                                        dataByStim.loc[:, 'TonalECMAAvgMaxLR'])
+dataByStim['PsychAnnoyBoucher'] = psych_annoy.boucherPA(dataByStim.loc[:, 'LoudISO105Ex'],
+                                                        dataByStim.loc[:, 'SharpDIN05Ex'],
+                                                        dataByStim.loc[:, 'RoughECMAAvg'],
+                                                        dataByStim.loc[:, 'FluctOldSHMAvg'],
+                                                        dataByStim.loc[:, 'TonalECMAAvg'])
 
 
-# for rows in dataByStim.index that start with "A1_", (but not "A1"), fill in the dPsychAnnoy... columns by
-# subtracting the corresponding "A1" row values from the "A1_" row values 
+# for rows in dataByStim.index that do not include "Baseline", fill in the dPsychAnnoy... columns by
+# subtracting the row values that include with the same ambient environment in the AmbientEnv field
+# from the corresponding "Baseline" row values 
 for row in dataByStim.index:
-    if row.startswith("A1_") and row != "A1":
-        base_row = "A1"
-        for col in ['dPsychAnnoyWidmann', 'dPsychAnnoyMore', 'dPsychAnnoyDi', 'dPsychAnnoyTorija', 'dPsychAnnoyWillemsen', 'dPsychAnnoyBoucher']:
-            dataByStim.loc[row, col] = dataByStim.loc[row, col.replace('dPsychAnnoy', 'PsychAnnoy')] - dataByStim.loc[base_row, col.replace('dPsychAnnoy', 'PsychAnnoy')]
-    elif row.startswith("A2_") and row != "A2":
-        base_row = "A2"
-        for col in ['dPsychAnnoyWidmann', 'dPsychAnnoyMore', 'dPsychAnnoyDi', 'dPsychAnnoyTorija', 'dPsychAnnoyWillemsen', 'dPsychAnnoyBoucher']:
-            dataByStim.loc[row, col] = dataByStim.loc[row, col.replace('dPsychAnnoy', 'PsychAnnoy')] - dataByStim.loc[base_row, col.replace('dPsychAnnoy', 'PsychAnnoy')]
-    elif row.startswith("B2_") and row != "B2":
-        base_row = "B2"
-        for col in ['dPsychAnnoyWidmann', 'dPsychAnnoyMore', 'dPsychAnnoyDi', 'dPsychAnnoyTorija', 'dPsychAnnoyWillemsen', 'dPsychAnnoyBoucher']:
-            dataByStim.loc[row, col] = dataByStim.loc[row, col.replace('dPsychAnnoy', 'PsychAnnoy')] - dataByStim.loc[base_row, col.replace('dPsychAnnoy', 'PsychAnnoy')]
-
+    if not row.__contains__("Baseline") and not row.__contains__("Background"):
+        if dataByStim.loc[row, 'AmbientRef'] == "UAS only":
+            continue
+        else:
+            ambient_ref = dataByStim.loc[row, 'AmbientRef']
+            baseline_row = dataByStim.loc[(dataByStim.AmbientRef == ambient_ref)
+                                            & (dataByStim.index.str.contains("Baseline")), :]
+            for col in ['PsychAnnoyWidmann',
+                        'PsychAnnoyMore',
+                        'PsychAnnoyDi',
+                        'PsychAnnoyTorija',
+                        'PsychAnnoyWillemsen',
+                        'PsychAnnoyBoucher']:
+                dataByStim.loc[row, 'd' + col] = (dataByStim.loc[row, col]
+                                                - baseline_row[col].iloc[0])
 
 # add UAS-only and ambient-only data to combined stimuli
 # ------------------------------------------------------
 indicesDiffPsycho = ["PartLoudSHMPowAvg",
                      "PartTonLdSHMPowAvg",
+                     "PartSharpAurSHMPowAvg",
+                     "PartSharpAurSHM05Ex",
+                     "PartSharpDINSHMPowAvg",
+                     "PartSharpDINSHM05Ex",
+                     "PartSharpvBSHMPowAvg",
+                     "PartSharpvBSHM05Ex",
                      "PartTonShpAurSHMPowAvg",
                      "PartTonShpAurSHM05Ex",
+                     "PartTonShpDINSHMPowAvg",
+                     "PartTonShpDINSHM05Ex",
+                     "PartTonShpvBSHMPowAvg",
+                     "PartTonShpvBSHM05Ex",
                      "dTonalECMAAvg",
                      "dTonalECMA05Ex",
                      "dTonalSHMIntAvg",
@@ -2161,94 +2209,6 @@ indicesLevelDiffs = ['LAeqLAF90diff', 'LASmaxLAF90diff', 'LASmaxLAF50diff',
                      'EPNLLAF90diff', 'PNLMLAF50diff', 'PNLTMLAF50diff',
                      'EPNLLAF50diff']
 
-# ---------------------
-# Partial loudness data
-# ---------------------
-
-# open csv file selection dialog and assign filepaths to list
-# PROJECT NOTE: the calculated files are stored in
-# https://testlivesalfordac.sharepoint.com/:f:/r/sites/REFMAP/Shared%20Documents/General/03%20Experiment/Experiment%201/Analysis/deeuu_loudness/Partial_loudness?csf=1&web=1&e=fVScn8
-# check/open QApplication instance
-if not QApplication.instance():
-    app = QApplication(sys.argv)
-else:
-    app = QApplication.instance() 
-
-fileExts = "*TermPartialLoudness.pkl"
-filelist = list(QFileDialog.getOpenFileNames(filter=fileExts,
-                                             caption="Open partial loudness files in '03 Experiment\Experiment 1\Analysis\deeuu_loudness\Partial_loudness'"))[0]
-filelist.sort()
-
-filenames = [filepath.split('/')[-1] for filepath in filelist]
-filenamesST = [filename for filename in filenames
-               if filename.find("Short") != -1]
-filenamesLT = [filename for filename in filenames
-               if filename.find("Long") != -1]
-
-# setup results DataFrame
-partLoudnessST = pd.DataFrame(index=filenamesST,
-                              columns=['PartLoudMGSTPowAvg',
-                                       'PartLoudMGST05Ex'])
-partLoudnessLT = pd.DataFrame(index=filenamesLT,
-                              columns=['PartLoudMGLTPowAvg',
-                                       'PartLoudMGLT05Ex'])
-# the deeuu Glasberg&Moore loudness outputs are all sampled at 1 ms
-# in each of the deeuu loudness outputs, the first 0.031 seconds is
-# redundant 'negative time' and the final 0.169 seconds is redundant added time
-# skip indices
-skip_starti = 31
-skip_endi = -169
-
-sampleRatePartLoudGM = 1e3
-
-# loop over files to extract data
-for ii, file in enumerate(filelist):
-    
-    if filenames[ii].find("A") == 0:
-        timeTotal = 25.0
-    elif filenames[ii].find("B") == 0:
-        timeTotal = 75.0
-
-    partN = pd.read_pickle(file)
-    partN = pd.Series(data=partN[skip_starti:skip_endi, 1],
-                      index=np.arange(0, timeTotal, 1e-3))
-
-    partialLoudnessPowAvg = (np.sum(partN.iloc[int(start_skipT*sampleRatePartLoudGM)
-                                               :int(-end_skipT*sampleRatePartLoudGM)]**(1/np.log10(2)),
-                                    axis=0)
-                             / len(partN.iloc[int(start_skipT*sampleRatePartLoudGM)
-                                              :int(-end_skipT*sampleRatePartLoudGM)]))**np.log10(2)
-    
-    partialLoudness05Ex = partN.iloc[int(start_skipT*sampleRatePartLoudGM)
-                                     :int(-end_skipT*sampleRatePartLoudGM)].quantile(q=0.95)
-
-    if file.find("Short") != -1:
-        partLoudnessST.loc[filenames[ii], 'PartLoudMGSTPowAvg'] = partialLoudnessPowAvg
-        partLoudnessST.loc[filenames[ii], 'PartLoudMGST05Ex'] = partialLoudness05Ex
-    elif file.find("Long") != -1:
-        partLoudnessLT.loc[filenames[ii], 'PartLoudMGLTPowAvg'] = partialLoudnessPowAvg
-        partLoudnessLT.loc[filenames[ii], 'PartLoudMGLT05Ex'] = partialLoudness05Ex
-
-# reindex partial loudness DataFrame to match dataByStim index and merge into
-# output DataFrame
-partLoudnessST['newindex'] = [file.replace("_CALHEQ_PaShortTermPartialLoudness.pkl", "")
-                              for file in list(partLoudnessST.index)]
-partLoudnessST.set_index('newindex', inplace=True)
-partLoudnessLT['newindex'] = [file.replace("_CALHEQ_PaLongTermPartialLoudness.pkl", "")
-                              for file in list(partLoudnessLT.index)]
-partLoudnessLT.set_index('newindex', inplace=True)
-
-partLoudness = partLoudnessST.merge(right=partLoudnessLT, how='outer',
-                                    left_index=True, right_index=True)
-
-dataByStim = dataByStim.merge(partLoudness.astype(float), how='outer',
-                              left_index=True, right_index=True)
-
-# insert zeros for No UAS stimuli partial loudness
-dataByStim.loc[NoUASStims, ['PartLoudMGSTPowAvg', 'PartLoudMGST05Ex',
-                            'PartLoudMGLTPowAvg', 'PartLoudMGLT05Ex',
-                            'PartLoudSHMPowAvgBin',] ] = 0
-
 # --------------------------------------------------
 # Detection-discounted UAS sound levels LAeq and LAE
 # --------------------------------------------------
@@ -2274,23 +2234,11 @@ for col in indicesLevelDiffs:
 dataByStim = dataByStim[cols]
 indicesLevelDiffs.reverse()  # revert list for use later
 
-# move partial tonal metrics to after partial loudness metrics
-cols = list(dataByStim.columns)
-cols.insert(cols.index(partLoudness.columns[-1]) + 1,
-            cols.pop(cols.index('PartLoudSHMPowAvgBin')))
-cols.insert(cols.index('PartLoudSHMPowAvgBin') + 1,
-            cols.pop(cols.index('PartTonLdSHMPowAvgBin')))
-cols.insert(cols.index('PartTonLdSHMPowAvgBin') + 1,
-            cols.pop(cols.index('PartTonShpAurSHMPowAvgBin')))
-cols.insert(cols.index('PartTonShpAurSHMPowAvgBin') + 1,
-            cols.pop(cols.index('PartTonShpAurSHM05ExBin')))
-dataByStim = dataByStim[cols]
-
-# move detectability metrics to after partial loudness metrics
+# move detectability metrics to after level difference metrics
 indicesDetect.reverse()
 cols = list(dataByStim.columns)
 for col in indicesDetect:
-    cols.insert(cols.index(partLoudness.columns[-1]) + 1,
+    cols.insert(cols.index(indicesLevelDiffs[-1]) + 1,
                 cols.pop(cols.index(col)))
 dataByStim = dataByStim[cols]
 indicesDetect.reverse()  # revert list for use later   
@@ -2303,6 +2251,30 @@ for col in indicesDiffPsycho:
                 cols.pop(cols.index(col)))
 dataByStim = dataByStim[cols]
 indicesDiffPsycho.reverse()  # revert list for use later   
+
+# move partial loudness metrics to after level difference metrics
+cols = list(dataByStim.columns)
+cols.insert(cols.index(indicesLevelDiffs[-1]) + 1,
+            cols.pop(cols.index('PartLoudSHMPowAvg')))
+cols.insert(cols.index('PartLoudSHMPowAvg') + 1,
+            cols.pop(cols.index('PartTonLdSHMPowAvg')))
+# for each partial sharpness and partial tonal sharpness metric, move these
+# to after partial loudness metrics
+for ii, col in enumerate(['PartSharpAurSHMPowAvg',
+                          'PartSharpAurSHM05Ex',
+                          'PartSharpWidSHMPowAvg',
+                          'PartSharpWidSHM05Ex',
+                          'PartSharpvBSHMPowAvg',
+                          'PartSharpvBSHM05Ex',
+                          'PartTonShpAurSHMPowAvg',
+                          'PartTonShpAurSHM05Ex',
+                          'PartTonShpWidSHMPowAvg',
+                          'PartTonShpWidSHM05Ex',
+                          'PartTonShpvBSHMPowAvg',
+                          'PartTonShpvBSHM05Ex']):
+    cols.insert(cols.index('PartTonLdSHMPowAvg') + ii + 1,
+                cols.pop(cols.index(col)))
+dataByStim = dataByStim[cols]
 
 
 # -------------

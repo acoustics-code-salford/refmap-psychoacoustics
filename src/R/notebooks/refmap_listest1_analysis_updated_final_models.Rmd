@@ -725,6 +725,32 @@ pHALAENLR <- data.frame(LAE = rangeLAENLR,
 
 pHALAENLR <- pHALAENLR |> tidyr::pivot_longer(cols=c(Quad1, Quad2, Quad3, Quad4), names_to="UAS", values_to="pHA")
 
+# adjust pHALAENLR LAE and LAEScl columns by -6 dB and make a new dataframe
+pHALAENLRAdj <- pHALAENLR |> dplyr::mutate(LAE = LAE - 6,
+                                           LAEScl = LAEScl - 6)
+
+# make a new dataframe containing the min and max values at each LAE value from pHALAENLR
+pHALAENLRUASRange <- pHALAENLR |> dplyr::group_by(LAE, LAEScl) |>
+                        dplyr::summarise(pHAmin = min(pHA),
+                                         pHAmax = max(pHA), .groups='drop')
+
+# adjust pHALAENLRUASRange LAE and LAEScl columns by -6 dB and make a new dataframe
+pHALAENLRUASRangeAdj <- pHALAENLRUASRange |> dplyr::mutate(LAE = LAE - 6,
+                                                           LAEScl = LAEScl - 6)
+
+pHALAENLRAir <- data.frame(LAE = rangeLAENLR,
+                           LAEScl = rangeLAENLR - (max(stimDataNoAmb$UASLAEMaxLR) - max(stimDataNoAmb$UASLAEMaxLRScl)),
+                           Air_taxi=pHALAENLRFunc(paramKNLR[6], paramX0LAENLR[6], rangeLAENLR),
+                           Helicopter_1=pHALAENLRFunc(paramKNLR[7], paramX0LAENLR[7], rangeLAENLR),
+                           Helicopter_2=pHALAENLRFunc(paramKNLR[8], paramX0LAENLR[8], rangeLAENLR))
+
+pHALAENLRAir <- pHALAENLRAir |> tidyr::pivot_longer(cols=c(Air_taxi, Helicopter_1, Helicopter_2), names_to="Type", values_to="pHA")
+
+# adjust pHALAENLRAir LAE and LAEScl columns by -6 dB and make a new dataframe
+pHALAENLRAirAdj <- pHALAENLRAir |> dplyr::mutate(LAE = LAE - 6,
+                                                 LAEScl = LAEScl - 6)
+
+
 ```
 
 ## Kawai (EMPA) HA curves
@@ -733,7 +759,7 @@ pHALAENLR <- pHALAENLR |> tidyr::pivot_longer(cols=c(Quad1, Quad2, Quad3, Quad4)
 
 paramb0EMPA <- c(-11.06)
 paramb1LAEEMPA<- c(0.17)
-paramtauSrcEMPA <- c(-0.9)
+paramtauSrcEMPA <- c(-0.91)
 
 rangeLAEEMPA <- seq(53, 80, by=1)
 
@@ -743,13 +769,35 @@ pHALAEEMPAFunc <- function(paramb0, paramb1, paramtau, abscissa){
 } 
 
 pHALAEEMPA <- data.frame(LAE = rangeLAEEMPA,
-                         LAEScl = rangeLAEEMPA - (max(stimDataNoAmb$UASLAEMaxLR) - max(stimDataNoAmb$UASLAEMaxLRScl)),
+                         LAEScl = rangeLAEEMPA -
+                           (max(stimDataNoAmb$UASLAEMaxLR) -
+                              max(stimDataNoAmb$UASLAEMaxLRScl)),
                         Mav2=pHALAEEMPAFunc(paramb0EMPA[1], paramb1LAEEMPA[1],
                                             0, rangeLAEEMPA),
                         M300=pHALAEEMPAFunc(paramb0EMPA[1], paramb1LAEEMPA[1],
                                             paramtauSrcEMPA[1], rangeLAEEMPA))
 
 pHALAEEMPA <- pHALAEEMPA |> tidyr::pivot_longer(cols=c(Mav2, M300), names_to="UAS", values_to="pHA")
+
+# make a new dataframe containing the min and max values at each LAE value from pHALAEEMPA
+pHALAEEMPAUASRange <- pHALAEEMPA |> dplyr::group_by(LAE, LAEScl) |>
+                        dplyr::summarise(pHAmin = min(pHA),
+                                         pHAmax = max(pHA), .groups='drop')
+
+paramtauAirEMPA <- c(-1.66, -1.68, -1.76)
+
+pHALAEEMPAAir <- data.frame(LAE = rangeLAEEMPA,
+                            LAEScl = rangeLAEEMPA -
+                              (max(stimDataNoAmb$UASLAEMaxLR) -
+                                 max(stimDataNoAmb$UASLAEMaxLRScl)),
+                        Helicopter=pHALAEEMPAFunc(paramb0EMPA[1], paramb1LAEEMPA[1],
+                                            paramtauAirEMPA[1], rangeLAEEMPA),
+                        Propeller=pHALAEEMPAFunc(paramb0EMPA[1], paramb1LAEEMPA[1],
+                                            paramtauAirEMPA[2], rangeLAEEMPA),
+                        Jet=pHALAEEMPAFunc(paramb0EMPA[1], paramb1LAEEMPA[1],
+                                           paramtauAirEMPA[3], rangeLAEEMPA))
+
+pHALAEEMPAAir <- pHALAEEMPAAir |> tidyr::pivot_longer(cols=c(Helicopter, Propeller, Jet), names_to="Type", values_to="pHA")
 
 ```
 
@@ -771,7 +819,9 @@ pHALAEGwakFunc <- function(paramb0, paramk, abscissa){
 }
 
 pHALAEGwak <- data.frame(LAE = rangeLAEGwak,
-                         LAEScl = rangeLAEGwak - (max(stimDataNoAmb$UASLAEMaxLR) - max(stimDataNoAmb$UASLAEMaxLRScl)),
+                         LAEScl = rangeLAEGwak -
+                           (max(stimDataNoAmb$UASLAEMaxLR)
+                            - max(stimDataNoAmb$UASLAEMaxLRScl)),
                         H12W=pHALAEGwakFunc(param0LAEGwak[1], paramkGwak[1],
                                              rangeLAEGwak),
                         F450=pHALAEGwakFunc(param0LAEGwak[2], paramkGwak[2],
@@ -780,6 +830,36 @@ pHALAEGwak <- data.frame(LAE = rangeLAEGwak,
                                             rangeLAEGwak))
 
 pHALAEGwak <- pHALAEGwak |> tidyr::pivot_longer(cols=c(H12W, F450, S1000), names_to="UAS", values_to="pHA")
+
+# adjust pHALAEGwak LAE and LAEScl columns by -6 dB and make a new dataframe
+pHALAEGwakAdj <- pHALAEGwak |> dplyr::mutate(LAE = LAE - 6,
+                                             LAEScl = LAEScl - 6)
+
+# make a new dataframe containing the min and max values at each LAE value from pHALAEGwak
+pHALAEGwakUASRange <- pHALAEGwak |> dplyr::group_by(LAE, LAEScl) |>
+                        dplyr::summarise(pHAmin = min(pHA),
+                                         pHAmax = max(pHA), .groups='drop')
+
+# adjust pHALAEGwakUASRange LAE and LAEScl columns by -6 dB and make a new dataframe
+pHALAEGwakUASRangeAdj <- pHALAEGwakUASRange |> dplyr::mutate(LAE = LAE - 6,
+                                                             LAEScl = LAEScl - 6)
+
+
+paramkGwakAir <- 0.229
+param0LAEGwakAir <- 18.94/paramkGwakAir + 10*log10(7)
+
+pHALAEGwakAir <- data.frame(LAE = rangeLAEGwak,
+                             LAEScl = rangeLAEGwak -
+                              (max(stimDataNoAmb$UASLAEMaxLR) -
+                                 max(stimDataNoAmb$UASLAEMaxLRScl)),
+                             Jet=pHALAEGwakFunc(param0LAEGwakAir, paramkGwakAir,
+                                                     rangeLAEGwak))
+
+pHALAEGwakAir <- pHALAEGwakAir |> tidyr::pivot_longer(cols=c(Jet), names_to="Type", values_to="pHA")
+
+# adjust pHALAEGwakAir LAE and LAEScl columns by -6 dB and make a new dataframe
+pHALAEGwakAirAdj <- pHALAEGwakAir |> dplyr::mutate(LAE = LAE - 6,
+                                                   LAEScl = LAEScl - 6)
 
 ```
 
@@ -806,6 +886,28 @@ pHALAEJeong <- data.frame(LAE = rangeLAEJeong,
                                                     rangeLAEJeong))
 
 pHALAEJeong <- pHALAEJeong |> tidyr::pivot_longer(cols=c(Motor_prop), names_to="UAS", values_to="pHA")
+
+```
+
+## Combine external HA data
+
+```{r}
+
+# compile pHALAEGwakUASRange, pHALAEEMPAUASRange and pHALAENLRUASRange into a single dataframe with a study column indicating the source study from 'Gwak et al.', 'Kawai et al.' or 'Aalmoes et al.'
+
+pHALAEUASRangeAll <- rbind(
+  pHALAEGwakUASRange |> dplyr::mutate(Study = "Gwak et al."),
+  pHALAEEMPAUASRange |> dplyr::mutate(Study = "Kawai et al."),
+  pHALAENLRUASRange |> dplyr::mutate(Study = "Aalmoes et al.")
+)
+
+# make a new dataframe by adjusting the Gwak et al. and Aalmoes et al. studies in pHALAEUASRangeAll to reduce
+# the values of LAE and LAEScl by 6 dB
+pHALAEUASRangeAllAdj <- rbind(
+  pHALAEGwakUASRangeAdj |> dplyr::mutate(Study = "Gwak et al. (adj.)"),
+  pHALAEEMPAUASRange |> dplyr::mutate(Study = "Kawai et al."),
+  pHALAENLRUASRangeAdj |> dplyr::mutate(Study = "Aalmoes et al. (adj.)")
+)
 
 ```
 
@@ -1065,6 +1167,23 @@ if (saveplots){
   unlink(paste(filename, ".svg", sep=""))
 
   ggsave(filename=paste(filename, ".pdf", sep=""), width=15, height=8, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+
+p3b <- p3 + theme(axis.title.x=element_text(family = "serif", size=14),
+                    axis.text.x=element_text(family = "serif", size=14),
+                  axis.ticks.x=element_line(colour="black", linewidth=1)) + 
+        labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)))
+
+filename <- "PtsABdAnnoyMnCatModEnv"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=5, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=5, height=4, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 }
 
@@ -3760,8 +3879,17 @@ model1predictEvt2 <- ggeffects::predict_response(model1, terms=c("UASEvents [all
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
+model1predictEvt2Type <- ggeffects::predict_response(model1, terms=c("UASEvents [all]",
+                                                                 "UASLAEMaxLRScl [7, 13]",
+                                                                 "UASType [H520, T150]",
+                                                                 "AmbientEnv [Park]",
+                                                                 "UASOperation [Overflight]"),
+                                             margin='marginalmeans', type='fixed', 
+                                            vcov=vcov(model1, type="bias-corrected"))
+
 model1predictTypePkSt$AmbientEnv <- model1predictTypePkSt$facet
 model1predictOpPkSt$AmbientEnv <- model1predictOpPkSt$facet
+model1predictEvt2Type$UASType <- model1predictEvt2Type$facet
 
 p1 <- ggplot(data=model1predictTypePkSt) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
@@ -4137,7 +4265,6 @@ if (saveplots){
   unlink(paste(filename, ".pdf", sep=""))
 }
 
-
 p1f <- ggplot(data=model1predictType) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=12),
@@ -4184,9 +4311,8 @@ p1f <- ggplot(data=model1predictType) +
               scale_fill_viridis(option='plasma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.8) +
               scale_shape_manual(values=c(10, 11, 12)) +
               
-              guides(colour=guide_legend(title="UAS type", reverse=FALSE, order=1),
-                     fill=guide_legend(title="UAS type", reverse=FALSE, order=1),
-                     shape=guide_legend(title="UAS type", reverse=FALSE, order=1)) +
+              guides(colour=guide_legend(title="RefMap UAS type", reverse=FALSE, order=1),
+                     fill=guide_legend(title="RefMap UAS type", reverse=FALSE, order=1)) +
 
     
               rescaleTicks(pHALAEGwak$LAE,
@@ -4220,7 +4346,6 @@ if (saveplots){
   ggsave(filename=paste(filename, ".pdf", sep=""), width=6, height=5, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 }
-
 
 
 p1g <- ggplot(data=model1predictType) +
@@ -4295,7 +4420,201 @@ if (saveplots){
 }
 
 
+# send model1predictType to group_by to get min and max at each x (LAEScl) for geom_ribbon layers
+model1predictTypeUASRange <- model1predictType |> 
+  group_by(x) |> 
+  summarise(pHAmin = min(predicted),
+            pHAmax = max(predicted),
+            .groups = 'drop')
 
+# incorporate model1predictTypeUASRange into pHALAEUASRangeAll with study 'RefMap (Lotinga et al.)'
+model1predictTypeUASRange <- model1predictTypeUASRange |> 
+  dplyr::mutate(LAE = x  + stimDataNoAmb$UASLAEMaxLR[1] - stimDataNoAmb$UASLAEMaxLRScl[1],
+                LAEScl = x) |> dplyr::select(LAE, LAEScl, pHAmin, pHAmax)
+
+pHALAEUASRangeAll <- rbind(pHALAEUASRangeAll,
+                           model1predictTypeUASRange |> dplyr::mutate(Study = "RefMap (Lotinga et al.)")
+)
+
+# repeat for pHALAEUASRangeAllAdj
+pHALAEUASRangeAllAdj <- rbind(pHALAEUASRangeAllAdj,
+                              model1predictTypeUASRange |> dplyr::mutate(Study = "RefMap (Lotinga et al.)")
+)
+
+
+p1h <- ggplot(data=model1predictTypeUASRange) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=12),
+                    legend.text=element_text(size=11),
+                    legend.title=element_text(size=12),
+                    legend.spacing.y=unit(0.1, 'cm')) +
+
+  
+              # use geom_ribbon to plot the range corresponding with the pHALAEUASRangeAll pHA data
+              geom_ribbon(data=pHALAEUASRangeAll, aes(x=LAEScl, ymin=pHAmin, ymax=pHAmax,
+                          fill=Study),
+                          alpha=0.2) +
+
+              guides(fill=guide_legend(title="UAS range", order=1)) +
+  
+              scale_fill_manual(values=c("Aalmoes et al."=mycolours[4],
+                                         "Gwak et al."=mycolours[3],
+                                         "Kawai et al."=mycolours[2],
+                                         "RefMap (Lotinga et al.)"=mycolours[1])) +
+
+              geom_line(data=pHALAENLRAir, aes(x=LAEScl, y=pHA,
+                        linetype=Type), colour=mycolours[4], size=1.25, alpha=0.6) +
+
+              guides(linetype=guide_legend(title="Aalmoes et al. aircraft", reverse=FALSE, order=2, ncol=2)) +
+  
+              ggnewscale::new_scale('linetype') +
+ 
+              geom_line(data=pHALAEGwakAir, aes(x=LAEScl, y=pHA, linetype=Type),
+                        colour=mycolours[3], size=0.75, alpha=0.6) +
+
+              guides(linetype=guide_legend(title="Gwak et al. aircraft", reverse=FALSE, order=3, ncol=2)) +
+  
+              ggnewscale::new_scale('linetype') +
+
+              geom_line(data=pHALAEEMPAAir, aes(x=LAEScl, y=pHA, linetype=Type),
+                        colour=mycolours[2], size=1, alpha=0.6) +
+  
+              guides(linetype=guide_legend(title="Kawai et al. aircraft", reverse=FALSE, order=4, ncol=2)) +
+  
+              rescaleTicks(pHALAEGwak$LAE, pHALAEGwak$LAEScl, sep=5) +
+              scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
+              
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y=expression(paste("%"~Highly~annoyed)))
+
+p1h
+
+filename <- "PtsABdHiAnnoyCatTypeModCompAir"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=6.25, height=5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=6.25, height=5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+
+p1i <- ggplot(data=model1predictType) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=12),
+                    legend.text=element_text(size=11),
+                    legend.title=element_text(size=12),
+                    legend.spacing.y=unit(0.1, 'cm')) +
+              
+               geom_line(data=pHALAENLRAdj, aes(x=LAEScl, y=pHA, colour=UAS),
+                        linetype=3, size=1.25, alpha=0.8) +
+        
+              guides(colour=guide_legend(title="Aalmoes et al. (adj.)", reverse=FALSE, order=2)) +
+
+              ggnewscale::new_scale_colour() +            
+  
+              geom_line(data=pHALAEGwakAdj, aes(x=LAEScl, y=pHA, colour=UAS),
+                        linetype=4, size=0.75, alpha=0.8) +
+  
+              scale_colour_brewer(palette = "Dark2") +
+  
+              guides(colour=guide_legend(title="Gwak et al. (adj.)", reverse=FALSE, order=3)) +     
+  
+              ggnewscale::new_scale_colour() +            
+  
+              geom_line(data=pHALAEEMPA, aes(x=LAEScl, y=pHA, colour=UAS),
+                        linetype=2, size=1, alpha=0.8) +
+  
+              scale_colour_brewer(palette = "Set1") +
+  
+              guides(colour=guide_legend(title="Kawai et al.", reverse=FALSE, order=4)) +
+  
+              ggnewscale::new_scale_colour() +
+  
+              geom_line(aes(x=x, y=predicted, colour=group), linewidth=1) +
+              
+              scale_color_viridis(option='plasma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_fill_viridis(option='plasma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_shape_manual(values=c(10, 11, 12)) +
+              
+              guides(colour=guide_legend(title="RefMap UAS type", reverse=FALSE, order=1),
+                     fill=guide_legend(title="RefMap UAS type", reverse=FALSE, order=1)) +
+
+    
+              rescaleTicks(pHALAEGwakAdj$LAE,
+                             pHALAEGwakAdj$LAEScl, sep=5) +
+              scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
+              
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y=expression(paste("%"~Highly~annoyed)))
+
+p1i
+
+filename <- "PtsABdHiAnnoyCatTypeModCompAllNoCIAdj"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=6, height=5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=6, height=5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+
+p1j <- ggplot(data=model1predictTypeUASRange) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=12),
+                    legend.text=element_text(size=11),
+                    legend.title=element_text(size=12),
+                    legend.spacing.y=unit(0.1, 'cm')) +
+
+  
+              # use geom_ribbon to plot the range corresponding with the pHALAEUASRangeAllAdj pHA data
+              geom_ribbon(data=pHALAEUASRangeAllAdj, aes(x=LAEScl, ymin=pHAmin, ymax=pHAmax,
+                          fill=Study),
+                          alpha=0.2) +
+
+              guides(fill=guide_legend(title="UAS range", order=1)) +
+  
+              scale_fill_manual(values=c("Aalmoes et al. (adj.)"=mycolours[4],
+                                         "Gwak et al. (adj.)"=mycolours[3],
+                                         "Kawai et al."=mycolours[2],
+                                         "RefMap (Lotinga et al.)"=mycolours[1])) +
+
+              geom_line(data=pHALAENLRAirAdj, aes(x=LAEScl, y=pHA,
+                        linetype=Type), colour=mycolours[4], size=1.25, alpha=0.6) +
+
+              guides(linetype=guide_legend(title="Aalmoes et al. aircraft (adj.)", reverse=FALSE, order=2)) +
+  
+              ggnewscale::new_scale('linetype') +
+ 
+              geom_line(data=pHALAEGwakAirAdj, aes(x=LAEScl, y=pHA, linetype=Type),
+                        colour=mycolours[3], size=0.75, alpha=0.6) +
+
+              guides(linetype=guide_legend(title="Gwak et al. aircraft (adj.)", reverse=FALSE, order=3)) +
+  
+              ggnewscale::new_scale('linetype') +
+
+              geom_line(data=pHALAEEMPAAir, aes(x=LAEScl, y=pHA, linetype=Type),
+                        colour=mycolours[2], size=1, alpha=0.6) +
+  
+              guides(linetype=guide_legend(title="Kawai et al. aircraft", reverse=FALSE, order=4)) +
+  
+              rescaleTicks(pHALAEGwakAdj$LAE, pHALAEGwakAdj$LAEScl, sep=5) +
+              scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
+              
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y=expression(paste("%"~Highly~annoyed)))
+
+p1j
+
+filename <- "PtsABdHiAnnoyCatTypeModCompAirAdj"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=6.25, height=5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=6.25, height=5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
 
 p3b <- ggplot(data=model1predictEnv) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=12),
@@ -4380,7 +4699,7 @@ p5 <- ggplot(data=model1predictEvt2) +
               scale_x_continuous(breaks=c(1, 3, 5, 9), labels=c(1, 3, 5, 9)) +
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
               
-              labs(x="Number of UAS Overflight events", y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
+              labs(x="Number of UAS overflight events", y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
 p5
 
@@ -4426,7 +4745,7 @@ p6 <- ggplot(data=model1predictEvt2) +
               scale_x_continuous(breaks=c(1, 3, 5, 9), labels=c(1, 3, 5, 9)) +
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
               
-              labs(x="Number of UAS Overflight events", y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
+              labs(x="Number of UAS overflight events", y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
 p6
 
@@ -4441,6 +4760,53 @@ if (saveplots){
 }
 
 
+p7 <- ggplot(data=model1predictEvt2Type) +
+              theme(panel.grid.major = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
+                 panel.grid.minor = element_blank(), aspect.ratio=1.15,
+                    text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+
+              scale_color_viridis(option='inferno', direction=1, discrete=FALSE, begin = 0.2, end = 0.8,
+                                  breaks=c(73, 79)) +
+              
+              guides(colour=guide_legend(title=expression(paste(UAS~italic(L)[AE]~","~dB)), reverse=TRUE)) +
+  
+              ggnewscale::new_scale_color() +
+
+              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group),
+                          alpha=0.05) +
+              
+              geom_line(aes(x=x, y=predicted, colour=group), alpha=0.5,
+                        linewidth=1) +
+  
+              facet_grid(cols = vars(UASType)) +
+              
+              scale_color_viridis(option='inferno', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
+                                         labels=c(73, 79)) +
+              scale_fill_viridis(option='inferno', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
+                                         labels=c(73, 79)) +
+              scale_shape_manual(values=c(10, 11, 12)) +
+              
+              guides(colour=guide_legend(title=expression(paste(UAS~italic(L)[AE]~","~dB)), reverse=TRUE),
+                     fill=guide_legend(title=expression(paste(UAS~italic(L)[AE]~","~dB)), reverse=TRUE),
+                     shape=guide_legend(title="UAS type"), reverse=FALSE) +
+            
+              scale_x_continuous(breaks=c(1, 3, 5, 9), labels=c(1, 3, 5, 9)) +
+              scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
+              
+              labs(x="Number of UAS overflight events", y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
+
+p7
+
+filename <- "PtsABdHiAnnoyCatModEvtlgType"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
 
 
 ```
@@ -4476,6 +4842,72 @@ mABdHTypexOpxLAExEnvlgQxLAE.GEE.Cook <- cooks.distance(mABdHTypexOpxLAExEnvlgQxL
                                                           plot.it=TRUE)
 
 performance::check_collinearity(mABdHTypexOpxLAExEnvlgQxLAE.GEE)
+
+```
+
+### with personal factors
+
+```{r}
+
+model1 <- mABdHTypexOpxLAExEnvlgQxLAEAtt.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ UASLAEMaxLRScl*I(log10(UASEvents)) +
+                                                        UASLAEMaxLRScl*AmbientEnv +
+                                                          UASLAEMaxLRScl*UASOperation +
+                                                        UASType*UASOperation + AAM_attitude2,
+                                                              data=subjDataNoAmb,
+                                                              family=binomial(link='logit'),
+                                                              id=ID.,
+                                                              corstr='exchangeable')
+
+geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+geeParams(model1, ci=0.843, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(model1, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+
+geeModelPerformance(mABdHTypexOpxLAExEnvlgQxLAE.GEE, mABdHTypexOpxLAExEnvlgQxLAENatAtt.GEE)
+
+
+model1predictAtt <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl [-12:13]",
+                                                                   "AAM_attitude2 [all]"),
+                                             margin='marginalmeans', type='fixed', 
+                                             vcov=vcov(model1, type="bias-corrected"))
+
+p9 <- ggplot(data=model1predictAtt) +
+              theme(panel.grid.major = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
+                 panel.grid.minor = element_blank(),
+                    aspect.ratio=1.35, text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              # geom_point(data=stimDataNoAmb, aes(x=UASLAEMaxLRScl, y=dAnnoyMean),
+              #            alpha=0.35, size=2) +
+              
+              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.1) +
+              
+              geom_line(aes(x=x, y=predicted, colour=group), linewidth=1) +
+              
+              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              
+              guides(colour=guide_legend(title="AAM attitude", reverse=TRUE),
+                     fill=guide_legend(title="AAM attitude", reverse=TRUE)) +
+            
+              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
+              
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)),
+                   y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
+
+p9
+
+filename <- "PtsABdHiAnnoyCatModAtt"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=6, height=5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=6, height=5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
 
 ```
 
