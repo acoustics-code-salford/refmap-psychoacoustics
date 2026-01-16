@@ -614,7 +614,7 @@ for chan = chansIn:-1:1
 
         ax2 = nexttile(2);
         plot(ax2, timeOut, tonalityAvg(1, chan)*ones(size(timeOut)), ':', 'color', cmap_plasma(34, :),...
-             'LineWidth', 1, 'DisplayName', "Time-" + string(newline) + "average");
+             'LineWidth', 1.5, 'DisplayName', "Time-" + string(newline) + "average");
         hold on
         plot(ax2, timeOut, tonalityTDep(:, chan), 'color',  cmap_plasma(166, :),...
              'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
@@ -680,7 +680,7 @@ for chan = chansIn:-1:1
             ax2.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
             ax2.YLim = [0, 1.1*ceil(max(tonalityTDepAnnoy(:, chan))*10)/10];
             ax2.XLabel.String = "Time, s";
-            ax2.YLabel.String = {"Tonality"; "(tonal annoyance-weighted), tu_{SHMaw}"};
+            ax2.YLabel.String = {"Tonality (tonal"; "annoyance-weighted),"; "tu_{SHMaw}"};
             ax2.XGrid = 'on';
             ax2.YGrid = 'on';
             ax2.GridAlpha = 0.075;

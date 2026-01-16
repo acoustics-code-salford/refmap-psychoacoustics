@@ -643,7 +643,7 @@ for chan = chansIn:-1:1
 
         ax2 = nexttile(2);
         plot(ax2, timeOut, partTonalityAvg(1, chan)*ones(size(timeOut)), ':', 'color', cmap_plasma(34, :),...
-             'LineWidth', 1, 'DisplayName', "Time-" + string(newline) + "average");
+             'LineWidth', 1.5, 'DisplayName', "Time-" + string(newline) + "average");
         hold on
         plot(ax2, timeOut, partTonalityTDep(:, chan), 'color',  cmap_plasma(166, :),...
              'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
@@ -651,7 +651,7 @@ for chan = chansIn:-1:1
         ax2.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
         ax2.YLim = [0, 1.1*ceil(max(partTonalityTDep(:, chan))*10)/10];
         ax2.XLabel.String = "Time, s";
-        ax2.YLabel.String = "Partial tonality, tu_{SHM}";
+        ax2.YLabel.String = {"Partial tonality,"; "tu_{SHM}"};
         ax2.XGrid = 'on';
         ax2.YGrid = 'on';
         ax2.GridAlpha = 0.075;
@@ -709,7 +709,7 @@ for chan = chansIn:-1:1
             ax2.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
             ax2.YLim = [0, 1.1*ceil(max(partTonalityTDepAnnoy(:, chan))*10)/10];
             ax2.XLabel.String = "Time, s";
-            ax2.YLabel.String = {"Partial tonality"; "(tonal annoyance-weighted), tu_{SHMa}"};
+            ax2.YLabel.String = {"Partial tonality"; "(tonal annoyance-"; "weighted), tu_{SHMa}"};
             ax2.XGrid = 'on';
             ax2.YGrid = 'on';
             ax2.GridAlpha = 0.075;
