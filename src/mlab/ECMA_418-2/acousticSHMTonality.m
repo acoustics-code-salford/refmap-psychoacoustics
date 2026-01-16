@@ -657,7 +657,7 @@ for chan = chansIn:-1:1
             ax1.FontSize = 12;
             colormap(cmap_plasma);
             h = colorbar;
-            set(get(h,'label'),'string', {'Specific tonality'; '(tonal annoyance-weighted),'; 'tu_{SHMaw}/Bark_{SHM}'});
+            set(get(h,'label'),'string', {'Specific tonality'; '(tonal annoyance-weighted),'; 'tu_{SHMa}/Bark_{SHM}'});
     
             % Create A-weighting filter
             weightFilt = weightingFilter('A-weighting', sampleRate48k);
@@ -680,7 +680,7 @@ for chan = chansIn:-1:1
             ax2.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
             ax2.YLim = [0, 1.1*ceil(max(tonalityTDepAnnoy(:, chan))*10)/10];
             ax2.XLabel.String = "Time, s";
-            ax2.YLabel.String = {"Tonality (tonal"; "annoyance-weighted),"; "tu_{SHMaw}"};
+            ax2.YLabel.String = {"Tonality (tonal"; "annoyance-weighted),"; "tu_{SHMa}"};
             ax2.XGrid = 'on';
             ax2.YGrid = 'on';
             ax2.GridAlpha = 0.075;

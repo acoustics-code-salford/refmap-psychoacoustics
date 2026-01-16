@@ -686,7 +686,7 @@ for chan = chansIn:-1:1
             ax1.FontSize = 12;
             colormap(cmap_plasma);
             h = colorbar;
-            set(get(h,'label'),'string', {'Specific partial tonality'; '(tonal annoyance-weighted),'; 'tu_{SHMaw}/Bark_{SHM}'});
+            set(get(h,'label'),'string', {'Specific partial tonality'; '(tonal annoyance-weighted),'; 'tu_{SHMa}/Bark_{SHM}'});
     
             % Create A-weighting filter
             weightFilt = weightingFilter('A-weighting', sampleRate48k);
