@@ -614,7 +614,7 @@ for chan = chansIn:-1:1
 
         ax2 = nexttile(2);
         plot(ax2, timeOut, tonalityAvg(1, chan)*ones(size(timeOut)), 'color', cmap_plasma(34, :),...
-             'LineWidth', 1, 'DisplayName', "Time-" + string(newline) + "average");
+             ':', 'LineWidth', 1, 'DisplayName', "Time-" + string(newline) + "average");
         hold on
         plot(ax2, timeOut, tonalityTDep(:, chan), 'color',  cmap_plasma(166, :),...
              'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
@@ -646,7 +646,7 @@ for chan = chansIn:-1:1
             view(2);
             ax1.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
             ax1.YLim = [bandCentreFreqs(1), bandCentreFreqs(end)];
-            ax1.CLim = [0, ceil(max(tonalityTDep(:, chan))*10)/10];
+            ax1.CLim = [0, ceil(max(tonalityTDepAnnoy(:, chan))*10)/10];
             ax1.YTick = [63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3]; 
             ax1.YTickLabel = ["63", "125", "250", "500", "1k", "2k", "4k",...
                               "8k", "16k"]; 
@@ -678,9 +678,9 @@ for chan = chansIn:-1:1
                  'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
             hold off
             ax2.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
-            ax2.YLim = [0, 1.1*ceil(max(tonalityTDep(:, chan))*10)/10];
+            ax2.YLim = [0, 1.1*ceil(max(tonalityTDepAnnoy(:, chan))*10)/10];
             ax2.XLabel.String = "Time, s";
-            ax2.YLabel.String = "Tonality (tonal annoyance-weighted), tu_{SHMaw}";
+            ax2.YLabel.String = {"Tonality"; "(tonal annoyance-weighted), tu_{SHMaw}"};
             ax2.XGrid = 'on';
             ax2.YGrid = 'on';
             ax2.GridAlpha = 0.075;
