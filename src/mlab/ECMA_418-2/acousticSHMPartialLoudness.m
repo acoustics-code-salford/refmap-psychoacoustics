@@ -307,6 +307,7 @@ for chan = chansIn:-1:1
                            bandCentreFreqs(2:18),...
                            bandCentreFreqs(16:26),...
                            bandCentreFreqs(26:53)];
+
     % (duplicated) indices corresponding with the NB bands around each z band
     i_NBandsAvgDupe = [1, 1, 1, 6:18, 23:31, 34:61;
                        2, 3, 5, 10:22, 25:33, 34:61];
@@ -390,21 +391,21 @@ for chan = chansIn:-1:1
         lagWindowACF(mz_start:mz_end, :) = meanScaledACF(mz_start:mz_end, :)...
                                            - mean(meanScaledACF(mz_start:mz_end, :));
 
-        % Estimation of tonal loudness
-        % ----------------------------
+        % Estimation of partial tonal loudness
+        % ------------------------------------
         % Section 6.2.5 Equation 36 ECMA-418-2:2025
         % ACF spectrum in the lag window [Phi'_z,tau(k)]
         magFFTlagWindowACF = abs(fft(lagWindowACF, 2*max(blockSize), 1));
         magFFTlagWindowACF(isnan(magFFTlagWindowACF)) = 0;
 
         % Section 6.2.5 Equation 37 ECMA-418-2:2025 [Nhat'_tonal(z)]
-        % first estimation of specific loudness of tonal component in critical band
+        % first estimation of specific partial loudness of tonal component in critical band
         bandTonalLoudness = meanScaledACF(1, :);
         mask = 2*max(magFFTlagWindowACF, [], 1)/(M/2) <= meanScaledACF(1, :);
         bandTonalLoudness(mask) = 2*max(magFFTlagWindowACF(:, mask), [], 1)/(M/2);
 
         % Section 6.2.7 Equation 41 ECMA-418-2:2025 [N'_signal(l,z)]
-        % specific loudness of complete band-pass signal in critical band
+        % specific partial loudness of complete band-pass signal in critical band
         bandLoudness = meanScaledACF(1, :);
 
         % Resampling to common time basis Section 6.2.6 ECMA-418-2:2025
@@ -429,7 +430,7 @@ for chan = chansIn:-1:1
         % Noise reduction Section 6.2.7 ECMA-418-2:2020
         % ---------------------------------------------
         % Equation 42 ECMA-418-2:2025 signal-noise-ratio first approximation
-        % (ratio of tonal component loudness to non-tonal component loudness in critical band)
+        % (ratio of tonal component partial loudness to non-tonal component partial loudness in critical band)
         % [SNRhat(l,z)]
         SNRlz1 = bandTonalLoudness./((bandLoudness - bandTonalLoudness) + epsilon);
 
@@ -460,20 +461,20 @@ for chan = chansIn:-1:1
         % specific time-dependent signal-noise-ratio in each critical band
 %         specSNR(:, zBand, chan) = SNRlz1;
 
-        % specific time-dependent loudness of signal in each critical band
-%         specLoudness(:, zBand, chan) = bandLoudness;
+        % specific time-dependent partial loudness of signal in each critical band
+%         specPartLoudness(:, zBand, chan) = bandLoudness;
 
-        % specific time-dependent loudness of tonal component in each critical band  [N'_tonal(l,z)]
-        specTonalLoudness(:, zBand, chan) = bandTonalLoudness;
+        % specific time-dependent partial loudness of tonal component in each critical band  [N'_tonal(l,z)]
+        specPartTonalLoudness(:, zBand, chan) = bandTonalLoudness;
 
-        % specific time-dependent loudness of non-tonal component in each critical band [N'_noise(l,z)]
-        specNoiseLoudness(:, zBand, chan) = bandNoiseLoudness;
+        % specific time-dependent partial loudness of non-tonal component in each critical band [N'_noise(l,z)]
+        specPartNoiseLoudness(:, zBand, chan) = bandNoiseLoudness;
 
     end  % end of for loop over ACF bands
 
     % set any tiny negative loudness values to 0
-    specTonalLoudness(specTonalLoudness < 0) = 0;
-    specNoiseLoudness(specNoiseLoudness < 0) = 0;
+    specPartTonalLoudness(specPartTonalLoudness < 0) = 0;
+    specPartNoiseLoudness(specPartNoiseLoudness < 0) = 0;
 
     if waitBar
         close(w)  % close waitbar
@@ -485,21 +486,21 @@ end
 for chan = chansIn:-1:1
 
     % Equation 114 ECMA-418-2:2025 [e(z)]
-    maxLoudnessFuncel = a./(max(specTonalLoudness(:, :, chan)...
-                                + specNoiseLoudness(:, :, chan), [],...
+    maxLoudnessFuncel = a./(max(specPartTonalLoudness(:, :, chan)...
+                                + specPartNoiseLoudness(:, :, chan), [],...
                                 2, 'omitnan') + epsilon) + b;
 
     % Equation 113 ECMA-418-2:2025 [N'(l,z)]
-    specLoudness(:, :, chan) = (specTonalLoudness(:, :, chan).^maxLoudnessFuncel...
-                                + (weight_n.*specNoiseLoudness(:, :, chan)).^maxLoudnessFuncel).^(1./maxLoudnessFuncel);
+    specLoudness(:, :, chan) = (specPartTonalLoudness(:, :, chan).^maxLoudnessFuncel...
+                                + (weight_n.*specPartNoiseLoudness(:, :, chan)).^maxLoudnessFuncel).^(1./maxLoudnessFuncel);
 end
 
 if chansIn == 2 && binaural
     % Binaural loudness
     % Section 8.1.5 ECMA-418-2:2025 Equation 118 [N'_B(l,z)]
     specLoudness(:, :, 3) = sqrt(sum(specLoudness(:, :, 1:2).^2, 3)/2);
-    specTonalLoudness(:, :, 3) = sqrt(sum(specTonalLoudness(:, :, 1:2).^2, 3)/2);
-    specNoiseLoudness(:, :, 3) = sqrt(sum(specNoiseLoudness(:, :, 1:2).^2, 3)/2);
+    specPartTonalLoudness(:, :, 3) = sqrt(sum(specPartTonalLoudness(:, :, 1:2).^2, 3)/2);
+    specPartNoiseLoudness(:, :, 3) = sqrt(sum(specPartNoiseLoudness(:, :, 1:2).^2, 3)/2);
     chansOut = 3;  % set number of 'channels' to stereo plus single binaural
     chans = [chans;
              "Binaural"];
@@ -558,7 +559,7 @@ if outPlot
         ax1.FontSize = 12;
         colormap(cmap_viridis);
         h = colorbar;
-        set(get(h,'label'),'string', {'Specific partial loudness,'; '\Delta{}sone_{SHM}/Bark_{SHM}'});        
+        set(get(h,'label'),'string', {'Specific partial loudness,'; 'sone_{SHM}/Bark_{SHM}'});        
         chan_lab = chans(chan);
 
         % Create A-weighting filter
@@ -601,7 +602,7 @@ if outPlot
             ax2.YLim = [0, 1.1*ceil(max(loudnessTDep(:, chan))*10)/10];
         end
         ax2.XLabel.String = 'Time, s';
-        ax2.YLabel.String = 'Partial loudness, \Delta{}sone_{SHM}';
+        ax2.YLabel.String = 'Partial loudness, sone_{SHM}';
         ax2.XGrid = 'on';
         ax2.YGrid = 'on';
         ax2.GridAlpha = 0.075;
@@ -619,14 +620,14 @@ end  % end of if branch for plotting
 % Assign outputs to structure
 if chansOut == 3
     partLoudnessSHM.specPartLoudness = specLoudness(:, :, 1:2);
-    partLoudnessSHM.specTonalPartLoudness = specTonalLoudness(:, :, 1:2);
-    partLoudnessSHM.specNoisePartLoudness = specNoiseLoudness(:, :, 1:2);
+    partLoudnessSHM.specTonalPartLoudness = specPartTonalLoudness(:, :, 1:2);
+    partLoudnessSHM.specNoisePartLoudness = specPartNoiseLoudness(:, :, 1:2);
     partLoudnessSHM.specPartLoudnessPowAvg = specLoudnessPowAvg(:, 1:2);
     partLoudnessSHM.partLoudnessTDep = loudnessTDep(:, 1:2);
     partLoudnessSHM.partLoudnessPowAvg = loudnessPowAvg(1:2);
     partLoudnessSHM.specPartLoudnessBin = specLoudness(:, :, 3);
-    partLoudnessSHM.specPartTonalLoudnessBin = specTonalLoudness(:, :, 3);
-    partLoudnessSHM.specPartNoiseLoudnessBin = specNoiseLoudness(:, :, 3);
+    partLoudnessSHM.specPartTonalLoudnessBin = specPartTonalLoudness(:, :, 3);
+    partLoudnessSHM.specPartNoiseLoudnessBin = specPartNoiseLoudness(:, :, 3);
     partLoudnessSHM.specPartLoudnessPowAvgBin = specLoudnessPowAvg(:, 3);
     partLoudnessSHM.partLoudnessTDepBin = loudnessTDep(:, 3);
     partLoudnessSHM.partLoudnessPowAvgBin = loudnessPowAvg(:, 3);
@@ -635,8 +636,8 @@ if chansOut == 3
     partLoudnessSHM.soundField = soundField;
 else
     partLoudnessSHM.specPartLoudness = specLoudness;
-    partLoudnessSHM.specPartTonalLoudness = specTonalLoudness;
-    partLoudnessSHM.specPartNoiseLoudness = specNoiseLoudness;
+    partLoudnessSHM.specPartTonalLoudness = specPartTonalLoudness;
+    partLoudnessSHM.specPartNoiseLoudness = specPartNoiseLoudness;
     partLoudnessSHM.specPartLoudnessPowAvg = specLoudnessPowAvg;
     partLoudnessSHM.partLoudnessTDep = loudnessTDep;
     partLoudnessSHM.partLoudnessPowAvg = loudnessPowAvg;
