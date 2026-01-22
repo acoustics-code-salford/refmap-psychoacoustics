@@ -117,7 +117,7 @@ stimDataNum <- cbind(stimData[, 'Stimulus'],
                      stimData[, which(colnames(stimData)=="UASLoudECMAPowAvgBin"):
                                 which(colnames(stimData)=="UASLoudISO3PowAvgBin")],
                      stimData[, which(colnames(stimData)=="UASTonalECMAAvgMaxLR"):
-                                which(colnames(stimData)=="UASSharpvBISO105ExBin")],
+                                which(colnames(stimData)=="UASSharpvBISO105ExMaxLR")],
                      stimData[, which(colnames(stimData)=="UASImpulsSHMPowAvgMaxLR"):
                                 which(colnames(stimData)=="UASPsychAnnoyBoucher")],
                      stimData[, which(colnames(stimData)=="LAeqLAF90diff"):
@@ -525,7 +525,7 @@ Selected hyperparameters
 ```{r}
 
 ntree <- 2501
-mtry <- as.integer(length(iVars)/1.75)
+mtry <- as.integer(length(iVars)/1.25)
 
 ```
 
@@ -572,7 +572,7 @@ resdAnnoyMnPermImpAB$AbsVars <- resultsOutAbs$conditional_permimp
 
 #### Plot results
 
-```{r, fig.width=8,fig.height=13}
+```{r, fig.width=8,fig.height=15}
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -583,10 +583,10 @@ pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOut
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp.svg", width=8, height=13, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp.svg", width=8, height=15, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMnAbsVarsConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp.pdf", width=8, height=13, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp.pdf", width=8, height=15, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMnAbsVarsConPermimp.pdf")
 }
 ```
@@ -614,7 +614,7 @@ if (saveplots){
 
 ```
 
-```{r, fig.width=8,fig.height=3}
+```{r, fig.width=8,fig.height=2.5}
 
 # Plot only values within 1% of the maximum
 
@@ -627,10 +627,10 @@ pBar <- ggplot(resultsOutAbs.conimp1pc) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp1pc.svg", width=8, height=3, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp1pc.svg", width=8, height=2.5, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMnAbsVarsConPermimp1pc.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp1pc.pdf", width=8, height=3, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp1pc.pdf", width=8, height=2.5, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMnAbsVarsConPermimp1pc.pdf")
 }
 
@@ -655,8 +655,7 @@ absVar <- "UASLAEMaxLR"
 
 ```{r}
 
-iVars <- c(absVar, eventVar, ambVar, "UASSharpAurISO3PowAvgBin", "UASSharpAurISO305ExBin", "UASSharpAurSHMPowAvgBin", "UASSharpAurSHM05ExBin", "UASSharpAurISO1PowAvgBin", "UASSharpAurISO105ExBin", "UASSharpvBISO1PowAvgBin", "UASSharpvBISO105ExBin", "UASSharpDINPowAvgBin", "UASSharpDIN05ExBin", "UASSharpAurISO1MedBin",
-         "UASTonShpAurSHMPowAvgBin", "UASTonShpAurSHM05ExBin")
+iVars <- c(absVar, eventVar, ambVar, "UASSharpAurISO3PowAvgMaxLR", "UASSharpAurISO305ExMaxLR", "UASSharpAurSHMPowAvgMaxLR", "UASSharpAurSHM05ExMaxLR", "UASSharpAurISO1PowAvgMaxLR", "UASSharpAurISO105ExMaxLR", "UASSharpvBISO1PowAvgMaxLR", "UASSharpvBISO105ExMaxLR", "UASSharpDINPowAvgMaxLR", "UASSharpDIN05ExMaxLR", "UASSharpAurISO1MedMaxLR", "UASTonShpAurSHMPowAvgMaxLR", "UASTonShpAurSHM05ExMaxLR")
 dVar <- "dAnnoyMean"
 
 seeds <- c(7041, 905, 4984651, 6513213, 120651)
@@ -677,8 +676,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
-mtry <- as.integer(length(iVars)/1.5)
+ntree <- 2501
+mtry <- as.integer(length(iVars)/1.25)
 
 ```
 
@@ -748,7 +747,7 @@ Selected metric
 
 ```{r}
 
-sharpVar <- "UASSharpAurISO305ExBin"
+sharpVar <- "UASSharpAurISO305ExMaxLR"
 
 ```
 
@@ -759,7 +758,7 @@ sharpVar <- "UASSharpAurISO305ExBin"
 ```{r}
 
 iVars <- c(absVar, eventVar, ambVar, "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonalAwSHMAvgMaxLR",	"UASTonalAwSHM05ExMaxLR",	"UASTonalAwSHMIntAvgMaxLR", 	"UASTonalAwSHMInt05ExMaxLR", "UASTonLdECMAPowAvgBin", "UASTonLdECMA05ExBin", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR",
-         "UASTonShpAurSHMPowAvgBin", "UASTonShpAurSHM05ExBin")
+         "UASTonShpAurSHMPowAvgMaxLR", "UASTonShpAurSHM05ExMaxLR")
 dVar <- "dAnnoyMean"
 
 seeds <- c(540, 104798, 456464, 87331, 94564)
@@ -938,7 +937,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutTonal2.conimp <- arrange(resultsOutTonal2$conditional_permimp, desc(row_number()))
 
-pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 1.4))
+pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("Tonality w/o tonal loudness/sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 1.4))
 pBar
 
 if (saveplots){
@@ -1590,7 +1589,7 @@ Selected hyperparameters
 ```{r}
 
 ntree <- 2501
-mtry <- as.integer(length(iVars)/3.5)
+mtry <- as.integer(length(iVars)/2.75)
 
 ```
 
@@ -1600,7 +1599,7 @@ Train preliminary model
 
 ```{r}
 
-nperm <- 5
+nperm <- 10
 
 resultsOutAbsDiffs <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
 
@@ -1634,7 +1633,7 @@ resdAnnoyMnPermImpAB$AllVars <- resultsOutAbsDiffs$conditional_permimp
 
 #### Plot results
 
-```{r, fig.width=8,fig.height=30}
+```{r, fig.width=8,fig.height=33}
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -1644,10 +1643,10 @@ pBar <- ggplot(resultsOutAbsDiffs.conimp) + geom_col(aes(x=factor(rownames(resul
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp.svg", width=8, height=30, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp.svg", width=8, height=33, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMnAllVarsConPermimp.svg")
 
-  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp.pdf", width=8, height=30, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp.pdf", width=8, height=33, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMnAllVarsConPermimp.pdf")
 }
 
@@ -1701,7 +1700,7 @@ Selected metric
 
 ```{r}
 
-allVar <- "Detect0p1dBIntMaxLR"
+allVar <- "LAELAF50diff"
 
 ```
 
@@ -1715,9 +1714,15 @@ allVar <- "Detect0p1dBIntMaxLR"
 
 ```{r}
 
-iVars <- c(allVar, eventVar, ambVar, "dSharpAurISO3PowAvgBin", "dSharpAurISO305ExBin", "dSharpAurSHMPowAvgBin", "dSharpAurSHM05ExBin", "dTonShpAurSHMPowAvgBin", "dTonShpAurSHM05ExBin", "PartTonShpAurSHMPowAvgBin",
-           "PartTonShpAurSHM05ExBin", "UASSharpAurISO3PowAvgBin", "UASSharpAurISO305ExBin", "UASSharpAurSHMPowAvgBin", "UASSharpAurSHM05ExBin", "UASSharpAurISO1PowAvgBin", "UASSharpAurISO105ExBin", "UASSharpvBISO1PowAvgBin", "UASSharpvBISO105ExBin", "UASSharpDINPowAvgBin", "UASSharpDIN05ExBin", "UASSharpAurISO1MedBin",
-         "UASTonShpAurSHMPowAvgBin", "UASTonShpAurSHM05ExBin")
+iVars <- c(allVar, eventVar, ambVar, "dSharpAurISO3PowAvgMaxLR", "dSharpAurISO305ExMaxLR", "dSharpAurSHMPowAvgMaxLR", "dSharpAurSHM05ExMaxLR", "dTonShpAurSHMPowAvgMaxLR", "dTonShpAurSHM05ExMaxLR", "PartTonShpAurSHMPowAvgMaxLR",
+           "PartTonShpAurSHM05ExMaxLR", "PartTonShpvBSHMPowAvgMaxLR",
+           "PartTonShpvBSHM05ExMaxLR", "PartTonShpWidSHMPowAvgMaxLR",
+           "PartTonShpWidSHM05ExMaxLR", "PartSharpAurSHMPowAvgMaxLR",
+           "PartSharpAurSHM05ExMaxLR", "PartSharpvBSHMPowAvgMaxLR",
+           "PartSharpvBSHM05ExMaxLR", "PartSharpWidSHMPowAvgMaxLR",
+           "PartSharpWidSHM05ExMaxLR", "UASSharpAurISO3PowAvgMaxLR", "UASSharpAurISO305ExMaxLR", "UASSharpAurSHMPowAvgMaxLR", "UASSharpAurSHM05ExMaxLR", "UASSharpAurISO1PowAvgMaxLR", "UASSharpAurISO105ExMaxLR", "UASSharpvBISO1PowAvgMaxLR", "UASSharpvBISO105ExMaxLR", "UASSharpDINPowAvgMaxLR", "UASSharpDIN05ExMaxLR", "UASSharpAurISO1MedMaxLR",
+         "UASTonShpAurSHMPowAvgMaxLR", "UASTonShpAurSHM05ExMaxLR", "UASTonShpvBSHMPowAvgMaxLR", "UASTonShpvBSHM05ExMaxLR",
+         "UASTonShpWidSHMPowAvgMaxLR", "UASTonShpWidSHM05ExMaxLR")
 dVar <- "dAnnoyMean"
 
 seeds <- c(84194, 905, 64815, 928054, 625091)
@@ -1810,7 +1815,7 @@ Selected metric
 
 ```{r}
 
-allSharpVar <- "dSharpAurISO3PowAvgBin"
+allSharpVar <- "dSharpAurISO3PowAvgMaxLR"
 
 ```
 
@@ -1820,9 +1825,9 @@ allSharpVar <- "dSharpAurISO3PowAvgBin"
 
 ```{r}
 
-iVars <- c(allVar, eventVar, ambVar, "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR", "dTonalAwSHMAvgMaxLR",	"dTonalAwSHM05ExMaxLR",	"dTonalAwSHMIntAvgMaxLR", 	"dTonalAwSHMInt05ExMaxLR", "dTonLdECMAPowAvgBin", "dTonLdECMA05ExBin", "dTonShpAurSHMPowAvgBin",
-           "dTonShpAurSHM05ExBin", "PartTonLdSHMPowAvgBin", "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonalAwSHMAvgMaxLR",	"UASTonalAwSHM05ExMaxLR",	"UASTonalAwSHMIntAvgMaxLR", 	"UASTonalAwSHMInt05ExMaxLR", "UASTonLdECMAPowAvgBin", "UASTonLdECMA05ExBin", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR",
-         "UASTonShpAurSHMPowAvgBin", "UASTonShpAurSHM05ExBin")
+iVars <- c(allVar, eventVar, ambVar, "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR", "dTonalAwSHMAvgMaxLR",	"dTonalAwSHM05ExMaxLR",	"dTonalAwSHMIntAvgMaxLR", 	"dTonalAwSHMInt05ExMaxLR", "dTonLdECMAPowAvgBin", "dTonLdECMA05ExBin", "dTonShpAurSHMPowAvgMaxLR",
+           "dTonShpAurSHM05ExMaxLR", "PartTonLdSHMPowAvgBin", "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonalAwSHMAvgMaxLR",	"UASTonalAwSHM05ExMaxLR",	"UASTonalAwSHMIntAvgMaxLR", 	"UASTonalAwSHMInt05ExMaxLR", "UASTonLdECMAPowAvgBin", "UASTonLdECMA05ExBin", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR",
+         "UASTonShpAurSHMPowAvgMaxLR", "UASTonShpAurSHM05ExMaxLR")
 dVar <- "dAnnoyMean"
 
 seeds <- c(561684, 104798, 1536, 48, 48561)
@@ -2814,8 +2819,8 @@ absVar <- "UASLoudECMAPowAvgBin"
 
 ```{r}
 
-iVars <- c(absVar, eventVar, ambVar, "UASSharpAurISO3PowAvgBin", "UASSharpAurISO305ExBin", "UASSharpAurSHMPowAvgBin", "UASSharpAurSHM05ExBin", "UASSharpAurISO1PowAvgBin", "UASSharpAurISO105ExBin", "UASSharpvBISO1PowAvgBin", "UASSharpvBISO105ExBin", "UASSharpDINPowAvgBin", "UASSharpDIN05ExBin", "UASSharpAurISO1MedBin",
-         "UASTonShpAurSHMPowAvgBin", "UASTonShpAurSHM05ExBin")
+iVars <- c(absVar, eventVar, ambVar, "UASSharpAurISO3PowAvgMaxLR", "UASSharpAurISO305ExMaxLR", "UASSharpAurSHMPowAvgMaxLR", "UASSharpAurSHM05ExMaxLR", "UASSharpAurISO1PowAvgMaxLR", "UASSharpAurISO105ExMaxLR", "UASSharpvBISO1PowAvgMaxLR", "UASSharpvBISO105ExMaxLR", "UASSharpDINPowAvgMaxLR", "UASSharpDIN05ExMaxLR", "UASSharpAurISO1MedMaxLR",
+         "UASTonShpAurSHMPowAvgMaxLR", "UASTonShpAurSHM05ExMaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(7041, 905, 4984651, 6513213, 120651)
@@ -2908,7 +2913,7 @@ Selected metric
 
 ```{r}
 
-sharpVar <- "UASSharpAurISO3PowAvgBin"
+sharpVar <- "UASSharpAurISO3PowAvgMaxLR"
 
 ```
 
@@ -2920,7 +2925,7 @@ sharpVar <- "UASSharpAurISO3PowAvgBin"
 ```{r}
 
 iVars <- c(absVar, eventVar, ambVar, "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonalAwSHMAvgMaxLR",	"UASTonalAwSHM05ExMaxLR",	"UASTonalAwSHMIntAvgMaxLR", 	"UASTonalAwSHMInt05ExMaxLR", "UASTonLdECMAPowAvgBin", "UASTonLdECMA05ExBin", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR",
-         "UASTonShpAurSHMPowAvgBin", "UASTonShpAurSHM05ExBin")
+         "UASTonShpAurSHMPowAvgMaxLR", "UASTonShpAurSHM05ExMaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(540, 104798, 456464, 87331, 94564)
@@ -3879,9 +3884,9 @@ allVar <- "UASLoudECMAPowAvgBin"
 
 ```{r}
 
-iVars <- c(allVar, eventVar, ambVar, "dSharpAurISO3PowAvgBin", "dSharpAurISO305ExBin", "dSharpAurSHMPowAvgBin", "dSharpAurSHM05ExBin", "dTonShpAurSHMPowAvgBin", "dTonShpAurSHM05ExBin", "PartTonShpAurSHMPowAvgBin",
-           "PartTonShpAurSHM05ExBin", "UASSharpAurISO3PowAvgBin", "UASSharpAurISO305ExBin", "UASSharpAurSHMPowAvgBin", "UASSharpAurSHM05ExBin", "UASSharpAurISO1PowAvgBin", "UASSharpAurISO105ExBin", "UASSharpvBISO1PowAvgBin", "UASSharpvBISO105ExBin", "UASSharpDINPowAvgBin", "UASSharpDIN05ExBin", "UASSharpAurISO1MedBin",
-         "UASTonShpAurSHMPowAvgBin", "UASTonShpAurSHM05ExBin")
+iVars <- c(allVar, eventVar, ambVar, "dSharpAurISO3PowAvgMaxLR", "dSharpAurISO305ExMaxLR", "dSharpAurSHMPowAvgMaxLR", "dSharpAurSHM05ExMaxLR", "dTonShpAurSHMPowAvgMaxLR", "dTonShpAurSHM05ExMaxLR", "PartTonShpAurSHMPowAvgMaxLR",
+           "PartTonShpAurSHM05ExMaxLR", "UASSharpAurISO3PowAvgMaxLR", "UASSharpAurISO305ExMaxLR", "UASSharpAurSHMPowAvgMaxLR", "UASSharpAurSHM05ExMaxLR", "UASSharpAurISO1PowAvgMaxLR", "UASSharpAurISO105ExMaxLR", "UASSharpvBISO1PowAvgMaxLR", "UASSharpvBISO105ExMaxLR", "UASSharpDINPowAvgMaxLR", "UASSharpDIN05ExMaxLR", "UASSharpAurISO1MedMaxLR",
+         "UASTonShpAurSHMPowAvgMaxLR", "UASTonShpAurSHM05ExMaxLR")
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(84194, 905, 64815, 928054, 625091, 582031)
@@ -3973,7 +3978,7 @@ Selected metric
 
 ```{r}
 
-allSharpVar <- "dSharpAurSHMPowAvgBin"
+allSharpVar <- "dSharpAurSHMPowAvgMaxLR"
 
 ```
 
@@ -3984,9 +3989,9 @@ allSharpVar <- "dSharpAurSHMPowAvgBin"
 
 ```{r}
 
-iVars <- c(allVar, eventVar, ambVar, "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR", "dTonalAwSHMAvgMaxLR",	"dTonalAwSHM05ExMaxLR",	"dTonalAwSHMIntAvgMaxLR", 	"dTonalAwSHMInt05ExMaxLR", "dTonLdECMAPowAvgBin", "dTonLdECMA05ExBin", "dTonShpAurSHMPowAvgBin",
-           "dTonShpAurSHM05ExBin", "PartTonLdSHMPowAvgBin", "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonalAwSHMAvgMaxLR",	"UASTonalAwSHM05ExMaxLR",	"UASTonalAwSHMIntAvgMaxLR", 	"UASTonalAwSHMInt05ExMaxLR", "UASTonLdECMAPowAvgBin", "UASTonLdECMA05ExBin", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR",
-         "UASTonShpAurSHMPowAvgBin", "UASTonShpAurSHM05ExBin")
+iVars <- c(allVar, eventVar, ambVar, "dTonalECMAAvgMaxLR", "dTonalSHMInt05ExMaxLR", "dTonalSHMIntAvgMaxLR", "dTonalECMA05ExMaxLR", "dTonalAwSHMAvgMaxLR",	"dTonalAwSHM05ExMaxLR",	"dTonalAwSHMIntAvgMaxLR", 	"dTonalAwSHMInt05ExMaxLR", "dTonLdECMAPowAvgBin", "dTonLdECMA05ExBin", "dTonShpAurSHMPowAvgMaxLR",
+           "dTonShpAurSHM05ExMaxLR", "PartTonLdSHMPowAvgBin", "UASTonalECMAAvgMaxLR", "UASTonalSHMInt05ExMaxLR", "UASTonalSHMIntAvgMaxLR", "UASTonalECMA05ExMaxLR", "UASTonalAwSHMAvgMaxLR",	"UASTonalAwSHM05ExMaxLR",	"UASTonalAwSHMIntAvgMaxLR", 	"UASTonalAwSHMInt05ExMaxLR", "UASTonLdECMAPowAvgBin", "UASTonLdECMA05ExBin", "UASTonalAurAvgMaxLR", "UASTonalAur05ExMaxLR", "UASTonalAur10ExMaxLR",
+         "UASTonShpAurSHMPowAvgMaxLR", "UASTonShpAurSHM05ExMaxLR")
 dVar <- "dHighAnnoyPc"
 
 ```

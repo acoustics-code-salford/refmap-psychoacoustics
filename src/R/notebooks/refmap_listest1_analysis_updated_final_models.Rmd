@@ -709,7 +709,7 @@ stimDataNoAmb$UASType <- factor(stimDataNoAmb$UASType, levels=UASTypeCatsA[2:len
 paramKNLR <- c(0.168, 0.152, 0.138, 0.158, 0.189, 0.148, 0.116, 0.085)
 paramX0LAENLR <- c(82.2, 78.9, 77.4, 81.8, 81.0, 83.8, 92.2, 93.4)
 
-rangeLAENLR <- seq(50, 90, by=1)
+rangeLAENLR <- seq(50, 90, by=0.1)
 
 pHALAENLRFunc <- function(paramK, paramX0, abscissa){
   pHA <- 1/(1 + exp(-paramK*(abscissa - paramX0)))
@@ -750,6 +750,10 @@ pHALAENLRAir <- pHALAENLRAir |> tidyr::pivot_longer(cols=c(Air_taxi, Helicopter_
 pHALAENLRAirAdj <- pHALAENLRAir |> dplyr::mutate(LAE = LAE - 6,
                                                  LAEScl = LAEScl - 6)
 
+# filter for pHA~0.5 and pHA~0.25
+pHALAENLRSel <- pHALAENLR |> dplyr::filter(abs(pHA - 0.5) < 0.002 | abs(pHA - 0.25) < 0.002)
+pHALAENLRSelAir <- pHALAENLRAir |> dplyr::filter(abs(pHA - 0.5) < 0.002 | abs(pHA - 0.25) < 0.002)
+
 
 ```
 
@@ -761,7 +765,7 @@ paramb0EMPA <- c(-11.06)
 paramb1LAEEMPA<- c(0.17)
 paramtauSrcEMPA <- c(-0.91)
 
-rangeLAEEMPA <- seq(53, 80, by=1)
+rangeLAEEMPA <- seq(53, 80, by=0.1)
 
 pHALAEEMPAFunc <- function(paramb0, paramb1, paramtau, abscissa){
   pHA <- 1/(1 + exp(-(paramb0 + paramb1*abscissa + paramtau)))
@@ -799,6 +803,10 @@ pHALAEEMPAAir <- data.frame(LAE = rangeLAEEMPA,
 
 pHALAEEMPAAir <- pHALAEEMPAAir |> tidyr::pivot_longer(cols=c(Helicopter, Propeller, Jet), names_to="Type", values_to="pHA")
 
+# filter for pHA~0.5 and pHA~0.25
+pHALAEEMPASel <- pHALAEEMPA |> dplyr::filter(abs(pHA - 0.5) < 0.002 | abs(pHA - 0.25) < 0.002)
+pHALAEEMPASelAir <- pHALAEEMPAAir |> dplyr::filter(abs(pHA - 0.5) < 0.002 | abs(pHA - 0.25) < 0.002)
+
 ```
 
 ## Gwak HA curves
@@ -810,7 +818,7 @@ param0LAeqGwak <- c(13.512, 13.47, 12.184)/paramkGwak
 
 param0LAEGwak <- param0LAeqGwak + 10*log10(7)
 
-rangeLAeqGwak <- seq(40, 85, by=1)
+rangeLAeqGwak <- seq(40, 85, by=0.1)
 rangeLAEGwak <- rangeLAeqGwak + 10*log10(7)
 
 pHALAEGwakFunc <- function(paramb0, paramk, abscissa){
@@ -860,6 +868,13 @@ pHALAEGwakAir <- pHALAEGwakAir |> tidyr::pivot_longer(cols=c(Jet), names_to="Typ
 # adjust pHALAEGwakAir LAE and LAEScl columns by -6 dB and make a new dataframe
 pHALAEGwakAirAdj <- pHALAEGwakAir |> dplyr::mutate(LAE = LAE - 6,
                                                    LAEScl = LAEScl - 6)
+
+
+# filter for pHA~0.5 and pHA~0.25
+pHALAEGwakSel <- pHALAEGwak |> dplyr::filter(abs(pHA - 0.5) < 0.002 | abs(pHA - 0.25) < 0.002)
+pHALAEGwakSelAir <- pHALAEGwakAir |> dplyr::filter(abs(pHA - 0.5) < 0.002 | abs(pHA - 0.25) < 0.002)
+
+
 
 ```
 

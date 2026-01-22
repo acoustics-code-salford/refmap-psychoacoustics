@@ -66,24 +66,27 @@ df.loc[df['sourceStart'] == "Baseline", 'sourceProximity'] = "Baseline"
 df.loc[df['sourceStart'] == "Baseline", 'sourceMode'] = "Baseline"
 
 # simplify ambient condition names by removing everything after the first underscore
-df['ambient'] = df['ambient'].str.split('_').str[0]
+# rename ambient column to ambientRef
+df.rename(columns={"ambient": "ambientRef"}, inplace=True)
+df['ambientRef'] = df['ambientRef'].str.split('_').str[0]
 
 # create stimulus field
-df['stimulus'] = (df['ambient'].str.split('_').str[0] + "_" +
-                  df['source'].str.split("trajectory").str[1].str.replace("FadeCal", "") + "_" +
+df['stimulus'] = (df['ambientRef'].str.split('_').str[0] + "_" +
+                  df['source'].str.split("trajectory").str[1].str.replace("Fade", "") + "_" +
                   df['sourceStart'].astype(str) + "_" +
                   df['sourceEvents'].astype(str))
-df.loc[df['sourceStart'] == "Baseline", 'stimulus'] = (df['ambient'].str.split('_').str[0] + "_baseline")
-
+# remove "_reflection" substring from stimulus names
+df['stimulus'] = df['stimulus'].str.replace("_reflection", "")
+df.loc[df['sourceStart'] == "Baseline", 'stimulus'] = (df['ambientRef'].str.split('_').str[0] + "_Baseline")
 # drop unnecessary columns
 df.drop(columns=['video', 'source'], inplace=True)
 
 # rearrange the columns
 cols = df.columns.tolist()
 cols.insert(cols.index('trial') + 1, cols.pop(cols.index('stimulus')))
-cols.insert(cols.index('ambient') + 1, cols.pop(cols.index('sourceProximity')))
-cols.insert(cols.index('ambient') + 1, cols.pop(cols.index('sourceMode')))
-cols.insert(cols.index('ambient') + 1, cols.pop(cols.index('sourceType')))
+cols.insert(cols.index('ambientRef') + 1, cols.pop(cols.index('sourceProximity')))
+cols.insert(cols.index('ambientRef') + 1, cols.pop(cols.index('sourceMode')))
+cols.insert(cols.index('ambientRef') + 1, cols.pop(cols.index('sourceType')))
 df = df.reindex(columns=cols)
 
 # create separate DataFrame for  end responses
@@ -112,12 +115,12 @@ for response in ['Annoyance', 'Pleasantness', 'Eventfulness']:
     # loop through participants
     for participant in df_endResponse['participant'].unique():
         # loop through ambient conditions
-        for ambient in df_endResponse['ambient'].unique():
+        for ambient in df_endResponse['ambientRef'].unique():
 
             df_baseResponse = df_endResponse.loc[((df_endResponse['participant']
                                                    == participant)
-                                                  & (df_endResponse['stimulus'].str.contains("baseline"))
-                                                  & (df_endResponse['ambient']
+                                                  & (df_endResponse['stimulus'].str.contains("Baseline"))
+                                                  & (df_endResponse['ambientRef']
                                                      == ambient)), response]
             
             if df_baseResponse.empty:  # this is needed for participant 49 who is missing data
@@ -125,17 +128,17 @@ for response in ['Annoyance', 'Pleasantness', 'Eventfulness']:
 
             df_endResponse.loc[((df_endResponse['participant']
                                  == participant)
-                                & ~(df_endResponse['stimulus'].str.contains("baseline"))
-                                & (df_endResponse['ambient']
+                                & ~(df_endResponse['stimulus'].str.contains("Baseline"))
+                                & (df_endResponse['ambientRef']
                                    == ambient)),
                                    "d" + response] = (df_endResponse.loc[((df_endResponse['participant']
                                                                            == participant)
-                                                                          & ~(df_endResponse['stimulus'].str.contains("baseline"))
-                                                                          & (df_endResponse['ambient']
+                                                                          & ~(df_endResponse['stimulus'].str.contains("Baseline"))
+                                                                          & (df_endResponse['ambientRef']
                                                                              == ambient)), response]
                                                       - df_baseResponse.values)
 
-    df_endResponse.loc[df_endResponse['stimulus'].str.contains("baseline"), "d" + response] = 0
+    df_endResponse.loc[df_endResponse['stimulus'].str.contains("Baseline"), "d" + response] = 0
 
 # change in highly annoyed 'dHighlyAnnoyed' is 1 if response changed from not highly annoyed in
 # corresponding baseline to highly annoyed in stimulus, and 0 otherwise, except if baseline is also
@@ -143,11 +146,11 @@ for response in ['Annoyance', 'Pleasantness', 'Eventfulness']:
 # loop through participants
 for participant in df_endResponse['participant'].unique():
     # loop through ambient conditions
-    for ambient in df_endResponse['ambient'].unique():
+    for ambient in df_endResponse['ambientRef'].unique():
         df_baseResponse = df_endResponse.loc[((df_endResponse['participant']
                                                 == participant)
-                                                & (df_endResponse['stimulus'].str.contains("baseline"))
-                                                & (df_endResponse['ambient']
+                                                & (df_endResponse['stimulus'].str.contains("Baseline"))
+                                                & (df_endResponse['ambientRef']
                                                     == ambient)), 'HighlyAnnoyed']
 
         # this is needed for participant 49 who is missing data and for baseline HA
@@ -156,26 +159,26 @@ for participant in df_endResponse['participant'].unique():
         
         df_endResponse.loc[((df_endResponse['participant']
                                 == participant)
-                            & ~(df_endResponse['stimulus'].str.contains("baseline"))
-                            & (df_endResponse['ambient']
+                            & ~(df_endResponse['stimulus'].str.contains("Baseline"))
+                            & (df_endResponse['ambientRef']
                                 == ambient)
                             & (df_endResponse['HighlyAnnoyed'] == 1)), 'dHighlyAnnoyed'] = True
         df_endResponse.loc[((df_endResponse['participant']
                                 == participant)
-                            & ~(df_endResponse['stimulus'].str.contains("baseline"))
-                            & (df_endResponse['ambient']
+                            & ~(df_endResponse['stimulus'].str.contains("Baseline"))
+                            & (df_endResponse['ambientRef']
                                 == ambient)
                             & (df_endResponse['HighlyAnnoyed'] == 0)), 'dHighlyAnnoyed'] = False
         df_endResponse.loc[((df_endResponse['participant']
                                 == participant)
-                            & (df_endResponse['stimulus'].str.contains("baseline"))
-                            & (df_endResponse['ambient']
+                            & (df_endResponse['stimulus'].str.contains("Baseline"))
+                            & (df_endResponse['ambientRef']
                                 == ambient)
                             & (df_endResponse['HighlyAnnoyed'] == 1)),
                             'dHighlyAnnoyed'] = df_endResponse.loc[((df_endResponse['participant']
                                                                      == participant)
-                                                                   & (df_endResponse['stimulus'].str.contains("baseline"))
-                                                                   & (df_endResponse['ambient']
+                                                                   & (df_endResponse['stimulus'].str.contains("Baseline"))
+                                                                   & (df_endResponse['ambientRef']
                                                                       == ambient)
                                                                    & (df_endResponse['HighlyAnnoyed'] == 1)), 'HighlyAnnoyed']
 
@@ -232,6 +235,8 @@ df_questionnaire = pd.read_excel(filepath, index_col=0)
 df_questionnaire.drop(columns=['Start time', 'Completion time', 'NoiseSensitive1', 'NoiseSensitive2',
                                'NoiseSensitive3', 'NoiseSensitive4',
                                'NoiseSensitive5', 'Comments'], inplace=True)
+# make Participant ID column name ParticipantID
+df_questionnaire.rename(columns={"Participant ID": "ParticipantID"}, inplace=True)
 # fill na for AAMExperience (NA is "None"), for NativeLanguage (NA is "NotAnswered")
 df_questionnaire['AAMExperience'] = df_questionnaire['AAMExperience'].fillna("None")
 df_questionnaire['Nationality'] = df_questionnaire['Nationality'].fillna("NotAnswered")
