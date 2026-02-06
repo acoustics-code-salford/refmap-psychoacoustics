@@ -1,0 +1,469 @@
+---
+title: "REFMAP experiment 2 analysis: Two one-sided test (TOST) for left/right UAS start"
+output: html_document
+date: "2026-01-27"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup
+
+## Packages
+
+```{r packages}
+
+# load packages
+library(conflicted)
+library(tidyverse)
+library(TOSTER)
+library(easystats)
+library(patchwork)
+library(glmtoolbox)
+library(qqplotr)
+
+# set package parameters
+theme_set(theme_bw())
+
+```
+
+## Set parameters
+
+```{r}
+
+# plot colour scheme
+
+mycolourlist = list(c(0, 102, 255), c(0, 204, 153), c(255, 0, 102), c(74, 111, 152), c(251, 164, 49), c(204, 153, 255), c(90, 192, 255), c(80, 245, 233), c(255, 90, 192), c(164, 201, 242), c(255, 254, 139), c(255, 243, 255))
+mycolours = matrix()
+
+for (ii in 1:length(mycolourlist)){
+  mycolours[ii] = rgb(mycolourlist[[ii]][1]/255,
+                      mycolourlist[[ii]][2]/255,
+                      mycolourlist[[ii]][3]/255)
+}
+
+# toggle to save plots
+saveplots = TRUE
+
+if (saveplots){
+  # set output plot directory
+  choose.files(caption="Just cancel this", filters=matrix(data=c(" ", " "), ncol=2))  # workaround for bug in RTerm choose.dir
+  outFigPath <- utils::choose.dir(caption="Select output folder to save plots")
+  
+  if (!dir.exists(file.path(outFigPath, "svg"))){dir.create(file.path(outFigPath, "svg"))}
+  if (!dir.exists(file.path(outFigPath, "pdf"))){dir.create(file.path(outFigPath, "pdf"))}
+  
+}
+
+# toggle to save data
+savedata = TRUE
+
+if (savedata){
+  # set output plot directory
+  if (saveplots==FALSE){
+    choose.files(caption="Just cancel this", filters=matrix(data=c(" ", " "), ncol=2))  # workaround for bug in RTerm choose.dir
+  }
+  outDataPath <- utils::choose.dir(caption="Select output folder to save data")
+}
+
+set.seed(648591)
+
+
+```
+
+## Define functions
+
+### Generate a ggplot2 object for some cluster-specific (positive) variable by cluster from glmgee object
+
+```{r}
+
+geeCluster_stemplot <- function(glmgeeMod, clusterVar, colour='blue', alpha=1){
+  # check the lengths of clusterVar and ids match
+  if (length(clusterVar) != length(unique(glmgeeMod$ids))){
+    stop("Cluster variable length does not match number of clusters")
+  }
+  
+  # ensure cluster indexes are factors
+  ids_ordered <- factor(glmgeeMod$ids, levels=glmgeeMod$ids)
+  
+  df <- data.frame(ID=ids_ordered, values=as.vector(clusterVar))
+  
+  ggplot(data=df) +
+
+  geom_segment(aes(x=ID, xend=ID, yend=values), y=0, 
+               colour=colour, alpha=alpha) +
+    
+  geom_point(aes(x=ID, y=values), colour=colour, size=2)
+  
+}
+
+
+```
+
+### Generate a ggplot2 object for residuals from a glmgee object
+
+```{r}
+
+gee_residplot <- function(glmgeeMod, residual_vals, colour='blue', shape=1, size=2, alpha=1){
+
+  # check the lengths of residuals and fitted values match
+  if (length(residual_vals) != length(glmgeeMod$fitted.values)){
+    stop("Residuals length does not match fitted values length")
+  }
+
+  ylimits <- c(min(-3.5, min(residual_vals)), max(+3.5, max(residual_vals)))
+
+  df <- data.frame(fitted_vals=as.vector(glmgeeMod$fitted.values), resid_vals=as.vector(residual_vals))
+  
+  ggplot(data=df) +
+
+  geom_point(aes(x=fitted_vals, y=resid_vals), colour=colour, shape=shape, size=size, alpha=alpha) +
+  
+  scale_y_continuous(limits=ylimits, breaks=seq(-6, 6, by=1),
+                     labels=seq(-6, 6, by=1)) +
+  
+  geom_hline(yintercept=3, linetype="dotted", color = "black") +
+  geom_hline(yintercept=-3, linetype="dotted", color = "black")
+  
+  
+}
+
+
+```
+
+## Import data and wrangle
+
+```{r}
+
+
+subjDataPath <- utils::choose.files(caption=r"(Select refmap_listest2_testdata_BySubj.csv from 03 Experiment\Experiment 2\Analysis\PostProcess)",
+                                     filters=matrix(data=c("refmap_listest2_testdata_BySubj.csv", "refmap_listest2_testdata_BySubj.csv"), ncol=2))
+
+subjData <- read.csv(subjDataPath, header=TRUE)
+
+stimDataPath <- utils::choose.files(caption=r"(Select refmap_listest2_testdata_ByStim.csv from 03 Experiment\Experiment 2\Analysis\PostProcess)",
+                                     filters=matrix(data=c("refmap_listest1_testdata_ByStim.csv", "refmap_listest2_testdata_ByStim.csv"), ncol=2))
+
+stimData <- read.csv(stimDataPath, header=TRUE)
+
+```
+
+```{r}
+# centre and scale trial number
+subjData <- subjData |> dplyr::mutate(TrialScl = datawizard::standardise(Trial, scale=TRUE))
+
+# relocate new column
+subjData <- subjData |> dplyr::relocate(TrialScl, .after=Trial)
+
+# rescale variables
+subjData <- subjData |> dplyr::mutate(UASLAeqMaxLRScl = datawizard::standardise(UASLAeqMaxLR, scale=FALSE))
+subjData <- subjData |> dplyr::mutate(UASLAEMaxLRScl = datawizard::standardise(UASLAEMaxLR, scale=FALSE))
+subjData <- subjData |> dplyr::mutate(UASEPNLMaxLRScl = datawizard::standardise(UASEPNLMaxLR, scale=FALSE))
+subjData <- subjData |> dplyr::mutate(LAELAF50diffScl = datawizard::standardise(LAELAF50diff, scale=FALSE))
+subjData <- subjData |> dplyr::mutate(LAELAeqdiffScl = datawizard::standardise(LAELAeqdiff, scale=FALSE))
+subjData <- subjData |> dplyr::mutate(EPNLLAeqdiffScl = datawizard::standardise(EPNLLAeqdiff, scale=FALSE))
+subjData <- subjData |> dplyr::mutate(UASDisc0p5LAEMaxLRScl = datawizard::standardise(UASDisc0p5LAEMaxLR, scale=FALSE))
+subjData <- subjData |> dplyr::mutate(UASDisc0p5PAEMaxLR = 2e-5*10^(UASDisc0p5LAEMaxLR/20))
+subjData <- subjData |> dplyr::mutate(UASLoudECMAPowAvgScl = datawizard::standardise(UASLoudECMAPowAvg, scale=FALSE))
+subjData <- subjData |> dplyr::mutate(IntermitRatioC2MaxLRScl = IntermitRatioC2MaxLR/100)
+subjData <- subjData |> dplyr::mutate(IntermitRatioC3MaxLRScl = IntermitRatioC3MaxLR/100)
+subjData <- subjData |> dplyr::mutate(IntermitRatioC5MaxLRScl = IntermitRatioC5MaxLR/100)
+subjData <- subjData |> dplyr::mutate(AmbLAeqMaxLRScl = datawizard::standardise(AmbLAeqMaxLR, scale=FALSE))
+subjData <- subjData |> dplyr::mutate(AmbLAF50ExMaxLRScl = datawizard::standardise(AmbLAF50ExMaxLR, scale=FALSE))
+
+
+stimData <- stimData |> dplyr::mutate(UASLAeqMaxLRScl = datawizard::standardise(UASLAeqMaxLR, scale=FALSE))
+stimData <- stimData |> dplyr::mutate(UASLAEMaxLRScl = datawizard::standardise(UASLAEMaxLR, scale=FALSE))
+stimData <- stimData |> dplyr::mutate(UASEPNLMaxLRScl = datawizard::standardise(UASEPNLMaxLR, scale=FALSE))
+stimData <- stimData |> dplyr::mutate(LAELAF50diffScl = datawizard::standardise(LAELAF50diff, scale=FALSE))
+stimData <- stimData |> dplyr::mutate(LAELAeqdiffScl = datawizard::standardise(LAELAeqdiff, scale=FALSE))
+stimData <- stimData |> dplyr::mutate(EPNLLAeqdiffScl = datawizard::standardise(EPNLLAeqdiff, scale=FALSE))
+stimData <- stimData |> dplyr::mutate(UASDisc0p5LAEMaxLRScl = datawizard::standardise(UASDisc0p5LAEMaxLR, scale=FALSE))
+stimData <- stimData |> dplyr::mutate(UASDisc0p5PAEMaxLR = 2e-5*10^(UASDisc0p5LAEMaxLR/20))
+stimData <- stimData |> dplyr::mutate(UASLoudECMAPowAvgScl = datawizard::standardise(UASLoudECMAPowAvg, scale=FALSE))
+stimData <- stimData |> dplyr::mutate(IntermitRatioC2MaxLRScl = IntermitRatioC2MaxLR/100)
+stimData <- stimData |> dplyr::mutate(IntermitRatioC3MaxLRScl = IntermitRatioC3MaxLR/100)
+stimData <- stimData |> dplyr::mutate(IntermitRatioC5MaxLRScl = IntermitRatioC5MaxLR/100)
+stimData <- stimData |> dplyr::mutate(AmbLAeqMaxLRScl = datawizard::standardise(AmbLAeqMaxLR, scale=FALSE))
+stimData <- stimData |> dplyr::mutate(AmbLAF50ExMaxLRScl = datawizard::standardise(AmbLAF50ExMaxLR, scale=FALSE))
+
+# convert detectability dB to log variables
+subjData <- subjData |> dplyr::mutate(Detect0p1IntMaxLRLog = Detect0p1dBIntMaxLR/10)
+subjData <- subjData |> dplyr::mutate(Detect0p5IntMaxLRLog = Detect0p5dBIntMaxLR/10)
+subjData <- subjData |> dplyr::mutate(Detect0p1MaxMaxLRLog = Detect0p1dBMaxMaxLR/10)
+subjData <- subjData |> dplyr::mutate(Detect0p5MaxMaxLRLog = Detect0p5dBMaxMaxLR/10)
+subjData <- subjData |> dplyr::mutate(Detect0p1IntMaxLRLogScl = datawizard::standardise(Detect0p1IntMaxLRLog, scale=FALSE))
+subjData <- subjData |> dplyr::mutate(Detect0p5IntMaxLRLogScl = datawizard::standardise(Detect0p5IntMaxLRLog, scale=FALSE))
+subjData <- subjData |> dplyr::mutate(Detect0p1MaxMaxLRLogScl = datawizard::standardise(Detect0p1MaxMaxLRLog, scale=FALSE))
+subjData <- subjData |> dplyr::mutate(Detect0p5MaxMaxLRLogScl = datawizard::standardise(Detect0p5MaxMaxLRLog, scale=FALSE))
+
+stimData <- stimData |> dplyr::mutate(Detect0p1IntMaxLRLog = Detect0p1dBIntMaxLR/10)
+stimData <- stimData |> dplyr::mutate(Detect0p5IntMaxLRLog = Detect0p5dBIntMaxLR/10)
+stimData <- stimData |> dplyr::mutate(Detect0p1MaxMaxLRLog = Detect0p1dBMaxMaxLR/10)
+stimData <- stimData |> dplyr::mutate(Detect0p5MaxMaxLRLog = Detect0p5dBMaxMaxLR/10)
+stimData <- stimData |> dplyr::mutate(Detect0p1IntMaxLRLogScl = datawizard::standardise(Detect0p1IntMaxLRLog, scale=FALSE))
+stimData <- stimData |> dplyr::mutate(Detect0p5IntMaxLRLogScl = datawizard::standardise(Detect0p5IntMaxLRLog, scale=FALSE))
+stimData <- stimData |> dplyr::mutate(Detect0p1MaxMaxLRLogScl = datawizard::standardise(Detect0p1MaxMaxLRLog, scale=FALSE))
+stimData <- stimData |> dplyr::mutate(Detect0p5MaxMaxLRLogScl = datawizard::standardise(Detect0p5MaxMaxLRLog, scale=FALSE))
+
+# Log other variables
+subjData$PartLoudSHMPowAvgLog <- log(subjData$PartLoudSHMPowAvg)
+stimData$PartLoudSHMPowAvgLog <- log(stimData$PartLoudSHMPowAvg)
+
+# rename the unnamed first column in stimData to "Stimulus"
+colnames(stimData)[1] <- "Stimulus"
+
+
+# reorder by participant ID and trial number
+subjData <- subjData[with(subjData, order(ID, Trial)), ]
+
+# omit baseline stimuli
+subjDataNoAmb <- subjData |> dplyr::filter(UASOperation != "Baseline")
+stimDataNoAmb <- stimData |> dplyr::filter(UASOperation != "Baseline")
+
+# re-encode factors for NoAmb dataframes
+subjDataNoAmb$ID <- factor(subjDataNoAmb$ID)
+subjDataNoAmb$UASOperation <- factor(subjDataNoAmb$UASOperation, levels=unique(subjDataNoAmb$UASOperation))
+subjDataNoAmb$UASType <- factor(subjDataNoAmb$UASType, levels=unique(subjDataNoAmb$UASType))
+subjDataNoAmb$UASStart <- factor(subjDataNoAmb$UASStart, levels=unique(subjDataNoAmb$UASStart))
+subjDataNoAmb$AmbientEnv <- factor(subjDataNoAmb$AmbientEnv, levels=unique(subjDataNoAmb$AmbientEnv))
+
+stimDataNoAmb$UASOperation <- factor(stimDataNoAmb$UASOperation, levels=unique(stimDataNoAmb$UASOperation))
+stimDataNoAmb$UASType <- factor(stimDataNoAmb$UASType, levels=unique(stimDataNoAmb$UASType))
+stimDataNoAmb$UASStart <- factor(stimDataNoAmb$UASStart, levels=unique(stimDataNoAmb$UASStart))
+stimDataNoAmb$AmbientEnv <- factor(stimDataNoAmb$AmbientEnv, levels=unique(stimDataNoAmb$AmbientEnv))
+
+```
+
+# Check for outliers
+
+```{r, fig.width=32, fig.height=12}
+
+# create a subset of subjData with only the variables of interest for outlier detection:
+# ID, StimID, Annoyance, Pleasantness, Eventfulness
+subjDataOutl <- subjDataNoAmb |> dplyr::select(ID, Trial, StimID, Annoyance, Pleasantness, Eventfulness)
+
+# check for outliers using ggplot2 boxplots grouped by stim ID, using mycolours for the box and outlier colours
+bpA <- ggplot(subjDataOutl, aes(x=factor(StimID), y=Annoyance)) +
+  theme(text=element_text(family = "serif", size=16)) +
+  geom_boxplot(box.colour=mycolours[1], outlier.colour=mycolours[1]) +
+  labs(x="Stimulus ID", y="Annoyance")
+bpE <- ggplot(subjDataOutl, aes(x=factor(StimID), y=Eventfulness)) +
+  theme(text=element_text(family = "serif", size=16)) +
+  geom_boxplot(box.colour=mycolours[3], outlier.colour=mycolours[3]) +
+  labs(x="Stimulus ID", y="Eventfulness")
+bpP <- ggplot(subjDataOutl, aes(x=factor(StimID), y=Pleasantness)) +
+  theme(text=element_text(family = "serif", size=16)) +
+  geom_boxplot(box.colour=mycolours[2], outlier.colour=mycolours[2]) +
+  labs(x="Stimulus ID", y="Pleasantness")
+
+bpA / bpE / bpP
+
+pg <- ggplot_build(bpA)
+bpAOut <- pg$data[[1]]$outliers
+
+
+```
+
+
+```{r, fig.width=32, fig.height=12}
+# re-run outlier detection omitting participant ID 34
+
+subjDataNoOutl <- subjDataOutl |> dplyr::filter(ID != 34)
+
+bpA <- ggplot(subjDataNoOutl, aes(x=factor(StimID), y=Annoyance)) +
+  theme(text=element_text(family = "serif", size=16)) +
+  geom_boxplot(box.colour=mycolours[1], outlier.colour=mycolours[1]) +
+  labs(x="Stimulus ID", y="Annoyance")
+bpE <- ggplot(subjDataNoOutl, aes(x=factor(StimID), y=Eventfulness)) +
+  theme(text=element_text(family = "serif", size=16)) +
+  geom_boxplot(box.colour=mycolours[3], outlier.colour=mycolours[3]) +
+  labs(x="Stimulus ID", y="Eventfulness")
+bpP <- ggplot(subjDataNoOutl, aes(x=factor(StimID), y=Pleasantness)) +
+  theme(text=element_text(family = "serif", size=16)) +
+  geom_boxplot(box.colour=mycolours[2], outlier.colour=mycolours[2]) +
+  labs(x="Stimulus ID", y="Pleasantness")
+
+bpA / bpE / bpP
+
+```
+
+# Fit a preliminary GLM for diagnostic purposes
+
+```{r, fig.width=40, fig.height=8}}
+# First for Annoyance response
+
+
+gee_diag_A <- glmtoolbox::glmgee(Annoyance ~ UASLAEMaxLRScl,
+  data = subjDataNoAmb,
+  family = gaussian(link='identity'),
+  id = ID,
+  corstr = 'independence'
+)
+
+performance::check_distribution(gee_diag_A)
+performance::check_heteroskedasticity(gee_diag_A)
+
+
+gee_diag_A.resP <- residuals(gee_diag_A, type = "pearson")
+
+gee_residplot(gee_diag_A,
+              residual_vals=gee_diag_A.resP,
+              colour=mycolours[3], alpha=0.7) +
+    theme(panel.grid = element_blank(), text=element_text (family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Fitted values", y="Standardised Pearson residuals")
+
+gee_diag_A.resM <- residuals(gee_diag_A, type="mahalanobis")
+
+# plot Mahalanobis residuals with ggplot2 on a stem plot replacing the index by the corresponding participant ID
+geeCluster_stemplot(gee_diag_A,
+                    clusterVar=gee_diag_A.resM,
+                    colour=mycolours[2], alpha=0.7) +
+    theme(panel.grid = element_blank(),
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Participant ID", y="Mahalanobis distance")
+
+gee_diag_A.Cook <- cooks.distance(gee_diag_A)
+
+geeCluster_stemplot(gee_diag_A,
+                    clusterVar=gee_diag_A.Cook,
+                    colour=mycolours[4], alpha=0.7) +
+    theme(panel.grid = element_blank(),
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Participant ID", y="Cook's distance")
+
+ggplot(as.data.frame(x=res_p), aes(x = pearson)) +
+  geom_histogram(bins = 15) +
+  labs(x = "Residuals", y = "Count") +
+  theme(text=element_text(family = "serif", size=16))
+
+ggplot(data = data.frame(res_p), aes(sample = res_p)) +
+  qqplotr::stat_qq_point(size = 2) +
+  qqplotr::stat_qq_line() +
+  qqplotr::stat_qq_band(conf = 0.95, alpha = 0.5) + 
+  labs(x="Theoretical quantiles", y="Sample quantiles") +
+  theme(text=element_text(family = "serif", size=16))
+
+```
+
+```{r}
+# Second for dAnnoyance response
+subjDataNoAmbCC <- subjDataNoAmb |> dplyr::filter(!is.na(dAnnoyance))
+
+gee_diag_dA <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl,
+  data = subjDataNoAmbCC,
+  family = gaussian(link='identity'),
+  id = ID,
+  corstr = 'independence'
+)
+
+performance::check_distribution(gee_diag_dA)
+performance::check_heteroskedasticity(gee_diag_dA)
+
+res_p <- residuals(gee_diag_dA, type = "pearson")
+fitted <- fitted(gee_diag_dA)
+
+plot(fitted, res_p)
+abline(h = 0)
+
+ggplot(as.data.frame(x=res_p), aes(x = pearson)) +
+  geom_histogram(bins = 15) +
+  labs(x = "Residuals", y = "Count") +
+  theme(text=element_text(family = "serif", size=16))
+
+# examine qqplots with confidence intervals
+
+qqnorm(res_p)
+qqline(res_p)
+
+ggplot(data = data.frame(res_p), aes(sample = res_p)) +
+  qqplotr::stat_qq_point(size = 2) +
+  qqplotr::stat_qq_line() +
+  qqplotr::stat_qq_band(conf = 0.95, alpha = 0.5) + 
+  labs(x="Theoretical quantiles", y="Sample quantiles") +
+  theme(text=element_text(family = "serif", size=16))
+
+```
+
+# TOST analysis for left/right UAS start for annoyance response
+
+```{r}
+
+# subset data for left/right UAS start and sort by StimID
+
+stimDataL <- stimDataNoAmb |> dplyr::filter(UASStart == "Left") |>
+                                dplyr::arrange(StimID) |>
+                dplyr::mutate(Stimulus=sub("_left", "", Stimulus))
+stimDataR <- stimDataNoAmb |> dplyr::filter(UASStart == "Right") |>
+                                dplyr::arrange(StimID) |>
+                dplyr::mutate(Stimulus=sub("_right", "", Stimulus))
+
+
+# conduct TOST for left vs right UAS start for Annoyance response
+tostRes1 <- TOSTER::t_TOST(x = stimDataL$AnnoyanceMean,
+                   y = stimDataR$AnnoyanceMean,
+                   eqb = 0.35, paired = TRUE,
+                   alpha=0.05)
+tostRes1$decision
+pT <- TOSTER::plot_smd(d=tostRes1$smd$d,
+                       df=tostRes1$smd$d_df,
+                       smd_ci='goulet',
+                       lambda=tostRes1$smd$d_lambda)
+pT
+
+
+# conduct TOST for left vs right UAS start for dAnnoyance response
+tostRes2 <- TOSTER::boot_t_TOST(x = stimDataL$dAnnoyanceMean,
+                   y = stimDataR$dAnnoyanceMean,
+                   eqb = 0.25, paired = TRUE,
+                   alpha=0.05, R=1000)
+tostRes2$decision
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -3,9 +3,9 @@
 # script
 
 
-# --------
-# %% Setup
-# --------
+# %%%%%
+# Setup
+# -----
 
 # import statements
 import sys
@@ -25,9 +25,9 @@ simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 # enable copy-on-write mode for Pandas (will be default from Pandas 3.0)
 pd.options.mode.copy_on_write = True
 
-# ------------------------------------------------------------
-# %% Initialise data frame for metric calculations and results
-# ------------------------------------------------------------
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# Initialise data frame for metric calculations and results
+# ---------------------------------------------------------
 
 # skip signal start and end for time-aggregation
 start_skipT = 1.5
@@ -57,9 +57,9 @@ dataByStim = pd.DataFrame(index=stemNames, dtype=float)
 dataByStim['HATSRecFiles'] = filenames
 dataByStim['MA220MicRecFiles'] = sqmNames
 
-# ----------------------------------------
-# %% Add categorical variables for stimuli
-# ----------------------------------------
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# Add categorical variables for stimuli
+# -------------------------------------
 
 # NOTE: the order of this section matters, as some categorical variable
 # definitions depend on Boolean logic derived from other categorical variables
@@ -100,6 +100,7 @@ dataByStim.loc[(dataByStim.index.str.find("Baseline") != -1),
 # UAS proximity
 dataByStim.loc[dataByStim.index.str.find("Near") != -1, 'UASProximity'] = "Near"
 dataByStim.loc[dataByStim.index.str.find("Far") != -1, 'UASProximity'] = "Far"
+dataByStim.loc[(dataByStim.index.str.find("Baseline") != -1), 'UASProximity'] = "Baseline"
 
 # UAS event quantity
 dataByStim.loc[dataByStim.index.str.find("Baseline") != -1, 'UASEvents'] = 0
@@ -118,9 +119,9 @@ dataByStim.loc[dataByStim.index.str.find("left") != -1, 'UASStart'] = "Left"
 dataByStim.loc[dataByStim.index.str.find("right") != -1, 'UASStart'] = "Right"
 dataByStim.loc[dataByStim.index.str.find("Baseline") != -1, 'UASStart'] = "Baseline"
 
-# --------------------------------------------------
-# %% Acoustic, PNL & Detection metrics single values
-# --------------------------------------------------
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# Acoustic, PNL & Detection metrics single values
+# -----------------------------------------------
 
 # output variables
 indicesAcoustic = ["LAeqMaxLR", "LAEMaxLR", "LAFmaxMaxLR",
@@ -203,6 +204,7 @@ for ii, file in enumerate(filelist):
         signalLAeq1s = 20*np.log10(np.sqrt(pd.DataFrame(signalA[start_skips:-end_skips]**2).rolling(window=sampleRatein,
                                                                                                     step=sampleRatein,
                                                                                                     closed='left').mean())/2e-5)
+        
         intermitRatioAll = np.zeros((len(C), 2))
         for jj, jjC in enumerate(C):
             intermitRatioK = signalLAeq + jjC  # IR threshold
@@ -248,9 +250,9 @@ PNLDetectResults.set_index(PNLDetectResults.index.str.replace(pat="_HATS_Pa.wav"
 # join results to data
 dataByStim = dataByStim.join(PNLDetectResults, how='left')
 
-# ---------------------------------------------------
-# %% Psychoacoustic metrics single values calculation
-# ---------------------------------------------------
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# Psychoacoustic metrics single values calculation
+# ------------------------------------------------
 
 # output variables
 indicesPsycho = ["LoudECMAPowAvg",
@@ -408,6 +410,7 @@ bandDiffSHMImp = 1.0  # Sottek Hearing Model impulsiveness band differences
 # time value for moving averaging of SQMs for difference calculations
 windowT = 0.05
 
+# %%%%%%%%%%%%%%%%%%%%%%%%
 # From MATLAB calculations
 # ------------------------
 
@@ -1596,6 +1599,7 @@ for ii, file in enumerate(filelist):
 
 # end of for loop over MATLAB SQM files
 
+# %%%%%%%%%%%%%%%%%%%%%%%%%
 # From ArtemiS calculations
 # -------------------------
 
@@ -2001,9 +2005,9 @@ for ii, file in enumerate(filelist):
 
 # end of for loop over ArtemiS SQM files
 
-# --------------------------------------------------
-# %% Psychoacoustic annoyance metrics single values
-# --------------------------------------------------
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# Psychoacoustic annoyance metrics single values
+# ----------------------------------------------
 
 dataByStim['PsychAnnoyWidmann'] = psych_annoy.widmannPA(dataByStim.loc[:, 'LoudISO105Ex'],
                                                         dataByStim.loc[:, 'SharpDIN05Ex'],
@@ -2061,6 +2065,7 @@ for row in dataByStim.index:
                 dataByStim.loc[row, 'd' + col] = (dataByStim.loc[row, col]
                                                   - baseline_row[col].iloc[0])
 
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # add UAS-only and ambient-only data to combined stimuli
 # ------------------------------------------------------
 indicesDiffPsycho = ["PartLoudSHMPowAvg",
@@ -2204,7 +2209,7 @@ indicesLevelDiffs = ['LAeqLAF90diff', 'LAeqLAF10diff', 'LAF10LAF10diff',
                      'EPNLLAF90diff', 'PNLMLAF50diff', 'PNLTMLAF50diff',
                      'EPNLLAF50diff']
 
-# --------------------------------------------------
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Detection-discounted UAS sound levels LAeq and LAE
 # --------------------------------------------------
 
@@ -2217,6 +2222,7 @@ indicesDetect = indicesDetect + ['UASDisc0p5LAeqMaxLR', 'UASDisc0p5LAEMaxLR',
                                  'UASDisc0p1LAeqMaxLR', 'UASDisc0p1LAEMaxLR']
 
 
+# %%%%%%%%%%%%%%%%%%%%%%%
 # reorganise column order
 # -----------------------
 
@@ -2278,7 +2284,7 @@ partialMetrics = ['PartLoudSHMPowAvg',
                   'PartTonLdSHMPowAvg'] + partSharpMetrics
 dataByStim.loc[maskBaselineStims, partialMetrics] = 0
 
-# -------------
+# %%%%%%%%%%%%%
 # Response data
 # -------------
 
@@ -2397,12 +2403,65 @@ for col in reversed(indivCols):
     cols.insert(0, cols.pop(cols.index(col)))
 testData = testData[cols]
 
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# combining left and right data
+# -----------------------------
+
+# form a dataByStimCombi DataFrame that uses the artihmetic mean of 
+# every parameter across the left or right versions of each stimulus
+# first make a dataByStimL by filtering dataByStim for UASStart = Left
+dataByStimL = dataByStim.loc[dataByStim.UASStart == "Left", :].copy()
+dataByStimL.index = dataByStimL.index.str.replace("_left", "")
+dataByStimL.drop(columns=['HATSRecFiles', 'MA220MicRecFiles', 'UASStart'], inplace=True)
+# now do right
+dataByStimR = dataByStim.loc[dataByStim.UASStart == "Right", :].copy()
+dataByStimR.index = dataByStimR.index.str.replace("_right", "")
+dataByStimR.drop(columns=['HATSRecFiles', 'MA220MicRecFiles', 'UASStart'], inplace=True)
+# now calculate the element wise mean across the two dataFrames, across columns from
+# 'LAeqMaxLR' to the end 
+dataByStimCombi = dataByStimL.copy()
+dataByStimCombi.loc[:, 'LAeqMaxLR':] = 0.5*(dataByStimL.loc[:, 'LAeqMaxLR':].values
+                                            + dataByStimR.loc[:, 'LAeqMaxLR':].values)
+# assign new stimID values to the combined stimuli by starting the index from the maximum
+# stimID value in dataByStim and adding 1 for each row in dataByStimCombi
+maxStimID = int(dataByStim['StimID'].max())
+dataByStimCombi['StimID'] = range(maxStimID + 1, maxStimID + 1 + len(dataByStimCombi))
+
+# now merge this with the remaining rows from dataByStim that do not include "Left" or "Right" in the index
+dataByStimCombi = pd.concat([dataByStim.loc[~dataByStim.index.str.contains("left|right"), :].drop(columns=['HATSRecFiles', 'MA220MicRecFiles']),
+                             dataByStimCombi], axis=0)
+# resort the index
+dataByStimCombi.sort_index(inplace=True)
+# drop the UASStart column from dataByStimCombi as this is no longer relevant
+dataByStimCombi.drop(columns=['UASStart'], inplace=True)
+
+# also combine the testData into a combined dataFrame
+testDataL = testData.loc[testData.index.str.contains("left"), :].copy()
+testDataL.index = testDataL.index.str.replace("_left", "")
+testDataR = testData.loc[testData.index.str.contains("right"), :].copy()
+testDataR.index = testDataR.index.str.replace("_right", "")
+testDataCombi = testDataL.fillna(testDataR)
+testDataCombi = pd.concat([testData.loc[~testData.index.str.contains("left|right"), :],
+                           testDataCombi], axis=0)
+testDataCombi.sort_index(inplace=True)
+
+
+# %%%%%%%%%%%%%%%%%%
+# Merge the datasets
+# ------------------
+
 # merge testData into dataByStim, matching on the index
 dataByStim = dataByStim.merge(testData, how='outer', left_index=True,
                               right_index=True)
 
+# merge testDataCombi into dataByStimCombi, matching on the index
+dataByStimCombi = dataByStimCombi.merge(testDataCombi, how='outer', left_index=True,
+                                        right_index=True)
 
-# add questionnaire responses to dataset
+
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# open questionnaire responses dataset
+# ------------------------------------
 
 # open csv file selection dialog and assign filepath
 # PROJECT NOTE: the response files are stored in
@@ -2422,17 +2481,20 @@ questResponses = pd.read_csv(filepath, header=0)
 questResponses['Exp1ID'] = questResponses['Exp1ID'].astype(pd.Int64Dtype())
 questResponses['AAMExperience'] = questResponses['AAMExperience'].fillna("None")
 
-# ----------------------------------
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Prepare outputs for saving to file
 # ----------------------------------
 
 # separate 'by stimulus' output into test data and auxiliary data by checking
 # for numeric StimID values (test stimuli only have numeric StimID values)
 dataByStimTest = dataByStim.loc[~np.isnan(dataByStim['StimID']), :]
+dataByStimTestCombi = dataByStimCombi.loc[~np.isnan(dataByStimCombi['StimID']), :]
 
 # select auxiliary data (non-test stimuli) by indexes with background, and the UAS only stimuli
 dataByStimAux = dataByStim.loc[(dataByStim.index.str.contains("Background"))
                                | (dataByStim['AmbientRef'] == "UAS only"), :].dropna(axis=1, how='all')
+dataByStimAuxCombi = dataByStimCombi.loc[(dataByStimCombi.index.str.contains("Background"))
+                                          | (dataByStimCombi['AmbientRef'] == "UAS only"), :].dropna(axis=1, how='all')
 
 # check/open QApplication instance
 if not QApplication.instance():
@@ -2442,7 +2504,6 @@ else:
 
 outFilePath = QFileDialog.getExistingDirectory(caption="Choose output folder to save processed files in '03 Experiment\Experiment 2\Analysis\PostProcess'")
 
-
 dataByStim.to_csv(os.path.join(outFilePath,
                                "refmap_listest2_alldata_ByStim.csv"))
 
@@ -2451,6 +2512,15 @@ dataByStimTest.to_csv(os.path.join(outFilePath,
 
 dataByStimAux.to_csv(os.path.join(outFilePath,
                                   "refmap_listest2_auxdata.csv"))
+
+dataByStimCombi.to_csv(os.path.join(outFilePath,
+                                    "refmap_listest2_alldata_ByStimCombi.csv"))
+
+dataByStimTestCombi.to_csv(os.path.join(outFilePath,
+                                        "refmap_listest2_testdata_ByStimCombi.csv"))
+
+dataByStimAuxCombi.to_csv(os.path.join(outFilePath,
+                                       "refmap_listest2_auxdata_ByStimCombi.csv"))
 
 # merge response and stimuli data into 'by participant' test datasets, and
 # save to file
@@ -2563,3 +2633,109 @@ testdPleasantDataBySubjWide.to_csv(os.path.join(outFilePath,
 testdEventfulDataBySubjWide.to_csv(os.path.join(outFilePath,
                                                "refmap_listest2_dEventfulDataBySubjWide.csv"),
                                    index=False)
+
+# repeat for combined dataset
+testDataCombiBySubj = pd.merge(left=testResponses.drop(columns=['ambientRef', 'sourceType',
+                                                                'sourceMode', 'sourceProximity',
+                                                                'sourceStart', 'sourceEvents', 'sourceInterval']),
+                               right=dataByStimCombi.loc[:, :dataByStimCombi.columns[dataByStimCombi.columns.get_loc('Annoyance_1') - 1]],
+                               how='outer', left_on='stimulus', right_index=True)
+
+testDataCombiBySubj = pd.merge(left=testDataCombiBySubj,
+                               right=questResponses, how='left',
+                               left_on='participant', right_on='ParticipantID')
+
+testDataCombiBySubj.rename(columns={'participant': 'ID', 'trial': 'Trial', 'stimulus': 'Stimulus'}, inplace=True)
+testDataCombiBySubj.drop(columns=['ParticipantID'], inplace=True)
+testDataCombiBySubj.sort_values(by='ID', axis=0, inplace=True)
+
+testDataCombiBySubj.to_csv(os.path.join(outFilePath,
+                                        "refmap_listest2_testdataCombi_BySubj.csv"),
+                           index=False)
+
+testAnnoyDataCombiBySubjWide = testDataCombiBySubj.pivot(index='ID',
+                                                         columns='Stimulus',
+                                                         values='Annoyance')
+
+testPleasantDataCombiBySubjWide = testDataCombiBySubj.pivot(index='ID',
+                                                            columns='Stimulus',
+                                                            values='Pleasantness')
+
+testEventfulDataCombiBySubjWide = testDataCombiBySubj.pivot(index='ID',
+                                                            columns='Stimulus',
+                                                            values='Eventfulness')
+
+testdAnnoyDataCombiBySubjWide = testDataCombiBySubj.pivot(index='ID',
+                                                          columns='Stimulus',
+                                                          values='dAnnoyance')
+
+testdPleasantDataCombiBySubjWide = testDataCombiBySubj.pivot(index='ID',
+                                                             columns='Stimulus',
+                                                             values='dPleasantness')
+
+testdEventfulDataCombiBySubjWide = testDataCombiBySubj.pivot(index='ID',
+                                                             columns='Stimulus',
+                                                             values='dEventfulness')
+
+testAnnoyDataCombiBySubjWide = testAnnoyDataCombiBySubjWide.merge(questResponses,
+                                                                  left_on='ID', right_on='ParticipantID',
+                                                                  how='left').rename(columns={'ParticipantID': 'ID'})
+
+cols = list(testAnnoyDataCombiBySubjWide.columns)
+cols.insert(0, cols.pop(cols.index('ID')))
+testAnnoyDataCombiBySubjWide = testAnnoyDataCombiBySubjWide[cols]
+
+testPleasantDataCombiBySubjWide = testPleasantDataCombiBySubjWide.merge(questResponses,
+                                                                        left_on='ID', right_on='ParticipantID',
+                                                                        how='left').rename(columns={'ParticipantID': 'ID'})
+
+cols = list(testPleasantDataCombiBySubjWide.columns)
+cols.insert(0, cols.pop(cols.index('ID')))
+testPleasantDataCombiBySubjWide = testPleasantDataCombiBySubjWide[cols]
+
+testEventfulDataCombiBySubjWide = testEventfulDataCombiBySubjWide.merge(questResponses,
+                                                                        left_on='ID', right_on='ParticipantID',
+                                                                        how='left').rename(columns={'ParticipantID': 'ID'})
+cols = list(testEventfulDataCombiBySubjWide.columns)
+cols.insert(0, cols.pop(cols.index('ID')))
+testEventfulDataCombiBySubjWide = testEventfulDataCombiBySubjWide[cols]
+
+testdAnnoyDataCombiBySubjWide = testdAnnoyDataCombiBySubjWide.merge(questResponses,
+                                                                    left_on='ID', right_on='ParticipantID',
+                                                                    how='left').rename(columns={'ParticipantID': 'ID'})
+cols = list(testdAnnoyDataCombiBySubjWide.columns)
+cols.insert(0, cols.pop(cols.index('ID')))
+testdAnnoyDataCombiBySubjWide = testdAnnoyDataCombiBySubjWide[cols]
+
+testdPleasantDataCombiBySubjWide = testdPleasantDataCombiBySubjWide.merge(questResponses,
+                                                                          left_on='ID', right_on='ParticipantID',
+                                                                          how='left').rename(columns={'ParticipantID': 'ID'})
+cols = list(testdPleasantDataCombiBySubjWide.columns)
+cols.insert(0, cols.pop(cols.index('ID')))
+testdPleasantDataCombiBySubjWide = testdPleasantDataCombiBySubjWide[cols]
+
+testdEventfulDataCombiBySubjWide = testdEventfulDataCombiBySubjWide.merge(questResponses,
+                                                                          left_on='ID', right_on='ParticipantID',
+                                                                          how='left').rename(columns={'ParticipantID': 'ID'})
+cols = list(testdEventfulDataCombiBySubjWide.columns)
+cols.insert(0, cols.pop(cols.index('ID')))
+testdEventfulDataCombiBySubjWide = testdEventfulDataCombiBySubjWide[cols]
+
+testAnnoyDataCombiBySubjWide.to_csv(os.path.join(outFilePath,
+                                                 "refmap_listest2_AnnoyDataCombiBySubjWide.csv"),
+                                                 index=False)
+testPleasantDataCombiBySubjWide.to_csv(os.path.join(outFilePath,
+                                                    "refmap_listest2_PleasantDataCombiBySubjWide.csv"),
+                                                    index=False)
+testEventfulDataCombiBySubjWide.to_csv(os.path.join(outFilePath,
+                                                    "refmap_listest2_EventfulDataCombiBySubjWide.csv"),
+                                                    index=False)
+testdAnnoyDataCombiBySubjWide.to_csv(os.path.join(outFilePath,
+                                                  "refmap_listest2_dAnnoyDataCombiBySubjWide.csv"),
+                                                  index=False)
+testdPleasantDataCombiBySubjWide.to_csv(os.path.join(outFilePath,
+                                                     "refmap_listest2_dPleasantDataCombiBySubjWide.csv"),
+                                                     index=False)
+testdEventfulDataCombiBySubjWide.to_csv(os.path.join(outFilePath,
+                                                     "refmap_listest2_dEventfulDataCombiBySubjWide.csv"),
+                                                     index=False)

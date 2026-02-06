@@ -55,7 +55,7 @@ for (ii in 1:length(mycolourlist)){
 }
 
 # toggle to save plots
-saveplots = TRUE
+saveplots = FALSE
 
 if (saveplots){
   # set output plot directory
@@ -68,7 +68,7 @@ if (saveplots){
 }
 
 # toggle to save data
-savedata = TRUE
+savedata = FALSE
 
 if (savedata){
   # set output plot directory
@@ -482,6 +482,65 @@ geeCohensf2 <- function(geeMod){
 
 ```
 
+## Generate a ggplot2 object for some cluster-specific (positive) variable by cluster from glmgee object
+
+```{r}
+
+geeCluster_stemplot <- function(glmgeeMod, clusterVar, colour='blue', alpha=1){
+  # check the lengths of clusterVar and ids match
+  if (length(clusterVar) != length(unique(glmgeeMod$ids))){
+    stop("Cluster variable length does not match number of clusters")
+  }
+  
+  # ensure cluster indexes are factors
+  ids_ordered <- factor(glmgeeMod$ids, levels=glmgeeMod$ids)
+  
+  df <- data.frame(ID=ids_ordered, values=as.vector(clusterVar))
+  
+  ggplot(data=df) +
+
+  geom_segment(aes(x=ID, xend=ID, yend=values), y=0, 
+               colour=colour, alpha=alpha) +
+    
+  geom_point(aes(x=ID, y=values), colour=colour, size=2)
+  
+}
+
+
+```
+
+## Generate a ggplot2 object for residuals from a glmgee object
+
+```{r}
+
+gee_residplot <- function(glmgeeMod, residual_vals, colour='blue', shape=1, size=2, alpha=1){
+
+  # check the lengths of residuals and fitted values match
+  if (length(residual_vals) != length(glmgeeMod$fitted.values)){
+    stop("Residuals length does not match fitted values length")
+  }
+
+  ylimits <- c(min(-3.5, min(residual_vals)), max(+3.5, max(residual_vals)))
+
+  df <- data.frame(fitted_vals=as.vector(glmgeeMod$fitted.values), resid_vals=as.vector(residual_vals))
+  
+  ggplot(data=df) +
+
+  geom_point(aes(x=fitted_vals, y=resid_vals), colour=colour, shape=shape, size=size, alpha=alpha) +
+  
+  scale_y_continuous(limits=ylimits, breaks=seq(-6, 6, by=1),
+                     labels=seq(-6, 6, by=1)) +
+  
+  geom_hline(yintercept=3, linetype="dotted", color = "black") +
+  geom_hline(yintercept=-3, linetype="dotted", color = "black")
+  
+  
+}
+
+
+```
+
+
 # Import data and wrangle
 
 ## Parts A & B combined
@@ -502,13 +561,13 @@ stimData <- read.csv(stimDataPath, header=TRUE)
 
 ```{r}
 # definition of ordinal variable levels
-UASLAeqCatsA <- c("No UAS", "42", "48", "54", "60")
-SNRCatsA <- c("No UAS", "-16", "-10", "-4", "2", "8")
-UASOpCatsA <- c("No UAS", "Overflight", "Landing", "Takeoff")
-UASTypeCatsA <- c("No UAS", "H520", "M300", "T150")
+UASLAeqCatsA <- c("Baseline", "42", "48", "54", "60")
+SNRCatsA <- c("Baseline", "-16", "-10", "-4", "2", "8")
+UASOpCatsA <- c("Baseline", "Overflight", "Landing", "Takeoff")
+UASTypeCatsA <- c("Baseline", "H520", "M300", "T150")
 
 # encode factors
-subjData$ID. <- factor(subjData$ID.)
+subjData$ID <- factor(subjData$ID)
 subjData$UASLAeq <- factor(subjData$UASLAeq, levels=UASLAeqCatsA, order=TRUE)
 subjData$SNRlevel <- factor(subjData$SNRlevel, levels=SNRCatsA, order=TRUE)
 subjData$UASOperation <- factor(subjData$UASOperation, levels=UASOpCatsA)
@@ -603,22 +662,13 @@ subjData <- subjData |> dplyr::mutate(Area_soundscape2 = case_match(Area_soundsc
 
 subjData$Area_soundscape2 <- factor(subjData$Area_soundscape2)
 
-# create column with Part B TrialNumbers continuing from Part A
-subjData$TrialNumberCnt <- subjData$TrialNumber
-subjData$TrialNumberCnt[subjData$SessionPart == "B"] <- subjData$TrialNumberCnt[subjData$SessionPart == "B"] + 
-                                                              max(subjData$TrialNumber[subjData$SessionPart=="A"])
-
-# ensure that participant ID. 17 TrialNumberCnt starts from 61 (as they had done 60 in Part A)
-subjData$TrialNumberCnt[subjData$ID. == 17] <- subjData$TrialNumberCnt[subjData$ID. == 17] - 20
-
 # rescale trial number variables separately for each session part
-subjData <- rbind(subjData[subjData$SessionPart == "A", ] |> dplyr::mutate(TrialNumberScl = datawizard::standardise(TrialNumber, scale=TRUE)),
-                    subjData[subjData$SessionPart == "B", ] |> dplyr::mutate(TrialNumberScl = datawizard::standardise(TrialNumber, scale=TRUE)))
-subjData <- subjData |> dplyr::mutate(TrialNumberCntScl = datawizard::standardise(TrialNumberCnt, scale=TRUE))
+subjData <- rbind(subjData[subjData$SessionPart == "A", ] |> dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)),
+                    subjData[subjData$SessionPart == "B", ] |> dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)))
+subjData <- subjData |> dplyr::mutate(TrialNumberScl = datawizard::standardise(TrialNumber, scale=TRUE))
 
 # relocate new columns
-subjData <- subjData |> dplyr::relocate(TrialNumberCnt, TrialNumberScl,
-                                        TrialNumberCntScl, .after=TrialNumber)
+subjData <- subjData |> dplyr::relocate(TrialNumberScl, PartTrialNumberScl, .after=PartTrialNumber)
 
 # rescale variables
 subjData <- subjData |> dplyr::mutate(UASLAeqMaxLRScl = datawizard::standardise(UASLAeqMaxLR, scale=FALSE))
@@ -684,11 +734,11 @@ stimData$PartLoudMGLTPowAvgLog <- log(stimData$PartLoudMGLTPowAvg)
 stimData$PartLoudMGSTPowAvgLog <- log(stimData$PartLoudMGSTPowAvg)
 
 # reorder by participant ID and trial number
-subjData <- subjData[with(subjData, order(ID., TrialNumberCnt)), ]
+subjData <- subjData[with(subjData, order(ID, TrialNumber)), ]
 
 # omit ambient-only stimuli
-subjDataNoAmb <- subjData |> dplyr::filter(UASLAeq != "No UAS")
-stimDataNoAmb <- stimData |> dplyr::filter(UASLAeq != "No UAS")
+subjDataNoAmb <- subjData |> dplyr::filter(UASLAeq != "Baseline")
+stimDataNoAmb <- stimData |> dplyr::filter(UASLAeq != "Baseline")
 
 # re-encode factors omitting ambient-only stimuli
 subjDataNoAmb$SNRlevel <- factor(subjDataNoAmb$SNRlevel, levels=SNRCatsA[2:length(SNRCatsA)], order=TRUE)
@@ -938,10 +988,10 @@ model1 <- mABLAExTypeOpxLAExEnv1_QxLAESq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ 
                                                                   UASLAEMaxLRScl*UASType +
                                                                   UASLAEMaxLRScl*UASOperation +
                                                                   UASLAEMaxLRScl*AmbientEnv +
-                                                                  TrialNumberCntScl,
+                                                                  TrialNumberScl,
                                                                   data=subjDataNoAmb,
                                                                   family=gaussian(link='identity'),
-                                                                  id=ID.,
+                                                                  id=ID,
                                                                   corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -957,7 +1007,7 @@ geeModelPerformance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE)
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 R2means <- cor(predictMeans$response, predictMeans$fit)^2
 R2means
@@ -982,10 +1032,10 @@ model1lgQ <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl*I(log10(UASEvents)) 
                                 UASLAEMaxLRScl*UASType +
                                 UASLAEMaxLRScl*UASOperation +
                                 UASLAEMaxLRScl*AmbientEnv +
-                                TrialNumberCntScl,
+                                TrialNumberScl,
                                 data=subjDataNoAmb,
                                 family=gaussian(link='identity'),
-                                id=ID.,
+                                id=ID,
                                 corstr='exchangeable')
 
 
@@ -1203,14 +1253,14 @@ if (saveplots){
 }
 
 # add faint dashed grey major grid lines to p1, p2, p3, p4 and remove minor grid lines
-p1 <- p1 + theme(panel.grid.major = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grid.minor = element_blank())
-p2 <- p2 + theme(panel.grid.major = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grid.minor = element_blank())
-p3 <- p3 + theme(panel.grid.major = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grid.minor = element_blank())
-p4 <- p4 + theme(panel.grid.major = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grid.minor = element_blank())
+p1 <- p1 + theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
+                 panel.grIDminor = element_blank())
+p2 <- p2 + theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
+                 panel.grIDminor = element_blank())
+p3 <- p3 + theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
+                 panel.grIDminor = element_blank())
+p4 <- p4 + theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
+                 panel.grIDminor = element_blank())
 
 (p1 | p2) + (p3 / p4)
 
@@ -1301,29 +1351,54 @@ if (saveplots){
 
 ### Model diagnostics
 
-```{r}
+```{r, fig.width=12, fig.height=4}}
 
 
 mABLAExTypeOpxLAExEnv1_QxLAESq.GEE.resD <- residuals(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE,
                                                      type="deviance", plot.it=TRUE,
                                                      pch=1, col=mycolours[1],identify=10)
-mABLAExTypeOpxLAExEnv1_QxLAESq.GEE.resM <- residuals(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE,
-                                                     type="mahalanobis", plot.it=TRUE,
-                                                     col=mycolours[2], identify=10)
+
 mABLAExTypeOpxLAExEnv1_QxLAESq.GEE.resP <- residuals(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE,
                                                      type="pearson", plot.it=TRUE,
                                                      pch=1, col=mycolours[3], identify=10)
 
-hist(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE.resD, breaks=20, main="Deviance residuals")
-hist(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE.resP, breaks=20, main="Pearson residuals")
+gee_residplot(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE,
+              residual_vals=mABLAExTypeOpxLAExEnv1_QxLAESq.GEE.resP,
+              colour=mycolours[3], alpha=0.7) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4, text=element_text (family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Fitted values", y="Standardised Pearson residuals")
+
+mABLAExTypeOpxLAExEnv1_QxLAESq.GEE.resM <- residuals(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE,
+                                                     type="mahalanobis", plot.it=FALSE)
+
+# plot Mahalanobis residuals with ggplot2 on a stem plot replacing the index by the corresponding participant ID
+geeCluster_stemplot(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE,
+                    clusterVar=mABLAExTypeOpxLAExEnv1_QxLAESq.GEE.resM,
+                    colour=mycolours[2], alpha=0.7) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Participant ID", y="Mahalanobis distance")
+
+mABLAExTypeOpxLAExEnv1_QxLAESq.GEE.Cook <- cooks.distance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE,
+                                                          plot.it=FALSE)
+
+geeCluster_stemplot(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE,
+                    clusterVar=mABLAExTypeOpxLAExEnv1_QxLAESq.GEE.Cook,
+                    colour=mycolours[4], alpha=0.7) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Participant ID", y="Cook's distance")
+
+hist(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE.resP, breaks=20, main="Standardised Pearson residuals")
 
 mABLAExTypeOpxLAExEnv1_QxLAESq.GEE.DfBc <- dfbeta(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE,
                                                   level='clusters', coefs=c('UASLAEMaxLRScl'))
 mABLAExTypeOpxLAExEnv1_QxLAESq.GEE.DfBo <- dfbeta(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE,
                                                   level='observations', coefs=c('UASLAEMaxLRScl'))
 
-mABLAExTypeOpxLAExEnv1_QxLAESq.GEE.Cook <- cooks.distance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE,
-                                                          plot.it=TRUE)
 
 performance::check_collinearity(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE)
 performance::check_heteroskedasticity(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE)
@@ -1338,11 +1413,11 @@ model1 <- mABLAExTypeOpxLAExEnv1_QxLAESqNatAtt.GEE <- glmtoolbox::glmgee(dAnnoya
                                                                   UASLAEMaxLRScl*UASType +
                                                                   UASLAEMaxLRScl*UASOperation +
                                                                   UASLAEMaxLRScl*AmbientEnv +
-                                                                  TrialNumberCntScl +
+                                                                  TrialNumberScl +
                                                                     NationGeo2 + AAM_attitude2,
                                                                 data=subjDataNoAmb,
                                                                 family=gaussian(link='identity'),
-                                                                id=ID.,
+                                                                id=ID,
                                                                 corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -1631,10 +1706,10 @@ if (saveplots){
 ```{r}
 
 model1 <- mABLAEx1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl*I(UASEvents^-1) +
-                                                      TrialNumberCntScl,
+                                                      TrialNumberScl,
                                                       data=subjDataNoAmb,
                                                       family=gaussian(link='identity'),
-                                                      id=ID.,
+                                                      id=ID,
                                                       corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -1649,7 +1724,7 @@ geeModelPerformance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABLAEx1_QSq.GEE)
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 R2means <- cor(predictMeans$response, predictMeans$fit)^2
 R2means
@@ -1717,10 +1792,10 @@ saveRDS(model1, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
 model1 <- mABISxTnLAEx1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl*I(UASEvents^-1) +
                                                      UASImpulsSHMAvgMaxLR +
                                                      UASSharpAurISO305ExBin*UASTonLdECMAPowAvgBin +
-                                                     TrialNumberCntScl,
+                                                     TrialNumberScl,
                                                     data=subjDataNoAmb,
                                                     family=gaussian(link='identity'),
-                                                    id=ID.,
+                                                    id=ID,
                                                     corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -1736,7 +1811,7 @@ geeModelPerformance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABLAEx1_QSq.GEE,
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 R2means <- cor(predictMeans$response, predictMeans$fit)^2
 R2means
@@ -1945,10 +2020,10 @@ performance::check_heteroskedasticity(mABISxTnLAEx1_QSq.GEE)
 
 model1 <- mABSxTnLAEx1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl*I(UASEvents^-1) +
                                                      UASSharpAurISO305ExBin*UASTonLdECMAPowAvgBin +
-                                                     TrialNumberCntScl,
+                                                     TrialNumberScl,
                                                     data=subjDataNoAmb,
                                                     family=gaussian(link='identity'),
-                                                    id=ID.,
+                                                    id=ID,
                                                     corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -1964,7 +2039,7 @@ geeModelPerformance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABLAEx1_QSq.GEE,
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 R2means <- cor(predictMeans$response, predictMeans$fit)^2
 R2means
@@ -2145,10 +2220,10 @@ p1 + p2 + p3 + p4
 
 model1 <- mABEnvLAEx1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl*I(UASEvents^-1) +
                                                       UASLAEMaxLRScl + AmbientEnv +
-                                                      TrialNumberCntScl,
+                                                      TrialNumberScl,
                                                       data=subjDataNoAmb,
                                                       family=gaussian(link='identity'),
-                                                      id=ID.,
+                                                      id=ID,
                                                       corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -2163,7 +2238,7 @@ geeModelPerformance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABEnvLAEx1_QSq.GEE)
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 R2means <- cor(predictMeans$response, predictMeans$fit)^2
 R2means
@@ -2267,10 +2342,10 @@ model1 <- mABISxTnxEnvLAE1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxL
                                                       UASImpulsSHMAvgMaxLR +
                                                       UASSharpAurISO305ExBin*UASTonLdECMAPowAvgBin +
                                                       AmbientEnv*UASTonLdECMAPowAvgBin +
-                                                      TrialNumberCntScl,
+                                                      TrialNumberScl,
                                                       data=subjDataNoAmb,
                                                       family=gaussian(link='identity'),
-                                                      id=ID.,
+                                                      id=ID,
                                                       corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -2286,7 +2361,7 @@ geeModelPerformance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABISxTnLAEx1_QSq.GEE,
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 R2means <- cor(predictMeans$response, predictMeans$fit)^2
 R2means
@@ -2690,10 +2765,10 @@ performance::check_heteroskedasticity(mABISxTnxEnvLAE1_QSq.GEE)
 model1 <- mABSxTnxEnvLAE1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl + I(UASEvents^-1) +
                                                       UASSharpAurISO305ExBin*UASTonLdECMAPowAvgBin +
                                                       AmbientEnv*UASTonLdECMAPowAvgBin +
-                                                      TrialNumberCntScl,
+                                                      TrialNumberScl,
                                                       data=subjDataNoAmb,
                                                       family=gaussian(link='identity'),
-                                                      id=ID.,
+                                                      id=ID,
                                                       corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -2709,7 +2784,7 @@ geeModelPerformance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABISxTnLAEx1_QSq.GEE,
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 R2means <- cor(predictMeans$response, predictMeans$fit)^2
 R2means
@@ -2956,10 +3031,10 @@ model1 <- mABISxTnxdLAEL501_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~
                                                          I(UASEvents^-1) +
                                                          UASImpulsSHMAvgMaxLR +
                                                          UASSharpAurISO305ExBin*UASTonLdECMAPowAvgBin +
-                                                         TrialNumberCntScl,
+                                                         TrialNumberScl,
                                                         data=subjDataNoAmb,
                                                         family=gaussian(link='identity'),
-                                                        id=ID.,
+                                                        id=ID,
                                                         corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -2975,7 +3050,7 @@ geeModelPerformance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABISxTnLAEx1_QSq.GEE,
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 R2means <- cor(predictMeans$response, predictMeans$fit)^2
 R2means
@@ -3227,10 +3302,10 @@ performance::check_heteroskedasticity(mABISxTnxdLAEL501_QSq.GEE)
 model1 <- mABEnvLAeqxLAEx1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~
                                                          UASLAEMaxLRScl*AmbLAeqMaxLRScl +
                                                          UASLAEMaxLRScl*I(UASEvents^-1) +
-                                                         TrialNumberCntScl,
+                                                         TrialNumberScl,
                                                         data=subjDataNoAmb,
                                                         family=gaussian(link='identity'),
-                                                        id=ID.,
+                                                        id=ID,
                                                         corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -3246,7 +3321,7 @@ geeModelPerformance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABLAEx1_QSq.GEE,
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 R2means <- cor(predictMeans$response, predictMeans$fit)^2
 R2means
@@ -3357,10 +3432,10 @@ model1 <- mABLAExSxDt5i2I1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ I(UASEvent
                                                             UASImpulsSHMAvgMaxLR +
                                                              UASLAEMaxLRScl*UASSharpAurISO305ExBin +
                                                              UASLAEMaxLRScl*Detect0p5IntMaxLRLogScl +
-                                                           TrialNumberCntScl,
+                                                           TrialNumberScl,
                                                             data=subjDataNoAmb,
                                                             family=gaussian(link='identity'),
-                                                            id=ID.,
+                                                            id=ID,
                                                             corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -3377,7 +3452,7 @@ geeModelPerformance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABISxTnLAEx1_QSq.GEE,
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 R2means <- cor(predictMeans$response, predictMeans$fit)^2
 R2means
@@ -3598,15 +3673,15 @@ set.seed(808)
 testdAm <- microbenchmark::microbenchmark(
   
     'LMM_model' = {model0LMM <- lme4::lmer(dAnnoyance ~ UASLAEMaxLRScl + I(UASEvents^-1)
-                                              + TrialNumberCntScl +
-                                             (1 + UASLAEMaxLRScl  + I(UASEvents^-1) | ID.),
+                                              + TrialNumberScl +
+                                             (1 + UASLAEMaxLRScl  + I(UASEvents^-1) | ID),
                                                   data=subjDataNoAmb, REML=FALSE,
                                            control=lmcontrol)},
     
     'GEE_model' = {model0GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl + I(UASEvents^-1)
-                                              + TrialNumberCntScl,
+                                              + TrialNumberScl,
                                                 data=subjDataNoAmb, family=gaussian(link='identity'),
-                                                id=ID., corstr='exchangeable')},
+                                                id=ID, corstr='exchangeable')},
     
     'LMM_metrics' = {
                         performance::model_performance(model0LMM, metrics=c("AIC",
@@ -3621,14 +3696,14 @@ testdAm <- microbenchmark::microbenchmark(
     'LMM_prediction' = {model0LMMpredict <- ggeffects::predict_response(model0LMM,
                                                       terms=c("UASLAEMaxLRScl [all]",
                                                               "UASEvents [1]",
-                                                              "TrialNumberCntScl [0]"),
+                                                              "TrialNumberScl [0]"),
                                                        type='fixed', margin='marginalmeans',
                                                        bias_correction=FALSE)},
     
     'GEE_prediction' = {model0GEEpredict <- ggeffects::predict_response(model0GEE,
                                                       terms=c("UASLAEMaxLRScl [all]",
                                                               "UASEvents [1]",
-                                                              "TrialNumberCntScl [0]"),
+                                                              "TrialNumberScl [0]"),
                                                        type='fixed', margin='marginalmeans',
                                                       vcov=vcov(model0GEE, type="bias-corrected"))},
     times=10, unit='s', control=list(order='inorder'))
@@ -3659,14 +3734,14 @@ microbenchmark:::boxplot.microbenchmark(testdAm)
 set.seed(808)
 
 modelLMM <- lme4::lmer(dAnnoyance ~ UASLAEMaxLRScl + I(UASEvents^-1) +
-                             TrialNumberCntScl + (1 + UASLAEMaxLRScl + I(UASEvents^-1) | ID.),
+                             TrialNumberScl + (1 + UASLAEMaxLRScl + I(UASEvents^-1) | ID),
                             data=subjDataNoAmb, control=lmcontrol)
 
 modelGEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl + I(UASEvents^-1) +
-                                 TrialNumberCntScl,
+                                 TrialNumberScl,
                                   data=subjDataNoAmb, REML=FALSE,
                                family=gaussian(link='identity'),
-                                  id=ID., corstr='exchangeable')
+                                  id=ID, corstr='exchangeable')
 
 performance::model_performance(modelLMM, metrics=c("AIC", "AICc", "BIC", "R2"), estimator='ML')
 
@@ -3675,22 +3750,22 @@ geeModelPerformance(modelGEE)
 mABLAE1_QSq.LAEpredict <- ggeffects::predict_response(modelLMM,
                                                       terms=c("UASLAEMaxLRScl [-12:13]",
                                                               "UASEvents [1]",
-                                                              "TrialNumberCntScl [0]"),
+                                                              "TrialNumberScl [0]"),
                                                        margin='mean_mode',
                                                        bias_correction=FALSE)
 
 mABLAE1_QSq.GEEpredict <- ggeffects::predict_response(modelGEE,
                                                       terms=c("UASLAEMaxLRScl [-12:13]",
                                                               "UASEvents [1]",
-                                                              "TrialNumberCntScl [0]"),
+                                                              "TrialNumberScl [0]"),
                                                        type='fixed', margin='marginalmeans',
                                                       vcov=vcov(modelGEE, type="bias-corrected"))
 
 mABLAE1_QSq.LAEpredictAll <- ggeffects::predict_response(modelLMM,
                                                           terms=c("UASLAEMaxLRScl [-12:13]",
-                                                                  "ID. [all]",
+                                                                  "ID [all]",
                                                                   "UASEvents [1]",
-                                                                  "TrialNumberCntScl [0]"),
+                                                                  "TrialNumberScl [0]"),
                                                            type='random',
                                                            bias_correction=FALSE)
 
@@ -3769,7 +3844,7 @@ model1 <- mABdHTypexOpxLAExEnvlgQxLAE.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ UAS
                                                         UASType*UASOperation,
                                                               data=subjDataNoAmb,
                                                               family=binomial(link='logit'),
-                                                              id=ID.,
+                                                              id=ID,
                                                               corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -3808,7 +3883,7 @@ mABdHTypexOpxLAExEnv1_QxLAE.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ UASLAEMaxLRSc
                                                         UASType*UASOperation,
                                                               data=subjDataNoAmb,
                                                               family=binomial(link='logit'),
-                                                              id=ID.,
+                                                              id=ID,
                                                               corstr='exchangeable')
 
 model1predictEvt2CopyOver <- ggeffects::predict_response(mABdHTypexOpxLAExEnv1_QxLAE.GEE, terms=c("UASEvents [all]",
@@ -4028,17 +4103,17 @@ if (saveplots){
 
 # add faint dashed grey major grid lines to p1, p2, p3, p4 and remove minor grid lines
 # also omit the geom_point layers from p1, p2, p3 and p4 for clarity
-p1 <- p1 + theme(panel.grid.major = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grid.minor = element_blank())
+p1 <- p1 + theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
+                 panel.grIDminor = element_blank())
 p1 <- gginnards::delete_layers(p1, "GeomPoint")
-p2 <- p2 + theme(panel.grid.major = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grid.minor = element_blank())
+p2 <- p2 + theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
+                 panel.grIDminor = element_blank())
 p2 <- gginnards::delete_layers(p2, "GeomPoint")
-p3 <- p3 + theme(panel.grid.major = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grid.minor = element_blank())
+p3 <- p3 + theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
+                 panel.grIDminor = element_blank())
 p3 <- gginnards::delete_layers(p3, "GeomPoint")
-p4 <- p4 + theme(panel.grid.major = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grid.minor = element_blank())
+p4 <- p4 + theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
+                 panel.grIDminor = element_blank())
 p4 <- gginnards::delete_layers(p4, "GeomPoint")
 
 (p1 | p2) + (p3 / p4)
@@ -4729,8 +4804,8 @@ if (saveplots){
 }
 
 p6 <- ggplot(data=model1predictEvt2) +
-              theme(panel.grid.major = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grid.minor = element_blank(), aspect.ratio=0.8,
+              theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
+                 panel.grIDminor = element_blank(), aspect.ratio=0.8,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
 
@@ -4776,8 +4851,8 @@ if (saveplots){
 
 
 p7 <- ggplot(data=model1predictEvt2Type) +
-              theme(panel.grid.major = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grid.minor = element_blank(), aspect.ratio=1.15,
+              theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
+                 panel.grIDminor = element_blank(), aspect.ratio=1.15,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
 
@@ -4870,7 +4945,7 @@ model1 <- mABdHTypexOpxLAExEnvlgQxLAEAtt.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ 
                                                         UASType*UASOperation + AAM_attitude2,
                                                               data=subjDataNoAmb,
                                                               family=binomial(link='logit'),
-                                                              id=ID.,
+                                                              id=ID,
                                                               corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -4887,8 +4962,8 @@ model1predictAtt <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl 
                                              vcov=vcov(model1, type="bias-corrected"))
 
 p9 <- ggplot(data=model1predictAtt) +
-              theme(panel.grid.major = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grid.minor = element_blank(),
+              theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
+                 panel.grIDminor = element_blank(),
                     aspect.ratio=1.35, text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
@@ -4936,7 +5011,7 @@ model1 <- mABdHLAElgQ.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ I(log10(UASEvents))
                                                         UASLAEMaxLRScl,
                                                         data=subjDataNoAmb,
                                                         family=binomial(link='logit'),
-                                                        id=ID.,
+                                                        id=ID,
                                                         corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -4948,7 +5023,7 @@ geeModelPerformance(mABdHLAElgQ.GEE)
 
 predictProbs <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dHighAnnoyProp,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 R2probs <- cor(predictProbs$response, predictProbs$fit)^2
 R2probs
@@ -5021,7 +5096,7 @@ model1 <- mABdHNlgQ.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ I(log10(UASEvents)) +
                                                     UASLoudECMAPowAvgBin,
                                                 data=subjDataNoAmb,
                                                 family=binomial(link='logit'),
-                                                id=ID.,
+                                                id=ID,
                                                 corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -5033,7 +5108,7 @@ geeModelPerformance(mABdHLAElgQ.GEE, mABdHNlgQ.GEE)
 
 predictProbs <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dHighAnnoyProp,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 R2means <- cor(predictProbs$response, predictProbs$fit)^2
 R2means
@@ -5100,7 +5175,7 @@ model1 <- mABdHSxTnNlgQ.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ UASLoudECMAPowAvg
                                UASTonLdECMAPowAvgBin*UASSharpAurSHM05ExMaxLR,
                               data=subjDataNoAmb,
                               family=binomial(link='logit'),
-                              id=ID.,
+                              id=ID,
                               corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -5327,10 +5402,10 @@ model1 <- mABdHISxTnEnvxNlgQSq.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ UASLoudECM
                                  UASLoudECMAPowAvgBin*AmbientEnv +
                                UASTonLdECMAPowAvgBin*UASSharpAurSHM05ExMaxLR +
                                  UASImpulsSHMPowAvgMaxLR +
-                                 TrialNumberCntScl,
+                                 TrialNumberScl,
                               data=subjDataNoAmb,
                               family=binomial(link='logit'),
-                              id=ID.,
+                              id=ID,
                               corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -5343,7 +5418,7 @@ geeModelPerformance(mABdHTypexOpxLAExEnvlgQxLAE.GEE, mABdHSxTnNlgQ.GEE,
 
 predictProbs <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dHighAnnoyProp,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 R2probs <- cor(predictProbs$response, predictProbs$fit)^2
 R2probs
@@ -5625,10 +5700,10 @@ performance::check_collinearity(mABdHISxTnEnvxNlgQSq.GEE)
 model1 <- mABdHSxTndLAELAeq2lgQSq.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ I(log10(UASEvents)) + LAELAeqdiffScl +
                                                                    UASTonLdECMAPowAvgBin*UASSharpAurSHM05ExMaxLR +
                                                                 I(LAELAeqdiffScl^2) +
-                                                                   TrialNumberCntScl,
+                                                                   TrialNumberScl,
                                                               data=subjDataNoAmb,
                                                               family=binomial(link='logit'),
-                                                              id=ID.,
+                                                              id=ID,
                                                               corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -5641,7 +5716,7 @@ geeModelPerformance(mABdHTypexOpxLAExEnvlgQxLAE.GEE, mABdHSxTnNlgQ.GEE,
 
 predictProbs <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dHighAnnoyProp,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 R2probs <- cor(predictProbs$response, predictProbs$fit)^2
 R2probs
@@ -5851,7 +5926,7 @@ model1 <- mABdHLAExEnvLAeqlgQ.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ I(log10(UAS
                                                         UASLAEMaxLRScl*AmbLAeqMaxLRScl,
                                                         data=subjDataNoAmb,
                                                         family=binomial(link='logit'),
-                                                        id=ID.,
+                                                        id=ID,
                                                         corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -5864,7 +5939,7 @@ geeModelPerformance(mABdHTypexOpxLAExEnvlgQxLAE.GEE, mABdHLAElgQ.GEE,
 
 predictProbs <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dHighAnnoyProp,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 R2probs <- cor(predictProbs$response, predictProbs$fit)^2
 R2probs
@@ -5974,10 +6049,10 @@ model1 <- mABdHSxTnDt1i2IrlgQSq.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ I(log10(U
                                                        UASTonLdECMAPowAvgBin*UASSharpAurSHM05ExMaxLR +
                                                    I(Detect0p1IntMaxLRLogScl^2) +
                                                      IntermitRatioC3MaxLRScl +
-                                                     TrialNumberCntScl,
+                                                     TrialNumberScl,
                                               data=subjDataNoAmb,
                                               family=binomial(link='logit'),
-                                              id=ID.,
+                                              id=ID,
                                               corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -5991,7 +6066,7 @@ geeModelPerformance(mABdHTypexOpxLAExEnvlgQxLAE.GEE, mABdHSxTnNlgQ.GEE,
 
 predictProbs <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dHighAnnoyProp,
-                           fixVars=c(TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl)))
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
 
 R2probs <- cor(predictProbs$response, predictProbs$fit)^2
 R2probs
@@ -6244,20 +6319,20 @@ performance::check_collinearity(mABdHSxTnDt1i2IrlgQSq.GEE)
 set.seed(808)
 
 newData <- data.frame(UASLAEMaxLRScl=seq(-12, 13, by=1), UASEvents=1,
-                      TrialNumberCntScl=mean(subjDataNoAmb$TrialNumberCntScl))
+                      TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl))
 # benchmark timing
 testdHA <- microbenchmark::microbenchmark(
   
     'GLMM_model' = {model0GLMM <- lme4::glmer(dHighAnnoy ~ UASLAEMaxLRScl + I(UASEvents^-1)
-                                              + TrialNumberCntScl +
-                                                (1 + UASLAEMaxLRScl + I(UASEvents^-1) | ID.),
+                                              + TrialNumberScl +
+                                                (1 + UASLAEMaxLRScl + I(UASEvents^-1) | ID),
                                                   data=subjDataNoAmb, family=binomial(link='logit'),
                                               control=glmcontrol)},
     
     'GEE_model' = {model0GEE <- glmtoolbox::glmgee(dHighAnnoy ~ UASLAEMaxLRScl + I(UASEvents^-1)
-                                              + TrialNumberCntScl,
+                                              + TrialNumberScl,
                                                 data=subjDataNoAmb, family=binomial(link='logit'),
-                                                id=ID., corstr='exchangeable')},
+                                                id=ID, corstr='exchangeable')},
     
     'GLMM_metrics' = {
                         PCP <- glmmPCP(model0GLMM)
@@ -6275,14 +6350,14 @@ testdHA <- microbenchmark::microbenchmark(
     'GLMM_prediction' = {model0GLMMpredict <- ggeffects::predict_response(model0GLMM,
                                                       terms=c("UASLAEMaxLRScl [all]",
                                                               "UASEvents [1]",
-                                                              "TrialNumberCntScl [0]"),
+                                                              "TrialNumberScl [0]"),
                                                        type='fixed', margin='marginalmeans',
                                                        bias_correction=TRUE)},
     
     'GEE_prediction' = {model0GEEpredict <- ggeffects::predict_response(model0GEE,
                                                       terms=c("UASLAEMaxLRScl [all]",
                                                               "UASEvents [1]",
-                                                              "TrialNumberCntScl [0]"),
+                                                              "TrialNumberScl [0]"),
                                                        type='fixed', margin='marginalmeans',
                                                       vcov=vcov(model0GEE, type="bias-corrected"))},
     times=10, unit='s', control=list(order='inorder'))
@@ -6317,11 +6392,11 @@ UASLAEMaxLRDummy <- seq(-12, 33, by=1) + (max(stimDataNoAmb$UASLAEMaxLR) -
 
 newData <- data.frame(UASLAEMaxLR=UASLAEMaxLRDummy,
                       UASLAEMaxLRScl=seq(-12, 33, by=1), UASEvents=1,
-                      TrialNumberCntScl=0)
+                      TrialNumberScl=0)
 
 modelGLMM <- lme4::glmer(dHighAnnoy ~ UASLAEMaxLRScl + I(UASEvents^-1) +
-                             TrialNumberCntScl +
-                           (1 + UASLAEMaxLRScl | ID.),
+                             TrialNumberScl +
+                           (1 + UASLAEMaxLRScl | ID),
                             data=subjDataNoAmb, family=binomial(link='logit'),
                          control=glmcontrol)
 
@@ -6335,9 +6410,9 @@ print(cbind(performance::model_performance(modelGLMM,
 
 
 modelGEE <- glmtoolbox::glmgee(dHighAnnoy ~ UASLAEMaxLRScl + I(UASEvents^-1) +
-                                              + TrialNumberCntScl,
+                                              + TrialNumberScl,
                                   data=subjDataNoAmb, family=binomial(link='logit'),
-                                  id=ID., corstr='exchangeable')
+                                  id=ID, corstr='exchangeable')
 
 geeParams(modelGEE, ci=0.843, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 
@@ -6355,22 +6430,22 @@ mABdHLAE1_QSq.LAE1_Qpredict <- modelbased::estimate_prediction(modelGLMM,
 mABdHLAE1_QSq.LAE1_Qmarginal <- ggeffects::predict_response(modelGLMM,
                                                              terms=c("UASLAEMaxLRScl [-12:33]",
                                                               "UASEvents [1]",
-                                                              "TrialNumberCntScl [0]"),
+                                                              "TrialNumberScl [0]"),
                                                              type='fixed', margin='empirical',
                                                              bias_correction=TRUE)
 
 mABdHLAE1_QSq.GEEpredict <- ggeffects::predict_response(modelGEE,
                                                       terms=c("UASLAEMaxLRScl [-12:33]",
                                                               "UASEvents [1]",
-                                                              "TrialNumberCntScl [0]"),
+                                                              "TrialNumberScl [0]"),
                                                        type='fixed', margin='marginalmeans',
                                                       vcov=vcov(modelGEE, type="bias-corrected"))
 
 mABdHLAE1_QSq.LAE1_QpredictAll <- ggeffects::predict_response(modelGLMM,
                                                           terms=c("UASLAEMaxLRScl [-12:33]",
-                                                                  "ID. [all]",
+                                                                  "ID [all]",
                                                                   "UASEvents [1]",
-                                                                  "TrialNumberCntScl [0]"),
+                                                                  "TrialNumberScl [0]"),
                                                          type='response', margin='empirical',
                                                          bias_correction=TRUE)
 

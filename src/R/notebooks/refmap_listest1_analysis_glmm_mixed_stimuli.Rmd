@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Setup
 
-Load packages
+## Load packages
 
 ```{r}
 library(conflicted)
@@ -43,7 +43,7 @@ glmcontrol <- lme4::glmerControl(optimizer = 'bobyqa',
 
 ```
 
-Set parameters
+## Set parameters
 
 ```{r}
 

@@ -2745,31 +2745,33 @@ partAResponses = pd.read_excel(io=filepath, sheet_name="PtAResponse",
                                header=0, engine='calamine')
 partAResponses['Recording'] = [StimFile.split('.')[0] + "_CALBIN_Pa.wav"
                                for StimFile in partAResponses['Stim File']]
+# rename ID# column to ID
+partAResponses.rename(columns={'ID#': 'ID'}, inplace=True)
 
 # add change in response data
 partAResponses['dValence'] = np.nan
 partAResponses['dArousal'] = np.nan
 partAResponses['dAnnoyance'] = np.nan
 for response in ['Valence', 'Arousal', 'Annoyance']:
-    for iD in partAResponses['ID#'].unique():
-        partAResponses.loc[(partAResponses['ID#'] == iD)
+    for iD in partAResponses['ID'].unique():
+        partAResponses.loc[(partAResponses['ID'] == iD)
                            & (partAResponses['Stim File'].str.contains("A1")),
-                           "d" + response] = (partAResponses.loc[(partAResponses['ID#']
+                           "d" + response] = (partAResponses.loc[(partAResponses['ID']
                                                                   == iD)
                                                                  & (partAResponses['Stim File'].str.contains("A1"))].loc[:,
                                                                                                                          response]
-                                              - partAResponses.loc[(partAResponses['ID#']
+                                              - partAResponses.loc[(partAResponses['ID']
                                                                     == iD)
                                                                    & (partAResponses['Stim File']
                                                                       == 'A1.wav'),
                                                                    response].values)
-        partAResponses.loc[(partAResponses['ID#'] == iD)
+        partAResponses.loc[(partAResponses['ID'] == iD)
                            & (partAResponses['Stim File'].str.contains("A2")),
-                           "d" + response] = (partAResponses.loc[(partAResponses['ID#']
+                           "d" + response] = (partAResponses.loc[(partAResponses['ID']
                                                                   == iD)
                                                                  & (partAResponses['Stim File'].str.contains("A2"))].loc[:,
                                                                                                                          response]
-                                              - partAResponses.loc[(partAResponses['ID#']
+                                              - partAResponses.loc[(partAResponses['ID']
                                                                     == iD)
                                                                    & (partAResponses['Stim File']
                                                                       == 'A2.wav'),
@@ -2789,25 +2791,27 @@ partAData.insert(loc=partAData.columns.get_loc('UAS_noticed'),
 
 # change to highly annoyed data
 partAData['dHighAnnoy'] = np.nan
-for iD in partAData['ID#'].unique():
+for iD in partAData['ID'].unique():
     
     # for participants with no HA in baseline, add HA occurences
-    if partAData.loc[(partAData['ID#'] == iD) & (partAData['StimFile'] == 'A1.wav'), 'HighAnnoy'].iloc[0] == 0:
-        partAData.loc[(partAData['ID#'] == iD)
+    if partAData.loc[(partAData['ID'] == iD) & (partAData['StimFile'] == 'A1.wav'), 'HighAnnoy'].iloc[0] == 0:
+        partAData.loc[(partAData['ID'] == iD)
                        & (partAData['StimFile'].str.contains("A1")),
-                       'dHighAnnoy'] = partAData.loc[(partAData['ID#']
+                       'dHighAnnoy'] = partAData.loc[(partAData['ID']
                                                       == iD)
                                                       & (partAData['StimFile'].str.contains("A1")),
                                                       'HighAnnoy']
 
-    if partAData.loc[(partAData['ID#'] == iD) & (partAData['StimFile'] == 'A2.wav'), 'HighAnnoy'].iloc[0] == 0:
-        partAData.loc[(partAData['ID#'] == iD)
+    if partAData.loc[(partAData['ID'] == iD) & (partAData['StimFile'] == 'A2.wav'), 'HighAnnoy'].iloc[0] == 0:
+        partAData.loc[(partAData['ID'] == iD)
                        & (partAData['StimFile'].str.contains("A2")),
-                       'dHighAnnoy'] = partAData.loc[(partAData['ID#']
+                       'dHighAnnoy'] = partAData.loc[(partAData['ID']
                                                       == iD)
                                                       & (partAData['StimFile'].str.contains("A2")),
                                                       'HighAnnoy']
 
+# rename TrialNumber column to PartTrialNumber
+partAData.rename(columns={'TrialNumber': 'PartTrialNumber'}, inplace=True)
 
 # initialise DataFrames for loop over stimulus recordings
 partA = pd.DataFrame(index=partAResponses['Recording'].unique())
@@ -2820,38 +2824,38 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
         print("Processing results...\n")
     print(file.split('.')[0])
     partAValence = partAResponses.loc[partAResponses['Recording'] == file,
-                                      ['ID#', 'Valence']]
-    columns = ["Valence_" + str(ID) for ID in partAValence['ID#']]
+                                      ['ID', 'Valence']]
+    columns = ["Valence_" + str(ID) for ID in partAValence['ID']]
     partAValence = pd.DataFrame(data=np.array(partAValence['Valence']),
                                 index=columns, columns=[file]).transpose()
 
     partAdValence = partAResponses.loc[partAResponses['Recording'] == file,
-                                       ['ID#', 'dValence']]
-    columns = ["dValence_" + str(ID) for ID in partAdValence['ID#']]
+                                       ['ID', 'dValence']]
+    columns = ["dValence_" + str(ID) for ID in partAdValence['ID']]
     partAdValence = pd.DataFrame(data=np.array(partAdValence['dValence']),
                                  index=columns, columns=[file]).transpose()
 
     partAArousal = partAResponses.loc[partAResponses['Recording'] == file,
-                                      ['ID#', 'Arousal']]
-    columns = ["Arousal_" + str(ID) for ID in partAArousal['ID#']]
+                                      ['ID', 'Arousal']]
+    columns = ["Arousal_" + str(ID) for ID in partAArousal['ID']]
     partAArousal = pd.DataFrame(data=np.array(partAArousal['Arousal']),
                                 index=columns, columns=[file]).transpose()
 
     partAdArousal = partAResponses.loc[partAResponses['Recording'] == file,
-                                       ['ID#', 'dArousal']]
-    columns = ["dArousal_" + str(ID) for ID in partAdArousal['ID#']]
+                                       ['ID', 'dArousal']]
+    columns = ["dArousal_" + str(ID) for ID in partAdArousal['ID']]
     partAdArousal = pd.DataFrame(data=np.array(partAdArousal['dArousal']),
                                  index=columns, columns=[file]).transpose()
 
     partAAnnoy = partAResponses.loc[partAResponses['Recording'] == file,
-                                    ['ID#', 'Annoyance']]
-    columns = ["Annoyance_" + str(ID) for ID in partAAnnoy['ID#']]
+                                    ['ID', 'Annoyance']]
+    columns = ["Annoyance_" + str(ID) for ID in partAAnnoy['ID']]
     partAAnnoy = pd.DataFrame(data=np.array(partAAnnoy['Annoyance']),
                               index=columns, columns=[file]).transpose()
 
     partAdAnnoy = partAResponses.loc[partAResponses['Recording'] == file,
-                                     ['ID#', 'dAnnoyance']]
-    columns = ["dAnnoyance_" + str(ID) for ID in partAdAnnoy['ID#']]
+                                     ['ID', 'dAnnoyance']]
+    columns = ["dAnnoyance_" + str(ID) for ID in partAdAnnoy['ID']]
     partAdAnnoy = pd.DataFrame(data=np.array(partAdAnnoy['dAnnoyance']),
                                index=columns, columns=[file]).transpose()
 
@@ -2860,14 +2864,14 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
                                                                 "HighAnnoy")
     
     partAdHighAnnoy = partAData.loc[partAData['Recording'] == file,
-                                     ['ID#', 'dHighAnnoy']]
-    columns = ["dHighAnnoy_" + str(ID) for ID in partAdHighAnnoy['ID#']]
+                                     ['ID', 'dHighAnnoy']]
+    columns = ["dHighAnnoy_" + str(ID) for ID in partAdHighAnnoy['ID']]
     partAdHighAnnoy = pd.DataFrame(data=np.array(partAdHighAnnoy['dHighAnnoy']),
                                    index=columns, columns=[file]).transpose()
     
     partANotice = partAResponses.loc[partAResponses['Recording'] == file,
-                                     ['ID#', 'UAS_noticed']]
-    columns = ["UAS_noticed_" + str(ID) for ID in partANotice['ID#']]
+                                     ['ID', 'UAS_noticed']]
+    columns = ["UAS_noticed_" + str(ID) for ID in partANotice['ID']]
     partANotice = pd.DataFrame(data=np.array(partANotice['UAS_noticed']),
                                index=columns, columns=[file]).transpose()
 
@@ -2971,22 +2975,24 @@ partBResponses = pd.read_excel(io=filepath, sheet_name="PtBResponse",
                                header=0, engine='calamine')
 partBResponses['Recording'] = [StimFile.split('.')[0] + "_CALBIN_Pa.wav"
                                for StimFile in partBResponses['Stim File']]
+# rename ID# column to ID
+partBResponses.rename(columns={'ID#': 'ID'}, inplace=True)                               
 
 # add change in response data
 partBResponses['dValence'] = np.nan
 partBResponses['dArousal'] = np.nan
 partBResponses['dAnnoyance'] = np.nan
 for response in ['Valence', 'Arousal', 'Annoyance']:
-    for iD in partBResponses['ID#'].unique():        
-        partBResponses.loc[(partBResponses['ID#']
+    for iD in partBResponses['ID'].unique():        
+        partBResponses.loc[(partBResponses['ID']
                             == iD)
                            & (partBResponses['Stim File'].str.contains("B2")),
-                           "d" + response] = (partBResponses.loc[(partBResponses['ID#']
+                           "d" + response] = (partBResponses.loc[(partBResponses['ID']
                                                                   == iD)
                                                                  &
                                                                  (partBResponses['Stim File'].str.contains("B2"))].loc[:,
                                                                                                                        response]
-                                              - partBResponses.loc[(partBResponses['ID#']
+                                              - partBResponses.loc[(partBResponses['ID']
                                                                     == iD)
                                                                    & (partBResponses['Stim File']
                                                                       == 'B2.wav'),
@@ -3007,15 +3013,18 @@ partBData.insert(loc=partBData.columns.get_loc('Recording'),
 
 # change to highly annoyed data
 partBData['dHighAnnoy'] = np.nan
-for iD in partBData['ID#'].unique():
+for iD in partBData['ID'].unique():
 
-    if partBData.loc[(partBData['ID#'] == iD) & (partBData['StimFile'] == 'B2.wav'), 'HighAnnoy'].iloc[0] == 0:
-        partBData.loc[(partBData['ID#'] == iD)
+    if partBData.loc[(partBData['ID'] == iD) & (partBData['StimFile'] == 'B2.wav'), 'HighAnnoy'].iloc[0] == 0:
+        partBData.loc[(partBData['ID'] == iD)
                        & (partBData['StimFile'].str.contains("B2")),
-                       'dHighAnnoy'] = partBData.loc[(partBData['ID#']
+                       'dHighAnnoy'] = partBData.loc[(partBData['ID']
                                                       == iD)
                                                       & (partBData['StimFile'].str.contains("B2")),
                                                       'HighAnnoy']
+
+# rename TrialNumber column to PartTrialNumber
+partBData.rename(columns={'TrialNumber': 'PartTrialNumber'}, inplace=True)
 
 # initialise DataFrames for loop over stimulus recordings
 partB = pd.DataFrame(index=partBResponses['Recording'].unique())
@@ -3028,40 +3037,40 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
         print("Processing results...\n")
     print(file.split('.')[0])
     partBValence = partBResponses.loc[partBResponses['Recording'] == file,
-                                      ['ID#', 'Valence']]
-    columns = ["Valence_" + str(ID) for ID in partBValence['ID#']]
+                                      ['ID', 'Valence']]
+    columns = ["Valence_" + str(ID) for ID in partBValence['ID']]
     partBValence = pd.DataFrame(data=np.array(partBValence['Valence']),
                                 index=columns, columns=[file]).transpose()
 
     partBdValence = partBResponses.loc[partBResponses['Recording'] == file,
-                                       ['ID#', 'dValence']]
-    columns = ["dValence_" + str(ID) for ID in partBdValence['ID#']]
+                                       ['ID', 'dValence']]
+    columns = ["dValence_" + str(ID) for ID in partBdValence['ID']]
     partBdValence = pd.DataFrame(data=np.array(partBdValence['dValence']),
                                  index=columns, columns=[file]).transpose()
 
     partBArousal = partBResponses.loc[partBResponses['Recording'] == file,
-                                      ['ID#', 'Arousal']]
-    columns = ["Arousal_" + str(ID) for ID in partBArousal['ID#']]
+                                      ['ID', 'Arousal']]
+    columns = ["Arousal_" + str(ID) for ID in partBArousal['ID']]
     partBArousal = pd.DataFrame(data=np.array(partBArousal['Arousal']),
                                 index=columns, columns=[file]).transpose()
 
     partBdArousal = partBResponses.loc[partBResponses['Recording'] == file,
-                                       ['ID#', 'dArousal']]
-    columns = ["dArousal_" + str(ID) for ID in partBdArousal['ID#']]
+                                       ['ID', 'dArousal']]
+    columns = ["dArousal_" + str(ID) for ID in partBdArousal['ID']]
     partBdArousal = pd.DataFrame(data=np.array(partBdArousal['dArousal']),
                                  index=columns, columns=[file]).transpose()
 
     partBAnnoy = partBResponses.loc[partBResponses['Recording'] == file,
-                                    ['ID#', 'Annoyance']]
+                                    ['ID', 'Annoyance']]
 
-    columns = ["Annoyance_" + str(ID) for ID in partBAnnoy['ID#']]
+    columns = ["Annoyance_" + str(ID) for ID in partBAnnoy['ID']]
     partBAnnoy = pd.DataFrame(data=np.array(partBAnnoy['Annoyance']),
                               index=columns, columns=[file]).transpose()
 
     partBdAnnoy = partBResponses.loc[partBResponses['Recording'] == file,
-                                     ['ID#', 'dAnnoyance']]
+                                     ['ID', 'dAnnoyance']]
 
-    columns = ["dAnnoyance_" + str(ID) for ID in partBdAnnoy['ID#']]
+    columns = ["dAnnoyance_" + str(ID) for ID in partBdAnnoy['ID']]
     partBdAnnoy = pd.DataFrame(data=np.array(partBdAnnoy['dAnnoyance']),
                                index=columns, columns=[file]).transpose()
 
@@ -3070,8 +3079,8 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
                                                                 "HighAnnoy")
     
     partBdHighAnnoy = partBData.loc[partBData['Recording'] == file,
-                                     ['ID#', 'dHighAnnoy']]
-    columns = ["dHighAnnoy_" + str(ID) for ID in partBdHighAnnoy['ID#']]
+                                     ['ID', 'dHighAnnoy']]
+    columns = ["dHighAnnoy_" + str(ID) for ID in partBdHighAnnoy['ID']]
     partBdHighAnnoy = pd.DataFrame(data=np.array(partBdHighAnnoy['dHighAnnoy']),
                                    index=columns, columns=[file]).transpose()
     print(partBdHighAnnoy)
@@ -3160,6 +3169,7 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
         partB.loc[file, highAnnoyAgg.columns] = highAnnoyAgg.loc[file]
         partB.loc[file, dhighAnnoyAgg.columns] = dhighAnnoyAgg.loc[file]
 
+
 allResponses = pd.concat([partB, partA], axis=0, join='outer')
 allResponses.sort_index(inplace=True)
 allResponses.set_index(allResponses.index.str.replace("_CALBIN_Pa.wav", ""),
@@ -3176,6 +3186,8 @@ preTestResponses.drop(columns=['Impairment_details'], inplace=True)
 preTestResponses.drop(columns=preTestResponses.loc[:,
                                                    'PANAS_interested':].columns,
                       inplace=True)
+preTestResponses.rename(columns={'ID#': 'ID'}, inplace=True)
+
 postTestResponses = pd.read_excel(io=filepath, sheet_name="Post-test",
                                   header=0, engine='calamine')
 postTestResponses.drop(columns=['Nationality', 'Language',
@@ -3184,10 +3196,12 @@ postTestResponses.drop(columns=['Nationality', 'Language',
                                 'General Feedback'], inplace=True)
 postTestResponses.drop(columns=postTestResponses.loc[:, 'NSS21':'NSS8'].columns,
                        inplace=True)
+postTestResponses.rename(columns={'ID#': 'ID'}, inplace=True)
+
 # replace problem columns names
 postTestResponses.columns = postTestResponses.columns.str.replace(" ", "_")
 
-prePostTestResponses = preTestResponses.merge(postTestResponses, on='ID#')
+prePostTestResponses = preTestResponses.merge(postTestResponses, on='ID')
 
 # set Exp2ID column to pd.int 64 type
 prePostTestResponses['Exp2ID'] = prePostTestResponses['Exp2ID'].astype(pd.Int64Dtype())
@@ -3245,10 +3259,10 @@ dataByStimAux.to_csv(os.path.join(outFilePath,
 partADataBySubj = pd.merge(left=partAData,
                            right=dataByStimTestA.loc[:, :dataByStimTestA.columns[dataByStimTestA.columns.get_loc('Valence_1') - 1]],
                            how='outer', left_on='Recording', right_on='CALBINRecFiles')
-partADataBySubj.sort_values(by='ID#', axis=0, inplace=True)
+partADataBySubj.sort_values(by='ID', axis=0, inplace=True)
 partADataBySubj = pd.merge(left=partADataBySubj,
                            right=prePostTestResponses, how='left',
-                           left_on='ID#', right_on='ID#')
+                           left_on='ID', right_on='ID')
 partADataBySubj.drop(columns=['Part', 'Recording'], inplace=True)
 partADataBySubj.insert(loc=0, column='SessionPart',
                        value=partADataBySubj.pop('SessionPart'))
@@ -3256,16 +3270,32 @@ partADataBySubj.insert(loc=0, column='SessionPart',
 partBDataBySubj = pd.merge(left=partBData,
                            right=dataByStimTestB.loc[:, :dataByStimTestB.columns[dataByStimTestB.columns.get_loc('Valence_1') - 1]],
                            how='left', left_on='Recording', right_on='CALBINRecFiles')
-partBDataBySubj.sort_values(by='ID#', axis=0, inplace=True)
+partBDataBySubj.sort_values(by='ID', axis=0, inplace=True)
 partBDataBySubj = pd.merge(left=partBDataBySubj,
                            right=prePostTestResponses, how='outer',
-                           left_on='ID#', right_on='ID#')
+                           left_on='ID', right_on='ID')
 partBDataBySubj.drop(columns=['Part', 'Recording'], inplace=True)
 partBDataBySubj.insert(loc=0, column='SessionPart',
                        value=partBDataBySubj.pop('SessionPart'))
 
 allDataBySubj = pd.concat([partADataBySubj, partBDataBySubj], axis=0,
                           ignore_index=True)
+
+# add a column TrialNumber indicating overall trial number across parts A and B by adding
+# the Part B PartTrialNumber to the maximum PartTrialNumber in Part A, if it exists for each
+# participant, otherwise use the PartTrialNumber as is
+# the exception is participant ID 17, who had done 60 trials in Part A that weren't saved
+# so we manually set their max Part A trial number to 60
+maxPartATrialNumbers = partADataBySubj.groupby('ID')['PartTrialNumber'].max().to_dict()
+maxPartATrialNumbers[17] = 60
+allDataBySubj['TrialNumber'] = allDataBySubj.apply(
+    lambda row: row['PartTrialNumber'] + maxPartATrialNumbers[row['ID']]
+    if (row['SessionPart'] == 'B') and (row['ID'] in maxPartATrialNumbers)
+    else row['PartTrialNumber'],
+    axis=1
+)
+# Then move the TrialNumber column to be before the PartTrialNumber column
+allDataBySubj.insert(allDataBySubj.columns.get_loc('PartTrialNumber'), 'TrialNumber', allDataBySubj.pop('TrialNumber'))
 
 allDataBySubj.to_csv(os.path.join(outFilePath,
                                   "refmap_listest1_testdata_BySubj.csv"),
@@ -3283,7 +3313,7 @@ partBDataBySubj.to_csv(os.path.join(outFilePath,
 omitParticipants = [2, 5, 21, 32, 34, 36, 38, 39, 40, 44, 45]
 omitColumns = ["UAS_noticed_" + str(partID) for partID in omitParticipants]
 
-partADataBySubjNotice = partADataBySubj.loc[~partADataBySubj['ID#'].isin(omitParticipants), :]
+partADataBySubjNotice = partADataBySubj.loc[~partADataBySubj['ID'].isin(omitParticipants), :]
 
 partADataBySubjNotice.to_csv(os.path.join(outFilePath,
                                           "refmap_listest1_testdataANoticeFilt_BySubj.csv"),
@@ -3366,65 +3396,65 @@ postTestResponses.to_csv(os.path.join(outFilePath,
 
 # form wide format datasets for each part and outcome
 # Part A
-partAAnnoyDataBySubjWide = partADataBySubj.pivot(index='ID#',
+partAAnnoyDataBySubjWide = partADataBySubj.pivot(index='ID',
                                                  columns='StimFile',
                                                  values='Annoyance')
-partAValenceDataBySubjWide = partADataBySubj.pivot(index='ID#',
+partAValenceDataBySubjWide = partADataBySubj.pivot(index='ID',
                                                    columns='StimFile',
                                                    values='Valence')
-partAArousalDataBySubjWide = partADataBySubj.pivot(index='ID#',
+partAArousalDataBySubjWide = partADataBySubj.pivot(index='ID',
                                                    columns='StimFile',
                                                    values='Arousal')
-partAdAnnoyDataBySubjWide = partADataBySubj.pivot(index='ID#',
+partAdAnnoyDataBySubjWide = partADataBySubj.pivot(index='ID',
                                                   columns='StimFile',
                                                   values='dAnnoyance')
-partAdValenceDataBySubjWide = partADataBySubj.pivot(index='ID#',
+partAdValenceDataBySubjWide = partADataBySubj.pivot(index='ID',
                                                     columns='StimFile',
                                                     values='dValence')
-partAdArousalDataBySubjWide = partADataBySubj.pivot(index='ID#',
+partAdArousalDataBySubjWide = partADataBySubj.pivot(index='ID',
                                                     columns='StimFile',
                                                     values='dArousal')
-partANoticeDataBySubjWide = partADataBySubj.pivot(index='ID#',
+partANoticeDataBySubjWide = partADataBySubj.pivot(index='ID',
                                                   columns='StimFile',
                                                   values='UAS_noticed')
-partANoticeFiltDataBySubjWide = partADataBySubjNotice.pivot(index='ID#',
+partANoticeFiltDataBySubjWide = partADataBySubjNotice.pivot(index='ID',
                                                             columns='StimFile',
                                                             values='UAS_noticed')
 
 # merge all together for multivariate analysis
-partADataBySubjWide = partADataBySubj.pivot(index='ID#',
+partADataBySubjWide = partADataBySubj.pivot(index='ID',
                                             columns='StimFile',
                                             values='Annoyance')
 partADataBySubjWide.columns = partADataBySubjWide.columns.str.replace(".wav", "_annoy")
 partADataBySubjWide = partADataBySubjWide.merge(partAValenceDataBySubjWide,
-                                                on='ID#')
+                                                on='ID')
 partADataBySubjWide.columns = partADataBySubjWide.columns.str.replace(".wav", "_valence")
 partADataBySubjWide = partADataBySubjWide.merge(partAArousalDataBySubjWide,
-                                                on='ID#')
+                                                on='ID')
 partADataBySubjWide.columns = partADataBySubjWide.columns.str.replace(".wav", "_arousal")
 partADataBySubjWide = partADataBySubjWide.merge(partANoticeDataBySubjWide,
-                                                on='ID#')
+                                                on='ID')
 partADataBySubjWide.columns = partADataBySubjWide.columns.str.replace(".wav", "_notice")
 
 # merge with participant info and then save
 partAAnnoyDataBySubjWide = partAAnnoyDataBySubjWide.merge(prePostTestResponses,
-                                                          on='ID#')
+                                                          on='ID')
 partAValenceDataBySubjWide = partAValenceDataBySubjWide.merge(prePostTestResponses,
-                                                              on='ID#')
+                                                              on='ID')
 partAArousalDataBySubjWide = partAArousalDataBySubjWide.merge(prePostTestResponses,
-                                                              on='ID#')
+                                                              on='ID')
 partAdAnnoyDataBySubjWide = partAdAnnoyDataBySubjWide.merge(prePostTestResponses,
-                                                          on='ID#')
+                                                          on='ID')
 partAdValenceDataBySubjWide = partAdValenceDataBySubjWide.merge(prePostTestResponses,
-                                                              on='ID#')
+                                                              on='ID')
 partAdArousalDataBySubjWide = partAdArousalDataBySubjWide.merge(prePostTestResponses,
-                                                              on='ID#')
+                                                              on='ID')
 partANoticeDataBySubjWide = partANoticeDataBySubjWide.merge(prePostTestResponses,
-                                                            on='ID#')
+                                                            on='ID')
 partANoticeFiltDataBySubjWide = partANoticeFiltDataBySubjWide.merge(prePostTestResponses,
-                                                                    on='ID#')
+                                                                    on='ID')
 partADataBySubjWide = partADataBySubjWide.merge(prePostTestResponses,
-                                                on='ID#')
+                                                on='ID')
 
 partAAnnoyDataBySubjWide.to_csv(os.path.join(outFilePath,
                                              "refmap_listest1_AnnoyDataABySubjWide.csv"),
@@ -3462,53 +3492,52 @@ partADataBySubjWide.to_csv(os.path.join(outFilePath,
 
 
 # Part B
-partBAnnoyDataBySubjWide = partBDataBySubj.pivot(index='ID#',
+partBAnnoyDataBySubjWide = partBDataBySubj.pivot(index='ID',
                                                  columns='StimFile',
                                                  values='Annoyance')
-partBValenceDataBySubjWide = partBDataBySubj.pivot(index='ID#',
+partBValenceDataBySubjWide = partBDataBySubj.pivot(index='ID',
                                                    columns='StimFile',
                                                    values='Valence')
-partBArousalDataBySubjWide = partBDataBySubj.pivot(index='ID#',
+partBArousalDataBySubjWide = partBDataBySubj.pivot(index='ID',
                                                    columns='StimFile',
                                                    values='Arousal')
-partBdAnnoyDataBySubjWide = partBDataBySubj.pivot(index='ID#',
+partBdAnnoyDataBySubjWide = partBDataBySubj.pivot(index='ID',
                                                   columns='StimFile',
                                                   values='dAnnoyance')
-partBdValenceDataBySubjWide = partBDataBySubj.pivot(index='ID#',
+partBdValenceDataBySubjWide = partBDataBySubj.pivot(index='ID',
                                                     columns='StimFile',
                                                     values='dValence')
-partBdArousalDataBySubjWide = partBDataBySubj.pivot(index='ID#',
+partBdArousalDataBySubjWide = partBDataBySubj.pivot(index='ID',
                                                     columns='StimFile',
                                                     values='dArousal')
 
 # merge all together for multivariate analysis
-partBDataBySubjWide = partBDataBySubj.pivot(index='ID#',
+partBDataBySubjWide = partBDataBySubj.pivot(index='ID',
                                             columns='StimFile',
                                             values='Annoyance')
 partBDataBySubjWide.columns = partBDataBySubjWide.columns.str.replace(".wav", "_annoy")
 partBDataBySubjWide = partBDataBySubjWide.merge(partBValenceDataBySubjWide,
-                                                on='ID#')
+                                                on='ID')
 partBDataBySubjWide.columns = partBDataBySubjWide.columns.str.replace(".wav", "_valence")
 partBDataBySubjWide = partBDataBySubjWide.merge(partBArousalDataBySubjWide,
-                                                on='ID#')
+                                                on='ID')
 partBDataBySubjWide.columns = partBDataBySubjWide.columns.str.replace(".wav", "_arousal")
 
 # merge with participant info and then save
 partBAnnoyDataBySubjWide = partBAnnoyDataBySubjWide.merge(prePostTestResponses,
-                                                          on='ID#')
+                                                          on='ID')
 partBValenceDataBySubjWide = partBValenceDataBySubjWide.merge(prePostTestResponses,
-                                                              on='ID#')
+                                                              on='ID')
 partBArousalDataBySubjWide = partBArousalDataBySubjWide.merge(prePostTestResponses,
-                                                              on='ID#')
+                                                              on='ID')
 partBdAnnoyDataBySubjWide = partBdAnnoyDataBySubjWide.merge(prePostTestResponses,
-                                                           on='ID#')
+                                                           on='ID')
 partBdValenceDataBySubjWide = partBdValenceDataBySubjWide.merge(prePostTestResponses,
-                                                               on='ID#')
+                                                               on='ID')
 partBdArousalDataBySubjWide = partBdArousalDataBySubjWide.merge(prePostTestResponses,
-                                                               on='ID#')
+                                                               on='ID')
 partBDataBySubjWide = partBDataBySubjWide.merge(prePostTestResponses,
-                                                on='ID#')
-
+                                                on='ID')
 partBAnnoyDataBySubjWide.to_csv(os.path.join(outFilePath,
                                              "refmap_listest1_AnnoyDataBBySubjWide.csv"),
                                 index=False)
