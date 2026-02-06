@@ -100,7 +100,7 @@ function loudness = acousticQuasiLoudZwicker(spectrL, fLim, axisF, soundField, a
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 05/12/2025
+% Date last modified: 06/02/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -200,7 +200,7 @@ switch adjustLoud
                        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3];
 
     case 'iso5323'
-        % ISO 523-2 Table 2 (extended to 25 Hz)
+        % ISO 523-3 Table 2 (extended to 25 Hz)
         levelThresQTOB = [28.18, 28.18, 28.18, 28.18, 23.9, 19.2, 15.68,...
                           12.67, 10.09, 8.08, 6.3, 5.3, 4.5, 3.63, 3.63,...
                           3.63, 3.63, 3.63, 3.63, 3.63, 3.63, 3.63, 3.63,...
@@ -214,7 +214,7 @@ switch adjustLoud
         levelThresQ = levelThresQCB - critBWAdjust;
 
     case 'ecma4182'
-        % ISO 523-2 Table 2 (extended to 25 Hz)    
+        % ISO 523-3 Table 2 (extended to 25 Hz)    
         levelThresQTOB = [45, 39, 33, 28.18, 23.9, 19.2, 15.68,...
                           12.67, 10.09, 8.08, 6.3, 5.3, 4.5, 3.63, 3.63,...
                           3.63, 3.63, 3.63, 3.63, 3.63, 3.63, 3.63, 3.63,...
