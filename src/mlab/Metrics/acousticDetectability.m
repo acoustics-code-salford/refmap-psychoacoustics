@@ -1,9 +1,9 @@
-function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget, signalMasker, sampleRateMasker, axisTarget, axisMasker, timeSkip, timeStep, freqRange, outPlot)
-% detectDiscount = acousticDetection(signalTarget, sampleRateTarget,
-%                                    signalMasker, sampleRateMasker,
-%                                    axisTarget, axisMasker,
-%                                    timeSkip, timeStep,
-%                                    freqRange, outPlot)
+function detectDiscount = acousticDetectability(signalTarget, sampleRateTarget, signalMasker, sampleRateMasker, axisTarget, axisMasker, timeSkip, timeStep, freqRange, outPlot)
+% detectDiscount = acousticDetectability(signalTarget, sampleRateTarget,
+%                                        signalMasker, sampleRateMasker,
+%                                        axisTarget, axisMasker,
+%                                        timeSkip, timeStep,
+%                                        freqRange, outPlot)
 %
 % Returns detectability and discounted sound levels from input target
 % source and masker signals based on the detectability model originally
@@ -137,7 +137,7 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 %               signal channel
 %
 % detectIntdB : vector
-%               overall intergated detectability, dB, for each input target
+%               overall integrated detectability, dB, for each input target
 %               signal channel
 %
 % detectMaxPcdB : structure
@@ -194,7 +194,7 @@ function detectDiscount = acousticDetectDiscount(signalTarget, sampleRateTarget,
 % Institution: University of Salford
 %
 % Date created: 05/11/2024
-% Date last modified: 17/12/2025
+% Date last modified: 10/02/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -393,8 +393,10 @@ detectTDepMax = squeeze(max(detectability, [], 1));
 detectTDepInt = squeeze(sqrt(sum(detectability.^2, 1)));
 detectTDepMaxdB = 10*log10(detectTDepMax);
 detectTDepIntdB = 10*log10(detectTDepInt);
-detectMaxdB = 10*log10(max(detectTDepMax(1 + itimeSkip(1):end - itimeSkip(2), :), [], 1));
-detectIntdB = 10*log10(timeStep*sum(detectTDepInt(1 + itimeSkip(1):end - itimeSkip(2), :), 1));
+detectMaxMaxdB = 10*log10(max(detectTDepMax(1 + itimeSkip(1):end - itimeSkip(2), :), [], 1));
+detectIntIntdB = 10*log10(timeStep*sum(detectTDepInt(1 + itimeSkip(1):end - itimeSkip(2), :), 1));
+detectMaxIntdB = 10*log10(timeStep*sum(detectTDepMax(1 + itimeSkip(1):end - itimeSkip(2), :), 1));
+detectIntMaxdB = 10*log10(max(detectTDepInt(1 + itimeSkip(1):end - itimeSkip(2), :), [], 1));
 detectMaxPcdB.Ex50 = quantile(10*log10(detectTDepMax(1 + itimeSkip(1):end - itimeSkip(2), :)), 0.50, 1);
 detectIntPcdB.Ex50 = quantile(10*log10(detectTDepInt(1 + itimeSkip(1):end - itimeSkip(2), :)), 0.50, 1);
 
@@ -448,8 +450,10 @@ detectDiscount.dBADiscount = dBADiscount;
 detectDiscount.detectabilitydB = detectabilitydB;
 detectDiscount.detectTDepMaxdB = detectTDepMaxdB;
 detectDiscount.detectTDepIntdB = detectTDepIntdB;
-detectDiscount.detectMaxdB = detectMaxdB;
-detectDiscount.detectIntdB = detectIntdB;
+detectDiscount.detectMaxMaxdB = detectMaxMaxdB;
+detectDiscount.detectIntIntdB = detectIntIntdB;
+detectDiscount.detectMaxIntdB = detectMaxIntdB;
+detectDiscount.detectIntMaxdB = detectIntMaxdB;
 detectDiscount.detectMaxPcdB.Ex50 = detectMaxPcdB.Ex50;
 detectDiscount.detectIntPcdB.Ex50 = detectIntPcdB.Ex50;
 detectDiscount.freqBands = f;
