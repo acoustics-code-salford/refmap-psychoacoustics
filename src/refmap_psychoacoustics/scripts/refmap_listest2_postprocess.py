@@ -2184,6 +2184,7 @@ dataByStim.loc[dataByStim.index.str.contains("Baseline"), indicesDiffPsycho] = 0
 # calculate level differences and ratios between UAS and ambient
 dataByStim['LAeqLAF90diff'] = dataByStim['UASLAeqMaxLR'] - dataByStim['AmbLAF90ExMaxLR']
 dataByStim['LAeqLAF10diff'] = dataByStim['UASLAeqMaxLR'] - dataByStim['AmbLAF10ExMaxLR']
+dataByStim['LAeqdiff'] = dataByStim['UASLAeqMaxLR'] - dataByStim['AmbLAeqMaxLR']
 dataByStim['LAF10LAF10diff'] = dataByStim['UASLAF10ExMaxLR'] - dataByStim['AmbLAF10ExMaxLR']
 dataByStim['LASmaxLAF90diff'] = dataByStim['UASLASmaxMaxLR'] - dataByStim['AmbLAF90ExMaxLR']
 dataByStim['LASmaxLAF50diff'] = dataByStim['UASLASmaxMaxLR'] - dataByStim['AmbLAF50ExMaxLR']
@@ -2201,13 +2202,14 @@ dataByStim['PNLMLAF50diff'] = dataByStim['UASPNLmaxMaxLR'] - dataByStim['AmbLAF5
 dataByStim['PNLTMLAF50diff'] = dataByStim['UASPNLTmaxMaxLR'] - dataByStim['AmbLAF50ExMaxLR']
 dataByStim['EPNLLAF50diff'] = dataByStim['UASEPNLMaxLR'] - dataByStim['AmbLAF50ExMaxLR']
 
-indicesLevelDiffs = ['LAeqLAF90diff', 'LAeqLAF10diff', 'LAF10LAF10diff',
-                     'LASmaxLAF90diff', 'LASmaxLAF50diff',
+indicesLevelDiffs = ['LAeqLAF90diff', 'LAeqLAF10diff', 'LAeqdiff',
+                     'LAF10LAF10diff', 'LASmaxLAF90diff', 'LASmaxLAF50diff',
                      'LASmaxLAeqdiff', 'LAELAF90diff', 'LAELAF50diff',
                      'LAELAeqdiff', 'PNLMLAeqdiff', 'PNLTMLAeqdiff',
                      'EPNLLAeqdiff', 'PNLMLAF90diff', 'PNLTMLAF90diff',
                      'EPNLLAF90diff', 'PNLMLAF50diff', 'PNLTMLAF50diff',
                      'EPNLLAF50diff']
+
 
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Detection-discounted UAS sound levels LAeq and LAE
@@ -2385,6 +2387,34 @@ for ii, file in enumerate(stimSorted):
         else:
             testData.loc[file, response + 'Total'] = responseAgg.loc[file, response + 'Total']
             testData.loc[file, response + 'Prop'] = responseAgg.loc[file, response + 'Prop']
+            
+            for col in columns:
+                testData.loc[file, col] = responseData.loc[file, col]
+    
+    for response in ['ProbHA30k', 'ProbHA20k', 'ProbHA10k',
+                     'dProbHA30k', 'dProbHA20k', 'dProbHA10k']:
+        responseData = testResponses.loc[testResponses['stimulus'] == file,
+                                         ['participant', response]]
+        columns = [response + "_" + str(ID) for ID in responseData['participant']]
+        responseData = pd.DataFrame(data=np.array(responseData[response]),
+                                    index=columns, columns=[file]).transpose()
+        
+        # if responseData is not all NaN (no responses), calculate mean
+        if not np.all(responseData.isna()):
+            responseAgg = pd.DataFrame(data=np.nanmean(responseData.values, axis=1)[0],
+                                       index=[response + 'Mean'],
+                                       columns=[file]).transpose()
+        else:
+            responseAgg = pd.DataFrame(data=np.nan,
+                                       index=[response + 'Mean'],
+                                       columns=[file]).transpose()
+        
+        # add to testData DataFrame
+        if ii == 0:
+            testData = testData.join(responseAgg, how='outer')
+            testData = testData.join(responseData, how='outer')
+        else:
+            testData.loc[file, response + 'Mean'] = responseAgg.loc[file, response + 'Mean']
             
             for col in columns:
                 testData.loc[file, col] = responseData.loc[file, col]

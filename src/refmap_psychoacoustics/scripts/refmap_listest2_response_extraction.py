@@ -103,10 +103,19 @@ df_endCircumplex.drop(columns=['response'], inplace=True)
 # merge DataFrames
 df_endResponse = pd.merge(df_endAnnoy, df_endCircumplex, how='inner')
 
+def logistic(x, L, x0, k):
+    """Logistic function for curve fitting."""
+    return L / (1 + np.exp(-k * (x - x0)))
+
 # calculate change in annoyance, pleasantness and eventfulness relative to baseline by subtracting
 # the baseline response for each participant and ambient condition from each corresponding stimulus response
 # add change in response columns
 df_endResponse['HighlyAnnoyed'] = df_endResponse['Annoyance'] >= 10*(8/11)  # mark highly annoyed responses (>= 8 on 0-10 scale)
+# logistic function to convert annoyance ratings to probability of being highly annoyed
+df_endResponse['ProbHA30k'] = df_endResponse['Annoyance'].apply(lambda x: logistic(x, L=1, x0=10*(8/11), k=30))
+df_endResponse['ProbHA20k'] = df_endResponse['Annoyance'].apply(lambda x: logistic(x, L=1, x0=10*(8/11), k=20))
+df_endResponse['ProbHA10k'] = df_endResponse['Annoyance'].apply(lambda x: logistic(x, L=1, x0=10*(8/11), k=10))
+
 df_endResponse['dAnnoyance'] = np.nan
 df_endResponse['dPleasantness'] = np.nan
 df_endResponse['dEventfulness'] = np.nan
@@ -143,44 +152,64 @@ for response in ['Annoyance', 'Pleasantness', 'Eventfulness']:
 # change in highly annoyed 'dHighlyAnnoyed' is 1 if response changed from not highly annoyed in
 # corresponding baseline to highly annoyed in stimulus, and 0 otherwise, except if baseline is also
 # highly annoyed, in which case it remains NaN
+# Similarly, the probHA outcomes are also filtered so that they take their original value
+# if the baseline probability is <0.5, otherwise they are NaN
 # loop through participants
 for participant in df_endResponse['participant'].unique():
-    # loop through ambient conditions
-    for ambient in df_endResponse['ambientRef'].unique():
-        df_baseResponse = df_endResponse.loc[((df_endResponse['participant']
-                                                == participant)
-                                                & (df_endResponse['stimulus'].str.contains("Baseline"))
-                                                & (df_endResponse['ambientRef']
-                                                    == ambient)), 'HighlyAnnoyed']
-
-        # this is needed for participant 49 who is missing data and for baseline HA
-        if df_baseResponse.empty or df_baseResponse.all():
-            continue
+    for response in ['HighlyAnnoyed', 'ProbHA30k', 'ProbHA20k', 'ProbHA10k']:
         
-        df_endResponse.loc[((df_endResponse['participant']
-                                == participant)
-                            & ~(df_endResponse['stimulus'].str.contains("Baseline"))
-                            & (df_endResponse['ambientRef']
-                                == ambient)
-                            & (df_endResponse['HighlyAnnoyed'] == 1)), 'dHighlyAnnoyed'] = True
-        df_endResponse.loc[((df_endResponse['participant']
-                                == participant)
-                            & ~(df_endResponse['stimulus'].str.contains("Baseline"))
-                            & (df_endResponse['ambientRef']
-                                == ambient)
-                            & (df_endResponse['HighlyAnnoyed'] == 0)), 'dHighlyAnnoyed'] = False
-        df_endResponse.loc[((df_endResponse['participant']
-                                == participant)
-                            & (df_endResponse['stimulus'].str.contains("Baseline"))
-                            & (df_endResponse['ambientRef']
-                                == ambient)
-                            & (df_endResponse['HighlyAnnoyed'] == 1)),
-                            'dHighlyAnnoyed'] = df_endResponse.loc[((df_endResponse['participant']
-                                                                     == participant)
-                                                                   & (df_endResponse['stimulus'].str.contains("Baseline"))
-                                                                   & (df_endResponse['ambientRef']
-                                                                      == ambient)
-                                                                   & (df_endResponse['HighlyAnnoyed'] == 1)), 'HighlyAnnoyed']
+        df_endResponse.loc[df_endResponse['participant'] == participant, 'd' + response] = np.nan  # initialize column with NaN values
+
+        # loop through ambient conditions
+        for ambient in df_endResponse['ambientRef'].unique():
+            df_baseResponse = df_endResponse.loc[((df_endResponse['participant']
+                                                    == participant)
+                                                    & (df_endResponse['stimulus'].str.contains("Baseline"))
+                                                    & (df_endResponse['ambientRef']
+                                                        == ambient)), response]
+            
+            # this is needed for participant 49 who is missing data for baseline HA
+            if df_baseResponse.empty:
+                continue
+
+            
+
+            if response == 'HighlyAnnoyed':
+                # if baseline is HA, skip
+                if df_baseResponse.all():
+                    continue
+                # if baseline HA'
+                df_endResponse.loc[(df_endResponse['participant'] == participant)
+                                   & ~(df_endResponse['stimulus'].str.contains("Baseline"))
+                                   & (df_endResponse['ambientRef'] == ambient),
+                                   'd' + response] = df_endResponse.loc[(df_endResponse['participant'] == participant)
+                                                                        & ~(df_endResponse['stimulus'].str.contains("Baseline"))
+                                                                        & (df_endResponse['ambientRef'] == ambient), response]
+            else:
+                # if baseline responses have probHA >= 0.5, skip
+                if (df_baseResponse >= 0.5).all():
+                    continue
+                # if baseline probHA < 0.5, and stimulus probHA >= 0.5, then response is the probHA value
+                df_endResponse.loc[((df_endResponse['participant'] == participant)
+                                    & ~(df_endResponse['stimulus'].str.contains("Baseline"))
+                                    & (df_endResponse['ambientRef'] == ambient)),
+                                    'd' + response] = df_endResponse.loc[(df_endResponse['participant'] == participant)
+                                                                         & ~(df_endResponse['stimulus'].str.contains("Baseline"))
+                                                                         & (df_endResponse['ambientRef'] == ambient),
+                                                                         response]
+
+            # baseline = baseline (this needs to go last to avoid including baseline for undefined values)
+            df_endResponse.loc[(df_endResponse['participant'] == participant)
+                                & (df_endResponse['stimulus'].str.contains("Baseline"))
+                                & (df_endResponse['ambientRef'] == ambient),
+                                'd' + response] = df_endResponse.loc[(df_endResponse['participant']
+                                                                      == participant)
+                                                                     & (df_endResponse['stimulus'].str.contains("Baseline"))
+                                                                     & (df_endResponse['ambientRef']
+                                                                        == ambient),
+                                                                     response]
+
+
 
 # convert HighlyAnnoyed and dHighlyAnnoyed to binary 0 or 1 integers
 df_endResponse['HighlyAnnoyed'] = df_endResponse['HighlyAnnoyed'].astype(int)
