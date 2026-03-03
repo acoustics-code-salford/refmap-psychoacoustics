@@ -394,13 +394,51 @@ ggplot(data = data.frame(res_p), aes(sample = res_p)) +
 ```{r}
 
 # subset data for left/right UAS start and sort by StimID
+# 
+# stimDataL <- stimDataNoAmb |> dplyr::filter(UASStart == "Left") |>
+#                                 dplyr::arrange(StimID) |>
+#                 dplyr::mutate(Stimulus=sub("_left", "", Stimulus))
+# stimDataR <- stimDataNoAmb |> dplyr::filter(UASStart == "Right") |>
+#                                 dplyr::arrange(StimID) |>
+#                 dplyr::mutate(Stimulus=sub("_right", "", Stimulus))
 
-stimDataL <- stimDataNoAmb |> dplyr::filter(UASStart == "Left") |>
-                                dplyr::arrange(StimID) |>
-                dplyr::mutate(Stimulus=sub("_left", "", Stimulus))
-stimDataR <- stimDataNoAmb |> dplyr::filter(UASStart == "Right") |>
-                                dplyr::arrange(StimID) |>
-                dplyr::mutate(Stimulus=sub("_right", "", Stimulus))
+# create subsetted pivoted dataframe for left vs right UAS start for annoyance response, sorted by Stim
+stim_AnnoyMnDeltas <- stimDataNoAmb[, c('Stimulus', 'UASStart', 'AnnoyanceMean')] |>
+  mutate(Stimulus = sub("_left", "", Stimulus)) |>
+  mutate(Stimulus = sub("_right", "", Stimulus))|>
+  tidyr::pivot_wider(
+    names_from = UASStart,
+    values_from = AnnoyanceMean
+  ) |>
+  mutate(delta = Right - Left)
+
+sesoi <- 0.25
+
+tostRes1 <- tsum_TOST(
+  m1 = mean(stimDataNoAmb$AnnoyanceMean[stimDataNoAmb$UASStart == "Left"]),
+  sd1 = sd(stimDataNoAmb$AnnoyanceMean[stimDataNoAmb$UASStart == "Left"]),
+  n1 = sum(stimDataNoAmb$UASStart == "Left"),
+  m2 = mean(stimDataNoAmb$AnnoyanceMean[stimDataNoAmb$UASStart == "Right"]),
+  sd2 = sd(stimDataNoAmb$AnnoyanceMean[stimDataNoAmb$UASStart == "Right"]),
+  n2 = sum(stimDataNoAmb$UASStart == "Right"),
+  r12 = cor(stimDataNoAmb$AnnoyanceMean[stimDataNoAmb$UASStart == "Left"], stimDataNoAmb$AnnoyanceMean[stimDataNoAmb$UASStart == "Right"]),
+  paired = TRUE,
+  var.equal = FALSE,
+  eqb = sesoi,
+  alpha = 0.05
+)
+
+tostRes1$decision
+
+tostRes2 <- tsum_TOST(
+  m1 = mean(stim_AnnoyMnDeltas$delta),
+  sd1 = sd(stim_AnnoyMnDeltas$delta),
+  n1 = length(stim_AnnoyMnDeltas$delta),
+  eqb = sesoi,
+  alpha = 0.05
+)
+
+tostRes2$decision
 
 
 # conduct TOST for left vs right UAS start for Annoyance response
