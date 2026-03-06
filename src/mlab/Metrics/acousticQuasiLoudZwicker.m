@@ -100,7 +100,7 @@ function loudness = acousticQuasiLoudZwicker(spectrL, fLim, axisF, soundField, a
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 06/02/2026
+% Date last modified: 04/03/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -200,7 +200,7 @@ switch adjustLoud
                        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3];
 
     case 'iso5323'
-        % ISO 523-3 Table 2 (extended to 25 Hz)
+        % ISO 523-3 Table 2 (extended to 25 Hz as per ISO 532-3 code)
         levelThresQTOB = [28.18, 28.18, 28.18, 28.18, 23.9, 19.2, 15.68,...
                           12.67, 10.09, 8.08, 6.3, 5.3, 4.5, 3.63, 3.63,...
                           3.63, 3.63, 3.63, 3.63, 3.63, 3.63, 3.63, 3.63,...
@@ -214,7 +214,7 @@ switch adjustLoud
         levelThresQ = levelThresQCB - critBWAdjust;
 
     case 'ecma4182'
-        % ISO 523-3 Table 2 (extended to 25 Hz)    
+        % ISO 523-3 Table 2 (extended to 25 Hz with extrapolation)    
         levelThresQTOB = [45, 39, 33, 28.18, 23.9, 19.2, 15.68,...
                           12.67, 10.09, 8.08, 6.3, 5.3, 4.5, 3.63, 3.63,...
                           3.63, 3.63, 3.63, 3.63, 3.63, 3.63, 3.63, 3.63,...
@@ -266,42 +266,6 @@ specNSlope = [13.0, 8.20, 6.30, 5.50, 5.50, 5.50, 5.50, 5.50;
               0.12, 0.11, 0.10, 0.08, 0.08, 0.08, 0.08, 0.08;
               0.09, 0.08, 0.07, 0.06, 0.06, 0.06, 0.06, 0.05;
               0.06, 0.05, 0.03, 0.02, 0.02, 0.02, 0.02, 0.02];
-
-specNSlope = [specNSlope, repelem(specNSlope(:, end), 1,...
-                                  length(barkN) - size(specNSlope, 2))];
-
-% % level difference between 2023 ISO 226 equal loudness contours (10-100
-% % phon, 25-12500 Hz) and 1987 ISO 226 contours
-% d2023v1987 = [ 8.4, 10.4, 11.0, 11.0, 10.6,  9.8,  8.5, 6.9, 4.8,  0.0;
-%                  9.5, 12.0, 12.8, 12.8, 12.4, 11.5, 10.1, 8.4, 6.3,  3.6;
-%                 10.2, 12.8, 13.7, 13.7, 13.1, 12.1, 10.6, 8.8, 6.6,  4.0;
-%                 10.4, 13.1, 13.9, 13.8, 13.0, 11.9, 10.4, 8.5, 6.2,  3.5;
-%                 10.3, 13.1, 13.8, 13.5, 12.7, 11.5,  9.9, 7.9, 5.6,  2.9;
-%                 10.0, 12.9, 13.5, 13.3, 12.5, 11.3,  9.7, 7.7, 5.4,  2.7;
-%                  9.5, 12.4, 13.2, 13.1, 12.3, 11.2,  9.7, 7.8, 5.5,  2.7;
-%                  9.1, 12.0, 12.9, 12.9, 12.3, 11.2,  9.8, 7.9, 5.6,  2.9;
-%                  8.2, 11.1, 12.2, 12.3, 12.0, 11.0,  9.7, 7.9, 5.7,  3.1;
-%                  7.0,  9.9, 11.2, 11.6, 11.3, 10.5,  9.4, 7.8, 5.9,  3.3;
-%                  5.9,  8.8, 10.0, 10.6, 10.5,  9.9,  9.0, 7.5, 5.7,  3.3;
-%                  4.9,  7.5,  8.8,  9.4,  9.4,  9.1,  8.2, 6.9, 5.3,  3.2;
-%                  3.5,  5.8,  7.1,  7.7,  7.8,  7.5,  6.8, 5.9, 4.5,  2.6;
-%                  2.3,  4.2,  5.3,  5.8,  6.0,  5.9,  5.5, 4.7, 3.6,  2.2;
-%                  1.2,  2.5,  3.3,  3.7,  3.9,  3.8,  3.4, 3.0, 2.2,  1.3;
-%                  0.1,  0.7,  1.0,  1.3,  1.4,  1.4,  1.3, 1.1, 0.8,  0.4;
-%                  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0, 0.0, 0.0,  0.0;
-%                  1.5,  1.5,  1.5,  1.6,  1.8,  2.0,  2.3, 2.7, 3.1,  3.7;
-%                  1.8,  2.3,  2.6,  3.0,  3.3,  3.7,  4.2, 4.9, 5.7,  6.7;
-%                  0.1,  0.5,  0.7,  1.1,  1.6,  2.3,  3.1, 4.0, 5.2,  6.5;
-%                 -0.5,  0.1,  0.4,  0.9,  1.5,  2.3,  3.3, 4.4, 5.8,  7.3;
-%                  0.4,  1.2,  1.7,  2.4,  3.0,  3.9,  5.0, 6.2, 7.5,  9.1;
-%                  1.7,  2.8,  3.5,  4.2,  4.9,  5.9,  6.8, 8.0, 9.2, 10.7;
-%                  2.8,  3.7,  4.5,  5.2,  5.8,  6.6,  7.4, 8.3, 9.2, 10.3;
-%                  2.2,  3.0,  3.8,  4.3,  4.9,  5.5,  5.9, 6.5, 7.0,  7.4;
-%                  0.5,  2.0,  3.1,  3.8,  4.4,  4.8,  5.0, 5.0, 4.9,  4.5;
-%                  2.7,  5.5,  7.0,  7.9,  8.3,  8.2,  7.8, 7.0, 5.7,  0.0;
-%                  6.9, 10.3, 12.0, 12.7, 12.5, 11.6,  9.7, 7.0, 3.2,  0.0];
-% 
-% phonRange = 10:10:100;
 
 switch adjustLoud
     case 'iso5323'
@@ -436,11 +400,7 @@ switch adjustLoud
                       -35.01262963, -39.10952994, -36.08846324, -35.76127856,...
                       -18.94203912, -12.42774782, -2.175130978, -2.438729452,...
                       -9.021924348, -15.31551128, -16.79954261, -12.36052383];
-
-
-    
-
-end
+end  % end of adjustLoud switch
 
 %% Signal processing
 
@@ -456,13 +416,12 @@ barkCount = length(barkNOut);
 barkI1 = find(min(barkNOut) == barkN);
 barkI2 = find(max(barkNOut) == barkN);
 
-[~, iBarkMin] = min(round(barkN, 1));
-if iBarkMin == 1
+if barkI1 == 1
     barkMin = 0.1;
 else
-    barkMin = barkN(iBarkMin - 1) + 0.1;
+    barkMin = barkN(barkI1 - 1) + 0.1;
 end
-barkMax = max(round(barkN, 1));
+barkMax = max(round(barkN(barkI2 + 1), 1));
 barkAxis = barkMin:0.1:barkMax;
 barkAxisN = length(barkAxis);
 
@@ -502,28 +461,6 @@ for chan = inChans:-1:1
                                    + lowFWeightsRep(sub2ind(size(lowFWeightsRep),...
                                    (1:nTimeSteps).', lowCriterionMatch));
         end  % end of if branch for non-zero weighting
-
-        % % if adjusting for difference between 1987 vs 2023 equal loudness
-        % % contours
-        % if strcmp(adjustLoud, 'iso226')
-        %     levelWeightedRep = repmat(levelWeighted(:, kk), 1, rangePhons);
-        % 
-        %     % check which levels meet corresponding criterion
-        %     meetCriterion = levelWeightedRep <= phonRange;
-        % 
-        %     % get column indices for lowest criterion match
-        %     [~, dCriterionMatch] = max(meetCriterion == 1, [], 2);
-        % 
-        %     % repeat differences matrix for each time step
-        %     d2023v1987Rep = repmat(d2023v1987(kk, :), nTimeSteps, 1);
-        % 
-        %     % adjust levels according to matched criteria
-        %     levelWeighted(:, kk) = levelWeighted(:, kk)...
-        %                            - d2023v1987Rep(sub2ind(size(d2023v1987Rep),...
-        %                            (1:nTimeSteps).', dCriterionMatch));
-        % 
-        % end  % end of if branch for 1987 vs 2023 equal loudness adjustment
-    
     end  % end of for loop through bands
     
     % apply if using ECMA outer-middle ear filter function
@@ -650,100 +587,98 @@ for chan = inChans:-1:1
 
     % Specific loudness slopes adjustment
     % add dummy band for uppermost band
-    if barkNOut(end) >= 23.6
-        loudCore1 = [loudCore, zeros(size(loudCore, 1), 1)];
-    else
-        loudCore1 = loudCore;
-    end
-    
+    loudCore1 = [loudCore, zeros(size(loudCore, 1), 1)];
+
     %%%% SQAT(/AARAE) code adapted
     
     loudTDepChan = zeros(nTimeSteps, 1);
     specLoudChan = zeros(nTimeSteps, barkAxisN);
     
-    for l = 1:nTimeSteps
+    for lStep = 1:nTimeSteps
     
         N = 0;
-        z1 = 0;  % critical band rate starts at 0
-        n1 = 0;  % loudness level starts at 0
-        iz = 1;
+        n1 = 0;  % loudness starts at 0
         z = 0.1;
-        j = 18;
+        z1 = 0;  % critical band rate starts at 0
+        iz = 1;  % critical band index
+        jNidx = 18;  % index of loudness for slope calculation (Table A.9)
     
-        for i = 1:barkCount + 1  % specific loudness
+        for iBand = 1:barkCount + 1  % specific loudness
     
             % Determines where to start on the slope
-            ig = i - 1;
+            ig = iBand + barkI1 - 2;  % the addition accounts for a start band above band 1
     
             % steepness of upper slope (specNSlope) for bands above 8th one are identical
             if ig > 8
                 ig = 8;
             end
     
-            while z1 < barkN(i)
+            while z1 < barkN(iBand)
     
-                if n1 <= loudCore1(l, i)     % loudCore1 is the main loudness level
+                if n1 <= loudCore1(lStep, iBand)     % loudCore1 is the core loudness
                     % contribution of unmasked main loudness to total loudness
                     % and calculation of values
-                    if n1 < loudCore1(l, i)
-                        j = 1;
+                    if n1 < loudCore1(lStep, iBand)
+                        jNidx = 1;
     
-                        while (specNSlopeBound(j) > loudCore1(l, i)) && (j < 18) % the value of j is used below to build a slope
-                            j = j + 1; % j becomes the index at which Nm(i)                        % to the range of specific loudness
+                        % the value of jNidx is used below to build a slope to the range of specific loudness
+                        while (specNSlopeBound(jNidx) > loudCore1(lStep, iBand)) && (jNidx < 18)
+                            jNidx = jNidx + 1; % jNidx becomes the index at which Nm(iBand)
                         end
                     end
     
-                    z2 = barkN(i);
-                    n2 = loudCore1(l, i);
+                    z2 = barkN(iBand);
+                    n2 = loudCore1(lStep, iBand);
                     N = N + n2*(z2 - z1);
-                    k = z;                     % initialisation of k
+                    zk = z;                     % initialisation of zk
     
-                    while (k <= z2)
-                        specLoudChan(l, iz) = n2;
+                    while (zk <= z2)
+                        specLoudChan(lStep, iz) = n2;
                         iz = iz + 1;
-                        k = k + (1/10);
+                        zk = zk + 0.1;
                     end
     
-                    z = k;
+                    z = zk;
     
-                else %if n1 > loudCore(i)
-                    % decision wether the critical band in question is completely
+                else  % if slope loudness > core loudness
+                    
+                    % decision whether the critical band in question is completely
                     % or partly masked by accessory loudness
     
-                    n2 = specNSlopeBound(j);
+                    n2 = specNSlopeBound(jNidx);
     
-                    if n2 < loudCore1(l, i)
-                        n2 = loudCore1(l, i);
+                    if n2 < loudCore1(lStep, iBand)
+                        n2 = loudCore1(lStep, iBand);
                     end
     
-                    dz = (n1 - n2) / specNSlope(j, ig);
+                    dz = (n1 - n2) / specNSlope(jNidx, ig);
                     z2 = z1 + dz;
     
-                    if z2 > barkN(i)
-                        z2 = barkN(i);
+                    if z2 > barkN(iBand)
+                        z2 = barkN(iBand);
                         dz = z2 - z1;
-                        n2 = n1 - dz*specNSlope(j, ig);
+                        n2 = n1 - dz*specNSlope(jNidx, ig);
                     end
     
                     N = N + dz*(n1 + n2)/2;
-                    k = z;                     % initialisation of k
+                    zk = z;                     % initialisation of zk
     
-                    while (k <= z2)
-                        specLoudChan(l, iz) = n1 - (k - z1)*specNSlope(j, ig);
+                    while (zk <= z2)
+                        specLoudChan(lStep, iz) = n1 - (zk - z1)*specNSlope(jNidx, ig);
                         iz = iz + 1;
-                        k = k + (1/10);
+                        zk = zk + (1/10);
                     end
     
-                    z = k;
+                    z = zk;
     
                 end
     
-                if (n2 <= specNSlopeBound(j)) && (j < 18)
-                    j = j + 1;
+                if (n2 <= specNSlopeBound(jNidx)) && (jNidx < 18)
+                    jNidx = jNidx + 1;
                 end
     
-                if (n2 <= specNSlopeBound(j)) && (j >= 18)
-                    j = 18;
+                if (n2 <= specNSlopeBound(jNidx)) && (jNidx >= 18)
+                    jNidx = 18;
                 end
     
                 z1 = z2;     % n1 and z1 for next loop
@@ -762,7 +697,7 @@ for chan = inChans:-1:1
             N = (N*100 + 0.5)/100;
         end
     
-        loudTDepChan(l) = N; % total loudness at current timeframe l
+        loudTDepChan(lStep) = N; % total loudness at current timeframe l
     end
     
     %%%% End of SQAT(/AARAE) code adapted
