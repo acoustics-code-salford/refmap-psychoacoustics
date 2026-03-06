@@ -250,3 +250,11 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+
+## Large data files
+
+# Validation data
+/[Vv]alidation/[Ee][Cc][Mm][Aa]-418-2/[Aa]udio
+/[Vv]alidation/[Ee][Cc][Mm][Aa]-418-2/[Rr]eference
+/[Vv]alidation/[Mm]etrics/[Aa]udio
