@@ -87,7 +87,7 @@ function loudnessSHM = acousticSHMLoudnessFromComponent(specTonalLoudness, specN
 % Institution: University of Salford
 %
 % Date created: 22/08/2023
-% Date last modified: 10/12/2025
+% Date last modified: 08/03/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -228,7 +228,7 @@ if outPlot
         view(2);
         ax1.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
         ax1.YLim = [bandCentreFreqs(1), bandCentreFreqs(end)];
-        %ax1.CLim = [0, ceil(max(specificLoudness(:, :, chan), [], 'all')*10)/10];
+        ax1.CLim = [0, ceil(max(specLoudness(:, :, chan), [], 'all')*10)/10];
         ax1.YTick = [63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3]; 
         ax1.YTickLabel = ["63", "125", "250", "500", "1k", "2k", "4k",...
                           "8k", "16k"];
