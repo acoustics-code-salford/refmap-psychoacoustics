@@ -29,7 +29,7 @@ function [fm, f1, f2, fn] = noctf(frange, b)
 % Institution: University of Salford
 %  
 % Date created: 31/03/2025
-% Date last modified: 22/04/2025
+% Date last modified: 08/03/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -76,8 +76,7 @@ fbase = [100, 125, 160, 200, 250, 315, 400, 500, 630, 800];
 fbaseWide = fbase.*10.^ind.';
 fbaseWide = sort(reshape(fbaseWide, 1, numel(fbaseWide)));
 
-% find range of relevance
-[~, jlow] = min(abs(fbaseWide - min(fm)));  % index of highest f in frange
-[~, jhigh] = min(abs(fbaseWide - max(fm)));  % index of lowest f in frange
-
-fn = fbaseWide(jlow:jhigh);
+% find nominal frequencies corresponding with mid frequencies
+fDiffMat = abs(fbaseWide(:) - fm(:).');
+[~, minIdx] = min(fDiffMat, [], 1);
+fn = fbaseWide(minIdx);
