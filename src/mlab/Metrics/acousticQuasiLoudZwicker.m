@@ -1,6 +1,7 @@
-function loudness = acousticQuasiLoudZwicker(spectrL, fLim, axisF, soundField, adjustLoud)
-% loudness = acousticQuasiLoudZwicker(spectrL, fLim, axisF, soundField,
-%                                      adjustLoud)
+function loudness = acousticQuasiLoudZwicker(spectrL, fLim, timeStep, axisF, soundField, adjustLoud, outPlot, recalibrate)
+% loudness = acousticQuasiLoudZwicker(spectrL, fLim, timeStep, axisF,
+%                                     soundField, adjustLoud, outPlot,
+%                                     recalibrate)
 %
 % Returns quasi-loudness using spectral elements of ISO 532-1 Zwicker
 % loudness model for arbitrary spectra. The temporal weighting of the
@@ -17,16 +18,19 @@ function loudness = acousticQuasiLoudZwicker(spectrL, fLim, axisF, soundField, a
 % Inputs
 % ------
 % spectrL : vector, 2D or 3D matrix
-%   The contiguous input sound level 1/3-octave Leq spectrum or spectra for
+%   Contiguous input sound level 1/3-octave Leq spectrum or spectra for
 %   processing. Must be orientated with time and frequency bands on
 %   first two axes, and channels on third axis.
 %
-% fLim : vector (default: [25, 12.5e3])
-%   The frequency limits for the input spectra (these are
+% fLim : vector (default: [25, 12600])
+%   Frequency limits for the input spectra (these are
 %   automatically matched to nearest exact band centre-frequencies).
 %
+% timeStep : number (default: 0.1)
+%   Time step value (seconds) used for time-dependent inputs.
+%
 % axisF : integer optional (1 or 2, default: 2)
-%   The frequency band axis for series of spectra.
+%   Fequency band axis for series of spectra.
 %
 % soundField : keyword string (default: 'freeFrontal')
 %   Determines whether the 'freeFrontal' or 'diffuse' field stages
@@ -39,6 +43,13 @@ function loudness = acousticQuasiLoudZwicker(spectrL, fLim, axisF, soundField, a
 %   or ECMA-418-2:2025 ('ecma4182').
 %   The default option ('iso5321') applies no adjustment, so follows ISO
 %   532-1 more closely (for closer agreement with Zwicker's model).
+%
+% outPlot : Boolean true/false (default: false)
+%   Flag indicating whether to generate a figure from the output.
+%
+% recalibrate : Boolean (default: false)
+%   Indicates whether to apply a model-specific calibration to predict
+%   absolute loudness values (derived from empirical data).
 %
 % Returns
 % -------
@@ -78,6 +89,15 @@ function loudness = acousticQuasiLoudZwicker(spectrL, fLim, axisF, soundField, a
 % freqInNom : vector
 %   The 1/3-octave band nominal mid-frequencies for the input spectra.
 %
+% soundField : string
+%   Identifies the soundfield type applied (the input argument soundField)
+%
+% timeOut : vector
+%   Time (seconds) corresponding with time-dependent outputs.
+%
+% adjustLoud : string
+%   Indicates which loudness model standard was adjusted for (=adjustLoud
+%   input).
 %
 % Assumptions
 % -----------
@@ -90,6 +110,8 @@ function loudness = acousticQuasiLoudZwicker(spectrL, fLim, axisF, soundField, a
 % Zwicker loudness is defined in ISO 532-1:2017. Modifications are based on
 % ISO 532-3:2023 and ECMA-418-2:2025.
 %
+% Paulus, E & Zwicker, E, 1972. 
+%
 % Requirements
 % ------------
 % None
@@ -100,7 +122,7 @@ function loudness = acousticQuasiLoudZwicker(spectrL, fLim, axisF, soundField, a
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 04/03/2026
+% Date last modified: 08/03/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -123,7 +145,8 @@ function loudness = acousticQuasiLoudZwicker(spectrL, fLim, axisF, soundField, a
 %% Arguments validation;
     arguments (Input)
         spectrL (:, :, :) double {mustBeReal}
-        fLim (1, 2) double {mustBeInRange(fLim, 25, 12600)} = [25, 12500]
+        fLim (1, 2) double {mustBeInRange(fLim, 25, 12600)} = [25, 12600]
+        timeStep (1, 1) double {mustBePositive} = 0.1
         axisF (1, 1) {mustBeInteger, mustBeInRange(axisF, 1, 2)} = 2
         soundField (1, :) string {mustBeMember(soundField,...
                                                {'freeFrontal',...
@@ -133,6 +156,8 @@ function loudness = acousticQuasiLoudZwicker(spectrL, fLim, axisF, soundField, a
                                                {'iso5321',...
                                                 'iso5323',...
                                                 'ecma4182'})} = 'iso5321'
+        outPlot (1, 1) {mustBeNumericOrLogical} = false
+        recalibrate (1, 1) {mustBeNumericOrLogical} = false
     end
 
 %% Load path (assumes root directory is refmap-psychoacoustics)
@@ -156,14 +181,23 @@ if axisF == 1
 end
 
 % fractional octave frequencies
-[freqInMid, ~, ~, freqInNom] = noctf(fLim, 3);
-[fmAll, ~, ~, ~] = noctf([25, 12500], 3);
+[freqInMid, freqLower, freqUpper, freqInNom] = noctf(fLim, 3);
+[fmAll, ~, fAllUpper, ~] = noctf([25, 12600], 3);
 
 if length(freqInMid) ~= size(spectrL, 2)
     error("The frequency band range of the input spectra must correspond with the input band limits 'fLim'.")
 end
 
 %% Define constants
+
+% frequency band limiting indices
+fmAllI1 = find(min(freqInMid) == fmAll);
+fmAllI2 = find(max(freqInMid) == fmAll);
+fmShift1 = fmAllI1 - 1;
+
+% number of time steps in spectral series
+nTimeSteps = size(spectrL, 1);
+
 % ISO 532-1 Table A.3: low-frequency (25-250 Hz) weights
 lowFWeights = [-32, -24, -16, -10, -5, 0, -7, -3, 0, -2, 0;
                -29, -22, -15, -10, -4, 0, -7, -2, 0, -2, 0;
@@ -239,6 +273,22 @@ barkN = [0.9, 1.8, 2.8, 3.5, 4.4, 5.4, 6.6, 7.9, 9.2, 10.6, 12.3,...
 barkNMap = [0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 1.8, 1.8, 1.8, 2.8, 2.8, 3.5,...
             4.4, 5.4, 6.6, 7.9, 9.2, 10.6, 12.3, 13.8, 15.2, 16.7, 18.1,...
             19.3, 20.6, 21.8, 22.7, 23.6] + 1e-4;
+
+% calculate number of critical bands for output
+barkNMapOut = barkNMap(fmAllI1:fmAllI2);
+barkNOut = unique(barkNMapOut);
+barkCount = length(barkNOut);
+barkI1 = find(min(barkNOut) == barkN);
+barkI2 = find(max(barkNOut) == barkN);
+
+if barkI1 == 1
+    barkMin = 0.1;
+else
+    barkMin = barkN(barkI1 - 1) + 0.1;
+end
+barkMax = max(round(barkN(barkI2 + 1), 1));
+barkAxis = barkMin:0.1:barkMax;
+barkAxisN = length(barkAxis);
 
 % ISO 532-1 Table A.9: specific loudness range bounds corresponding with
 % loudness upper slope steepness
@@ -320,9 +370,9 @@ switch adjustLoud
     case 'iso5321'
         calN = 1.192905697913430;
     case 'iso5323'
-        calN = 1.263458171797368;
+        calN = 1.276875115653276;
     case 'ecma4182'
-        calN = 0.973779011817019;
+        calN = 0.971872856356776;
 end
 
 % loudness transform threshold factor
@@ -402,31 +452,55 @@ switch adjustLoud
                       -9.021924348, -15.31551128, -16.79954261, -12.36052383];
 end  % end of adjustLoud switch
 
-%% Signal processing
+% adjustment for original Zwicker third-octave definitions to 
+% critical band limits from Paulus et al, 1972, Table II
+% fgZ = [0, 90, 180, 280, 355, 450, 560, 710, 900, 1120, 1400,...
+%       1800 2240 2800 3550 4500 5600 7100 9000 11200 14000];
 
-% frequency band limiting indices
-fmAllI1 = find(min(freqInMid) == fmAll);
-fmAllI2 = find(max(freqInMid) == fmAll);
-fmShift1 = fmAllI1 - 1;
+% dfgZ = diff(fgZ);
 
-% calculate number of critical bands for output
-barkNMapOut = barkNMap(fmAllI1:fmAllI2);
-barkNOut = unique(barkNMapOut);
-barkCount = length(barkNOut);
-barkI1 = find(min(barkNOut) == barkN);
-barkI2 = find(max(barkNOut) == barkN);
+% mid-frequencies for third-octave bands corresponding with critical
+% bandwidths used to determine ISO 532-1 Table A.7, from Paulus et al,
+% 1972, Table II
+fmZ = [63, 125, 224, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000,...
+       2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500];
 
-if barkI1 == 1
-    barkMin = 0.1;
-else
-    barkMin = barkN(barkI1 - 1) + 0.1;
+% Zwicker approximation for critical bandwidth
+cbwZ = 25 + 75*(1 + 1.4*(fmZ/1000).^2).^0.69;
+
+% reproduction of data points in Paulus et al, 1972, Figure 5
+% (through which a curve was fit to smooth the bandwidth adjustments)
+% dLTG = 10*log10(dfgZ./cbwZ);
+
+% implied bandwidths obtained from the smoothed adjustment curve
+fbwZ = cbwZ.*10.^(critBWAdjust/10);
+
+% third-octave bandwidths corresponding with critical bands
+fbw = [fAllUpper(6), fAllUpper(9) - fAllUpper(6), fAllUpper(11) - fAllUpper(9), diff(fAllUpper(11:end))];
+
+% level adjustment corresponding with difference between Zwicker
+% third-octave bandwidths and present bandwidths
+dLfbw = 10*log10(fbw./fbwZ);
+
+% empirical calibration factors for complex
+% sounds to recover absolute values closer to full
+% psychoacoustic metrics
+% NB: this recalibration means the reference sound will no longer equal 1 sone
+if recalibrate
+    switch adjustLoud
+        case 'iso5321'
+            calEmp = 0.82;  % this needs checking and updating
+
+        case 'iso5323'
+            calEmp = 1.0296789599477227;
+
+        case 'ecma4182'
+            calEmp = 0.6141829528096241;
+    end
 end
-barkMax = max(round(barkN(barkI2 + 1), 1));
-barkAxis = barkMin:0.1:barkMax;
-barkAxisN = length(barkAxis);
 
-% number of time steps in spectral series
-nTimeSteps = size(spectrL, 1);
+
+%% Signal processing
 
 % loop over channels
 for chan = inChans:-1:1
@@ -463,14 +537,14 @@ for chan = inChans:-1:1
         end  % end of if branch for non-zero weighting
     end  % end of for loop through bands
     
-    % apply if using ECMA outer-middle ear filter function
-    if strcmp(adjustLoud, 'ecma4182')
+    % apply if using ECMA or ISO 532-3 outer-middle ear filter functions
+    if ~strcmp(adjustLoud, 'iso5321')
         switch soundField
-            case "freeFrontal"
+            case 'freeFrontal'
                 levelWeighted = levelWeighted + outMidFree(fmAllI1:fmAllI2);
-            case "diffuse"
+            case 'diffuse'
                 levelWeighted = levelWeighted + outMidDiffuse(fmAllI1:fmAllI2);
-            case "noOuter"
+            case 'noOuter'
                 levelWeighted = levelWeighted + midOnly(fmAllI1:fmAllI2);
         end
     end
@@ -517,23 +591,24 @@ for chan = inChans:-1:1
             lvlWeightCB(:, 1) = lvlWeightCB3;
         end
     end
-    
+
     % Loudness calculation
-    % apply outer ear filter (if not using the ECMA outer-middle ear filter)
-    if ~strcmp(adjustLoud, 'ecma4182')
+    % apply ISO 532-1 outer ear filter
+    if strcmp(adjustLoud, 'iso5321')
         switch soundField
-            case "freeFrontal"
+            case 'freeFrontal'
                 excitation = lvlWeightCB - earTmission(barkI1:barkI2);
-            case "diffuse"
+            case 'diffuse'
                 excitation = lvlWeightCB - earTmission(barkI1:barkI2)...
                                          + earDFAdjust(barkI1:barkI2);
-            case "noOuter"
+            case 'noOuter'
                 excitation = lvlWeightCB;
         end
     else
-        excitation = lvlWeightCB;
+        % Third-octave bandwidth adjustment
+        excitation = lvlWeightCB + dLfbw(barkI1:barkI2);
     end
-    
+
     % transformation to loudness
     maskLTQ = excitation > levelThresQ(barkI1:barkI2);  % mask used later to zero below-threshold excitation
     excitCBands = excitation - critBWAdjust(barkI1:barkI2);
@@ -705,6 +780,12 @@ for chan = inChans:-1:1
     loudTDep(:, chan) = loudTDepChan;
 end  % end of for loop over channels
 
+% apply calibrations, if using
+if recalibrate
+    specLoud = calEmp*specLoud;
+    loudTDep = calEmp*loudTDep;
+end
+
 % power-averaged overall loudness
 loudPowAvg = power(mean(loudTDep.^(1/log10(2)), 1), log10(2));
 
@@ -715,18 +796,27 @@ loud5pcEx = prctile(loudTDep, 95, 1);
 specLoudAvg = squeeze(mean(specLoud, 1));
 
 % loudness level
-loudLevel = 40*(loudTDep + 5e-5).^0.35;
-loudLevel(loudTDep >= 1) = 40 + 10*log2(loudTDep(loudTDep >= 1));
-
-if loudPowAvg < 1
-    loudLvlPowAvg = 40*(loudPowAvg + 5e-5).^0.35;
-    loudLvl5pcEx = 40*(loud5pcEx + 5e-5).^0.35;
+if recalibrate && ~strcmp(adjustLoud, 'iso5321')
+    switch adjustLoud
+        case 'iso5323'
+            model = 'mgs';
+        case 'ecma4182'
+            model = 'sottek';
+    end
+    loudLevel = sone2Phon(loudTDep, model);
+    loudLvlPowAvg = sone2Phon(loudPowAvg, model);
+    loudLvl5pcEx = sone2Phon(loud5pcEx, model);
 else
-    loudLvlPowAvg = 40 + 10*log2(loudPowAvg);
-    loudLvl5pcEx = 40 + 10*log2(loud5pcEx);
+    loudLevel = sone2Phon(loudTDep, 'zwicker');
+    loudLvlPowAvg = sone2Phon(loudPowAvg, 'zwicker');
+    loudLvl5pcEx = sone2Phon(loud5pcEx, 'zwicker');
 end
 
-% assign outputs
+% time (s) corresponding with results output
+timeOut = (0:(size(spectrL, 1) - 1))*timeStep;
+
+%% Output assignment
+
 loudness.loudTDep = loudTDep;
 loudness.loudPowAvg = loudPowAvg;
 loudness.loud5pcEx = loud5pcEx;
@@ -740,5 +830,84 @@ loudness.soundField = soundField;
 loudness.adjustLoud = adjustLoud;
 loudness.freqInMid = freqInMid;
 loudness.freqInNom = freqInNom;
+loudness.timeOut = timeOut.';
+
+%% Output plotting
+
+if outPlot
+    % Plot figures
+    % ------------
+    dt = timeOut(2) - timeOut(1);
+    freqAxis = bark2Hertz(barkAxis, 'volk');
+    [~, ~, ~, fOctNom] = noctf(fLim, 1);
+    [~, ~, ~, fOctNomAll] = noctf([25, 12600], 1);
+
+    fDiffMat = abs(fOctNomAll(:) - fOctNom(:).');
+    [~, minIdx] = min(fDiffMat, [], 1);
+    
+    fOctNomAllStr = ["31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"];
+    fOctNomStr = fOctNomAllStr(minIdx);
+
+    switch adjustLoud
+        case 'iso5321'
+            unitPlot = 'sone_{Z}';
+            specUnitPlot =  strcat(unitPlot, '/Bark_{Z}');
+        case 'iso5323'
+            unitPlot = 'sone_{M-G-S}';
+            specUnitPlot = strcat(unitPlot, '/Cam');
+        case 'ecma4182'
+            unitPlot = 'sone_{SHM}';
+            specUnitPlot = strcat(unitPlot, '/Bark_{SHM}');
+    end
+
+    for chan = inChans:-1:1
+        cmap_viridis = load('cmap_viridis.txt');
+        % Plot results
+        fig = figure;
+        tiledlayout(fig, 2, 1);
+        movegui(fig, 'center');
+        ax1 = nexttile(1);
+        surf(ax1, [timeOut, timeOut(end) + dt], freqAxis, [permute(specLoud(:, :, chan),...
+                                              [2, 1, 3]), specLoud(end, :, chan).'],...
+             'EdgeColor', 'none', 'FaceColor', 'interp');
+        view(2);
+        ax1.XLim = [timeOut(1), timeOut(end) + dt];
+        ax1.YLim = [freqLower(1), freqUpper(end)];
+        ax1.CLim = [0, ceil(max(specLoud(:, :, chan), [], 'all')*10)/10];
+        ax1.YTick = fOctNom;
+        ax1.YTickLabel = fOctNomStr;
+        ax1.YScale = 'log';
+        ax1.YLabel.String = 'Frequency, Hz';
+        ax1.XLabel.String = 'Time, s';
+        ax1.FontName =  'Arial';
+        ax1.FontSize = 12;
+        colormap(cmap_viridis);
+        h = colorbar;
+        set(get(h,'label'),'string', {'Specific Loudness,'; specUnitPlot});        
+        
+        ax2 = nexttile(2);
+        plot(ax2, timeOut, loudPowAvg(1, chan)*ones(size(timeOut)), ':', 'color',...
+             cmap_viridis(34, :), 'LineWidth', 1.5, 'DisplayName', "Power" + string(newline) + "time-avg");
+        hold on
+        plot(ax2, timeOut, loudTDep(:, chan), 'color', cmap_viridis(166, :),...
+             'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
+        hold off
+        ax2.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
+        if max(loudTDep(:, chan)) > 0
+            ax2.YLim = [0, 1.1*ceil(max(loudTDep(:, chan))*10)/10];
+        end
+        ax2.XLabel.String = 'Time, s';
+        ax2.YLabel.String = strcat('Loudness,', " ", unitPlot);
+        ax2.XGrid = 'on';
+        ax2.YGrid = 'on';
+        ax2.GridAlpha = 0.075;
+        ax2.GridLineStyle = '--';
+        ax2.GridLineWidth = 0.25;
+        ax2.FontName = 'Arial';
+        ax2.FontSize = 12;
+        lgd = legend('Location', 'eastoutside', 'FontSize', 8);
+        lgd.Title.String = "Overall";
+    end  % end of for loop for plotting over channels
+end  % end of if branch for plotting
 
 end  % end of acousticQuasiLoudZwicker function

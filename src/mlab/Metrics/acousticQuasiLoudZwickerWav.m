@@ -1,6 +1,7 @@
-function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN, soundField, adjustLoud)
+function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN, soundField, adjustLoud, outPlot, recalibrate)
 % loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN,
-%                                        soundField, adjustLoud)
+%                                        soundField, adjustLoud, outPlot,
+%                                        recalibrate)
 %
 % Returns quasi-loudness using spectral elements of ISO 532-1 Zwicker
 % loudness model for input pressure time-series. The temporal processing of
@@ -17,18 +18,18 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
 % Inputs
 % ------
 % p : vector or 2D matrix
-%   The input signal as single mono or stereo audio (sound
+%   Input signal as single mono or stereo audio (sound
 %   pressure) signals.
 %
 % sampleRateIn : integer
-%   The sample rate (frequency) of the input signal(s).
+%   Sample rate (frequency) of the input signal(s).
 %
 % timeStep : number
-%   The time step value used to calculate the time-dependent Leq
+%   Time step value (seconds) used to calculate the time-dependent Leq
 %   and loudness.
 %
 % axisN : integer (1 or 2, default: 1)
-%   The time axis along which to calculate the loudness.
+%   Time axis along which to calculate the loudness.
 %
 % soundField : keyword string (default: 'freeFrontal')
 %   Determines whether the 'freeFrontal' or 'diffuse' field stages
@@ -42,52 +43,60 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
 %   The default option ('iso5321') applies no adjustment, so follows ISO
 %   532-1 more closely (for closer agreement with Zwicker's model).
 %
+% outPlot : Boolean true/false (default: false)
+%   Flag indicating whether to generate a figure from the output.
+%
+% recalibrate : Boolean (default: false)
+%   Indicates whether to apply a model-specific calibration to predict
+%   absolute loudness values (derived from empirical data).
+%
 % Returns
 % -------
 % loudness : structure
-%   contains the loudness output
+%   Contains the loudness output.
 %
 % loudness contains the following outputs:
 %
 % loudTDep :  vector or matrix
-%   time-dependent loudness
-%   arranged as [time(, channels)]
+%   Time-dependent loudness arranged as [time(, channels)].
 % 
 % loudPowAvg : number or vector
-%   time-power-averaged loudness
-%   arranged as [loudness(, channels)]
+%   Time-power-averaged loudness arranged as [loudness(, channels)].
 %
 % loud5pcEx : number or vector
 %   95th percentile (5% exceeded) loudness
-%   arranged as [loudness(, channels)]
+%   arranged as [loudness(, channels)].
 %
 % loudLevel :  vector or matrix
-%   time-dependent loudness level
-%   arranged as [time(, channels)]
+%   Time-dependent loudness level arranged as [time(, channels)].
 %
 % loudLvlPowAvg : number or vector
-%   time-power-averaged loudness level
-%   arranged as [loudness(, channels)]
+%   Time-power-averaged loudness level arranged as [loudness(, channels)].
 %
 % specLoudAvg : vector or matrix
-%   time-power-averaged specific loudness
-%   arranged as [bands(, channels)]
+%   Time-power-averaged specific loudness arranged as [bands(, channels)].
 %
 % specLoudAvg : matrix
-%   time-dependent specific loudness
-%   arranged as [time, bands(, channels)]
+%   Time-dependent specific loudness arranged as [time, bands(, channels)].
 %
 % barkAxis : vector
-%   critical band rates for specific loudness (0.1 dz intervals)
-%
-% timeOut : vector
-%   time (seconds) corresponding with time-dependent outputs
+%   Critical band rates for specific loudness (0.1 dz intervals).
 %
 % freqInMid : vector
 %   The 1/3-octave band exact mid-frequencies for the input spectra.
 %
 % freqInNom : vector
 %   The 1/3-octave band nominal mid-frequencies for the input spectra.
+%
+% soundField : string
+%   Identifies the soundfield type applied (the input argument soundField)
+%
+% timeOut : vector
+%   Time (seconds) corresponding with time-dependent outputs.
+%
+% adjustLoud : string
+%   Indicates which loudness model standard was adjusted for (=adjustLoud
+%   input).
 %
 % Assumptions
 % -----------
@@ -110,7 +119,7 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 05/12/2025
+% Date last modified: 08/03/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -139,6 +148,8 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
                                                {'iso5321',...
                                                 'iso5323',...
                                                 'ecma4182'})} = 'iso5321'
+        outPlot (1, 1) {mustBeNumericOrLogical} = false
+        recalibrate (1, 1) {mustBeNumericOrLogical} = false
     end
 
 %% Input checks
@@ -184,8 +195,9 @@ end
 % Calculate Leq
 Leq = 10*log10(pxx/4e-10);
 
-loudness = acousticQuasiLoudZwicker(Leq, [25, 12500], 2,...
-                                    soundField, adjustLoud);
+loudness = acousticQuasiLoudZwicker(Leq, [25, 12500], timeStep, 2,...
+                                    soundField, adjustLoud, outPlot,...
+                                    recalibrate);
 loudness.timeOut = linspace(0, size(loudness.loudTDep, 1)*timeStep...
                             - timeStep, size(loudness.loudTDep, 1)).';
 

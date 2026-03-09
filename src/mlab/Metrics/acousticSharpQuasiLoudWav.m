@@ -1,11 +1,12 @@
-function sharpness = acousticSharpQuasiLoudWav(p, sampleRateIn, timeStep, axisN, soundField, sharpMethod, adjustLoud, outPlot, binaural)
-% sharpness = acousticSharpQuasiLoudWav(p, sampleRatein, timeStep, axisN,
-%                                       soundField, sharpMethod,
-%                                       adjustLoud, outPlot, binaural)
+function [loudness, sharpness] = acousticSharpQuasiLoudWav(p, sampleRateIn, adjustLoud, timeStep, axisN, soundField, sharpMethod, outPlot, binaural, recalibrate)
+% [loudness, sharpness] = acousticSharpQuasiLoudWav(p, sampleRatein, adjustLoud,
+%                                                   timeStep, axisN,
+%                                                   soundField, sharpMethod,
+%                                                   outPlot, binaural, recalibrate)
 %
-% Returns quasi-sharpness values using acousticSharpFromQuasi.m from 
-% quasi-loudness results obtained using acousticQuasiLoudZwicker.m with Leq spectra
-% obtained with poctave.
+% Returns quasi-sharpness and quasi-sharpness values using
+% acousticSharpFromQuasi.m from quasi-loudness results obtained using
+% acousticQuasiLoudZwicker.m with Leq spectra obtained with poctave.
 %
 % The sharpness model used can be specified using the 'sharpMethod' input
 % argument. Options comprise 'aures', 'vonbismarck', or 'widmann' (which
@@ -21,29 +22,11 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRateIn, timeStep, axisN,
 % Inputs
 % ------
 % p : vector or 2D matrix
-%   the input signal as single mono or stereo audio (sound
-%   pressure) signals
+%   Input signal as single mono or stereo audio (sound
+%   pressure) signals.
 %
 % sampleRateIn : integer
-%   the sample rate (frequency) of the input signal(s).
-%
-% timeStep : number
-%   the time step value used to calculate the time-dependent Leq
-%   and sharpness.
-%
-% axisN : integer (1 or 2, default: 1)
-%   the time axis along which to calculate the sharpness.
-%
-% soundField : keyword string (default: 'freeFrontal')
-%   determines whether the 'freeFrontal' or 'diffuse' field stages
-%   are applied in the outer/outer-middle ear filter. The
-%   'noOuter' option also allows either no transmission filter
-%   (if adjustLoud is not 'ecma4182'), or omits the outer ear filter stage
-%   from the ECMA-418-2:2024 filter (if adjustLoud is 'ecma4182').
-%
-% sharpMethod : keyword string (default: 'aures')
-%   the sharpness method to apply. Options: 'aures', 'vonbismarck',
-%   'widmann'.
+%   Sample rate (frequency) of the input signal(s).
 %
 % adjustLoud : keyword string
 %   Indicates whether to apply adjustments for the outer-middle ear filter
@@ -52,8 +35,26 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRateIn, timeStep, axisN,
 %   The default option ('iso5321') applies no adjustment, so follows ISO
 %   532-1 more closely (for closer agreement with Zwicker's model).
 %
-% outplot : Boolean true/false (default: false)
-%   flag indicating whether to generate a figure from the output
+% timeStep : number
+%   Time step value (seconds) used to calculate the time-dependent Leq
+%   and sharpness.
+%
+% axisN : integer (1 or 2, default: 1)
+%   Time axis along which to calculate the sharpness.
+%
+% soundField : keyword string (default: 'freeFrontal')
+%   Determines whether the 'freeFrontal' or 'diffuse' field stages
+%   are applied in the outer/outer-middle ear filter. The
+%   'noOuter' option also allows either no transmission filter
+%   (if adjustLoud is not 'ecma4182'), or omits the outer ear filter stage
+%   from the ECMA-418-2:2024 filter (if adjustLoud is 'ecma4182').
+%
+% sharpMethod : keyword string (default: 'aures')
+%   The sharpness weighting method to apply. Options: 'aures',
+%   'vonbismarck', 'widmann'.
+%
+% outPlot : Boolean true/false (default: false)
+%   Flag indicating whether to generate a figure from the output.
 % 
 % binaural : Boolean true/false (default: true)
 %   flag indicating whether to output binaural sharpness for
@@ -61,35 +62,89 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRateIn, timeStep, axisN,
 %   sharpness follows that of binaural loudness, which seems to be
 %   supported by available evidence https://doi.org/10.1051/aacus/2025048)
 %
+% recalibrate : Boolean (default: false)
+%   Indicates whether to apply a model-specific calibration to predict
+%   absolute loudness values (derived from empirical data).
+%
 % Returns
 % -------
 %
 % sharpness : structure
-%   contains the output
+%   contains the output.
 %
 % sharpness contains the following outputs:
 %
 % sharpnessTDep : vector or matrix
-%   time-dependent sharpness arranged as [time(, channels)]
+%   Time-dependent sharpness arranged as [time(, channels)].
 % 
 % sharpnessPowAvg : number or vector
-%   time-power-averaged sharpness arranged as [sharpness(, channels)]
+%   Time-power-averaged sharpness arranged as [sharpness(, channels)].
 %
 % sharpness5pcEx : number or vector
 %   95th percentile (5% exceeded) sharpness
-%   arranged as [sharpness(, channels)]
+%   arranged as [sharpness(, channels)].
 %
 % soundField : string
-%   identifies the soundfield type applied (the input argument fieldtype)
+%   Identifies the soundfield type applied (the input argument soundField)
 %
 % timeOut : vector
-%   time (seconds) corresponding with time-dependent outputs
+%   Time (seconds) corresponding with time-dependent outputs.
 %
-% method : string
-%   indicates which sharpness method was applied
+% sharpWeight : string
+%   Indicates which sharpness weighting method was applied.
 %
-% If outPlot=true, a plot is returned illustrating the
-% time-dependent sharpness, with the time-aggregated values.
+% adjustLoud : string
+%   Indicates which loudness model standard was adjusted for (=adjustLoud
+%   input).
+%
+% loudness : structure
+%   Contains the loudness output.
+%
+% loudness contains the following outputs:
+%
+% loudTDep :  vector or matrix
+%   Time-dependent loudness arranged as [time(, channels)].
+% 
+% loudPowAvg : number or vector
+%   Time-power-averaged loudness arranged as [loudness(, channels)].
+%
+% loud5pcEx : number or vector
+%   95th percentile (5% exceeded) loudness
+%   arranged as [loudness(, channels)].
+%
+% loudLevel :  vector or matrix
+%   Time-dependent loudness level arranged as [time(, channels)].
+%
+% loudLvlPowAvg : number or vector
+%   Time-power-averaged loudness level arranged as [loudness(, channels)].
+%
+% specLoudAvg : vector or matrix
+%   Time-power-averaged specific loudness arranged as [bands(, channels)].
+%
+% specLoudAvg : matrix
+%   Time-dependent specific loudness arranged as [time, bands(, channels)].
+%
+% barkAxis : vector
+%   Critical band rates for specific loudness (0.1 dz intervals).
+%
+% freqInMid : vector
+%   The 1/3-octave band exact mid-frequencies for the input spectra.
+%
+% freqInNom : vector
+%   The 1/3-octave band nominal mid-frequencies for the input spectra.
+%
+% soundField : string
+%   Identifies the soundfield type applied (the input argument soundField)
+%
+% timeOut : vector
+%   Time (seconds) corresponding with time-dependent outputs.
+%
+% adjustLoud : string
+%   Indicates which loudness model standard was adjusted for (=adjustLoud
+%   input).
+%
+% If outPlot=true, plots are returned illustrating the time-dependent
+% loudness and sharpness, along with the time-aggregated values.
 % A plot is returned for each input channel.
 %
 % Assumptions
@@ -139,7 +194,7 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRateIn, timeStep, axisN,
 % Institution: University of Salford
 %
 % Date created: 30/04/2025
-% Date last modified: 05/12/2025
+% Date last modified: 08/03/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -164,6 +219,10 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRateIn, timeStep, axisN,
     arguments (Input)
         p (:, :) double {mustBeReal}
         sampleRateIn (1, 1) double {mustBePositive, mustBeInteger}
+        adjustLoud (1, :) string {mustBeMember(adjustLoud,...
+                                               {'iso5321',...
+                                                'iso5323',...
+                                                'ecma4182'})} = 'iso5321'
         timeStep (1, 1) double {mustBePositive} = 0.1
         axisN (1, 1) {mustBeInteger, mustBeInRange(axisN, 1, 2)} = 1
         soundField (1, :) string {mustBeMember(soundField,...
@@ -174,12 +233,9 @@ function sharpness = acousticSharpQuasiLoudWav(p, sampleRateIn, timeStep, axisN,
                                                 {'aures',...
                                                  'vonbismarck',...
                                                  'widmann'})} = 'aures'
-        adjustLoud (1, :) string {mustBeMember(adjustLoud,...
-                                               {'iso5321',...
-                                                'iso5323',...
-                                                'ecma4182'})} = 'iso5321'
-        outPlot {mustBeNumericOrLogical} = false
-        binaural {mustBeNumericOrLogical} = true
+        outPlot (1, 1) {mustBeNumericOrLogical} = false
+        binaural (1, 1) {mustBeNumericOrLogical} = true
+        recalibrate (1, 1) {mustBeNumericOrLogical} = true
     end
 
 %% Load path (assumes root directory is refmap-psychoacoustics)
@@ -221,13 +277,13 @@ end
 Leq = 10*log10(pxx/4e-10);
 
 % Calculate loudness
-loudness = acousticQuasiLoudZwicker(Leq, [25 12600], 2, soundField,...
-                                    adjustLoud);
+loudness = acousticQuasiLoudZwicker(Leq, [25 12600], timeStep, 2, soundField,...
+                                    adjustLoud, outPlot, recalibrate);
 
 % Calculate sharpness
 sharpness = acousticSharpFromQuasiLoud(loudness.loudTDep,...
                                        loudness.specLoud, adjustLoud,...
-                                       timeStep, sharpMethod,...
+                                       [25 12600], timeStep, sharpMethod,...
                                        outPlot, binaural);
 
 end  % end of acousticSharpQuasiLoudWav function

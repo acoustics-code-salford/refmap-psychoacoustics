@@ -1,7 +1,7 @@
-function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adjustLoud, timeStep, sharpMethod, outPlot, binaural)
+function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adjustLoud, fLim, timeStep, sharpWeight, outPlot, binaural)
 % sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness,
-%                                        adjustLoud, timeStep, sharpMethod,
-%                                        outPlot, binaural)
+%                                        adjustLoud, fLim, timeStep,
+%                                        sharpWeight, outPlot, binaural)
 %
 % Returns quasi-sharpness values using quasi-loudness results obtained using
 % acousticQuasiLoudZwicker.m or acousticQuasiLoudZwickerWav.m.
@@ -28,11 +28,11 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adju
 % ------
 %
 % loudQZTDep : vector or matrix
-%   the time-dependent overall loudness values
-%   arranged as [time(, chans)]
+%   Time-dependent overall quasi-loudness values
+%   arranged as [time(, chans)].
 %
 % specQZLoudness : matrix
-%   the specific loudness values arranged as [time, bands(, chans)]
+%   Specific quasi-loudness values arranged as [time, bands(, chans)].
 %
 % adjustLoud : keyword string
 %   indicates whether adjustments were applied to the loudness for the
@@ -41,18 +41,22 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adju
 %   The option 'iso5321' applies no adjustments, so follows ISO
 %   532-1 more closely (for closer agreement with Zwicker's model).
 %
-% timeStep : number (default: 0.1)
-%   the time step value used for time-dependent inputs
+% fLim : vector (default: [25, 12600])
+%   The frequency limits for the input spectra (these are
+%   automatically matched to nearest exact band centre-frequencies).
 %
-% sharpMethod : keyword string (default: 'aures')
-%   the sharpness method to apply. Options: 'aures', 'vonbismarck',
-%   'widmann'
+% timeStep : number (default: 0.1)
+%   the time step value used for time-dependent inputs.
+%
+% sharpWeight : keyword string (default: 'aures')
+%   the sharpness weighting method to apply. Options: 'aures',
+%   'vonbismarck', 'widmann'.
 %
 % outPlot : Boolean true/false (default: false)
-%   flag indicating whether to generate a figure from the output
+%   Flag indicating whether to generate a figure from the output.
 %
 % binaural : Boolean true/false (default: true)
-%   flag indicating whether to output binaural sharpness for
+%   Flag indicating whether to output binaural sharpness for
 %   stereo input signal. (It is assumed the relationship for binaural
 %   sharpness follows that of binaural loudness, which seems to be
 %   supported by available evidence https://doi.org/10.1051/aacus/2025048)
@@ -61,25 +65,29 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adju
 % -------
 %
 % sharpness : structure
-%   contains the output
+%   Contains the output.
 %
 % sharpness contains the following outputs:
 %
 % sharpTDep : vector or matrix
-%   time-dependent sharpness arranged as [time(, channels)]
+%   Time-dependent sharpness arranged as [time(, channels)].
 % 
 % sharpPowAvg : number or vector
-%   time-power-averaged sharpness arranged as [sharpness(, channels)]
+%   Time-power-averaged sharpness arranged as [sharpness(, channels)].
 %
 % sharp5pcEx : number or vector
 %   95th percentile (5% exceeded) sharpness
-%   arranged as [sharpness(, channels)]
+%   arranged as [sharpness(, channels)].
 %
 % timeOut : vector
-%   time (seconds) corresponding with time-dependent outputs
+%   Time (seconds) corresponding with time-dependent outputs.
 %
-% method : string
-%   indicates which sharpness method was applied
+% sharpWeight : string
+%   Indicates which sharpness weighting method was applied.
+%
+% adjustLoud : string
+%   Indicates which loudness model standard was adjusted for (=adjustLoud
+%   input).
 %
 % If outplot=true, a set of plots is returned illustrating the
 % time-dependent sharpness, with the time-aggregated values.
@@ -135,7 +143,7 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adju
 % Institution: University of Salford
 %
 % Date created: 30/04/2025
-% Date last modified: 07/12/2025
+% Date last modified: 08/03/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -164,13 +172,14 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adju
                                                {'iso5321',...
                                                 'iso5323',...
                                                 'ecma4182'})}
+        fLim (1, 2) double {mustBeInRange(fLim, 25, 12600)} = [25, 12600]
         timeStep (1, 1) double {mustBePositive} = 0.1
-        sharpMethod (1, :) string {mustBeMember(sharpMethod,...
+        sharpWeight (1, :) string {mustBeMember(sharpWeight,...
                                                 {'aures',...
                                                  'vonbismarck',...
                                                  'widmann'})} = 'aures'
-        outPlot {mustBeNumericOrLogical} = false
-        binaural {mustBeNumericOrLogical} = true
+        outPlot (1, 1) {mustBeNumericOrLogical} = false
+        binaural (1, 1) {mustBeNumericOrLogical} = true
     end
 
 %% Load path (assumes root directory is refmap-psychoacoustics)
@@ -201,42 +210,74 @@ else
     end
 end
 
+% fractional octave frequencies
+[freqInMid, ~, ~, ~] = noctf(fLim, 3);
+[fmAll, ~, ~, ~] = noctf([25, 12600], 3);
+
 %% Define constants
 
+% frequency band limiting indices
+fmAllI1 = find(min(freqInMid) == fmAll);
+fmAllI2 = find(max(freqInMid) == fmAll);
+
 dz = 0.1;  % Bark number step for ISO 532-1 specific loudness
-bark = dz:dz:24;  % Bark numbers for ISO 532-1 specific loudness
+
+% ISO 532-1 Table A.8: critical band number (rate) - addition of 1e-4 is as
+% as per Annex A.4
+barkN = [0.9, 1.8, 2.8, 3.5, 4.4, 5.4, 6.6, 7.9, 9.2, 10.6, 12.3,...
+         13.8, 15.2, 16.7, 18.1, 19.3, 20.6, 21.8, 22.7, 23.6, 24] + 1e-4;
+
+% mapped to full frequency band range (omitting top band used only for
+% slope)
+barkNMap = [0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 1.8, 1.8, 1.8, 2.8, 2.8, 3.5,...
+            4.4, 5.4, 6.6, 7.9, 9.2, 10.6, 12.3, 13.8, 15.2, 16.7, 18.1,...
+            19.3, 20.6, 21.8, 22.7, 23.6] + 1e-4;
+
+% calculate number of critical bands for output
+barkNMapOut = barkNMap(fmAllI1:fmAllI2);
+barkNOut = unique(barkNMapOut);
+barkI1 = find(min(barkNOut) == barkN);
+barkI2 = find(max(barkNOut) == barkN);
+
+if barkI1 == 1
+    barkMin = 0.1;
+else
+    barkMin = barkN(barkI1 - 1) + dz;
+end
+barkMax = max(round(barkN(barkI2 + 1), 1));
+barkAxis = barkMin:dz:barkMax;
 
 % calibration value required to ensure an overall sharpness of 1 acum
 % corresponds with a 60 dB (free-field) narrowband noise 1 critical
 % bandwidth centred on 1 kHz
 
-switch sharpMethod
+switch sharpWeight
     case 'aures'
 
         switch adjustLoud
             case 'iso5321'
-                acum = "A | Q-ISO";
+                acum = "A | Q-Z";
                 calS = 0.894280845127320;
             case 'iso5323'
-                acum = "A | Q-ISO";
-                calS = 0.915481386337880;
+                acum = "A | Q-M-G-S";
+                calS = 0.891494747431091;
             case 'ecma4182'
-                acum = "A | Q-ISO+ECMA";
-                calS = 0.898938611525311;
+                acum = "A | Q-SHM";
+                calS = 0.900961038918765;
         end
 
     case 'vonbismarck'
 
         switch adjustLoud
             case 'iso5321'
-                acum = "vBZ | Q-ISO";
-                calS = 0.939418242981291;
+                acum = "vBZ | Q-Z";
+                calS = 0.939418242981292;
             case 'iso5323'
-                acum = "vBZ | Q-ISO";
-                calS = 0.958284577731598;
+                acum = "vBZ | Q-M-G-S";
+                calS = 0.945141172563504;
             case 'ecma4182'
-                acum = "vBZ | Q-ISO+ECMA";
-                calS = 0.932773984477842;
+                acum = "vBZ | Q-SHM";
+                calS = 0.933744288582680;
         end
 
         q1 = 15;
@@ -248,14 +289,14 @@ switch sharpMethod
 
         switch adjustLoud
             case 'iso5321'
-                acum = "W | Q-ISO";
+                acum = "W | Q-Z";
                 calS = 0.942490787738152;
             case 'iso5323'
-                acum = "W | Q-ISO";
-                calS = 0.961918282421545;
+                acum = "W | Q-M-G-S";
+                calS = 0.950160865115506;
             case 'ecma4182'
-                acum = "W | Q-ISO+ECMA";
-                calS = 0.939152867468521;
+                acum = "W | Q-SHM";
+                calS = 0.940057586154150;
         end
 
         q1 = 15.8;
@@ -266,13 +307,13 @@ end
 
 %% Signal processing
 
-switch sharpMethod
+switch sharpWeight
     case 'aures'
         % Aures weighting
-        weightSharp = permute(0.078*(exp(0.171.*permute(repmat(bark, chansIn, 1),...
+        weightSharp = permute(0.078*(exp(0.171.*permute(repmat(barkAxis, chansIn, 1),...
                                                         [2, 1])))...
                               ./(log(0.05*permute(repmat(loudQZTDep, 1, 1,...
-                                                         length(bark)), [3, 2, 1])...
+                                                         length(barkAxis)), [3, 2, 1])...
                                      + 1) + eps), [3, 1, 2]);
 
         % time-dependent sharpness
@@ -281,11 +322,11 @@ switch sharpMethod
 
     case {'vonbismarck', 'widmann'}
         % von Bismarck or Widmann weightings
-        weightSharp = ones(1, length(bark));
-        weightSharp(bark>=q1) = q2*exp(q3*(bark(bark>=q1) - q1) ) + q4;
+        weightSharp = ones(1, length(barkAxis));
+        weightSharp(barkAxis >= q1) = q2*exp(q3*(barkAxis(barkAxis >= q1) - q1) ) + q4;
 
         % time-dependent sharpness
-        sharpTDep = calS*0.11.*squeeze(sum(specQZLoudness.*weightSharp.*bark*dz, 2))./(loudQZTDep + eps);
+        sharpTDep = calS*0.11.*squeeze(sum(specQZLoudness.*weightSharp.*barkAxis*dz, 2))./(loudQZTDep + eps);
 end
 
 % Discard singleton dimensions
@@ -324,7 +365,8 @@ sharpness.sharpTDep = sharpTDep;
 sharpness.sharpPowAvg = sharpPowAvg;
 sharpness.sharp5pcEx = sharp5pcEx;
 sharpness.timeOut = timeOut.';
-sharpness.method = sharpMethod;
+sharpness.sharpWeight = sharpWeight;
+sharpness.adjustLoud = adjustLoud;
 
 if binaural && chansIn == 2
     sharpness.sharpTDepBin = sharpTDepBin;
