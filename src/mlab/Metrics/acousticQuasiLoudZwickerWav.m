@@ -119,7 +119,7 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 08/03/2026
+% Date last modified: 09/03/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -195,7 +195,7 @@ end
 % Calculate Leq
 Leq = 10*log10(pxx/4e-10);
 
-loudness = acousticQuasiLoudZwicker(Leq, [25, 12500], timeStep, 2,...
+loudness = acousticQuasiLoudZwicker(Leq, [25, 12600], timeStep, 2,...
                                     soundField, adjustLoud, outPlot,...
                                     recalibrate);
 loudness.timeOut = linspace(0, size(loudness.loudTDep, 1)*timeStep...
