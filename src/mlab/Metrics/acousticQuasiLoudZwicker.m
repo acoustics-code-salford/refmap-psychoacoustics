@@ -459,7 +459,7 @@ end  % end of adjustLoud switch
 
 % dfgZ = diff(fgZ);
 
-% mid-frequencies for third-octave bands corresponding with critical
+% mid-frequencies for frequency bands corresponding with critical
 % bandwidths used to determine ISO 532-1 Table A.7, from Paulus et al,
 % 1972, Table II
 fmZ = [63, 125, 224, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000,...
