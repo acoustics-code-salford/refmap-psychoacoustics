@@ -2694,8 +2694,7 @@ for col in indicesDiffPsycho:
 dataByStim = dataByStim[cols]
 indicesDiffPsycho.reverse()  # revert list for use later   
 
-
-# move partial loudness metrics to after partial loudness metrics
+# move partial loudness metrics to after SHM partial loudness metrics
 cols = list(dataByStim.columns)
 cols.insert(cols.index(partLoudness.columns[-1]) + 1,
             cols.pop(cols.index('PartLoudSHMPowAvgBin')))
