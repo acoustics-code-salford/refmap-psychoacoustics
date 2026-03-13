@@ -47,7 +47,7 @@ function [signalRectSegTarget, basisPartLoudness, blockRMSTarget] = shmBasisPart
 % Institution: University of Salford
 %
 % Date created: 09/12/2023
-% Date last modified: 12/12/2025
+% Date last modified: 13/03/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -136,19 +136,25 @@ snrTMNdB(mask) = 4.4683421395470813*logFreq(mask).^4 ...
 snrTMN = 10.^(snrTMNdB/10);
 % End of re-used code from loudness package.
 
+% normalised SNR for masked threshold
+snrTMNNorm = snrTMN./(1 + snrTMN);
+
+% multiplying factor for masker subtraction
+maskFactor = 0.5;
+
 % limits for masking function parameters
-maskCompressLim = [0.2, 0.25];
-maskResponseLim = [1, 2];
+maskCompressLim = [0.25, 0.35];
+maskResponseLim = [1.5, 2.8];
 
 % masking function compression parameter
 maskCompress = maskCompressLim(1)...
                + (maskCompressLim(2)...
-                  - maskCompressLim(1)).*(snrTMN./(1 + snrTMN));
+                  - maskCompressLim(1)).*(snrTMNNorm);
 
 % masking function response parameter
 maskResponse = maskResponseLim(1)...
                + (maskResponseLim(2)...
-                  - maskResponseLim(1)).*(snrTMN./(1 + snrTMN));
+                  - maskResponseLim(1)).*(snrTMNNorm);
 
 % standardised epsilon
 epsilon = 1e-12;
@@ -201,19 +207,20 @@ if ~isempty(bandCentreFreq) && length(size(signalSegmentedTarget)) == 2
     bandLoudnessTarget = max(0, bandLoudnessTarget);
     bandLoudnessMasker = max(0, bandLoudnessMasker);
 
-    % compressed inverse
+    % inverse-compression
     invT = bandLoudnessTarget.^(1./maskCompress(bandIdx));
     invM = bandLoudnessMasker.^(1./maskCompress(bandIdx));
 
-    % compressed difference ratio
-    compDiffRatio = (invT - invM) ./ (invT + invM + epsilon);
-    compDiffRatioPos = max(0, compDiffRatio);
+    % decompressed difference ratio
+    decompDiffRatio = (invT - maskFactor.*invM) ./...
+                        (invT + invM + epsilon);
+    decompDiffRatioPos = max(0, decompDiffRatio);
     
-    % damping function for compressed difference ratio
-    compDiffRatioPosDamped = compDiffRatioPos.^maskResponse(bandIdx);
+    % damping function for decompressed difference ratio
+    decompDiffRatioPosDamped = decompDiffRatioPos.^maskResponse(bandIdx);
     
-    % partial loudness without LTQ
-    bandPartLoudness = (compDiffRatioPosDamped.*invT).^maskCompress(bandIdx);
+    % recompressed partial loudness without LTQ
+    bandPartLoudness = (decompDiffRatioPosDamped.*invT).^maskCompress(bandIdx);
 
     % basis partial loudness
     basisPartLoudness = max(0, bandPartLoudness - LTQz(bandIdx));
@@ -228,20 +235,21 @@ else
     LTQz3D = reshape(repmat(LTQz, size(bandLoudnessMasker, 1)*size(bandLoudnessMasker, 2), 1), size(bandLoudnessMasker));
     maskCompress3D = reshape(repmat(maskCompress, size(bandLoudnessMasker, 1)*size(bandLoudnessMasker, 2), 1), size(bandLoudnessMasker));
     maskResponse3D = reshape(repmat(maskResponse, size(bandLoudnessMasker, 1)*size(bandLoudnessMasker, 2), 1), size(bandLoudnessMasker));
+    snrTMNNorm3D = reshape(repmat(snrTMNNorm, size(bandLoudnessMasker, 1)*size(bandLoudnessMasker, 2), 1), size(bandLoudnessMasker));
 
-    % compressed inverse
+    % inverse-compression
     invT = bandLoudnessTarget.^(1./maskCompress3D);
     invM = bandLoudnessMasker.^(1./maskCompress3D);
 
-    % compressed difference ratio
-    compDiffRatio = (invT - invM) ./ (invT + invM + epsilon);
-    compDiffRatioPos = max(0, compDiffRatio);
+    % decompressed difference ratio
+    decompDiffRatio = (invT - maskFactor.*invM) ./ (invT + invM + epsilon);
+    decompDiffRatioPos = max(0, decompDiffRatio);
     
-    % damping function for compressed difference ratio
-    compDiffRatioPosDamped = compDiffRatioPos.^maskResponse3D;
+    % damping function for decompressed difference ratio
+    decompDiffRatioPosDamped = decompDiffRatioPos.^maskResponse3D;
     
-    % partial loudness without LTQ
-    bandPartLoudness = (compDiffRatioPosDamped.*invT).^maskCompress3D;
+    % recompressed partial loudness without LTQ
+    bandPartLoudness = (decompDiffRatioPosDamped.*invT).^maskCompress3D;
 
     % basis partial loudness
     basisPartLoudness = max(0, bandPartLoudness - LTQz3D);
