@@ -1253,14 +1253,18 @@ if (saveplots){
 }
 
 # add faint dashed grey major grid lines to p1, p2, p3, p4 and remove minor grid lines
-p1 <- p1 + theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grIDminor = element_blank())
-p2 <- p2 + theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grIDminor = element_blank())
-p3 <- p3 + theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grIDminor = element_blank())
-p4 <- p4 + theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grIDminor = element_blank())
+p1 <- p1 + theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+                 panel.grid.minor = element_blank())
+p1 <- gginnards::delete_layers(p1, "GeomPoint")
+p2 <- p2 + theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+                 panel.grid.minor = element_blank())
+p2 <- gginnards::delete_layers(p2, "GeomPoint")
+p3 <- p3 + theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+                 panel.grid.minor = element_blank())
+p3 <- gginnards::delete_layers(p3, "GeomPoint")
+p4 <- p4 + theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+                 panel.grid.minor = element_blank())
+p4 <- gginnards::delete_layers(p4, "GeomPoint")
 
 (p1 | p2) + (p3 / p4)
 
@@ -1780,8 +1784,11 @@ p1 <- ggplot(data=model1predictEvt) +
 p1
 
 # save the model
-filename = "1A_dA_LAE_noEnv"
-saveRDS(model1, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+if (savedata) {
+  filename = "1A_dA_LAE_noEnv"
+  saveRDS(model1, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+  
+}
 
 ```
 
@@ -1791,7 +1798,7 @@ saveRDS(model1, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
 
 model1 <- mABISxTnLAEx1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl*I(UASEvents^-1) +
                                                      UASImpulsSHMAvgMaxLR +
-                                                     UASSharpAurISO305ExBin*UASTonLdECMAPowAvgBin +
+                                                     UASSharpAurISO305ExMaxLR*UASTonLdECMAPowAvgBin +
                                                      TrialNumberScl,
                                                     data=subjDataNoAmb,
                                                     family=gaussian(link='identity'),
@@ -1836,7 +1843,7 @@ model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictLxS <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl [-12:13]",
-                                                               "UASSharpAurISO305ExBin [1.2:2.8, by=0.4]",
+                                                               "UASSharpAurISO305ExMaxLR [1.2:2.8, by=0.4]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
@@ -1847,7 +1854,7 @@ model1predictLxTn <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
-model1predictSxTn <- ggeffects::predict_response(model1, terms=c("UASSharpAurISO305ExBin [all]",
+model1predictSxTn <- ggeffects::predict_response(model1, terms=c("UASSharpAurISO305ExMaxLR [all]",
                                                                  "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
                                                                  "UASEvents [1]",
                                                                  "UASLAEMaxLRScl [8]"),
@@ -1909,7 +1916,7 @@ p2 <- ggplot(data=model1predictLxS) +
                              stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
               scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-2, 8)) +
               
-              geom_point(data=stimDataNoAmb, aes(x=UASLAEMaxLRScl, y=dAnnoyMean, colour=UASSharpAurISO305ExBin, shape=factor(UASEvents)),
+              geom_point(data=stimDataNoAmb, aes(x=UASLAEMaxLRScl, y=dAnnoyMean, colour=UASSharpAurISO305ExMaxLR, shape=factor(UASEvents)),
                          alpha=0.55, size=2) +
   
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
@@ -1964,7 +1971,7 @@ p4 <- ggplot(data=model1predictSxTn) +
               
               ggnewscale::new_scale_color() +
   
-              geom_point(data=stimDataNoAmb, aes(x=UASSharpAurISO305ExBin, y=dAnnoyMean, colour=UASTonLdECMAPowAvgBin, shape=factor(UASEvents)),
+              geom_point(data=stimDataNoAmb, aes(x=UASSharpAurISO305ExMaxLR, y=dAnnoyMean, colour=UASTonLdECMAPowAvgBin, shape=factor(UASEvents)),
                          alpha=0.55, size=2) +
   
               scale_shape_manual(values=c(4, 5, 7, 8)) +
@@ -2019,7 +2026,7 @@ performance::check_heteroskedasticity(mABISxTnLAEx1_QSq.GEE)
 ```{r}
 
 model1 <- mABSxTnLAEx1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl*I(UASEvents^-1) +
-                                                     UASSharpAurISO305ExBin*UASTonLdECMAPowAvgBin +
+                                                     UASSharpAurISO305ExMaxLR*UASTonLdECMAPowAvgBin +
                                                      TrialNumberScl,
                                                     data=subjDataNoAmb,
                                                     family=gaussian(link='identity'),
@@ -2064,7 +2071,7 @@ model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl 
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictLxS <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl [-12:13]",
-                                                               "UASSharpAurISO305ExBin [1.2:2.8, by=0.4]",
+                                                               "UASSharpAurISO305ExMaxLR [1.2:2.8, by=0.4]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
@@ -2075,7 +2082,7 @@ model1predictLxTn <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
-model1predictSxTn <- ggeffects::predict_response(model1, terms=c("UASSharpAurISO305ExBin [all]",
+model1predictSxTn <- ggeffects::predict_response(model1, terms=c("UASSharpAurISO305ExMaxLR [all]",
                                                                  "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
                                                                  "UASEvents [1]",
                                                                  "UASLAEMaxLRScl [8]"),
@@ -2137,7 +2144,7 @@ p2 <- ggplot(data=model1predictLxS) +
                              stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
               scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-2, 8)) +
               
-              geom_point(data=stimDataNoAmb, aes(x=UASLAEMaxLRScl, y=dAnnoyMean, colour=UASSharpAurISO305ExBin, shape=factor(UASEvents)),
+              geom_point(data=stimDataNoAmb, aes(x=UASLAEMaxLRScl, y=dAnnoyMean, colour=UASSharpAurISO305ExMaxLR, shape=factor(UASEvents)),
                          alpha=0.55, size=2) +
   
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
@@ -2192,7 +2199,7 @@ p4 <- ggplot(data=model1predictSxTn) +
               
               ggnewscale::new_scale_color() +
   
-              geom_point(data=stimDataNoAmb, aes(x=UASSharpAurISO305ExBin, y=dAnnoyMean, colour=UASTonLdECMAPowAvgBin, shape=factor(UASEvents)),
+              geom_point(data=stimDataNoAmb, aes(x=UASSharpAurISO305ExMaxLR, y=dAnnoyMean, colour=UASTonLdECMAPowAvgBin, shape=factor(UASEvents)),
                          alpha=0.55, size=2) +
   
               scale_shape_manual(values=c(4, 5, 7, 8)) +
@@ -2339,14 +2346,14 @@ p1 + p2
 ```{r}
 
 model1 <- mABISxTnxEnvLAE1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl + I(UASEvents^-1) +
-                                                      UASImpulsSHMAvgMaxLR +
-                                                      UASSharpAurISO305ExBin*UASTonLdECMAPowAvgBin +
-                                                      AmbientEnv*UASTonLdECMAPowAvgBin +
-                                                      TrialNumberScl,
-                                                      data=subjDataNoAmb,
-                                                      family=gaussian(link='identity'),
-                                                      id=ID,
-                                                      corstr='exchangeable')
+                                                          UASImpulsSHMAvgMaxLR +
+                                                          UASSharpAurISO305ExMaxLR*UASTonLdECMAPowAvgBin +
+                                                          AmbientEnv*UASTonLdECMAPowAvgBin +
+                                                          TrialNumberScl,
+                                                          data=subjDataNoAmb,
+                                                          family=gaussian(link='identity'),
+                                                          id=ID,
+                                                          corstr='exchangeable')
 
 geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
 geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
@@ -2393,13 +2400,13 @@ model1predictEnv <- ggeffects::predict_response(model1, terms=c("UASTonLdECMAPow
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
-model1predictEnvS <- ggeffects::predict_response(model1, terms=c("UASSharpAurISO305ExBin [all]",
+model1predictEnvS <- ggeffects::predict_response(model1, terms=c("UASSharpAurISO305ExMaxLR [all]",
                                                                  "AmbientEnv [all]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
-model1predictEnvSxTn <- ggeffects::predict_response(model1, terms=c("UASSharpAurISO305ExBin [all]",
+model1predictEnvSxTn <- ggeffects::predict_response(model1, terms=c("UASSharpAurISO305ExMaxLR [all]",
                                                                    "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
                                                                    "UASLAEMaxLRScl [-11, -5, 1, 6, 7, 12]",
                                                                    "AmbientEnv [all]",
@@ -2407,14 +2414,13 @@ model1predictEnvSxTn <- ggeffects::predict_response(model1, terms=c("UASSharpAur
                                                margin='marginalmeans', type='fixed', 
                                               vcov=vcov(model1, type="bias-corrected"))
 
-model1predictPkASxTn <- ggeffects::predict_response(model1, terms=c("UASSharpAurISO305ExBin [all]",
+model1predictPkASxTn <- ggeffects::predict_response(model1, terms=c("UASSharpAurISO305ExMaxLR [all]",
                                                                    "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
                                                                    "UASLAEMaxLRScl [-11, -5, 1, 7]",
                                                                    "AmbientEnv [Park]",
                                                                    "UASEvents [1]"),
                                                margin='marginalmeans', type='fixed', 
                                               vcov=vcov(model1, type="bias-corrected"))
-
 
 model1predictIxL <- ggeffects::predict_response(model1, terms=c("UASImpulsSHMAvgMaxLR [all]",
                                                                 "UASLAEMaxLRScl [-11, -5, 1, 7]",
@@ -2425,7 +2431,7 @@ model1predictIxL <- ggeffects::predict_response(model1, terms=c("UASImpulsSHMAvg
 
 
 model1predictIxS <- ggeffects::predict_response(model1, terms=c("UASImpulsSHMAvgMaxLR [all]",
-                                                                "UASSharpAurISO305ExBin [1.3:2.8, by=0.5]",
+                                                                "UASSharpAurISO305ExMaxLR [1.3:2.8, by=0.5]",
                                                                 "AmbientEnv [all]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
@@ -2509,7 +2515,7 @@ p3 <- ggplot(data=model1predictEnvS) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_point(data=stimDataNoAmb, aes(x=UASSharpAurISO305ExBin, y=dAnnoyMean, colour=AmbientEnv, shape=factor(UASEvents)),
+              geom_point(data=stimDataNoAmb, aes(x=UASSharpAurISO305ExMaxLR, y=dAnnoyMean, colour=AmbientEnv, shape=factor(UASEvents)),
                          alpha=0.55, size=2) +
               
               geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.1) +
@@ -2549,7 +2555,7 @@ p4 <- ggplot(data=model1predictEnvSxTn) +
               ggnewscale::new_scale_color() +
               
               geom_point(data=stimDataNoAmbTemp,
-                         aes(x=UASSharpAurISO305ExBin, y=dAnnoyMean,
+                         aes(x=UASSharpAurISO305ExMaxLR, y=dAnnoyMean,
                              colour=UASTonLdECMAPowAvgBin, shape=factor(UASEvents)),
                          alpha=0.55, size=2) +
   
@@ -2592,7 +2598,7 @@ p5 <- ggplot(data=model1predictPkASxTn) +
               
               geom_point(data=stimDataNoAmbTemp[(stimDataNoAmbTemp$SessionPart == "A")
                                                 & (stimDataNoAmbTemp$AmbientEnv == "Park"), ],
-                         aes(x=UASSharpAurISO305ExBin, y=dAnnoyMean,
+                         aes(x=UASSharpAurISO305ExMaxLR, y=dAnnoyMean,
                              colour=UASTonLdECMAPowAvgBin),
                          alpha=0.45, size=2) +
   
@@ -2677,7 +2683,7 @@ p7 <- ggplot(data=model1predictIxS) +
               ggnewscale::new_scale_color() +
   
               geom_point(data=stimDataNoAmb[stimDataNoAmb$SessionPart == "A", ],
-                         aes(x=UASImpulsSHMAvgMaxLR, y=dAnnoyMean, colour=UASSharpAurISO305ExBin),
+                         aes(x=UASImpulsSHMAvgMaxLR, y=dAnnoyMean, colour=UASSharpAurISO305ExMaxLR),
                          alpha=0.35, size=2) +
   
               scale_color_viridis(option='mako', direction=-1, discrete=FALSE, begin = 0.1, end = 0.8,
@@ -2763,7 +2769,7 @@ performance::check_heteroskedasticity(mABISxTnxEnvLAE1_QSq.GEE)
 ```{r}
 
 model1 <- mABSxTnxEnvLAE1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl + I(UASEvents^-1) +
-                                                      UASSharpAurISO305ExBin*UASTonLdECMAPowAvgBin +
+                                                      UASSharpAurISO305ExMaxLR*UASTonLdECMAPowAvgBin +
                                                       AmbientEnv*UASTonLdECMAPowAvgBin +
                                                       TrialNumberScl,
                                                       data=subjDataNoAmb,
@@ -2816,13 +2822,13 @@ model1predictEnv <- ggeffects::predict_response(model1, terms=c("UASTonLdECMAPow
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
-model1predictEnvS <- ggeffects::predict_response(model1, terms=c("UASSharpAurISO305ExBin [all]",
+model1predictEnvS <- ggeffects::predict_response(model1, terms=c("UASSharpAurISO305ExMaxLR [all]",
                                                                  "AmbientEnv [all]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
 
-model1predictEnvSxTn <- ggeffects::predict_response(model1, terms=c("UASSharpAurISO305ExBin [all]",
+model1predictEnvSxTn <- ggeffects::predict_response(model1, terms=c("UASSharpAurISO305ExMaxLR [all]",
                                                                    "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
                                                                    "UASLAEMaxLRScl [-11, -5, 1, 6, 7, 12]",
                                                                    "AmbientEnv [all]",
@@ -2830,7 +2836,7 @@ model1predictEnvSxTn <- ggeffects::predict_response(model1, terms=c("UASSharpAur
                                                margin='marginalmeans', type='fixed', 
                                               vcov=vcov(model1, type="bias-corrected"))
 
-model1predictPkASxTn <- ggeffects::predict_response(model1, terms=c("UASSharpAurISO305ExBin [all]",
+model1predictPkASxTn <- ggeffects::predict_response(model1, terms=c("UASSharpAurISO305ExMaxLR [all]",
                                                                    "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
                                                                    "UASLAEMaxLRScl [-11, -5, 1, 7]",
                                                                    "AmbientEnv [Park]",
@@ -2906,7 +2912,7 @@ p3 <- ggplot(data=model1predictEnvS) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_point(data=stimDataNoAmb, aes(x=UASSharpAurISO305ExBin, y=dAnnoyMean, colour=AmbientEnv, shape=factor(UASEvents)),
+              geom_point(data=stimDataNoAmb, aes(x=UASSharpAurISO305ExMaxLR, y=dAnnoyMean, colour=AmbientEnv, shape=factor(UASEvents)),
                          alpha=0.55, size=2) +
               
               geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.1) +
@@ -2946,7 +2952,7 @@ p4 <- ggplot(data=model1predictEnvSxTn) +
               ggnewscale::new_scale_color() +
               
               geom_point(data=stimDataNoAmbTemp,
-                         aes(x=UASSharpAurISO305ExBin, y=dAnnoyMean,
+                         aes(x=UASSharpAurISO305ExMaxLR, y=dAnnoyMean,
                              colour=UASTonLdECMAPowAvgBin, shape=factor(UASEvents)),
                          alpha=0.55, size=2) +
   
@@ -2984,7 +2990,7 @@ p5 <- ggplot(data=model1predictPkASxTn) +
               
               geom_point(data=stimDataNoAmbTemp[(stimDataNoAmbTemp$SessionPart == "A")
                                                 & (stimDataNoAmbTemp$AmbientEnv == "Park"), ],
-                         aes(x=UASSharpAurISO305ExBin, y=dAnnoyMean,
+                         aes(x=UASSharpAurISO305ExMaxLR, y=dAnnoyMean,
                              colour=UASTonLdECMAPowAvgBin),
                          alpha=0.35, size=2) +
   
@@ -3030,7 +3036,7 @@ model1 <- mABISxTnxdLAEL501_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~
                                                          LAELAF50diffScl*UASTonLdECMAPowAvgBin +
                                                          I(UASEvents^-1) +
                                                          UASImpulsSHMAvgMaxLR +
-                                                         UASSharpAurISO305ExBin*UASTonLdECMAPowAvgBin +
+                                                         UASSharpAurISO305ExMaxLR*UASTonLdECMAPowAvgBin +
                                                          TrialNumberScl,
                                                         data=subjDataNoAmb,
                                                         family=gaussian(link='identity'),
@@ -3086,7 +3092,7 @@ model1predictEvt <- ggeffects::predict_response(model1, terms=c("LAELAF50diffScl
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictLxS <- ggeffects::predict_response(model1, terms=c("LAELAF50diffScl [all]",
-                                                               "UASSharpAurISO305ExBin [1.2:3, by=0.4]",
+                                                               "UASSharpAurISO305ExMaxLR [1.2:3, by=0.4]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
@@ -3161,7 +3167,7 @@ p2 <- ggplot(data=model1predictLxS) +
                              stimDataNoAmb$LAELAF50diffScl, sep=5) +
               scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-2, 8)) +
               
-              geom_point(data=stimDataNoAmb, aes(x=LAELAF50diffScl, y=dAnnoyMean, colour=UASSharpAurISO305ExBin, shape=factor(UASEvents)),
+              geom_point(data=stimDataNoAmb, aes(x=LAELAF50diffScl, y=dAnnoyMean, colour=UASSharpAurISO305ExMaxLR, shape=factor(UASEvents)),
                          alpha=0.55, size=2) +
   
               labs(x=expression(paste(UAS~italic(L)[AE]~-~amb.~env.~italic(L)[AF50],",",~dB)), y="Mean change in annoyance")
@@ -3385,9 +3391,11 @@ p1 <- ggplot(data=model1predictEvt) +
 
 p1
 
-# save the model
-filename = "1B_dA_LAE_EnvLAeq"
-saveRDS(model1, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+if (savedata) {
+  # save the model
+  filename = "1B_dA_LAE_EnvLAeq"
+  saveRDS(model1, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+}
 
 
 ```
@@ -3397,14 +3405,14 @@ saveRDS(model1, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
 ```{r}
 
 mABEnvLAeqxLAEx1_QSq.GEE.resD <- residuals(mABEnvLAeqxLAEx1_QSq.GEE,
-                                                     type="deviance", plot.it=TRUE,
-                                                     pch=1, col=mycolours[1],identify=10)
+                                           type="deviance", plot.it=TRUE,
+                                           pch=1, col=mycolours[1],identify=10)
 mABEnvLAeqxLAEx1_QSq.GEE.resM <- residuals(mABEnvLAeqxLAEx1_QSq.GEE,
-                                                     type="mahalanobis", plot.it=TRUE,
-                                                     col=mycolours[2], identify=10)
+                                           type="mahalanobis", plot.it=TRUE,
+                                           col=mycolours[2], identify=10)
 mABEnvLAeqxLAEx1_QSq.GEE.resP <- residuals(mABEnvLAeqxLAEx1_QSq.GEE,
-                                                     type="pearson", plot.it=TRUE,
-                                                     pch=1, col=mycolours[3], identify=10)
+                                           type="pearson", plot.it=TRUE,
+                                           pch=1, col=mycolours[3], identify=10)
 
 hist(mABEnvLAeqxLAEx1_QSq.GEE.resD, breaks=20, main="Deviance residuals")
 hist(mABEnvLAeqxLAEx1_QSq.GEE.resP, breaks=20, main="Pearson residuals")
@@ -3424,13 +3432,96 @@ performance::check_heteroskedasticity(mABEnvLAeqxLAEx1_QSq.GEE)
 
 ## UAS detectability
 
+### fit and examine detectability only model
+
+```{r}
+
+model1 <- mABDt5i21_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ I(UASEvents^-1) + I(Detect0p5IntMaxLRLogScl^2) + 
+                                                    Detect0p5IntMaxLRLogScl +
+                                                   TrialNumberScl,
+                                                    data=subjDataNoAmb,
+                                                    family=gaussian(link='identity'),
+                                                    id=ID,
+                                                    corstr='exchangeable')
+
+geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+
+parameters::standardise_parameters(model1, method='refit', ci=0.843,
+                                   robust=FALSE, two_sd=TRUE, include_response=FALSE)
+parameters::standardise_parameters(model1, method='refit', ci=0.95,
+                                   robust=FALSE, two_sd=TRUE, include_response=FALSE)
+
+geeModelPerformance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABISxTnLAEx1_QSq.GEE,
+                    mABISxTnxEnvLAE1_QSq.GEE, mABISxTnxdLAEL501_QSq.GEE,
+                    mABDt5i21_QSq.GEE)
+
+predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
+                           response=stimDataNoAmb$dAnnoyMean,
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
+
+R2means <- cor(predictMeans$response, predictMeans$fit)^2
+R2means
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+p0 <- ggplot(data=predictMeans) +
+              theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=12),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_point(mapping=aes(x=response, y=fit), size=2.5, shape=1, colour=mycolours[1], alpha=0.5) +
+              
+              geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+              
+              scale_x_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 7)) +
+              scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 7)) +
+              
+              labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance")
+
+p0
+
+
+model1predictEvt <- ggeffects::predict_response(model1, terms=c("Detect0p5IntMaxLRLogScl [all]",
+                                                                "UASEvents [all]"),
+                                             margin='marginalmeans', type='fixed', 
+                                            vcov=vcov(model1, type="bias-corrected"))
+
+p1 <- ggplot(data=model1predictEvt) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.05) +
+              
+              geom_line(aes(x=x, y=predicted, colour=group), alpha=0.5, linewidth=1) +
+              
+              geom_point(data=stimDataNoAmb, aes(x=Detect0p5IntMaxLRLogScl, y=dAnnoyMean,
+                                                 colour=factor(UASEvents),
+                                                 shape=factor(UASEvents)),
+                          alpha=0.35, size=2) +
+              
+              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              scale_shape_manual(values=c(4, 5, 7, 8)) +
+              
+              guides(colour=guide_legend(title="UAS events", reverse=TRUE),
+                     fill=guide_legend(title="UAS events", reverse=TRUE),
+                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
+
+              rescaleTicks(stimDataNoAmb$Detect0p5IntMaxLRLog, stimDataNoAmb$Detect0p5IntMaxLRLogScl, sep=1) +
+              scale_y_continuous(breaks=seq(-2, 10, by=1)) +
+              
+              labs(x=expression(paste(UAS~lg~"("~italic(d~"'")[Sigma~"0.5s"]~")")), y="Mean change in annoyance")
+p1
+
+
+```
+
 ### fit and examine final model
 
 ```{r}
 
 model1 <- mABLAExSxDt5i2I1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ I(UASEvents^-1) + I(Detect0p5IntMaxLRLogScl^2) + 
                                                             UASImpulsSHMAvgMaxLR +
-                                                             UASLAEMaxLRScl*UASSharpAurISO305ExBin +
+                                                             UASLAEMaxLRScl*UASSharpAurISO305ExMaxLR +
                                                              UASLAEMaxLRScl*Detect0p5IntMaxLRLogScl +
                                                            TrialNumberScl,
                                                             data=subjDataNoAmb,
@@ -3448,7 +3539,7 @@ parameters::standardise_parameters(model1, method='refit', ci=0.95,
 
 geeModelPerformance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABISxTnLAEx1_QSq.GEE,
                     mABISxTnxEnvLAE1_QSq.GEE, mABISxTnxdLAEL501_QSq.GEE,
-                    mABLAExSxDt5i2I1_QSq.GEE)
+                    mABDt5i21_QSq.GEE, mABLAExSxDt5i2I1_QSq.GEE)
 
 predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
                            response=stimDataNoAmb$dAnnoyMean,
@@ -3494,7 +3585,7 @@ model1predictEvt2 <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl
                                             vcov=vcov(model1, type="bias-corrected"))
 
 model1predictDxS <- ggeffects::predict_response(model1, terms=c("Detect0p5IntMaxLRLogScl [all]",
-                                                               "UASSharpAurISO305ExBin [1.6:2.8, by=0.4]",
+                                                               "UASSharpAurISO305ExMaxLR [1.6:2.8, by=0.4]",
                                                                  "UASEvents [1]"),
                                              margin='marginalmeans', type='fixed', 
                                             vcov=vcov(model1, type="bias-corrected"))
@@ -3584,7 +3675,7 @@ p2 <- ggplot(data=model1predictDxS) +
               scale_y_continuous(breaks=seq(-2, 10, by=1)) +
               
               geom_point(data=stimDataNoAmb, aes(x=Detect0p5IntMaxLRLogScl, y=dAnnoyMean,
-                                                 colour=UASSharpAurISO305ExBin,
+                                                 colour=UASSharpAurISO305ExMaxLR,
                                                  shape=factor(UASEvents)),
                          alpha=0.35, size=2) +
   
@@ -3658,6 +3749,94 @@ mABLAExSxDt5i2I1_QSq.GEE.Cook <- cooks.distance(mABLAExSxDt5i2I1_QSq.GEE,
 
 performance::check_collinearity(mABLAExSxDt5i2I1_QSq.GEE)
 performance::check_heteroskedasticity(mABLAExSxDt5i2I1_QSq.GEE)
+
+```
+
+## UAS all metrics
+
+### fit and examine final model
+
+```{r}
+
+model1 <- mABdSdFdTnxdLAEL501_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ I(UASEvents^-1) +
+                                                                LAELAF50diffScl*dTonLdECMAPowAvgBin +
+                                                            dFluctECMA10ExBin +
+                                                              dSharpAurISO3PowAvgMaxLR +
+                                                           TrialNumberScl,
+                                                            data=subjDataNoAmb,
+                                                            family=gaussian(link='identity'),
+                                                            id=ID,
+                                                            corstr='exchangeable')
+
+geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+
+parameters::standardise_parameters(model1, method='refit', ci=0.843,
+                                   robust=FALSE, two_sd=TRUE, include_response=FALSE)
+parameters::standardise_parameters(model1, method='refit', ci=0.95,
+                                   robust=FALSE, two_sd=TRUE, include_response=FALSE)
+
+geeModelPerformance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABISxTnLAEx1_QSq.GEE,
+                    mABISxTnxEnvLAE1_QSq.GEE, mABISxTnxdLAEL501_QSq.GEE,
+                    mABLAExSxDt5i2I1_QSq.GEE, mABdSdFdTnxdLAEL501_QSq.GEE)
+
+predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
+                           response=stimDataNoAmb$dAnnoyMean,
+                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
+
+R2means <- cor(predictMeans$response, predictMeans$fit)^2
+R2means
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+p0 <- ggplot(data=predictMeans) +
+              theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=12),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_point(mapping=aes(x=response, y=fit), size=2.5, shape=1, colour=mycolours[1], alpha=0.5) +
+              
+              geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+              
+              scale_x_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 7)) +
+              scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 7)) +
+              
+              labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance")
+
+p0
+
+
+model1predictEvt <- ggeffects::predict_response(model1, terms=c("LAELAF50diffScl [all]",
+                                                                "UASEvents [all]"),
+                                             margin='marginalmeans', type='fixed', 
+                                            vcov=vcov(model1, type="bias-corrected"))
+
+p1a <- ggplot(data=model1predictEvt) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.05) +
+              
+              geom_line(aes(x=x, y=predicted, colour=group), alpha=0.5, linewidth=1) +
+              
+              geom_point(data=stimDataNoAmb, aes(x=LAELAF50diffScl, y=dAnnoyMean,
+                                                 colour=factor(UASEvents),
+                                                 shape=factor(UASEvents)),
+                          alpha=0.35, size=2) +
+              
+              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              scale_shape_manual(values=c(4, 5, 7, 8)) +
+              
+              guides(colour=guide_legend(title="UAS events", reverse=TRUE),
+                     fill=guide_legend(title="UAS events", reverse=TRUE),
+                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
+
+              rescaleTicks(stimDataNoAmb$LAELAF50diff, stimDataNoAmb$LAELAF50diffScl, sep=5) +
+              scale_y_continuous(breaks=seq(-2, 10, by=1)) +
+              
+              labs(x=expression(paste(UAS~italic(L)[AE]~-~amb.~env.~italic(L)[AF50],",",~dB)),
+                   y="Mean change in annoyance")
+
+p1a
 
 ```
 
@@ -4103,17 +4282,17 @@ if (saveplots){
 
 # add faint dashed grey major grid lines to p1, p2, p3, p4 and remove minor grid lines
 # also omit the geom_point layers from p1, p2, p3 and p4 for clarity
-p1 <- p1 + theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grIDminor = element_blank())
+p1 <- p1 + theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.05), linetype='dashed'),
+                 panel.grid.minor = element_blank())
 p1 <- gginnards::delete_layers(p1, "GeomPoint")
-p2 <- p2 + theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grIDminor = element_blank())
+p2 <- p2 + theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.05), linetype='dashed'),
+                 panel.grid.minor = element_blank())
 p2 <- gginnards::delete_layers(p2, "GeomPoint")
-p3 <- p3 + theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grIDminor = element_blank())
+p3 <- p3 + theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.05), linetype='dashed'),
+                 panel.grid.minor = element_blank())
 p3 <- gginnards::delete_layers(p3, "GeomPoint")
-p4 <- p4 + theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grIDminor = element_blank())
+p4 <- p4 + theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.05), linetype='dashed'),
+                 panel.grid.minor = element_blank())
 p4 <- gginnards::delete_layers(p4, "GeomPoint")
 
 (p1 | p2) + (p3 / p4)
@@ -4804,8 +4983,8 @@ if (saveplots){
 }
 
 p6 <- ggplot(data=model1predictEvt2) +
-              theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grIDminor = element_blank(), aspect.ratio=0.8,
+              theme(panel.grid.major = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
+                 panel.grid.minor = element_blank(), aspect.ratio=0.8,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
 
@@ -4851,8 +5030,8 @@ if (saveplots){
 
 
 p7 <- ggplot(data=model1predictEvt2Type) +
-              theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grIDminor = element_blank(), aspect.ratio=1.15,
+              theme(panel.grid.major = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
+                 panel.grid.minor = element_blank(), aspect.ratio=1.15,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
 
@@ -4953,7 +5132,7 @@ geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=
 geeParams(model1, ci=0.843, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 geeParams(model1, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 
-geeModelPerformance(mABdHTypexOpxLAExEnvlgQxLAE.GEE, mABdHTypexOpxLAExEnvlgQxLAENatAtt.GEE)
+geeModelPerformance(mABdHTypexOpxLAExEnvlgQxLAE.GEE, mABdHTypexOpxLAExEnvlgQxLAEAtt.GEE)
 
 
 model1predictAtt <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl [-12:13]",
@@ -4962,8 +5141,8 @@ model1predictAtt <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl 
                                              vcov=vcov(model1, type="bias-corrected"))
 
 p9 <- ggplot(data=model1predictAtt) +
-              theme(panel.grIDmajor = element_line(colour = "grey90", alpha=0.05, linetype='dashed'),
-                 panel.grIDminor = element_blank(),
+              theme(panel.grid.major = element_line(alpha(colour = "grey90", alpha=0.5), linetype='dashed'),
+                 panel.grid.minor = element_blank(),
                     aspect.ratio=1.35, text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
@@ -5081,9 +5260,11 @@ p1 <- ggplot(data=model1predictEvt) +
 
 p1
 
-# save the model
-filename = "2A_dHA_LAE_noEnv"
-saveRDS(model1, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+if (savedata) {
+  # save the model
+  filename = "2A_dHA_LAE_noEnv"
+  saveRDS(model1, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+}
 
 
 ```
@@ -5387,6 +5568,202 @@ mABdHSxTnNlgQ.GEE.Cook <- cooks.distance(mABdHSxTnNlgQ.GEE,
                                           plot.it=TRUE)
 
 performance::check_collinearity(mABdHSxTnNlgQ.GEE)
+
+```
+
+### fit and examine model with impulsiveness
+
+```{r}
+
+model1 <- mABdHISxTnNlgQ.GEE <- glmtoolbox::glmgee(dHighAnnoy ~ UASLoudECMAPowAvgBin +
+                                                     I(log10(UASEvents)) +
+                                                    UASImpulsLoudWZAvgMaxLR +
+                                                 UASTonLdECMAPowAvgBin*UASSharpAurSHM05ExMaxLR,
+                                                data=subjDataNoAmb,
+                                                family=binomial(link='logit'),
+                                                id=ID,
+                                                corstr='exchangeable')
+
+geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+geeParams(model1, ci=0.843, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(model1, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+
+geeModelPerformance(mABdHTypexOpxLAExEnvlgQxLAE.GEE, mABdHSxTnNlgQ.GEE,
+                    mABdHISxTnNlgQ.GEE)
+
+predictProbs <- predictNew(model=model1, newData=stimDataNoAmb,
+                           response=stimDataNoAmb$dHighAnnoyProp)
+
+R2probs <- cor(predictProbs$response, predictProbs$fit)^2
+R2probs
+
+
+# using ggplot, plot the predicted fit against the responses in predictProbs
+ggplot(data=predictProbs) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=12),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_point(mapping=aes(x=response, y=fit), size=2.5, shape=1, colour=mycolours[1], alpha=0.5) +
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  scale_x_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 0.53)) +
+  scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 0.53)) +
+  
+  labs(x=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb]~"("~test~")")), y=expression(paste(Predicted~"%"~highly~annoyed~"|"~HA~"'"[amb])))
+
+
+
+model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASLoudECMAPowAvgBin [all]",
+                                                                "UASEvents [all]"),
+                                             margin='marginalmeans', type='fixed', 
+                                            vcov=vcov(model1, type="bias-corrected"))
+
+model1predictNxS <- ggeffects::predict_response(model1, terms=c("UASLoudECMAPowAvgBin [all]",
+                                                               "UASSharpAurSHM05ExMaxLR [1.2:2.8, by=0.4]",
+                                                                 "UASEvents [1]"),
+                                             margin='marginalmeans', type='fixed', 
+                                            vcov=vcov(model1, type="bias-corrected"))
+
+model1predictNxTn <- ggeffects::predict_response(model1, terms=c("UASLoudECMAPowAvgBin [all]",
+                                                                 "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
+                                                                 "UASEvents [1]"),
+                                             margin='marginalmeans', type='fixed', 
+                                            vcov=vcov(model1, type="bias-corrected"))
+
+model1predictI <- ggeffects::predict_response(model1, terms=c("UASImpulsLoudWZAvgMaxLR [all]",
+                                                              "UASEvents [1]"),
+                                             margin='marginalmeans', type='fixed', 
+                                            vcov=vcov(model1, type="bias-corrected"))
+
+# model1predictTnxS <- ggeffects::predict_response(model1, terms=c("UASTonLdECMAPowAvgBin [all]",
+#                                                                "UASSharpAurSHM05ExMaxLR [1.2:2.8, by=0.4]",
+#                                                                  "UASEvents [1]"),
+#                                              margin='marginalmeans', type='fixed', 
+#                                             vcov=vcov(model1, type="bias-corrected"))
+p1 <- ggplot(data=model1predictEvt) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_point(data=stimDataNoAmb, aes(x=UASLoudECMAPowAvgBin, y=dHighAnnoyProp, colour=factor(UASEvents), shape=factor(UASEvents)),
+                         alpha=0.55, size=2) +
+              
+              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.05) +
+              
+              geom_line(aes(x=x, y=predicted, colour=group), alpha=0.5, linewidth=1) +
+              
+              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              scale_shape_manual(values=c(4, 5, 7, 8)) +
+              
+              guides(colour=guide_legend(title="UAS events", reverse=TRUE),
+                     fill=guide_legend(title="UAS events", reverse=TRUE),
+                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
+
+              scale_x_continuous(breaks=seq(1, 6, by=1)) +
+              scale_y_continuous(breaks=seq(0, 1, by=0.1), limits=c(0, 1), labels=seq(0, 100, by=10)) +
+              
+              labs(x=expression(paste(UAS~italic(N)^"*"~","~sone[SHM])), y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
+
+p2 <- ggplot(data=model1predictNxS) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+
+              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.05) +
+              
+              geom_line(aes(x=x, y=predicted, colour=group), alpha=0.5, linewidth=1) +
+              
+              scale_color_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              scale_fill_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              
+              guides(colour=guide_legend(title=expression(paste(UAS~italic(S)[italic("5")]~","~acum[A~"|"~SHM])), reverse=TRUE),
+                     fill=guide_legend(title=expression(paste(UAS~italic(S)[italic("5")]~","~acum[A~"|"~SHM])), reverse=TRUE)) +
+  
+              ggnewscale::new_scale_color() +
+            
+              scale_shape_manual(values=c(4, 5, 7, 8)) +
+              scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.1, end = 0.8,
+                                  breaks=seq(1.2, 2.8, by=0.4)) +
+
+              guides(colour=guide_legend(title=expression(paste(UAS~italic(S)[italic("5")]~","~acum[A~"|"~SHM])), reverse=TRUE),
+                     shape=guide_legend(title="UAS events", reverse=TRUE)) +  
+
+              scale_x_continuous(breaks=seq(1, 6, by=1)) +
+              scale_y_continuous(breaks=seq(0, 1, by=0.1), limits=c(0, 1), labels=seq(0, 100, by=10)) +
+              
+              geom_point(data=stimDataNoAmb, aes(x=UASLoudECMAPowAvgBin, y=dHighAnnoyProp, colour=UASSharpAurSHM05ExMaxLR, shape=factor(UASEvents)),
+                         alpha=0.55, size=2) +
+  
+              labs(x=expression(paste(UAS~italic(N)^"*"~","~sone[SHM])), y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
+
+
+p3 <- ggplot(data=model1predictNxTn) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+
+              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.05) +
+              
+              geom_line(aes(x=x, y=predicted, colour=group), alpha=0.5, linewidth=1) +
+              
+              scale_color_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              scale_fill_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              
+              guides(colour=guide_legend(title=expression(paste(UAS~italic(T)[italic(N)]^"*"~","~sone[SHM])), reverse=TRUE),
+                     fill=guide_legend(title=expression(paste(UAS~italic(T)[italic(N)]^"*"~","~sone[SHM])), reverse=TRUE)) +
+              
+              ggnewscale::new_scale_color() +
+  
+              geom_point(data=stimDataNoAmb, aes(x=UASLoudECMAPowAvgBin, y=dHighAnnoyProp, colour=UASTonLdECMAPowAvgBin, shape=factor(UASEvents)),
+                         alpha=0.55, size=2) +
+  
+              scale_shape_manual(values=c(4, 5, 7, 8)) +
+              scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.1, end = 0.8,
+                                  breaks=seq(0.5, 1.5, by=0.25)) +
+  
+              guides(colour=guide_legend(title=expression(paste(UAS~italic(T)[italic(N)]^"*"~","~sone[SHM])), reverse=TRUE),
+                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
+              
+              scale_x_continuous(breaks=seq(1, 6, by=1)) +
+              scale_y_continuous(breaks=seq(0, 1, by=0.1), limits=c(0, 1), labels=seq(0, 100, by=10)) +
+              
+              labs(x=expression(paste(UAS~italic(N)^"*"~","~sone[SHM])), y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
+
+
+p4 <- ggplot(data=model1predictTnxS) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+
+              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.05) +
+              
+              geom_line(aes(x=x, y=predicted, colour=group), alpha=0.5, linewidth=1) +
+              
+              scale_color_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              scale_fill_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              
+              guides(colour=guide_legend(title=expression(paste(UAS~italic(S)[italic("5")]~","~acum[A~"|"~SHM])), reverse=TRUE),
+                     fill=guide_legend(title=expression(paste(UAS~italic(S)[italic("5")]~","~acum[A~"|"~SHM])), reverse=TRUE)) +
+  
+              ggnewscale::new_scale_color() +
+            
+              scale_shape_manual(values=c(4, 5, 7, 8)) +
+              scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.1, end = 0.8,
+                                  breaks=seq(1.2, 2.8, by=0.4)) +
+
+              guides(colour=guide_legend(title=expression(paste(UAS~italic(S)[italic("5")]~","~acum[A~"|"~SHM])), reverse=TRUE),
+                     shape=guide_legend(title="UAS events", reverse=TRUE)) +  
+
+              #scale_x_continuous(breaks=seq(1, 6, by=1)) +
+              scale_y_continuous(breaks=seq(0, 1, by=0.1), limits=c(0, 1), labels=seq(0, 100, by=10)) +
+              
+              geom_point(data=stimDataNoAmb, aes(x=UASTonLdECMAPowAvgBin, y=dHighAnnoyProp, colour=UASSharpAurSHM05ExMaxLR, shape=factor(UASEvents)),
+                         alpha=0.55, size=2) +
+  
+              labs(x=expression(paste(UAS~italic(T)[italic(N)]^"*"~","~sone[SHM])),
+                   y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
+
+p1 + p2 + p3 + p4
+
 
 ```
 
@@ -5997,9 +6374,11 @@ p1 <- ggplot(data=model1predictEvt) +
 
 p1
 
-# save the model
-filename = "2B_dHA_LAE_EnvLAeq"
-saveRDS(model1, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+if (savedata) {
+  # save the model
+  filename = "2B_dHA_LAE_EnvLAeq"
+  saveRDS(model1, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+}
 
 
 ```

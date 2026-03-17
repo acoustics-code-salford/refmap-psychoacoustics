@@ -30,6 +30,7 @@ dependencies = [
     "python-calamine>=0.5.4",
     "seaborn>=0.13.2",
     "soundfile>=0.13.1",
+    "soundscapy>=0.7.8",
     "statsmodels>=0.14.5",
     "tqdm>=4.67.1",
     "xlsxwriter>=3.2.5",
