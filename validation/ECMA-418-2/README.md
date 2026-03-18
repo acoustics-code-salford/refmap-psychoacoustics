@@ -10,9 +10,10 @@ The reference calibration signals 1 and 2 were generated using [acousticSHMGener
 
 The binaural audio recording was extracted from the [EigenScape](https://zenodo.org/doi/10.5281/zenodo.1012808) database (Green et al., [2017](https://doi.org/10.3390/app7111204),  licenced under [Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0)).
 
-The reference ArtemiS results are included in the [reference folder](reference).
 
 Calculated sound quality values and reference comparison figures were generated using the [verification script](mlab/acousticSHMVerification.m), which calls the algorithms from the [ECMA-418-2](../../src/mlab/ECMA_418-2) folder. The full set of comparison plots can be displayed by running the validation script; the selection presented below is sufficient to validate all capabilities of the algorithms.
+
+The audio data and reference ArtemiS results are available for downloading from a dataset repository: [https://doi.org/10.5281/zenodo.18849587](https://doi.org/10.5281/zenodo.18849587). **NOTE:** To run the verification script, the downloaded audio files must be placed in a sub-directory with path /validation/ECMA-418-2/audio, while the reference results must be placed in a sub-directory with path /validation/ECMA-418-2/reference.
 
 The tonal annoyance-weighted tonality values are based on the following publication, and do not currently form part of the ECMA-418-2 standard:
 
