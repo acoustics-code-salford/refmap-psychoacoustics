@@ -1,5 +1,5 @@
-function sone = phon2Sone(phon, model)
-% sone = phon2Sone(phon, model)
+function sone = phonToSone(phon, model)
+% sone = phonToSone(phon, model)
 %
 % Returns the sensory loudness value(s) in sone corresponding with loudness
 % level(s) in phon, according to the specific loudness model(implemented
@@ -42,7 +42,7 @@ function sone = phon2Sone(phon, model)
 % Institution: University of Salford
 %
 % Date created: 06/03/2026
-% Date last modified: 06/03/2026
+% Date last modified: 19/03/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -59,23 +59,24 @@ function sone = phon2Sone(phon, model)
 %
 %% Arguments validation
     arguments (Input)
-        phon (:, :) double {mustBeInRange(phon, -4.3, 136.09)}
+        phon (:, :) double {mustBeInRange(phon, -25, 131)}
         model(1, :) string {mustBeMember(model, {'sottek', 'zwicker',...
-                                                 'mg' , 'mgs'})} = 'sottek'
+                                                 'mg', 'mgs'})} = 'sottek'
     end
 
 %% Calculation
 
 switch model
     case 'sottek'
-        phonRange = [0; 0.5; 1; 1.5; 2; 2.2; 3; 3.5; 4; 4.5; 5; 5.5; 6; 6.5; 7.5;...
-                     8.5; 10; 12.5; 15; 17.5; 20; 22.5; 25; 27.5; 30; 32.5; 35;...
-                     37.5; 40; 42.5; 45; 47.5; 50; 52.5; 55; 57.5; 60; 62.5; 65;...
-                     67.5; 70; 72.5; 75; 77.5; 80; 82.5; 85; 87.5; 90; 92.5; 95;...
-                     97.5; 100; 102.5; 105; 107.5; 110; 112.5; 115; 117.5; 120;...
+        phonRange = [-5; -2.5; -1; 0; 0.5; 1; 1.5; 2; 2.2; 3; 3.5; 4; 4.5; 5; 5.5;...
+                     6; 6.5; 7.5; 8.5; 10; 12.5; 15; 17.5; 20; 22.5; 25; 27.5; 30;...
+                     32.5; 35; 37.5; 40; 42.5; 45; 47.5; 50; 52.5; 55; 57.5; 60;...
+                     62.5; 65; 67.5; 70; 72.5; 75; 77.5; 80; 82.5; 85; 87.5; 90;...
+                     92.5; 95; 97.5; 100; 102.5; 105; 107.5; 110; 112.5; 115; 117.5; 120;...
                      122.5; 125; 127.5; 130];
         
-        soneRange = [0.0131728008755640; 0.0147017002514385; 0.0163155244479395;...
+        soneRange = [0; 0.006664553571277; 0.010353620223062;...
+                     0.0131728008755640; 0.0147017002514385; 0.0163155244479395;...
                      0.0180184921907174; 0.0198149610248851; 0.0205607307792728;...
                      0.0237064956262933; 0.0259708071223978; 0.0284830012871350;...
                      0.0313141063933990; 0.0342960992261228; 0.0374356436074735;...
@@ -546,6 +547,10 @@ switch model
         if soneReshape  % reshape matrix to vector
             sone = reshape(sone, phonSize);
         end
+        
 end
+
+% ensure all non-negative output values
+sone(sone < 0) = 0;
 
 end
