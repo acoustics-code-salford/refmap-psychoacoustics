@@ -1,63 +1,49 @@
-function detectDiscount = acousticDetectability(signalTarget, sampleRateTarget, signalMasker, sampleRateMasker, axisTarget, axisMasker, timeSkip, timeStep, freqRange, outPlot)
-% detectDiscount = acousticDetectability(signalTarget, sampleRateTarget,
-%                                        signalMasker, sampleRateMasker,
-%                                        axisTarget, axisMasker,
-%                                        timeSkip, timeStep,
-%                                        freqRange, outPlot)
+function detectability = auralDetectFromLeq(leqtSpecTarget, leqtSpecMasker, timeStep, timeSkip, nOct, freqRange, outPlot)
+% detectability = auralDetectFromLeq(leqtSpecTarget, leqtSpecMasker, timeStep,
+%                                     timeSkip, nOct, freqRange, outPlot)
 %
-% Returns detectability and discounted sound levels from input target
-% source and masker signals based on the detectability model originally
-% developed by Bolt, Beranek and Newman consulting engineers, and developed
-% further by NASA, with discounting of target source sound levels using the
-% technique developed by NASA (see References).
+% Returns aural detectability and discounted sound levels from input target
+% source and masker spectral sound level time series [LZeq(t)] data, based
+% on the detectability model originally developed by Bolt, Beranek and 
+% Newman consulting engineers, and developed further by NASA, with 
+% discounting of target source sound levels using the technique developed 
+% by NASA (see References).
 %
 % Inputs
 % ------
-% signalTarget : vector or 2D matrix
-%                the input target signal as single mono or stereo audio
-%                (sound pressure) signals
-%
-% sampleRateTarget : integer
-%                    the sample rate (frequency) of the input target signal(s)
-%
-% signalMasker : vector or 2D matrix
-%                the input masker signal(s) as single mono or stereo audio
-%                (sound pressure) signals
-%
-% sampleRateMasker : integer
-%                    the sample rate (frequency) of the input masker signal(s)
-%
-% axisTarget : integer (1 or 2, default: 1)
-%              the time axis for the target signal(s) along which to determine
-%              detection
-%
-% axisMasker : integer (1 or 2, default: 1)
-%              the time axis for the masker signal(s) along which to determine
-%              detection
-%
-% timeSkip : vector (default: [0, 0])
-%            time (seconds) to skip from input signals for calculating
-%            time-aggregated outputs. [startSkip, endSkip] ignores
-%            starkSkip seconds of the start, and endSkip seconds of the end
+% leqtSpecTarget : 2D or 3D matrix
+%   Target signal LZeq(t) spectrogram [time, freq_bands(, channels)].
+% 
+% leqtSpecMasker : 2D or 3D matrix
+%   Masker signal LZeq(t) spectrogram [time, freq_bands(, channels)].
 %
 % timeStep : number (default: 0.5)
-%            the time window (seconds) to use for calculating target
-%            detectability
+%   Time window (seconds) to use for calculating target detectability.
+%
+% timeSkip : vector (default: [0, 0])
+%   Time (seconds) to skip from input signals for calculating
+%   time-aggregated outputs. [startSkip, endSkip] ignores
+%   starkSkip seconds of the start, and endSkip seconds of the end.
+%
+% nOct : integer (default: 3)
+%   Number of fractional-octave bands to use (e.g., default 3 = 1/3-octave).
+%   Note that fractional-octave bands other than 1/3-octave have not yet
+%   been implemented.
 %
 % freqRange : vector (default: [20, 20000])
-%             the frequency range over which to determine
-%             detection and discounted spectra (1/3-octave band
-%             centre-frequencies within this range will be included)
+%   Frequency range over which to determine detection and discounted 
+%   spectra (1/3-octave band centre-frequencies within this range will be 
+%   included)
 %
 % outPlot : Boolean (default: false)
-%           determines whether to plot outputs from the calculations
+%   Determines whether to plot outputs from the calculations.
 % 
 % Returns
 % -------
-% detectDiscount : structure
-%                  contains the output
+% detectability : structure
+%   Contains the output.
 %
-% detectDiscount contains the following outputs:
+% detectability contains the following outputs:
 %
 % dBSpecTarget : matrix
 %                sound pressure level spectrogram for the input target
@@ -160,8 +146,8 @@ function detectDiscount = acousticDetectability(signalTarget, sampleRateTarget, 
 %
 % Assumptions
 % -----------
-% The input signals are calibrated to units of acoustic pressure in Pascals
-% (Pa).
+% The input spectra are orientated with time along axis 1 and frequency 
+% bands on axis 2.
 %
 % References
 % ----------
@@ -194,7 +180,7 @@ function detectDiscount = acousticDetectability(signalTarget, sampleRateTarget, 
 % Institution: University of Salford
 %
 % Date created: 05/11/2024
-% Date last modified: 10/02/2026
+% Date last modified: 20/03/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -211,14 +197,11 @@ function detectDiscount = acousticDetectability(signalTarget, sampleRateTarget, 
 %
 %% Arguments validation;
     arguments (Input)
-        signalTarget (:, :) double {mustBeReal}
-        sampleRateTarget (1, 1) double {mustBePositive, mustBeInteger}
-        signalMasker (:, :) double {mustBeReal}
-        sampleRateMasker (1, 1) double {mustBePositive, mustBeInteger}
-        axisTarget (1, 1) {mustBeInteger, mustBeInRange(axisTarget, 1, 2)} = 1
-        axisMasker (1, 1) {mustBeInteger, mustBeInRange(axisMasker, 1, 2)} = 1
-        timeSkip (1, 2) double {mustBeReal, mustBeNonnegative} = [0, 0]
+        leqtSpecTarget (:, :, :) double {mustBeReal}
+        leqtSpecMasker (:, :, :) double {mustBeReal}
         timeStep (1, 1) double {mustBePositive} = 0.5
+        timeSkip (1, 2) double {mustBeReal, mustBeNonnegative} = [0, 0]
+        nOct (1, 1) {mustBeInteger, mustBePositive} = 3
         freqRange (1, 2) double {mustBeInRange(freqRange, 19, 20000)} = [20, 20000]
         outPlot {mustBeNumericOrLogical} = false
     end
@@ -227,36 +210,24 @@ function detectDiscount = acousticDetectability(signalTarget, sampleRateTarget, 
 addpath(genpath(fullfile("src", "mlab")))
 
 %% Input checks and resampling
-
-% orient axes
-if axisTarget == 2
-    signalTarget = signalTarget.';
+% check input lengths match
+if size(leqtSpecTarget, 1) ~= size(leqtSpecMasker, 1) || size(leqtSpecTarget, 2) ~= size(leqtSpecMasker, 2)
+    error("Error: The lengths of the input spectra on the time or frequency band axes do not match.")
 end
 
-if axisMasker == 2
-    signalMasker = signalMasker.';
-end
-
-% check input signal sampling frequencies are equal, otherwise resample to
-% match higher rate
-if sampleRateMasker > sampleRateTarget
-    sampleRate = sampleRateMasker;
-    up = sampleRate/gcd(sampleRate, sampleRateTarget);
-    down = sampleRateTarget/gcd(sampleRate, sampleRateTarget);
-    signalTarget = resample(signalTarget, up, down);
-elseif sampleRateTarget > sampleRateMasker
-    sampleRate = sampleRateTarget;
-    up = sampleRate/gcd(sampleRate, sampleRateMasker);
-    down = sampleRateMasker/gcd(sampleRate, sampleRateMasker);
-    signalMasker = resample(signalMasker, up, down);
-else
-    sampleRate = sampleRateTarget;
-end
-
-% check input sizes and if necessary repeat masker
+% check input channel sizes and if necessary repeat masker
 repMasker = 1;
-targetChans = size(signalTarget, 2);
-maskerChans = size(signalMasker, 2);
+if ndims(leqtSpecTarget) > 2 %#ok<ISMAT>
+    targetChans = size(leqtSpecTarget, 3);
+else
+    targetChans = size(leqtSpecTarget, 2);
+end
+if ndims(leqtSpecMasker) > 2 %#ok<ISMAT>
+    maskerChans = size(leqtSpecMasker, 3);
+else
+    maskerChans = size(leqtSpecMasker, 2);
+end
+
 if targetChans ~= maskerChans
     % if masker is single channel, each target channel is assumed to be
     % matched with the masker (automatic broadcasting), otherwise, check if
@@ -264,7 +235,7 @@ if targetChans ~= maskerChans
     if maskerChans ~= 1
         if maskerChans > targetChans ||...
             mod(targetChans, maskerChans) ~= 0 
-            error("Target and masker channel counts cannot be interpreted. Please ensure masker channel count is less than target and is divisible by target.")
+            error("Error: Target and masker channel counts cannot be interpreted. Please ensure masker channel count is less than target and is divisible by target.")
         else
             % number of repeats for masker
             repMasker = targetChans/maskerChans;
@@ -274,26 +245,12 @@ end
 
 % Check time skip
 % Overall time (s)
-T = size(signalTarget, 1)/sampleRate;
-
+T = size(leqtSpecTarget, 1)*timeStep;
 if sum(timeSkip) > T
     error("Error: total 'timeSkip' argument is larger than signal duration. Check inputs.")
 end
 
-% check frequency range
-fl = min(freqRange);
-fh = max(freqRange);
-
-% ensure frequency range is suitable for signal sampling frequency
-if fh > sampleRate/2.4
-    fh = min(sampleRate/2.4, 20e3);
-end
-
 %% Define constants
-b = 3;  % denominator for 1/b-octave definition
-
-timeSteps = timeStep*sampleRate;  % timeStep in signal samples
-
 efficiencyFactor= 0.3;  % \eta
 targetDetect = 2;  % target d'
 discountHalfPower = 3;  % \alpha, dB
@@ -318,50 +275,63 @@ discountRate = 1;  % \rho, rate at which discount function dimishes with reducin
 % diffuse field narrowband noise hearing thresholds for 18-25 year-olds with
 % normal hearing from ISO 389-7:2019 (20 Hz - 16 kHz)
 % NOTE: watch out for non-standard frequencies in the standard Table 1!
-hearThresholdsDF3897 = [78.1; 68.7; 59.5; 51.1; 44.0; 37.5; 31.5; 26.5; 22.1;...
-                        17.9; 14.4; 11.4; 8.4; 5.8; 3.8; 2.1; 1.0; 0.8; 1.9;...
-                        0.5; -1.5; -3.1; -4.0; -3.8; -1.8; 2.5; 6.8; 8.4; 14.4;...
+hearThresholdsDF3897 = [78.1, 68.7, 59.5, 51.1, 44.0, 37.5, 31.5, 26.5, 22.1,...
+                        17.9, 14.4, 11.4, 8.4, 5.8, 3.8, 2.1, 1.0, 0.8, 1.9,...
+                        0.5, -1.5, -3.1, -4.0, -3.8, -1.8, 2.5, 6.8, 8.4, 14.4,...
                         43.7];
 
 % estimated full range diffuse field narrowband noise hearing thresholds
 % for 18-25 year-olds with normal hearing 
-hearThresholdsDF = [hearThresholdsDF3897; 70.4];
+hearThresholdsDF = [hearThresholdsDF3897, 70.4];
 
 % 1/3-octave A-weighting dB values (20 Hz - 20 kHz)
-Aweight = [-50.5; -44.7; -39.4; -34.6; -30.2; -26.2; -22.5; -19.1; -16.1;...
-           -13.4; -10.9; -8.6; -6.6; -4.8; -3.2; -1.9; -0.8; 0.0; 0.6; 1.0;...
-            1.2; 1.3; 1.2; 1.0; 0.5; -0.1; -1.1; -2.5; -4.3; -6.6; -9.3];
+Aweight = [-50.5, -44.7, -39.4, -34.6, -30.2, -26.2, -22.5, -19.1, -16.1,...
+           -13.4, -10.9, -8.6, -6.6, -4.8, -3.2, -1.9, -0.8, 0.0, 0.6, 1.0,...
+            1.2, 1.3, 1.2, 1.0, 0.5, -0.1, -1.1, -2.5, -4.3, -6.6, -9.3];
 
+% Calculate 1/3 octave bandwidths according to IEC 61640-1:2014 / ANSI S1.11-2004
+g10 = 10^(3/10);  % octave ratio coefficient (base-ten)
+octRatio = g10^(0.5/nOct);  % octave ratio
+fref = 1e3;  % reference frequency
+indWide = -15*nOct:1:15*nOct;  % large range of indices to calculate frequencies
 
-%% Signal processing
+if mod(nOct, 1) == 0
+    f = g10.^(indWide./nOct)*fref;
+else
+    f = g10.^((2*indWide + 1)./(2*nOct))*fref;
+end
+
+% find range of relevance
+[~, ilow] = min(abs(f - min(freqRange)));  % index of highest f in frange
+[~, ihigh] = min(abs(f - max(freqRange)));  % index of lowest f in frange
+
+% band mid frequencies
+fmid = f(ilow:ihigh);
+
+if size(leqtSpecTarget, 2) ~= length(fmid) || size(leqtSpecMasker, 2) ~= length(fmid)
+    error("Error: the input range of frequency bands does not match the length of the input signal frequency band axes.")
+end
+
+f1 = fmid/octRatio;  % output range of exact lower band-edge frequencies
+f2 = fmid*octRatio;  % output range of exact upper band-edge frequencies
+fBandWidth = f2 - f1;
 
 % convert timeSkip to timeStep indices
 itimeSkip = timeSkip/timeStep;
 
-% Calculate 1/3-octave power spectrograms
-[spectroTarget, ~, ~] = poctave(signalTarget, sampleRate, 'spectrogram',...
-                                'BandsPerOctave', b, 'WindowLength', timeSteps,...
-                                'FrequencyLimits', [fl, fh]);
-
-[spectroMasker, f, t] = poctave(signalMasker, sampleRate, 'spectrogram',...
-                                'BandsPerOctave', b, 'WindowLength', timeSteps,...
-                                'FrequencyLimits', [fl, fh]);
-
 % Equivalent rectangular bandwidth for auditory filter (Glasberg & Moore,
 % 1990, equation 3)
-ERBandwidth = 24.7*(1 + 4.37/1000*f);
+ERBandwidth = 24.7*(1 + 4.37/1000*fmid);
 
-% Calculate 1/3 octave bandwidths according to IEC 61640-1:2014 / ANSI S1.11-2004
-G10 = 10^(3/10);  % octave ratio coefficient (base-ten)
-OctRatio = G10^(0.5/b);  % octave ratio
+%% Signal processing
 
-f1 = f/OctRatio;  % output range of exact lower band-edge frequencies
-f2 = f*OctRatio;  % output range of exact upper band-edge frequencies
-fBandWidth = f2 - f1;
+% calculate signal power spectral time series from Leqt
+powTarget = (2e-5*10.^(leqtSpecTarget/20)).^2;
+powMasker = (2e-5*10.^(leqtSpecMasker/20)).^2;
 
 % Calculate high frequency weighting "kick" factor
-wKick = zeros(size(f));
-wKick(f >= 2500) = -6*(log10(f( f>= 2500)/2500)).^2;
+wKick = zeros(size(fmid));
+wKick(fmid >= 2500) = -6*(log10(fmid(fmid >= 2500)/2500)).^2;
 
 % Calculate detection efficiency
 detectEfficiency = efficiencyFactor*sqrt(timeStep)*sqrt(fBandWidth).*sqrt(fBandWidth./ERBandwidth).*10.^(wKick/10);
@@ -369,95 +339,89 @@ detectEfficiency = efficiencyFactor*sqrt(timeStep)*sqrt(fBandWidth).*sqrt(fBandW
 % Calculate equivalent auditory system noise
 ind = (-17:1:13).';  % range of frequency indices for hearing threshold bands
 ind_vis = [ind; ind(end) + 1];  % used for visualisations
-if mod(b, 1) == 0
-    fm = G10.^(ind/b)*1000;
-    fm_vis = G10.^(ind_vis/b)*1000;
+if mod(nOct, 1) == 0
+    fm = g10.^(ind/nOct)*1000;
+    fm_vis = g10.^(ind_vis/nOct)*1000;
 else
-    fm = G10.^((2*ind + 1)/(2*b))*1000;
-    fm_vis = G10.^((2*ind_vis + 1)/(2*b))*1000;
+    fm = g10.^((2*ind + 1)/(2*nOct))*1000;
+    fm_vis = g10.^((2*ind_vis + 1)/(2*nOct))*1000;
 end
-fBandWidth_vis = fm_vis*OctRatio - fm_vis/OctRatio;
+fBandWidth_vis = fm_vis*octRatio - fm_vis/octRatio;
 
-[~, il] = min(abs(fm - f(1)));  % find nearest lower exact frequency
-[~, ih] = min(abs(fm - f(end)));  % find nearest higher exact frequency
+[~, il] = min(abs(fm - fmid(1)));  % find nearest lower exact frequency
+[~, ih] = min(abs(fm - fmid(end)));  % find nearest higher exact frequency
 
 eqAuditoryNoise = detectEfficiency.*(2e-5.*10.^(hearThresholdsDF(il:ih)/20)).^2/targetDetect;
 
 % Calculate detectability and discount
-detectability = detectEfficiency.*spectroTarget./(repmat(spectroMasker, 1, 1, repMasker) + eqAuditoryNoise);
-detectabilitydB = 10*log10(detectability);
-discountdB = discountHalfPower./(detectability./detectKnee).^discountRate;
-
-% Calculate aggregated detectability
-detectTDepMax = squeeze(max(detectability, [], 1));
-detectTDepInt = squeeze(sqrt(sum(detectability.^2, 1)));
-detectTDepMaxdB = 10*log10(detectTDepMax);
-detectTDepIntdB = 10*log10(detectTDepInt);
-detectMaxMaxdB = 10*log10(max(detectTDepMax(1 + itimeSkip(1):end - itimeSkip(2), :), [], 1));
-detectIntIntdB = 10*log10(timeStep*sum(detectTDepInt(1 + itimeSkip(1):end - itimeSkip(2), :), 1));
-detectMaxIntdB = 10*log10(timeStep*sum(detectTDepMax(1 + itimeSkip(1):end - itimeSkip(2), :), 1));
-detectIntMaxdB = 10*log10(max(detectTDepInt(1 + itimeSkip(1):end - itimeSkip(2), :), [], 1));
-detectMaxPcdB.Ex50 = quantile(10*log10(detectTDepMax(1 + itimeSkip(1):end - itimeSkip(2), :)), 0.50, 1);
-detectIntPcdB.Ex50 = quantile(10*log10(detectTDepInt(1 + itimeSkip(1):end - itimeSkip(2), :)), 0.50, 1);
-
-% Calculate time-dependent spectra
-dBSpecTarget = 20*log10(sqrt(spectroTarget)/2e-5);
-dBSpecMasker = 20*log10(sqrt(spectroMasker)/2e-5);
-dBSpecDiscTarget = dBSpecTarget - discountdB;
+detect = detectEfficiency.*powTarget./(repmat(powMasker, 1, 1, repMasker) + eqAuditoryNoise);
+detectdB = 10*log10(detect);
+discountdB = discountHalfPower./(detect./detectKnee).^discountRate;
+leqtSpecDiscTarget = leqtSpecTarget - discountdB;
 
 % A-weight time-dependent spectra
-dBASpecTarget = dBSpecTarget + Aweight(il:ih);
-dBASpecMasker = dBSpecMasker + Aweight(il:ih);
-dBASpecDiscTarget = dBSpecDiscTarget + Aweight(il:ih);
+lAeqSpecTarget = leqtSpecTarget + Aweight(il:ih);
+lAeqSpecMasker = leqtSpecMasker + Aweight(il:ih);
+lAeqSpecDiscTarget = leqtSpecDiscTarget + Aweight(il:ih);
 
 % A-weighted time-dependent spectral power
-powATarget = (2e-5*10.^(dBASpecTarget/20)).^2;
-powAMasker = (2e-5*10.^(dBASpecMasker/20)).^2;
-powADiscTarget = (2e-5*10.^(dBASpecDiscTarget/20)).^2;
+powATarget = (2e-5*10.^(lAeqSpecTarget/20)).^2;
+powAMasker = (2e-5*10.^(lAeqSpecMasker/20)).^2;
+powADiscTarget = (2e-5*10.^(lAeqSpecDiscTarget/20)).^2;
 
-% Aggregate spectral levels
-dBATDepTarget = squeeze(20*log10(sqrt(sum(powATarget, 1))/2e-5));
-dBATDepMasker = squeeze(20*log10(sqrt(sum(powAMasker, 1))/2e-5));
-dBATDepDiscTarget = squeeze(20*log10(sqrt(sum(powADiscTarget, 1))/2e-5));
+% Calculate spectral aggregation of time-dependent values
+detectTMax = squeeze(max(detect, [], 1));
+detectTInt = squeeze(sqrt(sum(detect.^2, 1)));
+lAeqtTarget = squeeze(20*log10(sqrt(sum(powATarget, 2))/2e-5));
+lAeqtMasker = squeeze(20*log10(sqrt(sum(powAMasker, 2))/2e-5));
+lAeqtDiscTarget = squeeze(20*log10(sqrt(sum(powADiscTarget, 2))/2e-5));
+% dBAtDiscount = lAeqtTarget - lAeqtDiscTarget;
+detectTMaxdB = 10*log10(detectTMax);
+detectTIntdB = 10*log10(detectTInt);
 
-% Aggregate time-dependent levels
-LAETarget = squeeze(20*log10(sqrt(timeStep*sum(sum(powATarget(1 + itimeSkip(1):end - itimeSkip(2), :, :), 1), 2))/2e-5));
-LAEMasker = squeeze(20*log10(sqrt(timeStep*sum(sum(powAMasker(1 + itimeSkip(1):end - itimeSkip(2), :, :), 1), 2))/2e-5));
-LAEDiscTarget = squeeze(20*log10(sqrt(timeStep*sum(sum(powADiscTarget(1 + itimeSkip(1):end - itimeSkip(2), :, :), 1), 2))/2e-5));
-LAeqTarget = LAETarget - 10*log10(T);
-LAeqMasker = LAEMasker - 10*log10(T);
-LAeqDiscTarget = LAEDiscTarget - 10*log10(T);
+% Calculate time-aggregated values
+detectMaxdB = 10*log10(max(detectTMax(1 + itimeSkip(1):end - itimeSkip(2), :), [], 1));
+detectIntdB = 10*log10(timeStep*sum(detectTInt(1 + itimeSkip(1):end - itimeSkip(2), :), 1));
+detectMaxIntdB = 10*log10(timeStep*sum(detectTMax(1 + itimeSkip(1):end - itimeSkip(2), :), 1));
+detectIntMaxdB = 10*log10(max(detectTInt(1 + itimeSkip(1):end - itimeSkip(2), :), [], 1));
+detectMaxPcdB.Ex50 = quantile(10*log10(detectTMax(1 + itimeSkip(1):end - itimeSkip(2), :)), 0.50, 1);
+detectIntPcdB.Ex50 = quantile(10*log10(detectTInt(1 + itimeSkip(1):end - itimeSkip(2), :)), 0.50, 1);
+lAETarget = squeeze(20*log10(sqrt(timeStep*sum(sum(powATarget(1 + itimeSkip(1):end - itimeSkip(2), :, :), 2), 1))/2e-5));
+lAEMasker = squeeze(20*log10(sqrt(timeStep*sum(sum(powAMasker(1 + itimeSkip(1):end - itimeSkip(2), :, :), 2), 1))/2e-5));
+lAEDiscTarget = squeeze(20*log10(sqrt(timeStep*sum(sum(powADiscTarget(1 + itimeSkip(1):end - itimeSkip(2), :, :), 2), 1))/2e-5));
+lAeqTarget = lAETarget - 10*log10(T);
+lAeqMasker = lAEMasker - 10*log10(T);
+lAeqDiscTarget = lAEDiscTarget - 10*log10(T);
+dBADiscount = lAETarget - lAEDiscTarget;
 
-% Time-dependent and overall dBA discounts
-dBATDepDiscount = dBATDepTarget - dBATDepDiscTarget;
-dBADiscount = LAETarget - LAEDiscTarget;
+% Output time
+timeOut = timeStep*(0:size(leqtSpecTarget, 1) - 1).';
 
 %% Assign outputs
-detectDiscount.dBSpecTarget = dBSpecTarget;
-detectDiscount.dBSpecMasker = dBSpecMasker;
-detectDiscount.dBSpecDiscTarget = dBSpecDiscTarget;
-detectDiscount.dBATDepTarget = dBATDepTarget;
-detectDiscount.dBATDepMasker = dBATDepMasker;
-detectDiscount.dBATDepDiscTarget = dBATDepDiscTarget;
-detectDiscount.dBATDepDiscount = dBATDepDiscount;
-detectDiscount.LAETarget = LAETarget;
-detectDiscount.LAEMasker = LAEMasker;
-detectDiscount.LAEDiscTarget = LAEDiscTarget;
-detectDiscount.LAeqTarget = LAeqTarget;
-detectDiscount.LAeqMasker = LAeqMasker;
-detectDiscount.LAeqDiscTarget = LAeqDiscTarget;
-detectDiscount.dBADiscount = dBADiscount;
-detectDiscount.detectabilitydB = detectabilitydB;
-detectDiscount.detectTDepMaxdB = detectTDepMaxdB;
-detectDiscount.detectTDepIntdB = detectTDepIntdB;
-detectDiscount.detectMaxMaxdB = detectMaxMaxdB;
-detectDiscount.detectIntIntdB = detectIntIntdB;
-detectDiscount.detectMaxIntdB = detectMaxIntdB;
-detectDiscount.detectIntMaxdB = detectIntMaxdB;
-detectDiscount.detectMaxPcdB.Ex50 = detectMaxPcdB.Ex50;
-detectDiscount.detectIntPcdB.Ex50 = detectIntPcdB.Ex50;
-detectDiscount.freqBands = f;
-detectDiscount.timeOut = t.';
+detectability.leqtSpecTarget = leqtSpecTarget;
+detectability.leqtSpecMasker = leqtSpecMasker;
+detectability.leqtSpecDiscTarget = leqtSpecDiscTarget;
+detectability.lAeqtTarget = lAeqtTarget;
+detectability.lAeqtMasker = lAeqtMasker;
+detectability.lAeqtDiscTarget = lAeqtDiscTarget;
+detectability.lAeqTarget = lAeqTarget;
+detectability.lAeqMasker = lAeqMasker;
+detectability.lAeqDiscTarget = lAeqDiscTarget;
+detectability.lAETarget = lAETarget;
+detectability.lAEMasker = lAEMasker;
+detectability.lAEDiscTarget = lAEDiscTarget;
+detectability.dBADiscount = dBADiscount;
+detectability.detectabilitydB = detectdB;
+detectability.detectTMaxdB = detectTMaxdB;
+detectability.detectTIntdB = detectTIntdB;
+detectability.detectMaxdB = detectMaxdB;
+detectability.detectIntdB = detectIntdB;
+detectability.detectMaxIntdB = detectMaxIntdB;
+detectability.detectIntMaxdB = detectIntMaxdB;
+detectability.detectMaxPcdB.Ex50 = detectMaxPcdB.Ex50;
+detectability.detectIntPcdB.Ex50 = detectIntPcdB.Ex50;
+detectability.freqBands = f;
+detectability.timeOut = timeOut;
 
 %% Plotting
 
@@ -485,50 +449,50 @@ if outPlot
         movegui(fig, 'center');
 
         ax1 = nexttile(1);
-        surf(ax1, [t, t(end) + timeStep] - timeStep/2, fm_vis - fBandWidth_vis/2,...
-             arrangeSpectro(dBSpecTarget(:, :, targChan)),...
+        surf(ax1, [timeOut; timeOut(end) + timeStep], fm_vis - fBandWidth_vis/2,...
+             arrangeSpectro(leqtSpecTarget(:, :, targChan)).',...
              EdgeColor='none', FaceColor='interp');
         view(2);
-        set(ax1, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
+        set(ax1, 'XLim', [timeOut(1); timeOut(end) + timeStep],...
             'YScale', 'log', 'YLim', [f1(1), f2(end)],...
             'YTick', [31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],...
             'YTickLabel', ["31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]);
         ax1.YLabel.String = "Frequency, Hz";
         ax1.XLabel.String = "Time, s";
         colormap(ax1, cmap_viridis);
-        cbar = colorbar; clim([0, max(dBSpecTarget(:, :, targChan), [], 'all')]);
+        cbar = colorbar; clim([0, max(leqtSpecTarget(:, :, targChan), [], 'all')]);
         cbar.Label.String = "dB re 2e-5 Pa";
-        ax1.Title.String = "Target spectrogram";
+        ax1.Title.String = "Target {\it L}_{Zeq} spectrogram";
         ax1.TitleFontWeight = "normal";
 
         ax2 = nexttile(2);
-        surf(ax2, [t, t(end) + timeStep] - timeStep/2, fm_vis - fBandWidth_vis/2,...
-             arrangeSpectro(detectabilitydB(:, :, targChan)),...
+        surf(ax2, [timeOut; timeOut(end) + timeStep], fm_vis - fBandWidth_vis/2,...
+             arrangeSpectro(detectdB(:, :, targChan)).',...
              EdgeColor='none', FaceColor='interp');
         view(2);
-        set(ax2, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
+        set(ax2, 'XLim', [timeOut(1); timeOut(end) + timeStep],...
             'YScale', 'log', 'YLim', [f1(1), f2(end)],...
             'YTick', [31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],...
             'YTickLabel', ["31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]);
         ax2.YLabel.String = "Frequency, Hz";
         ax2.XLabel.String = "Time, s";
         colormap(ax2, cmap_magma);
-        cbar = colorbar; clim([0, max(detectabilitydB(:, :, targChan), [], 'all')]);
+        cbar = colorbar; clim([0, max(detectdB(:, :, targChan), [], 'all')]);
         cbar.Label.String = "Detectability 10log_{10}{\it d'}, dB";
         ax2.Title.String = "Masked target detectability";
         ax2.TitleFontWeight = "normal";
 
         ax3 = nexttile(3);
-        plot(ax3, t, dBATDepTarget(:, targChan), 'color', cmap_magma(34, :), 'DisplayName', "Target")
+        plot(ax3, timeOut, lAeqtTarget(:, targChan), 'color', cmap_magma(34, :), 'DisplayName', "Target")
         hold on
-        plot(ax3, t, dBATDepMasker(:, maskChan), 'color', cmap_magma(166, :), 'DisplayName', "Masker")
-        plot(ax3, t, dBATDepDiscTarget(:, targChan), 'color', cmap_magma(100, :),...
+        plot(ax3, timeOut, lAeqtMasker(:, maskChan), 'color', cmap_magma(166, :), 'DisplayName', "Masker")
+        plot(ax3, timeOut, lAeqtDiscTarget(:, targChan), 'color', cmap_magma(100, :),...
             'LineStyle', ':', 'LineWidth', 2, 'DisplayName', "Target discounted")
         hold off
-        set(ax3, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
-            'YLim', [min(dBATDepMasker(:, maskChan), [], 'all') - 10,...
-                     max(max(dBATDepTarget(:, targChan), [], 'all'),...
-                     max(dBATDepMasker(:, maskChan), [], 'all'))*1.05],...
+        set(ax3, 'XLim', [timeOut(1); timeOut(end) + timeStep],...
+            'YLim', [min(lAeqtMasker(:, maskChan), [], 'all') - 10,...
+                     max(max(lAeqtTarget(:, targChan), [], 'all'),...
+                     max(lAeqtMasker(:, maskChan), [], 'all'))*1.05],...
             'XGrid', 'on', 'YGrid', 'on', 'GridAlpha', 0.075,...
             'GridLineStyle', '--', 'GridLineWidth', 0.25);
         ax3.YLabel.String = "dB(A) re 2e-5 Pa";
@@ -538,41 +502,41 @@ if outPlot
         legend(ax3, 'Location', 'eastoutside');
         
         ax4 = nexttile(4);
-        surf(ax4, [t, t(end) + timeStep] - timeStep/2, fm_vis - fBandWidth_vis/2,...
-             arrangeSpectro(dBSpecMasker(:, :, targChan)),...
+        surf(ax4, [timeOut; timeOut(end) + timeStep], fm_vis - fBandWidth_vis/2,...
+             arrangeSpectro(leqtSpecMasker(:, :, targChan)).',...
              EdgeColor='none', FaceColor='interp');
         view(2);
-        set(ax4, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
+        set(ax4, 'XLim', [timeOut(1); timeOut(end) + timeStep],...
             'YScale', 'log', 'YLim', [f1(1), f2(end)],...
             'YTick', [31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],...
             'YTickLabel', ["31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]);
         ax4.YLabel.String = "Frequency, Hz";
         ax4.XLabel.String = "Time, s";
         colormap(ax4, cmap_viridis);
-        cbar = colorbar; clim([0, max(dBSpecMasker(:, :, targChan), [], 'all')]);
+        cbar = colorbar; clim([0, max(leqtSpecMasker(:, :, targChan), [], 'all')]);
         cbar.Label.String = "dB re 2e-5 Pa";
-        ax4.Title.String = "Masker spectrogram";
+        ax4.Title.String = "Masker {\it L}_{Zeq} spectrogram";
         ax4.TitleFontWeight = "normal";
 
         ax5 = nexttile(5);
-        surf(ax5, [t, t(end) + timeStep] - timeStep/2, fm_vis - fBandWidth_vis/2,...
-             arrangeSpectro(dBSpecDiscTarget(:, :, targChan)),...
+        surf(ax5, [timeOut; timeOut(end) + timeStep], fm_vis - fBandWidth_vis/2,...
+             arrangeSpectro(leqtSpecDiscTarget(:, :, targChan)).',...
              EdgeColor='none', FaceColor='interp');
         view(2);
-        set(gca, 'XLim', [t(1) - timeStep/2, t(end) - timeStep/2 + timeStep],...
+        set(gca, 'XLim', [timeOut(1); timeOut(end) + timeStep],...
             'YScale', 'log', 'YLim', [f1(1), f2(end)],...
             'YTick', [31.5, 63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3],...
             'YTickLabel', ["31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]);
         ax5.YLabel.String = "Frequency, Hz";
         ax5.XLabel.String = "Time, s";
         colormap(ax5, cmap_magma);
-        cbar = colorbar; clim([0, max(dBSpecDiscTarget(:, :, targChan), [], 'all')]);
+        cbar = colorbar; clim([0, max(leqtSpecDiscTarget(:, :, targChan), [], 'all')]);
         cbar.Label.String = "Detectability-discounted \newline     level, dB re 2e-5 Pa";
-        ax5.Title.String = "Target detectability-discounted spectrogram";
+        ax5.Title.String = "Target detectability-discounted {\it L}_{Zeq} spectrogram";
         ax5.TitleFontWeight = "normal";
 
         ax6 = nexttile(6);
-        levelVals = [LAETarget(targChan), LAEMasker(maskChan), LAEDiscTarget(targChan)];
+        levelVals = [lAETarget(targChan), lAEMasker(maskChan), lAEDiscTarget(targChan)];
         labelVals = num2cell(round(levelVals, 1));
         labelCats = ["Target", "Masker", "Discount. targ."];
         % a trick using stacked bar to get the legend mapped
@@ -600,8 +564,7 @@ function returnXft = arrangeSpectro(targetXft)
 % returnXft = arrangeSpectro(targetXft)
 %
 % Return 2D matrix arranged for plotting spectrogram-like plots with fully
-% rendered cells at boundaries. Input and output matrices have shape
-% [freqs, time]
+% rendered cells at boundaries.
 
 returnXft = [targetXft(:, :), targetXft(:, end);
              targetXft(end, :), targetXft(end, end)];

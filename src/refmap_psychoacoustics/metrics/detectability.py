@@ -2,7 +2,7 @@
 detectability.py
 ----------------
 
-Psychoacoustic detectability analysis for audio signals:
+Psychoacoustic aural detectability analysis for audio signals:
 
 psych_detect:
     Returns detectability and discounted sound levels from input target
@@ -44,7 +44,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 05/11/2024
-Date last modified: 16/12/2025
+Date last modified: 20/03/2025
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -64,13 +64,13 @@ import bottleneck as bn
 from scipy.signal import butter, resample_poly, sosfiltfilt, sosfilt
 
 
-# psych_detect function
-def psych_detect(signal_target, samp_rate_target, axis_target,
+# aural_detect function
+def aural_detect(signal_target, samp_rate_target, axis_target,
                  signal_masker, samp_rate_masker, axis_masker,
                  time_skip=[0, 0], time_step=0.5, noct=3,
                  freq_range=[20, 20000]):
     """
-    Returns detectability and discounted sound levels from input target
+    Returns aural detectability and discounted sound levels from input target
     source and masker sound pressure time-series signals.
     
     Parameters
@@ -212,6 +212,7 @@ def psych_detect(signal_target, samp_rate_target, axis_target,
     or, otherwise, equal scaling.
 
     """ 
+    # %% Check inputs
     if axis_target == 1:
         signal_target = np.transpose(signal_target)
     
@@ -259,6 +260,7 @@ def psych_detect(signal_target, samp_rate_target, axis_target,
     if signal_masker.ndim == 1:
         signal_masker = np.expand_dims(signal_masker, axis=1)
 
+    # %% Processing
     # ensure F-contiguous arrays for processing speed
     signal_target = np.asfortranarray(signal_target)
     signal_masker = np.asfortranarray(signal_masker)
@@ -293,7 +295,7 @@ def psych_detect(signal_target, samp_rate_target, axis_target,
 
 
     # calculate detectability and discounted levels
-    detectability = psych_detect_from_lzeqt(lzeqt_spec_target=signal_target_tob_leq,
+    detectability = aural_detect_from_lzeqt(lzeqt_spec_target=signal_target_tob_leq,
                                             lzeqt_spec_masker=signal_masker_tob_leq,
                                             time_step=time_step,
                                             time_skip=time_skip,
@@ -302,12 +304,11 @@ def psych_detect(signal_target, samp_rate_target, axis_target,
     return detectability
 
     
-def psych_detect_from_lzeqt(lzeqt_spec_target, lzeqt_spec_masker,
-                            axis_target=0, axis_masker=0,
+def aural_detect_from_lzeqt(lzeqt_spec_target, lzeqt_spec_masker,
                             time_step=0.5, time_skip=[0, 0],
                             noct=3, freq_band_range=[20, 20000]):
     """
-    Returns detectability and discounted sound levels from input target
+    Returns aural detectability and discounted sound levels from input target
     source and masker unweighted (Z-weighted) short-term equivalent continuous
     (energy-time-averaged) sound pressure level LZeq(t) 1/3-octave-band
     spectrograms.
@@ -320,12 +321,6 @@ def psych_detect_from_lzeqt(lzeqt_spec_target, lzeqt_spec_masker,
     lzeqt_spec_masker : 2D or 3D array
         Masker signal LZeq(t) spectrogram [time, freq_bands, channels].
 
-    axis_target : int (default: 0)
-        Time axis of target signal spectrogram (0 = rows, 1 = columns).
-    
-    axis_masker : int (default: 0)
-        Time axis of masker signal spectrogram (0 = rows, 1 = columns).
-    
     time_step : number (default: 0.5)
         Time step (seconds) corresponding with the input LZeq(t) spectrograms.
         This is also assumed to be the averaging time for the LZeq(t) values.
@@ -350,48 +345,36 @@ def psych_detect_from_lzeqt(lzeqt_spec_target, lzeqt_spec_masker,
     
     detectability contains the following outputs:
 
-    lpz_spec_target : matrix
-        Sound pressure level spectrogram for the input target
+    lzeqt_spec_target : matrix
+        Sound pressure level Leq spectrogram for the input target
         signal, with dimensions [time_out, freq_bands, target_chans].
 
-    lpz_spec_masker : matrix
-        Sound pressure level spectrogram for the input masker
+    lzeqt_spec_masker : matrix
+        Sound pressure level Leq spectrogram for the input masker
         signal, with dimensions [time_out, freq_bands, masker_chans]. 
 
-    lpz_spec_disc_target : matrix
-        Sound pressure level spectrogram for the input target
+    lzeqt_spec_disc_target : matrix
+        Sound pressure level Leq spectrogram for the input target
         signal, detectability-discounted, with dimensions
         [time_out, freq_bands, target_chans].
 
-    lpa_tdep_target : matrix or vector
+    laeqt_target : matrix or vector
         Time-dependent A-weighted sound pressure level for the
         input target signal, with dimensions [time_out, target_chans].
 
-    lpa_tdep_masker : matrix or vector
-        Time-dependent A-weighted sound pressure level for the
+    laeqt_masker : matrix or vector
+        Time-dependent A-weighted sound pressure level Leq for the
         input masker signal, with dimensions [time_out, target_chans].
 
-    lpa_tdep_disc_target : matrix or vector
-        Time-dependent A-weighted sound pressure level for the
+    laeqt_spec_disc_target : matrix or vector
+        Time-dependent A-weighted sound pressure level Leq for the
         input target signal detectability-discounted, with
         dimensions [time_out, target_chans].
 
-    lpa_tdep_discount : vector
+    laeqt_disc_target : vector
         Time-dependent detectability discount values for the
         A-weighted sound pressure levels of target signal vs
         masker signal, with dimensions [time_out, target_chans].
-
-    lae_target : vector
-        Overall A-weighted sound exposure level for each input target
-        signal channel.
-
-    lae_masker : vector
-        Overall A-weighted sound exposure level for each input masker
-        signal channel.
-
-    lae_disc_target : vector
-        Overall detectability-discounted A-weighted sound
-        exposure level for each input target signal channel.
 
     laeq_target : vector
         Overall A-weighted time-averaged sound level for each input
@@ -406,6 +389,18 @@ def psych_detect_from_lzeqt(lzeqt_spec_target, lzeqt_spec_masker,
         time-averaged sound level for each input target signal
         channel.
 
+    lae_target : vector
+        Overall A-weighted sound exposure level for each input target
+        signal channel.
+
+    lae_masker : vector
+        Overall A-weighted sound exposure level for each input masker
+        signal channel.
+
+    lae_disc_target : vector
+        Overall detectability-discounted A-weighted sound
+        exposure level for each input target signal channel.
+
     dba_discount : vector
         Overall detectability discount for A-weighted levels for
         each input target signal channel.
@@ -414,13 +409,21 @@ def psych_detect_from_lzeqt(lzeqt_spec_target, lzeqt_spec_masker,
         Detectability spectrogram for the input target signal
         vs masker signal, with dimensions [time_out, freq_bands, target_chans]
 
-    detect_tdep_max : matrix or vector
+    detect_t_max : matrix or vector
         band-maximum time-dependent detectability, with
         dimensions [time_out, target_chans]
 
-    detect_tdep_int : matrix or vector
+    detect_t_int : matrix or vector
         band-integrated time-dependent detectability, with
         dimensions [time_out, target_chans]
+
+    detect_maxint : vector
+        overall detectability for each input target
+        signal channel time-integrated from spectral maximum
+
+    detect_intmax : vector
+        overall detectability for each input target
+        signal channel, time-maximum from spectral integration
 
     detect_max : vector
         overall maximum detectability for each input target
@@ -442,13 +445,51 @@ def psych_detect_from_lzeqt(lzeqt_spec_target, lzeqt_spec_masker,
     The default time_step=0.5 seconds corresponds with the NASA approach.
     Alternative time or frequency resolutions have not been validated.
     """
+    # %% Check inputs
+    # check if inputs are 2D or 3D, if 2D, expand to 3D
+    if lzeqt_spec_target.ndim == 2:
+        lzeqt_spec_target = np.expand_dims(lzeqt_spec_target, axis=2)
+    if lzeqt_spec_masker.ndim == 2:
+        lzeqt_spec_masker = np.expand_dims(lzeqt_spec_masker, axis=2)
+
+    # check input sizes are compatible, and if necessary repeat masker
+    rep_masker = 1  # initialise repeat masker variable for later use if needed
+    if lzeqt_spec_target.shape[0] != lzeqt_spec_masker.shape[0]:
+        raise ValueError("The lengths of the input spectra on the time axes do not match.")
+    if lzeqt_spec_target.shape[1] != lzeqt_spec_masker.shape[1]:
+        raise ValueError("The numbers of frequency bands in the input spectra do not match.")
+    if lzeqt_spec_target.shape[2] != lzeqt_spec_masker.shape[2]:
+        # check if masker dimensions 2 is a multiple of target dimensions 2, if so,
+        # repeat masker to match target channels, otherwise raise an error
+        if lzeqt_spec_masker.shape[2] % lzeqt_spec_target.shape[2] == 0:
+            rep_masker = lzeqt_spec_target.shape[2]//lzeqt_spec_masker.shape[2]
+        else:
+            raise ValueError("The numbers of channels in the input spectra are not compatible.")
+    
+    # check time_step is valid
+    if len(time_step) != 1 or time_step <= 0:
+        raise ValueError("time_step must be a single, positive number.")
+
+    # check time_skip is valid
+    if len(time_skip) != 2 or time_skip[0] < 0 or time_skip[1] < 0:
+        raise ValueError("time_skip must be a vector of length 2, with non-negative values [start_skip, end_skip].")
+    if time_skip[0] + time_skip[1] >= lzeqt_spec_target.shape[0]*time_step:
+        raise ValueError("The sum of time_skip values must be less than the total duration of the input spectra.")
+
+    # check noct is valid
+    if len(noct) != 1 or noct <= 0 or np.mod(noct, 1) != 0:
+        raise ValueError("noct must be a single, positive integer.")
+
+    # check freq_band_range is valid
+    if len(freq_band_range) != 2 or freq_band_range[0] < 20 or freq_band_range[1] > 20000 or freq_band_range[0] >= freq_band_range[1]:
+        raise ValueError("freq_band_range must be a vector of length 2, with values [f_min, f_max] in the range [20, 20000].")
 
     # %% Define constants
     efficiency_factor = 0.3  # \eta
     target_detect = 2  # target d'
-    discount_half_power = 3  # \alpha, d_b
-    detect_knee = 14  # \delta, d' value at which 3 d_b knee occurs
-    discount_rate = 1  # \rho, rate at which discount function dimishes with reducing detectability
+    discount_half_power = 3  # \alpha, dB
+    detect_knee = 14  # \delta, d' value at which 3 dB knee occurs
+    discount_rate = 1  # \rho, rate at which discount function diminishes with reducing detectability
 
     # diffuse field narrowband noise hearing thresholds for 18-25 year-olds with
     # normal hearing from ISO 389-7:2019 (20 Hz - 16 kHz)
@@ -467,25 +508,31 @@ def psych_detect_from_lzeqt(lzeqt_spec_target, lzeqt_spec_masker,
                          -13.4, -10.9, -8.6, -6.6, -4.8, -3.2, -1.9, -0.8, 0.0, 0.6, 1.0,
                          1.2, 1.3, 1.2, 1.0, 0.5, -0.1, -1.1, -2.5, -4.3, -6.6, -9.3])
 
-    f, _, _ = noctf(fl=freq_band_range[0], fh=freq_band_range[1], n=noct)
+    freq_bands, _, _ = noctf(fl=freq_band_range[0], fh=freq_band_range[1], n=noct)
 
     # convert timeSkip to timeStep indices
     itime_skip = time_skip/time_step
 
     # Equivalent rectangular bandwidth for auditory filter (Glasberg & Moore,
     # 1990, equation 3)
-    erb_bandwidth = 24.7*(1 + 4.37/1000*f)
+    erb_bandwidth = 24.7*(1 + 4.37/1000*freq_bands)
 
     # Calculate 1/3 octave bandwidths according to BS EN IEC 61640-1:2014
     g10 = 10**(3/10)  # octave ratio coefficient (base-ten)
     oct_ratio = g10**(0.5/noct)  # octave ratio
 
-    f1 = f/oct_ratio  # output range of exact lower band-edge frequencies
-    f2 = f*oct_ratio  # output range of exact upper band-edge frequencies
+    f1 = freq_bands/oct_ratio  # output range of exact lower band-edge frequencies
+    f2 = freq_bands*oct_ratio  # output range of exact upper band-edge frequencies
     f_bandwidth = f2 - f1
 
+    # %% Signal processing
+
+    # time-dependent spectral power
+    pow_target = (2e-5*10**(lzeqt_spec_target/20))**2
+    pow_masker = (2e-5*10**(lzeqt_spec_masker/20))**2
+
     # Calculate high frequency weighting "kick" factor
-    w_kick = np.zeros(f.shape)
+    w_kick = np.zeros(freq_bands.shape)
     w_kick(f >= 2500) = -6*(np.log10(f(f >= 2500)/2500))**2
 
     # Calculate detection efficiency
@@ -509,25 +556,77 @@ def psych_detect_from_lzeqt(lzeqt_spec_target, lzeqt_spec_masker,
     eq_auditory_noise = detect_efficiency*(2e-5*10**(hear_thresholds_df[il:ih]/20))**2/target_detect
 
     # Calculate detectability and discount
-    detectability = detect_efficiency*lzeqt_spec_target/(np.tile(lzeqt_spec_masker, (1, 1, rep_masker)) + eq_auditory_noise)
+    detectability = detect_efficiency*pow_target/(np.tile(pow_masker, (1, 1, rep_masker)) + eq_auditory_noise)
     detect_discount = discount_half_power/(detectability/detect_knee)**discount_rate
-    lzeqt_dscnt_spec_target = lzeqt_spec_target - detect_discount
-
-    # Calculate aggregated detectability
-    detect_t_max = np.squeeze(np.max(detectability, axis=0))
-    detect_t_int = np.squeeze(np.sqrt(np.sum(detectability**2, axis=0)))
+    lzeqt_spec_disc_target = lzeqt_spec_target - detect_discount
 
     # A-weight time-dependent spectra
-    laeq_spec_target = lzeqt_spec_target + a_weight[il:ih]
-    laeq_spec_masker = lzeqt_spec_masker + a_weight[il:ih]
+    laeqt_spec_target = lzeqt_spec_target + a_weight[il:ih]
+    laeqt_spec_masker = lzeqt_spec_masker + a_weight[il:ih]
+    laeqt_spec_disc_target = lzeqt_spec_disc_target + a_weight[il:ih]
 
     # A-weighted time-dependent spectral power
-    pow_a_target = (2e-5*10**(laeq_spec_target/20))**2
-    pow_a_masker = (2e-5*10**(laeq_spec_masker/20))**2
+    powa_target = (2e-5*10**(laeqt_spec_target/20))**2
+    powa_masker = (2e-5*10**(laeqt_spec_masker/20))**2
+    powa_disc_target = (2e-5*10**(laeqt_spec_disc_target/20))**2
 
+    # Calculate spectral aggregation of time-dependent values
+    detect_t_max = np.squeeze(np.max(detectability, axis=1))
+    detect_t_int = np.squeeze(np.sqrt(np.sum(detectability**2, axis=1)))
+    laeqt_target = np.squeeze(10*np.log10(np.sum(powa_target, axis=1)))
+    laeqt_masker = np.squeeze(10*np.log10(np.sum(powa_masker, axis=1)))
+    laeqt_disc_target = np.squeeze(10*np.log10(np.sum(powa_disc_target, axis=1)))
+    # dba_t_discount = laeqt_target - laeqt_disc_target
+
+    # Calculate time-aggregated values
+    detect_max = np.squeeze(np.max(detect_t_max[itime_skip:-itime_skip, :], axis=0))
+    detect_int = np.squeeze(time_step*np.sum(detect_t_int[itime_skip:-itime_skip, :], axis=0))
+    detect_maxint = np.squeeze(time_step*np.sum(detect_t_max[itime_skip:-itime_skip, :], axis=0))
+    detect_intmax = np.squeeze(np.max(detect_t_int[itime_skip:-itime_skip, :], axis=0))
+    laeq_target = np.squeeze(10*np.log10(np.mean(10**(laeqt_target[itime_skip:
+                                                                   -itime_skip, :]/10),
+                                                 axis=0)))
+    laeq_masker = np.squeeze(10*np.log10(np.mean(10**(laeqt_masker[itime_skip:
+                                                                   -itime_skip, :]/10),
+                                                 axis=0)))
+    laeq_disc_target = np.squeeze(10*np.log10(np.mean(10**(laeqt_disc_target[itime_skip:
+                                                                             -itime_skip, :]/10),
+                                                      axis=0)))
+    dba_discount = laeq_target - laeq_disc_target
+    lae_target = np.squeeze(10*np.log10(time_step*np.sum(powa_target, axis=(0, 1))))
+    lae_masker = np.squeeze(10*np.log10(time_step*np.sum(powa_masker, axis=(0, 1))))
+    lae_disc_target = lae_target - dba_discount
+
+    time_out = np.arange(lzeqt_spec_target.shape[0])*time_step
+
+    # %% Output plotting
+
+
+    # %% Assign outputs
     detectability = {}
     detectability['lzeqt_spec_target'] = lzeqt_spec_target
     detectability['lzeqt_spec_masker'] = lzeqt_spec_masker
+    detectability['laeqt_spec_disc_target'] = laeqt_spec_disc_target
+    detectability['laeqt_disc_target'] = laeqt_disc_target
+    detectability['laeqt_target'] = laeqt_target
+    detectability['laeqt_masker'] = laeqt_masker
+    detectability['laeq_disc_target'] = laeq_disc_target
+    detectability['laeq_target'] = laeq_target
+    detectability['laeq_masker'] = laeq_masker
+    detectability['laeq_disc_target'] = laeq_disc_target
+    detectability['lae_target'] = lae_target
+    detectability['lae_masker'] = lae_masker
+    detectability['lae_disc_target'] = lae_disc_target
+    detectability['dba_discount'] = dba_discount
+    detectability['detectability'] = detectability
+    detectability['detect_t_max'] = detect_t_max
+    detectability['detect_t_int'] = detect_t_int
+    detectability['detect_max'] = detect_max
+    detectability['detect_int'] = detect_int
+    detectability['detect_maxint'] = detect_maxint
+    detectability['detect_intmax'] = detect_intmax
+    detectability['freq_bands'] = freq_bands
+    detectability['time_out'] = time_out
 
     return detectability
 
