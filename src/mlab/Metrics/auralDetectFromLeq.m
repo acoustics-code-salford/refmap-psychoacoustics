@@ -12,10 +12,10 @@ function detectability = auralDetectFromLeq(leqtSpecTarget, leqtSpecMasker, time
 % Inputs
 % ------
 % leqtSpecTarget : 2D or 3D matrix
-%   Target signal LZeq(t) spectrogram [time, freq_bands(, channels)].
+%   Target signal LZeq(t, f) spectrogram [time, freq_bands(, channels)].
 % 
 % leqtSpecMasker : 2D or 3D matrix
-%   Masker signal LZeq(t) spectrogram [time, freq_bands(, channels)].
+%   Masker signal LZeq(t, f) spectrogram [time, freq_bands(, channels)].
 %
 % timeStep : number (default: 0.5)
 %   Time window (seconds) to use for calculating target detectability.
@@ -30,7 +30,7 @@ function detectability = auralDetectFromLeq(leqtSpecTarget, leqtSpecMasker, time
 %   Note that fractional-octave bands other than 1/3-octave have not yet
 %   been implemented.
 %
-% freqRange : vector (default: [20, 20000])
+% freqRange : vector (default: [19, 20000])
 %   Frequency range over which to determine detection and discounted 
 %   spectra (1/3-octave band centre-frequencies within this range will be 
 %   included)
@@ -45,104 +45,104 @@ function detectability = auralDetectFromLeq(leqtSpecTarget, leqtSpecMasker, time
 %
 % detectability contains the following outputs:
 %
-% dBSpecTarget : matrix
-%                sound pressure level spectrogram for the input target
-%                signal, with dimensions [timeOut, freqBands, targetChans]
+% leqtSpecTarget : 2D or 3D matrix
+%   Target signal LZeq(t, f) spectrogram [time, freq_bands(, channels)].
+% 
+% leqtSpecMasker : 2D or 3D matrix
+%   Masker signal LZeq(t, f) spectrogram [time, freq_bands(, channels)].
 %
-% dBSpecMasker : matrix
-%                sound pressure level spectrogram for the input masker
-%                signal, with dimensions [timeOut, freqBands, maskerChans] 
+% leqtSpecDiscTarget : 2D or 3D matrix
+%   Detectability-discounted LZeq(t, f) spectrogram for the input target
+%   signal, with dimensions [timeOut, freqBands, targetChans].
 %
-% dBSpecDiscTarget : matrix
-%                    sound pressure level spectrogram for the input target
-%                    signal detectability-discounted, with dimensions
-%                    [timeOut, freqBands, targetChans]
+% lAeqtTarget : matrix or vector
+%   Time-dependent A-weighted LAeq(t) for the input target signal, 
+%   with dimensions [timeOut, targetChans].
 %
-% dBATDepTarget : matrix or vector
-%                 time-dependent A-weighted sound pressure level for the
-%                 input target signal, with dimensions [timeOut, targetChans]
+% lAeqtMasker : matrix or vector
+%   Time-dependent A-weighted LAeq(t) for the input masker signal,
+%   with dimensions [timeOut, targetChans].
 %
-% dBATDepTarget : matrix or vector
-%                 time-dependent A-weighted sound pressure level for the
-%                 input masker signal, with dimensions [timeOut, targetChans]
+% lAeqtDiscTarget : matrix or vector
+%   Time-dependent detectability-discounted A-weighted sound pressure level
+%   for the input target signal, with dimensions [timeOut, targetChans].
 %
-% dBATDepDiscTarget : matrix or vector
-%                     time-dependent A-weighted sound pressure level for the
-%                     input target signal detectability-discounted, with
-%                     dimensions [timeOut, targetChans]
+% lAeqTarget : vector
+%   Overall A-weighted time-averaged sound level for each input
+%   target signal channel.
 %
-% dBATDepDiscount : vector
-%                   time-dependent detectability discount values for the
-%                   A-weighted sound pressure levels of target signal vs
-%                   masker signal, with dimensions [timeOut, targetChans]
+% lAeqMasker : vector
+%   Overall A-weighted time-averaged sound level for each input
+%   masker signal channel.
 %
-% LAETarget : vector
-%             overall A-weighted sound exposure level for each input target
-%             signal channel
+% lAeqDiscTarget : vector
+%   Overall detectability-discounted A-weighted time-averaged sound level 
+%   for each input target signal channel.
 %
-% LAEMasker : vector
-%             overall A-weighted sound exposure level for each input masker
-%             signal channel
+% lAETarget : vector
+%   Overall A-weighted sound exposure level for each input target signal 
+%   channel.
 %
-% LAEDiscTarget : vector
-%                 overall detectability-discounted A-weighted sound
-%                 exposure level for each input target signal channel
+% lAEMasker : vector
+%   Overall A-weighted sound exposure level for each input masker signal 
+%   channel.
 %
-% LAeqTarget : vector
-%              overall A-weighted time-averaged sound level for each input
-%              target signal channel
-%
-% LAeqMasker : vector
-%              overall A-weighted time-averaged sound level for each input
-%              masker signal channel
-%
-% LAeqDiscTarget : vector
-%                  overall detectability-discounted A-weighted
-%                  time-averaged sound level for each input target signal
-%                  channel
+% lAEDiscTarget : vector
+%   Overall detectability-discounted A-weighted sound exposure level for 
+%   each input target signal channel.
 %
 % dBADiscount : vector
-%               overall detectability discount for A-weighted levels for
-%               each input target signal channel
+%   Overall detectability discount for A-weighted levels for each input 
+%   target signal channel.
 %
 % detectabilitydB : matrix
-%                   detectability spectrogram for the input target signal
-%                   vs masker signal (i.e., 10log_10[d']), with dimensions
-%                   [timeOut, freqBands, targetChans]
+%   Detectability spectrogram for the input target signal
+%   vs masker signal (i.e., 10log_10[d']), with dimensions
+%   [timeOut, freqBands, targetChans].
 %
-% detectTDepMaxdB : matrix or vector
-%                   band-maximum time-dependent detectability dB, with
-%                   dimensions [timeOut, targetChans]
+% detectTMaxdB : matrix or vector
+%   Band-maximum time-dependent detectability dB, with dimensions 
+%   [timeOut, targetChans].
 %
-% detectTDepIntdB : matrix or vector
-%                   band-integrated time-dependent detectability dB, with
-%                   dimensions [timeOut, targetChans]
+% detectTIntdB : matrix or vector
+%   Band-integrated time-dependent detectability dB, with dimensions 
+%   [timeOut, targetChans].
 %
 % detectMaxdB : vector
-%               overall maximum detectability, dB, for each input target
-%               signal channel
+%   Overall maximum detectability, dB, for each input target signal
+%   channel.
 %
 % detectIntdB : vector
-%               overall integrated detectability, dB, for each input target
-%               signal channel
+%   Overall integrated detectability, dB, for each input target signal 
+%   channel.
+% 
+% detectMaxIntdB : vector
+%   Overall spectral-maximum, time-integrated detectability, dB, for each 
+%   input target signal channel.
+% 
+% detectIntMaxdB : vector
+%   Overall spectral-integrated, time-maximum detectability, dB, for each 
+%   input target signal channel.
 %
 % detectMaxPcdB : structure
-%                 contains percent-based aggregated metrics for maximum
-%                 detectability, comprising:
+%   Contains percent-based time-aggregated metrics for
+%   spectral-maximum detectability, comprising:
+%
 % Ex50 : vector
-%        50% exceeded (median) dB, for each input target signal channel
+%   50% exceeded (median) dB, for each input target signal channel.
 %
 % detectIntPcdB : structure
-%                 contains percent-based aggregated metrics for maximum
-%                 detectability, comprising:
+%   Contains percent-based time-aggregated metrics for
+%   spectral-integrated detectability, comprising:
+%
 % Ex50 : vector
-%        50% exceeded (median) dB, for each input target signal channel
+%   50% exceeded (median) dB, for each input target signal channel.
 %
 % freqBands : vector
-%             1/3-octave band centre-frequencies for input freqRange
+%   1/3-octave band centre-frequencies for input freqRange.
 %
 % timeOut : vector
-%           the window centre times for the spectrograms
+%   Window start times for the time-dependent outputs.
 %
 % Assumptions
 % -----------
@@ -180,7 +180,7 @@ function detectability = auralDetectFromLeq(leqtSpecTarget, leqtSpecMasker, time
 % Institution: University of Salford
 %
 % Date created: 05/11/2024
-% Date last modified: 20/03/2026
+% Date last modified: 23/03/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -202,7 +202,7 @@ function detectability = auralDetectFromLeq(leqtSpecTarget, leqtSpecMasker, time
         timeStep (1, 1) double {mustBePositive} = 0.5
         timeSkip (1, 2) double {mustBeReal, mustBeNonnegative} = [0, 0]
         nOct (1, 1) {mustBeInteger, mustBePositive} = 3
-        freqRange (1, 2) double {mustBeInRange(freqRange, 19, 20000)} = [20, 20000]
+        freqRange (1, 2) double {mustBeInRange(freqRange, 19, 20000)} = [19, 20000]
         outPlot {mustBeNumericOrLogical} = false
     end
 
@@ -309,7 +309,9 @@ end
 fmid = f(ilow:ihigh);
 
 if size(leqtSpecTarget, 2) ~= length(fmid) || size(leqtSpecMasker, 2) ~= length(fmid)
-    error("Error: the input range of frequency bands does not match the length of the input signal frequency band axes.")
+    error("Error: the input range of frequency bands (" + num2str(length(fmid)) +...
+          ") does not match the length of the input signal frequency band axes (target: "...
+          + num2str(size(leqtSpecTarget, 2)) + ", masker: " + num2str(size(leqtSpecMasker, 2)) + ").")
 end
 
 f1 = fmid/octRatio;  % output range of exact lower band-edge frequencies
@@ -354,9 +356,9 @@ fBandWidth_vis = fm_vis*octRatio - fm_vis/octRatio;
 eqAuditoryNoise = detectEfficiency.*(2e-5.*10.^(hearThresholdsDF(il:ih)/20)).^2/targetDetect;
 
 % Calculate detectability and discount
-detect = detectEfficiency.*powTarget./(repmat(powMasker, 1, 1, repMasker) + eqAuditoryNoise);
-detectdB = 10*log10(detect);
-discountdB = discountHalfPower./(detect./detectKnee).^discountRate;
+detectSpecT = detectEfficiency.*powTarget./(repmat(powMasker, 1, 1, repMasker) + eqAuditoryNoise);
+detectSpecTdB = 10*log10(detectSpecT);
+discountdB = discountHalfPower./(detectSpecT./detectKnee).^discountRate;
 leqtSpecDiscTarget = leqtSpecTarget - discountdB;
 
 % A-weight time-dependent spectra
@@ -370,8 +372,8 @@ powAMasker = (2e-5*10.^(lAeqSpecMasker/20)).^2;
 powADiscTarget = (2e-5*10.^(lAeqSpecDiscTarget/20)).^2;
 
 % Calculate spectral aggregation of time-dependent values
-detectTMax = squeeze(max(detect, [], 1));
-detectTInt = squeeze(sqrt(sum(detect.^2, 1)));
+detectTMax = squeeze(max(detectSpecT, [], 1));
+detectTInt = squeeze(sqrt(sum(detectSpecT.^2, 1)));
 lAeqtTarget = squeeze(20*log10(sqrt(sum(powATarget, 2))/2e-5));
 lAeqtMasker = squeeze(20*log10(sqrt(sum(powAMasker, 2))/2e-5));
 lAeqtDiscTarget = squeeze(20*log10(sqrt(sum(powADiscTarget, 2))/2e-5));
@@ -411,7 +413,7 @@ detectability.lAETarget = lAETarget;
 detectability.lAEMasker = lAEMasker;
 detectability.lAEDiscTarget = lAEDiscTarget;
 detectability.dBADiscount = dBADiscount;
-detectability.detectabilitydB = detectdB;
+detectability.detectabilitydB = detectSpecTdB;
 detectability.detectTMaxdB = detectTMaxdB;
 detectability.detectTIntdB = detectTIntdB;
 detectability.detectMaxdB = detectMaxdB;
@@ -420,7 +422,7 @@ detectability.detectMaxIntdB = detectMaxIntdB;
 detectability.detectIntMaxdB = detectIntMaxdB;
 detectability.detectMaxPcdB.Ex50 = detectMaxPcdB.Ex50;
 detectability.detectIntPcdB.Ex50 = detectIntPcdB.Ex50;
-detectability.freqBands = f;
+detectability.freqBands = fmid;
 detectability.timeOut = timeOut;
 
 %% Plotting
@@ -467,7 +469,7 @@ if outPlot
 
         ax2 = nexttile(2);
         surf(ax2, [timeOut; timeOut(end) + timeStep], fm_vis - fBandWidth_vis/2,...
-             arrangeSpectro(detectdB(:, :, targChan)).',...
+             arrangeSpectro(detectSpecTdB(:, :, targChan)).',...
              EdgeColor='none', FaceColor='interp');
         view(2);
         set(ax2, 'XLim', [timeOut(1); timeOut(end) + timeStep],...
@@ -477,7 +479,7 @@ if outPlot
         ax2.YLabel.String = "Frequency, Hz";
         ax2.XLabel.String = "Time, s";
         colormap(ax2, cmap_magma);
-        cbar = colorbar; clim([0, max(detectdB(:, :, targChan), [], 'all')]);
+        cbar = colorbar; clim([0, max(detectSpecTdB(:, :, targChan), [], 'all')]);
         cbar.Label.String = "Detectability 10log_{10}{\it d'}, dB";
         ax2.Title.String = "Masked target detectability";
         ax2.TitleFontWeight = "normal";
