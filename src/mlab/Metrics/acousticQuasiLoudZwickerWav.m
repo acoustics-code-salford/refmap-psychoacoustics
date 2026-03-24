@@ -1,4 +1,4 @@
-function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN, soundField, adjustLoud, outPlot, recalibrate)
+function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN, soundField, adjustLoud, isoFilter, outPlot, recalibrate)
 % loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN,
 %                                        soundField, adjustLoud, outPlot,
 %                                        recalibrate)
@@ -42,6 +42,13 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
 %   or ECMA-418-2:2024 ('ecma4182').
 %   The default option ('iso5321') applies no adjustment, so follows ISO
 %   532-1 more closely (for closer agreement with Zwicker's model).
+% 
+% isoFilter : Boolean true/false (default: true)
+%   Flag indicating whether to apply the ISO 532-1 1/3 octave band filters.
+%   The ISO 532-1 filters are optimised for frequency response, but the
+%   implementation is relatively slow. If false, a 6th order Butterworth 
+%   1/3-octave filterbank is used instead, which is much faster (but less 
+%   accurate, especially for low frequency bands).
 %
 % outPlot : Boolean true/false (default: false)
 %   Flag indicating whether to generate a figure from the output.
@@ -119,7 +126,7 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 09/03/2026
+% Date last modified: 24/03/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -148,7 +155,9 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
                                                {'iso5321',...
                                                 'iso5323',...
                                                 'ecma4182'})} = 'iso5321'
+        isoFilter (1, 1) {mustBeNumericOrLogical} = true
         outPlot (1, 1) {mustBeNumericOrLogical} = false
+
         recalibrate (1, 1) {mustBeNumericOrLogical} = false
     end
 
@@ -174,30 +183,48 @@ addpath(genpath(fullfile("src", "mlab")))
 
 %% Signal processing
 
-% get number of channels
-chansIn = size(p_re, 2);
+% Get 1/3-octave filtered signals
+if ~isoFilter
+    % 6th order Butterworth filter bank
+    octFiltBank = octaveFilterBank('Bandwidth', '1/3 octave',...
+                                   'SampleRate', resampledRate,...
+                                   'FrequencyRange', [25, 12600],...
+                                   'FilterOrder', 6, ...
+                                   'OctaveRatioBase', 10);
 
-% Get time-averaged power spectrum
-[pxx, ~] = poctave(p_re, resampledRate, 'spectrogram', 'BandsPerOctave', 3,...
-                   'FilterOrder', 6,...
-                   'FrequencyLimits', [25, 12600],...
-                   'Weighting', 'none',...
-                   'WindowLength', resampledRate*timeStep,...
-                   'OverlapPercent', 0);
+    signalFiltBank = octFiltBank(p_re);
 
-% reorientate power spectrum
-if chansIn == 1
-    pxx = pxx.';
 else
-    pxx = permute(pxx, [2, 1, 3]);
+    % ISO 532-1 compliant 6th order Chebyshev filter bank
+    [signalFiltBank, ~] = iso5321_third_oct_filterbank(p_re, resampledRate, 1, [25, 12600]);
 end
 
 % Calculate Leq
-Leq = 10*log10(pxx/4e-10);
+[Leq, ~] = timeAveragedLevel(signalFiltBank, resampledRate, timeStep, 1);
 
 loudness = acousticQuasiLoudZwicker(Leq, [25, 12600], timeStep, 2,...
                                     soundField, adjustLoud, outPlot,...
                                     recalibrate);
+
+% Recalculate time-aggregated outputs accounting for filter onset transient
+if isoFilter
+    % skip time
+    timeSkip = 0.3;
+    timeSkipIdx = ceil(timeSkip/timeStep) + 1;
+
+    % power-averaged overall loudness
+    loudness.loudPowAvg = power(mean(loudness.loudTDep(timeSkipIdx:end, :).^(1/log10(2)), 1), log10(2));
+
+    % 95th percentile overall loudness
+    loudness.loud5pcEx = prctile(loudness.loudTDep(timeSkipIdx:end, :), 95, 1);
+
+    % time-averaged specific loudness as a function of Bark number
+    loudness.specLoudPowAvg = squeeze(power(mean(loudness.specLoud(timeSkipIdx:end, :, :).^(1/log10(2)), 1), log10(2)));
+
+    % used for development purposes
+    loudness.loudCorePowAvg = squeeze(power(mean(loudness.loudCore(timeSkipIdx:end, :, :).^(1/log10(2)), 1), log10(2)));
+end
+
 loudness.timeOut = linspace(0, size(loudness.loudTDep, 1)*timeStep...
                             - timeStep, size(loudness.loudTDep, 1)).';
 
