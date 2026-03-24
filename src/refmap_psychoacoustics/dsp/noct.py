@@ -17,7 +17,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
  
 Date created: 29/10/2023
-Date last modified: 05/11/2024
+Date last modified: 20/03/2026
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -274,7 +274,7 @@ def noctlimits(n, fm):
     return Lu, Ll, f
 
 
-def noctfiltc(n, fm, fs, order=4, fwd_bwd=False, down_fact=1, plot=False):
+def noctfiltc(n, fm, fs, order=6, fwd_bwd=False, down_fact=1, plot=False):
     """
     Return second-order-sections (sos) for a 1/n fractional-octave-band filter
     according to BS EN IEC 61260:2014
