@@ -1,6 +1,6 @@
 [![REFMAP logo](assets/proj/horizontal_REFMAP_FINAL_LOGO-black-bg.png)](https://www.refmap.eu/)
 # refmap-psychoacoustics
-REFMAP project task 4.3: Psychoacoustics of sound from unmanned aircraft systems (UAS) / unmanned aerial vehicles (UAVs), and urban air mobility (UAM)
+RefMap project task 4.3: Psychoacoustics of sound from unmanned aircraft systems (UAS) / unmanned aerial vehicles (UAVs), and urban air mobility (UAM)
 
 # Ownership and licensing
 This repository is maintained by [mlotinga](https://github.com/mlotinga)
