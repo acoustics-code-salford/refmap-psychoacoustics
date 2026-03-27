@@ -1,8 +1,8 @@
-function [loudness, sharpness] = acousticSharpQuasiLoudWav(p, sampleRateIn, adjustLoud, timeStep, axisN, soundField, sharpMethod, outPlot, binaural, recalibrate)
+function [loudness, sharpness] = acousticSharpQuasiLoudWav(p, sampleRateIn, adjustLoud, timeStep, isoFilter, axisN, soundField, sharpMethod, outPlot, binaural)
 % [loudness, sharpness] = acousticSharpQuasiLoudWav(p, sampleRatein, adjustLoud,
 %                                                   timeStep, axisN,
 %                                                   soundField, sharpMethod,
-%                                                   outPlot, binaural, recalibrate)
+%                                                   outPlot, binaural)
 %
 % Returns quasi-sharpness and quasi-sharpness values using
 % acousticSharpFromQuasi.m from quasi-loudness results obtained using
@@ -39,6 +39,13 @@ function [loudness, sharpness] = acousticSharpQuasiLoudWav(p, sampleRateIn, adju
 %   Time step value (seconds) used to calculate the time-dependent Leq
 %   and sharpness.
 %
+% isoFilter : Boolean true/false (default: true)
+%   Flag indicating whether to apply the ISO 532-1 1/3 octave band filters.
+%   The ISO 532-1 filters are optimised for frequency response, but the
+%   implementation is relatively slow. If false, a 6th order Butterworth 
+%   1/3-octave filterbank is used instead, which is much faster (but less 
+%   accurate, especially for low frequency bands).
+%
 % axisN : integer (1 or 2, default: 1)
 %   Time axis along which to calculate the sharpness.
 %
@@ -61,10 +68,6 @@ function [loudness, sharpness] = acousticSharpQuasiLoudWav(p, sampleRateIn, adju
 %   stereo input signal. (It is assumed the relationship for binaural
 %   sharpness follows that of binaural loudness, which seems to be
 %   supported by available evidence https://doi.org/10.1051/aacus/2025048)
-%
-% recalibrate : Boolean (default: false)
-%   Indicates whether to apply a model-specific calibration to predict
-%   absolute loudness values (derived from empirical data).
 %
 % Returns
 % -------
@@ -194,7 +197,7 @@ function [loudness, sharpness] = acousticSharpQuasiLoudWav(p, sampleRateIn, adju
 % Institution: University of Salford
 %
 % Date created: 30/04/2025
-% Date last modified: 08/03/2026
+% Date last modified: 27/03/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -222,8 +225,9 @@ function [loudness, sharpness] = acousticSharpQuasiLoudWav(p, sampleRateIn, adju
         adjustLoud (1, :) string {mustBeMember(adjustLoud,...
                                                {'iso5321',...
                                                 'iso5323',...
-                                                'ecma4182'})} = 'iso5321'
+                                                'ecma4182'})}
         timeStep (1, 1) double {mustBePositive} = 0.1
+        isoFilter (1, 1) {mustBeNumericOrLogical} = true
         axisN (1, 1) {mustBeInteger, mustBeInRange(axisN, 1, 2)} = 1
         soundField (1, :) string {mustBeMember(soundField,...
                                               {'freeFrontal',...
@@ -235,7 +239,6 @@ function [loudness, sharpness] = acousticSharpQuasiLoudWav(p, sampleRateIn, adju
                                                  'widmann'})} = 'aures'
         outPlot (1, 1) {mustBeNumericOrLogical} = false
         binaural (1, 1) {mustBeNumericOrLogical} = true
-        recalibrate (1, 1) {mustBeNumericOrLogical} = true
     end
 
 %% Load path (assumes root directory is refmap-psychoacoustics)
@@ -258,27 +261,28 @@ else  % don't resample
     p_re = p;
 end
 
-% get number of channels
-numChans = size(p_re, 2);
+% Get 1/3-octave filtered signals
+if ~isoFilter
+    % 6th order Butterworth filter bank
+    octFiltBank = octaveFilterBank('Bandwidth', '1/3 octave',...
+                                   'SampleRate', resampledRate,...
+                                   'FrequencyRange', [25, 12600],...
+                                   'FilterOrder', 6, ...
+                                   'OctaveRatioBase', 10);
 
-% Get time-averaged power spectrum
-[pxx, ~] = poctave(p_re, sampleRateIn, 'spectrogram', 'BandsPerOctave', 3,...
-                   'WindowLength', sampleRateIn*timeStep,...
-                   'FrequencyLimits', [25, 12500]);
+    signalFiltBank = octFiltBank(p_re);
 
-% reorientate power spectrum
-if numChans >= 2
-    pxx = permute(pxx, [2, 1, 3]);
 else
-    pxx = pxx.';
+    % ISO 532-1 compliant 6th order Chebyshev filter bank
+    [signalFiltBank, ~] = iso5321_third_oct_filterbank(p_re, resampledRate, 1, [25, 12600]);
 end
 
 % Calculate Leq
-Leq = 10*log10(pxx/4e-10);
+[Leq, ~] = timeAveragedLevel(signalFiltBank, resampledRate, timeStep, 1);
 
 % Calculate loudness
 loudness = acousticQuasiLoudZwicker(Leq, [25 12600], timeStep, 2, soundField,...
-                                    adjustLoud, outPlot, recalibrate);
+                                    adjustLoud, outPlot);
 
 % Calculate sharpness
 sharpness = acousticSharpFromQuasiLoud(loudness.loudTDep,...

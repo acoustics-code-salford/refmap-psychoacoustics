@@ -1,7 +1,7 @@
-function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN, soundField, adjustLoud, isoFilter, outPlot, recalibrate)
+function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN, soundField, adjustLoud, isoFilter, outPlot)
 % loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN,
-%                                        soundField, adjustLoud, outPlot,
-%                                        recalibrate)
+%                                        soundField, adjustLoud, isoFilter,
+%                                        outPlot)
 %
 % Returns quasi-loudness using spectral elements of ISO 532-1 Zwicker
 % loudness model for input pressure time-series. The temporal processing of
@@ -52,10 +52,6 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
 %
 % outPlot : Boolean true/false (default: false)
 %   Flag indicating whether to generate a figure from the output.
-%
-% recalibrate : Boolean (default: false)
-%   Indicates whether to apply a model-specific calibration to predict
-%   absolute loudness values (derived from empirical data).
 %
 % Returns
 % -------
@@ -126,7 +122,7 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 24/03/2026
+% Date last modified: 27/03/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -157,8 +153,6 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
                                                 'ecma4182'})} = 'iso5321'
         isoFilter (1, 1) {mustBeNumericOrLogical} = true
         outPlot (1, 1) {mustBeNumericOrLogical} = false
-
-        recalibrate (1, 1) {mustBeNumericOrLogical} = false
     end
 
 %% Input checks
@@ -203,8 +197,7 @@ end
 [Leq, ~] = timeAveragedLevel(signalFiltBank, resampledRate, timeStep, 1);
 
 loudness = acousticQuasiLoudZwicker(Leq, [25, 12600], timeStep, 2,...
-                                    soundField, adjustLoud, outPlot,...
-                                    recalibrate);
+                                    soundField, adjustLoud, outPlot);
 
 % Recalculate time-aggregated outputs accounting for filter onset transient
 if isoFilter
@@ -217,6 +210,17 @@ if isoFilter
 
     % 95th percentile overall loudness
     loudness.loud5pcEx = prctile(loudness.loudTDep(timeSkipIdx:end, :), 95, 1);
+
+    switch adjustLoud
+        case 'iso5321'
+            model = 'zwicker';
+        case 'iso5323'
+            model = 'mgs';
+        case 'ecma4182'
+            model = 'sottek';
+    end
+    loudness.loudLvlPowAvg = soneToPhon(loudness.loudPowAvg, model);
+    loudness.loudLvl5pcEx = soneToPhon(loudness.loud5pcEx, model);
 
     % time-averaged specific loudness as a function of Bark number
     loudness.specLoudPowAvg = squeeze(power(mean(loudness.specLoud(timeSkipIdx:end, :, :).^(1/log10(2)), 1), log10(2)));

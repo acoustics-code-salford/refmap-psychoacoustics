@@ -143,7 +143,7 @@ function sharpness = acousticSharpFromQuasiLoud(loudQZTDep, specQZLoudness, adju
 % Institution: University of Salford
 %
 % Date created: 30/04/2025
-% Date last modified: 08/03/2025
+% Date last modified: 27/03/2025
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -257,13 +257,13 @@ switch sharpWeight
         switch adjustLoud
             case 'iso5321'
                 acum = "A | Q-Z";
-                calS = 0.894280845127320;
+                calS = 1.107960224433488;
             case 'iso5323'
                 acum = "A | Q-M-G-S";
-                calS = 0.891494747431091;
+                calS = 1.098469586031850;
             case 'ecma4182'
                 acum = "A | Q-SHM";
-                calS = 0.900961038918765;
+                calS = 1.135322210673135;
         end
 
     case 'vonbismarck'
@@ -271,13 +271,13 @@ switch sharpWeight
         switch adjustLoud
             case 'iso5321'
                 acum = "vBZ | Q-Z";
-                calS = 0.939418242981292;
+                calS = 1.021277699739412;
             case 'iso5323'
                 acum = "vBZ | Q-M-G-S";
-                calS = 0.945141172563504;
+                calS = 1.021150568220931;
             case 'ecma4182'
                 acum = "vBZ | Q-SHM";
-                calS = 0.933744288582680;
+                calS = 1.031655615448746;
         end
 
         q1 = 15;
@@ -290,13 +290,13 @@ switch sharpWeight
         switch adjustLoud
             case 'iso5321'
                 acum = "W | Q-Z";
-                calS = 0.942490787738152;
+                calS = 1.021379909046495;
             case 'iso5323'
                 acum = "W | Q-M-G-S";
-                calS = 0.950160865115506;
+                calS = 1.021279512048133;
             case 'ecma4182'
                 acum = "W | Q-SHM";
-                calS = 0.940057586154150;
+                calS = 1.031856782355899;
         end
 
         q1 = 15.8;
