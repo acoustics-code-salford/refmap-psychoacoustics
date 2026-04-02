@@ -14,6 +14,7 @@ dependencies = [
     "dabest>=2025.10.20",
     "guidata>=3.12.0",
     "librosa>=0.11.0",
+    "mat73>=0.65",
     "matplotlib>=3.10.6",
     "mosqito>=1.2.1",
     "numba>=0.61.2",

@@ -1459,6 +1459,19 @@ wheels = [
 ]
 
 [[package]]
+name = "mat73"
+version = "0.65"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "h5py" },
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/92/61/0e6375513085b13ad23ab150fc83d4d8faa91cba56eb2f30b646259f8214/mat73-0.65.tar.gz", hash = "sha256:ad38a06af3d483632bd939ee572b3724ea8c03d37916765d7278f9de95541ade", size = 19355, upload-time = "2024-07-24T09:12:33.007Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c9/24/e867b1b89b2a2102a5a3bb64ddcd49c5cb815244b2dadff7740c6a422e4f/mat73-0.65-py3-none-any.whl", hash = "sha256:aadfcd00f328eb8f75dd1d4a060a956dc0abefcf5af20f5bc69a5aae64d62cbf", size = 19665, upload-time = "2024-07-24T09:12:31.976Z" },
+]
+
+[[package]]
 name = "matplotlib"
 version = "3.10.6"
 source = { registry = "https://pypi.org/simple" }
@@ -2786,6 +2799,7 @@ dependencies = [
     { name = "dabest" },
     { name = "guidata" },
     { name = "librosa" },
+    { name = "mat73" },
     { name = "matplotlib" },
     { name = "mosqito" },
     { name = "numba" },
@@ -2823,6 +2837,7 @@ requires-dist = [
     { name = "dabest", specifier = ">=2025.10.20" },
     { name = "guidata", specifier = ">=3.12.0" },
     { name = "librosa", specifier = ">=0.11.0" },
+    { name = "mat73", specifier = ">=0.65" },
     { name = "matplotlib", specifier = ">=3.10.6" },
     { name = "mosqito", specifier = ">=1.2.1" },
     { name = "numba", specifier = ">=0.61.2" },

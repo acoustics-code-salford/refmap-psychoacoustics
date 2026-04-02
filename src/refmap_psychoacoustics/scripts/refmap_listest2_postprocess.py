@@ -236,7 +236,9 @@ indicesDetect = ["Detect0p5dBADiscMaxLR", "Detect0p5dBMaxMaxLR",
                  "Detect0p1dBMaxMaxLR", "Detect0p1dBIntMaxLR",
                  "Detect0p1dBMaxIntMaxLR", "Detect0p1dBIntMaxMaxLR",
                  "Detect0p5dBMaxEx50MaxLR", "Detect0p5dBIntEx50MaxLR",
-                 "Detect0p1dBMaxEx50MaxLR", "Detect0p1dBIntEx50MaxLR"]
+                 "Detect0p1dBMaxEx50MaxLR", "Detect0p1dBIntEx50MaxLR",
+                 "UASDisc0p5LAeqMaxLR", "UASDisc0p5LAEMaxLR",
+                 "UASDisc0p1LAeqMaxLR", "UASDisc0p1LAEMaxLR"]
 
 # import PNL and detection results
 fileExts = "*.csv"
@@ -2234,13 +2236,18 @@ dataByStim['UASDisc0p5LAEMaxLR'] = dataByStim['UASLAEMaxLR'] - dataByStim['Detec
 dataByStim['UASDisc0p1LAeqMaxLR'] = dataByStim['UASLAeqMaxLR'] - dataByStim['Detect0p1dBADiscMaxLR']
 dataByStim['UASDisc0p1LAEMaxLR'] = dataByStim['UASLAEMaxLR'] - dataByStim['Detect0p1dBADiscMaxLR']
 
-indicesDetect = indicesDetect + ['UASDisc0p5LAeqMaxLR', 'UASDisc0p5LAEMaxLR',
-                                 'UASDisc0p1LAeqMaxLR', 'UASDisc0p1LAEMaxLR']
-
 
 # %%%%%%%%%%%%%%%%%%%%%%%
 # reorganise column order
 # -----------------------
+
+# ensure PNL metrics after intermittency metrics
+indicesPNL.reverse()
+cols = list(dataByStim.columns)
+for col in indicesPNL:
+    cols.insert(cols.index('IntermitRatioC5MaxLR') + 1, cols.pop(cols.index(col)))
+dataByStim = dataByStim[cols]
+indicesPNL.reverse()  # revert list for use later
 
 # ensure level difference metrics follow absolute SQMs
 indicesLevelDiffs.reverse()
