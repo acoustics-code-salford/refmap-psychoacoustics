@@ -606,7 +606,7 @@ def aural_detect_from_lzeqt(lzeqt_spec_target, lzeqt_spec_masker,
     detectability = {}
     detectability['lzeqt_spec_target'] = lzeqt_spec_target
     detectability['lzeqt_spec_masker'] = lzeqt_spec_masker
-    detectability['laeqt_spec_disc_target'] = laeqt_spec_disc_target
+    detectability['lzeqt_spec_disc_target'] = lzeqt_spec_disc_target
     detectability['laeqt_disc_target'] = laeqt_disc_target
     detectability['laeqt_target'] = laeqt_target
     detectability['laeqt_masker'] = laeqt_masker
