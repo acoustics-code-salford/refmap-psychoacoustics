@@ -117,7 +117,7 @@ function loudness = acousticQuasiLoudZwicker(spectrL, fLim, timeStep, axisF, sou
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 27/03/2026
+% Date last modified: 02/04/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -172,10 +172,6 @@ if axisF == 1
     else
         spectrL = permute(spectrL, [2, 1, 3]);
     end
-end
-
-if size(spectrL, 1)*timeStep < 0.5
-    error("Error: the input signal duration is too short (it should be at least 0.5 s).")
 end
 
 % fractional octave frequencies
@@ -724,8 +720,8 @@ for chan = inChans:-1:1
     end
 
     % Calculate levels in critical bands
-    upperBarkLen = length(levelWeighted(1, max(fmAllI1, 12):fmAllI2 - fmShift1));
-    lvlWeightCB = [zeros([nTimeSteps, barkCount - upperBarkLen]), levelWeighted(:, max(fmAllI1, 12):fmAllI2 - fmShift1)];
+    upperBarkLen = length(levelWeighted(1, max(fmAllI1, 12) - fmShift1:fmAllI2 - fmShift1));
+    lvlWeightCB = [zeros([nTimeSteps, barkCount - upperBarkLen]), levelWeighted(:, max(fmAllI1, 12) - fmShift1:fmAllI2 - fmShift1)];
     CB1 = false;
     CB2 = false;
     
@@ -755,7 +751,8 @@ for chan = inChans:-1:1
     % if third critical band is included in frequency band range
     if any(barkNMapOut == barkN(3)) && fmAllI2 >= 11
     
-        lvlWeightCB3 = 10*log10(sum(10.^(levelWeighted(:, max(fmAllI1,10):11)/10), 2));
+        lvlWeightCB3 = 10*log10(sum(10.^(levelWeighted(:, max(fmAllI1,...
+                                                              10):11)/10), 2));
     
         if CB1
             lvlWeightCB(:, 3) = lvlWeightCB3;
@@ -833,10 +830,10 @@ for chan = inChans:-1:1
 
     % setup for scaling adjustments
     loudCoreScalVals = loudCore;
-    loudCoreScalMin = repmat(loudCoreScalLim(1, :), [size(loudCore, 1), 1]);
+    loudCoreScalMin = repmat(loudCoreScalLim(1, barkI1:barkI2), [size(loudCore, 1), 1]);
     maskMin = loudCore < loudCoreScalMin;
     loudCoreScalVals(maskMin) = loudCoreScalMin(maskMin);
-    loudCoreScalMax = repmat(loudCoreScalLim(2, :), [size(loudCore, 1), 1]);
+    loudCoreScalMax = repmat(loudCoreScalLim(2, barkI1:barkI2), [size(loudCore, 1), 1]);
     maskMax = loudCore > loudCoreScalMax;
     loudCoreScalVals(maskMax) = loudCoreScalMax(maskMax);
     loudCoreScalTform = log2(loudCoreScalVals + xShift);
@@ -844,7 +841,7 @@ for chan = inChans:-1:1
     % loop through critical bands and estimating scaling factors
     loudCoreScale = ones(size(loudCoreScalTform));
     for iBand = 1:barkCount
-        loudCoreScale(:, iBand) = polyval(polyCoeffs(:, iBand), loudCoreScalTform(:, iBand));
+        loudCoreScale(:, iBand) = polyval(polyCoeffs(:, iBand + barkI1 - 1), loudCoreScalTform(:, iBand));
     end
 
     % these operations reduce the effect of the scaling at low sone
@@ -980,6 +977,7 @@ for chan = inChans:-1:1
     %%%% End of SQAT(/AARAE) code adapted
     specLoud(:, :, chan) = specLoudChan;
     loudTDep(:, chan) = loudTDepChan;
+
 end  % end of for loop over channels
 
 % power-averaged overall loudness

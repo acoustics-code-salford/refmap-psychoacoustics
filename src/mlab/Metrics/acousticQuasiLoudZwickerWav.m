@@ -122,7 +122,7 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
 % Institution: University of Salford
 %
 % Date created: 23/04/2025
-% Date last modified: 27/03/2026
+% Date last modified: 02/04/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -160,6 +160,11 @@ function loudness = acousticQuasiLoudZwickerWav(p, sampleRateIn, timeStep, axisN
 % Orientate signal
 if axisN == 2
     p = p.';
+end
+
+% Check signal length
+if isoFilter && size(p, 1)/sampleRateIn <= 0.3 + timeStep
+    error("Error: the input signal duration is too short for the selected filter (it should be longer than " + num2str(0.3 + timeStep) + " s).")
 end
 
 % Ensure sampling rate is full range
