@@ -20,7 +20,7 @@ library(ggplot2)
 library(party)
 library(conflicted)
 library(tidyverse)
-library(openxlsx)
+library(openxlsx2)
 library(caret)
 library(viridis)
 library(cowplot)
@@ -153,6 +153,40 @@ stimDataNum <- stimDataNum |> dplyr::filter(UASEvents != 0)
 
 
 stimDataNum$SNRlevel <- as.numeric(stimDataNum$SNRlevel)
+```
+
+## Load existing results files (if wanted)
+
+```{r}
+
+loadExisting <- FALSE
+
+if (loadExisting){
+  # annoy mean results
+  resdAnnoyMnFitAB <- utils::read.csv(file.path(outDataPath, "\\PtsABCRFdAnnoyMnOOBFit.csv"), sep = ",", row.names=1)
+  
+  resdAnnoyMnPermImpAB <- list()
+  wb <- openxlsx2::wb_load(file.path(outDataPath, "\\PtsABCRFdAnnoyMnConPermimp.xlsx"))
+  sheetNames<- wb_get_sheet_names(wb)
+
+  for (sheet in sheetNames){
+    col_name <- names(openxlsx2::wb_to_df(wb, sheet, row_names=TRUE))
+    resdAnnoyMnPermImpAB[[col_name]] <- openxlsx2::wb_to_df(wb, sheet, row_names=TRUE)
+  }
+  
+  # high annoyance results
+  resdHiAnnoyFitAB <- utils::read.csv(file.path(outDataPath, "\\PtsABCRFdHiAnnoyOOBFit.csv"), sep = ",", row.names=1)
+  
+  resdHiAnnoyPermImpAB <- list()
+  wb <- openxlsx2::wb_load(file.path(outDataPath, "\\PtsABCRFdHiAnnoyConPermimp.xlsx"))
+  sheetNames<- wb_get_sheet_names(wb)
+
+  for (sheet in sheetNames){
+    col_name <- names(openxlsx2::wb_to_df(wb, sheet, row_names=TRUE))
+    resdHiAnnoyPermImpAB[[col_name]] <- openxlsx2::wb_to_df(wb, sheet, row_names=TRUE)
+  }
+}
+
 ```
 
 # Random forest functions
@@ -1743,7 +1777,7 @@ Selected hyperparameters
 ```{r}
 
 ntree <-501
-mtry <- as.integer(length(iVars)/1.5)
+mtry <- as.integer(length(iVars)/1.25)
 
 ```
 
@@ -1850,7 +1884,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 501
+ntree <- 251
 mtry <- as.integer(length(iVars)/1.75)
 
 ```
@@ -2639,7 +2673,7 @@ if (savedata){
     temp[[ii]] <- as.data.frame(resdAnnoyMnPermImpAB[ii])
     names(temp[[ii]]) <- names(resdAnnoyMnPermImpAB[ii])
   }
-  openxlsx::write.xlsx(temp, paste(outDataPath, "\\PtsABCRFdAnnoyMnConPermimp.xlsx",
+  openxlsx2::write_xlsx(temp, paste(outDataPath, "\\PtsABCRFdAnnoyMnConPermimp.xlsx",
                                    sep=""),
                        rowNames=TRUE)
 }
@@ -3760,7 +3794,7 @@ Selected hyperparameters
 ```{r}
 
 ntree <- 1001
-mtry <- as.integer(length(iVars)/2.75)
+mtry <- as.integer(length(iVars)/2.25)
 
 ```
 
@@ -3846,7 +3880,7 @@ if (saveplots){
 ```
 
 
-```{r, fig.width=8,fig.height=7}
+```{r, fig.width=8,fig.height=6}
 
 # Plot only values within 1% of the maximum
 
@@ -3859,10 +3893,10 @@ pBar <- ggplot(resultsOutAbsDiffs.conimp1pc) + geom_col(aes(x=factor(rownames(re
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimp1pc.svg", width=8, height=7, path=file.path(outFigPath, "svg"))
+  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimp1pc.svg", width=8, height=6, path=file.path(outFigPath, "svg"))
   unlink("PtsABdHiAnnoyAllVarsConPermimp1pc.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimp1pc.pdf", width=8, height=7, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimp1pc.pdf", width=8, height=6, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdHiAnnoyAllVarsConPermimp1pc.pdf")
 }
 
@@ -3915,7 +3949,7 @@ Selected hyperparameters
 ```{r}
 
 ntree <- 251
-mtry <- as.integer(length(iVars)/1.5)
+mtry <- as.integer(length(iVars)/1.75)
 
 ```
 
@@ -4808,7 +4842,7 @@ if (savedata){
     temp[[ii]] <- as.data.frame(resdHiAnnoyPermImpAB[ii])
     names(temp[[ii]]) <- names(resdHiAnnoyPermImpAB[ii])
   }
-  openxlsx::write.xlsx(temp, paste(outDataPath, "\\PtsABCRFdHiAnnoyConPermimp.xlsx",
+  openxlsx2::write_xlsx(temp, paste(outDataPath, "\\PtsABCRFdHiAnnoyConPermimp.xlsx",
                                    sep=""),
                        rowNames=TRUE)
 }
@@ -5033,7 +5067,7 @@ if (savedata){
     ii <- ii + 1
     temp[[ii]] <- data.frame(resSummary[ii])
   }
-  openxlsx::write.xlsx(temp, paste(outDataPath, "\\PtsABCRFSummary.xlsx",
+  openxlsx2::write_xlsx(temp, paste(outDataPath, "\\PtsABCRFSummary.xlsx",
                                    sep=""),
                        rowNames=TRUE)
 }

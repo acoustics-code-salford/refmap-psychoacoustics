@@ -20,7 +20,7 @@ library(ggplot2)
 library(party)
 library(conflicted)
 library(tidyverse)
-library(openxlsx)
+library(openxlsx2)
 library(caret)
 library(viridis)
 library(cowplot)
@@ -122,6 +122,40 @@ stimDataAmb <- cbind(Stimulus = stimData[, "Stimulus"],
 stimDataUAS <- stimDataUAS |> dplyr::filter(UASEvents != 0)
 
 
+
+```
+
+## Load existing results files (if wanted)
+
+```{r}
+
+loadExisting <- FALSE
+
+if (loadExisting){
+  # annoy mean results
+  resdAnnoyMnFit <- utils::read.csv(file.path(outDataPath, "\\CRFdAnnoyMnOOBFit.csv"), sep = ",", row.names=1)
+  
+  resdAnnoyMnPermImp <- list()
+  wb <- openxlsx2::wb_load(file.path(outDataPath, "\\CRFdAnnoyMnConPermimp.xlsx"))
+  sheetNames<- wb_get_sheet_names(wb)
+
+  for (sheet in sheetNames){
+    col_name <- names(openxlsx2::wb_to_df(wb, sheet, row_names=TRUE))
+    resdAnnoyMnPermImp[[col_name]] <- openxlsx2::wb_to_df(wb, sheet, row_names=TRUE)
+  }
+  
+  # high annoyance results
+  resdHiAnnoyFit <- utils::read.csv(file.path(outDataPath, "\\CRFdHiAnnoyOOBFit.csv"), sep = ",", row.names=1)
+  
+  resdHiAnnoyPermImp <- list()
+  wb <- openxlsx2::wb_load(file.path(outDataPath, "\\CRFdHiAnnoyConPermimp.xlsx"))
+  sheetNames<- wb_get_sheet_names(wb)
+
+  for (sheet in sheetNames){
+    col_name <- names(openxlsx2::wb_to_df(wb, sheet, row_names=TRUE))
+    resdHiAnnoyPermImp[[col_name]] <- openxlsx2::wb_to_df(wb, sheet, row_names=TRUE)
+  }
+}
 
 ```
 
@@ -2801,7 +2835,7 @@ if (savedata){
     temp[[ii]] <- as.data.frame(resdAnnoyMnPermImp[ii])
     names(temp[[ii]]) <- names(resdAnnoyMnPermImp[ii])
   }
-  openxlsx::write.xlsx(temp, paste(outDataPath, "\\CRFdAnnoyMnConPermimp.xlsx",
+  openxlsx2::write_xlsx(temp, paste(outDataPath, "\\CRFdAnnoyMnConPermimp.xlsx",
                                    sep=""),
                        rowNames=TRUE)
 }
@@ -5021,7 +5055,7 @@ if (savedata){
     temp[[ii]] <- as.data.frame(resdHiAnnoyPermImp[ii])
     names(temp[[ii]]) <- names(resdHiAnnoyPermImp[ii])
   }
-  openxlsx::write.xlsx(temp, paste(outDataPath, "\\CRFdHiAnnoyConPermimp.xlsx",
+  openxlsx2::write_xlsx(temp, paste(outDataPath, "\\CRFdHiAnnoyConPermimp.xlsx",
                                    sep=""),
                        rowNames=TRUE)
 }
@@ -5287,7 +5321,7 @@ if (savedata){
     ii <- ii + 1
     temp[[ii]] <- data.frame(resSummary[ii])
   }
-  openxlsx::write.xlsx(temp, paste(outDataPath, "\\CRFSummary.xlsx",
+  openxlsx2::write_xlsx(temp, paste(outDataPath, "\\CRFSummary.xlsx",
                                    sep=""),
                        rowNames=TRUE)
 }
