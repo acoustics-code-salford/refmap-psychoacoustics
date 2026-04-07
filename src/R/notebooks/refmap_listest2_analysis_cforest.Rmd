@@ -121,8 +121,6 @@ stimDataAmb <- cbind(Stimulus = stimData[, "Stimulus"],
 # omit ambient-only stimuli
 stimDataUAS <- stimDataUAS |> dplyr::filter(UASEvents != 0)
 
-
-
 ```
 
 ## Load existing results files (if wanted)
@@ -591,6 +589,8 @@ if (saveplots){
   unlink(paste(filename, ".pdf", sep = ""))
 }
 ```
+## >>>Bind ambient env variable
+
 These results indicate that the ambient sound quality variables have very little individual influence on the outcome.
 
 Therefore, the ambient can be factored in as a categorical variable to be used in the analysis.
@@ -1726,6 +1726,8 @@ if (saveplots){
 
 iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEvents'):which(names(stimDataNum) == 'dPsychAnnoyBoucher')]
 
+iVars <- c(iVars, "AmbientEnvVar")
+
 dVar <- "dAnnoyanceMean"
 
 seeds <- c(650834, 45634110, 78028376, 498, 808365)
@@ -1756,8 +1758,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 5501
-mtry <- as.integer(length(iVars)/1.5)
+ntree <- 4001
+mtry <- as.integer(length(iVars)/2.75)
 
 ```
 
@@ -1823,7 +1825,7 @@ if (saveplots){
 
 ```
 
-```{r, fig.width=8,fig.height=20}
+```{r, fig.width=8,fig.height=22}
 
 # Plot only positive values
 
@@ -1838,17 +1840,17 @@ pBar
 filename <- "dAnnoyMnAllVarsConPermimpPtv"
 
 if (saveplots){
-  ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=20, path=file.path(outFigPath, "svg"))
+  ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=22, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=12, height=20, path=file.path(outFigPath, "pdf"))
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=12, height=22, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 }
 
 
 ```
 
-```{r, fig.width=8,fig.height=6}
+```{r, fig.width=8,fig.height=8}
 
 # Plot only values within 1% of the maximum
 
@@ -1863,10 +1865,10 @@ pBar
 filename <- "dAnnoyMnAllVarsConPermimp1pc"
 
 if (saveplots){
-  ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=6, path=file.path(outFigPath, "svg"))
+  ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=8, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=12, height=6, path=file.path(outFigPath, "pdf"))
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=12, height=8, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 }
 ```
@@ -1875,7 +1877,7 @@ Selected metric
 
 ```{r}
 
-allVar <- "Detect0p1dBIntEx50MaxLR"
+allVar <- "Detect0p5dBIntEx50MaxLR"
 
 ```
 
@@ -1917,8 +1919,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <-5501
-mtry <- as.integer(length(iVars)/1.5)
+ntree <-1001
+mtry <- as.integer(length(iVars)/2.25)
 
 ```
 
@@ -2027,7 +2029,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1501
+ntree <- 4001
 mtry <- as.integer(length(iVars)/1.75)
 
 ```
@@ -3960,6 +3962,8 @@ if (saveplots){
 
 iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEvents'):which(names(stimDataNum) == 'dPsychAnnoyBoucher')]
 
+iVars <- c(iVars, "AmbientEnvVar")
+
 dVar <- "dHighAnnoyPc"
 
 seeds <- c(649851, 60, 732, 52537, 160598)
@@ -3980,8 +3984,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
-mtry <- as.integer(length(iVars)/2.25)
+ntree <- 5501
+mtry <- as.integer(length(iVars)/2.75)
 
 ```
 
@@ -4142,7 +4146,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 4001
+ntree <- 2501
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -4247,7 +4251,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 501
+ntree <- 4001
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -4321,7 +4325,7 @@ Selected metric
 
 ```{r}
 
-allTonLdVar <- "PartTonLdSHMPowAvg"
+allTonLdVar <- "UASTonShpAurSHM05Ex"
 
 ```
 
@@ -4779,7 +4783,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 5501
+ntree <- 4001
 mtry <- as.integer(length(iVars)/1.6)
 
 ```
