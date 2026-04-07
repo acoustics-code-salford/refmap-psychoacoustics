@@ -2042,7 +2042,7 @@ wheels = [
 
 [[package]]
 name = "pingouin"
-version = "0.5.5"
+version = "0.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "matplotlib" },
@@ -2055,9 +2055,9 @@ dependencies = [
     { name = "statsmodels" },
     { name = "tabulate" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0e/3d/14a779790bac2d03a0d8f82c1857fc83c0ef8b1b77542b884808e55ee839/pingouin-0.5.5.tar.gz", hash = "sha256:2aac834128e99a4df8cffd8151c21adc7c42fe493e389c6fc2581b84e436ddd9", size = 232233, upload-time = "2024-09-04T10:42:51.542Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c8/3f/354391f09b826ca73fbb0e59222c531ffe38de8f5b6a8decb66e435ceb26/pingouin-0.6.1.tar.gz", hash = "sha256:df5ac1f057ef257c07cf0e0785ac8fb9ace923ba1b0ef775886914d674a9f63d", size = 233176, upload-time = "2026-03-28T14:04:36.186Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/eb/56/6d3607f3a78aee1de8e5466f5171722c8e344266a12dc44ccb73d024b3b3/pingouin-0.5.5-py3-none-any.whl", hash = "sha256:3156afe44ee5541131200848ee905937930757b615aca8eed8438ad4d4e20ef1", size = 204367, upload-time = "2024-09-04T10:42:50.053Z" },
+    { url = "https://files.pythonhosted.org/packages/58/6d/23037a7081a15c2ddfcd788194996bafe5c4cee8532d7e23d5e5beebcfbe/pingouin-0.6.1-py3-none-any.whl", hash = "sha256:514f2897d7ee354723268551147bbc95849ccec83d6f1dddde1395779c6a7b15", size = 203990, upload-time = "2026-03-28T14:04:34.536Z" },
 ]
 
 [[package]]
