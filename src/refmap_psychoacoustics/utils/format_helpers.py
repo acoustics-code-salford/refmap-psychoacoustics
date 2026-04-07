@@ -92,15 +92,18 @@ def display_round(val, digits=3, floor=True):
         if val > 0:
             val_string = "<" + str(copysign(crit, val))
         else:
-            val_string = ">" + str(copysign(crit, val))
+            val_string = str(copysign(crit, val))
 
     else:
         valrnd = round_trad(val, digits)
-        val_string = f'{valrnd:f}'.rstrip("0")
-        dec = int(val_string.split('.')[-1])
-        zs = len(val_string.split('.')[-1]) - len(val_string.split('.')[-1].lstrip("0"))
-        nzeros = digits - len(str(dec)) - zs
-        if nzeros > 0:
-            val_string = val_string + nzeros*"0"
+        if valrnd == 0:
+            val_string = "0." + digits*"0"
+        else:
+            val_string = f'{valrnd:f}'.rstrip("0")
+            dec = int(val_string.split('.')[-1])
+            zs = len(val_string.split('.')[-1]) - len(val_string.split('.')[-1].lstrip("0"))
+            nzeros = digits - len(str(dec)) - zs
+            if nzeros > 0:
+                val_string = val_string + nzeros*"0"
 
     return(val_string)
