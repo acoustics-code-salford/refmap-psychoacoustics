@@ -10,34 +10,34 @@ function fluctuationSHM = acousticSHMFluctuation(p, sampleRateIn, axisN, soundFi
 % Inputs
 % ------
 % p : vector or 2D matrix
-%   the input signal as single mono or stereo audio (sound pressure)
-%   signals
+%   Input signal as single mono or stereo audio (sound
+%   pressure) signals
 %
 % sampleRateIn : integer
-%   the sample rate (frequency) of the input signal(s)
+%   Sample rate (frequency) of the input signal(s)
 %
 % axisN : integer (1 or 2, default: 1)
-%   the time axis along which to calculate the tonality
+%   Time axis along which to calculate the tonality
 %
 % soundField : keyword string (default: 'freeFrontal')
-%   determines whether the 'freeFrontal' or 'diffuse' field stages are
-%   applied in the outer-middle ear filter, or 'noOuter' uses only the
-%   middle ear stage, or 'noEar' omits ear filtering. Note: these last two
-%   options are beyond the scope of the standard, but may be useful if
-%   recordings made using artificial outer/middle ear are to be processed
-%   using the specific recorded responses.
+%   Determines whether the 'freeFrontal' or 'diffuse' field stages
+%   are applied in the outer-middle ear filter, or 'noOuter' uses
+%   only the middle ear stage, or 'noEar' omits ear filtering.
+%   Note: these last two options are beyond the scope of the
+%   standard, but may be useful if recordings made using
+%   artificial outer/middle ear are to be processed using the
+%   specific recorded responses.
 %
 % waitBar : keyword string (default: true)
-%   determines whether a progress bar displays during processing
-%   (set waitBar to false for doing multi-file parallel calculations)
+%   Determines whether a progress bar displays during processing
 %
-% outplot : Boolean true/false (default: false)
-%   flag indicating whether to generate a figure from the output
+% outPlot : Boolean true/false (default: false)
+%   Flag indicating whether to generate a figure from the output
 %
 % binaural : Boolean true/false (default: true)
-%   flag indicating whether to output binaural fluctuation strength for
-% stereo input signal.
-% 
+%   Flag indicating whether to output combined binaural roughness
+%   for stereo input signal.
+%
 % Returns
 % -------
 %
@@ -98,7 +98,7 @@ function fluctuationSHM = acousticSHMFluctuation(p, sampleRateIn, axisN, soundFi
 % Institution: University of Salford
 %
 % Date created: 16/05/2025
-% Date last modified: 31/10/2025
+% Date last modified: 07/04/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -480,13 +480,9 @@ for chan = chansIn:-1:1
             % identify peaks in each block (for each band)
             % NOTE: peak search limited to k = 0,...,48
             [PhiPks, kLocs, ~, ~] = findpeaks(envMagSqSpectra(0 + mlabIndex:48 + mlabIndex,...
-<<<<<<< Updated upstream
-                                                             lBlock,...
-                                                             zBand));
-=======
                                                               lBlock,...
                                                               zBand));
->>>>>>> Stashed changes
+
             mask = PhiPks >= modSpecCriterion(lBlock, zBand);
             PhiPksMask = PhiPks(mask);
             kLocsMask = kLocs(mask);
