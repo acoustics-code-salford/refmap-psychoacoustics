@@ -19,6 +19,9 @@ from refmap_psychoacoustics.metrics import psych_annoy
 from scipy import stats, io
 from warnings import simplefilter
 
+# random number generator and set seed (for bootstrap)
+rng = np.random.Generator(np.random.PCG64(seed=808))
+
 # suppress pandas performance warnings
 simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
@@ -2352,19 +2355,38 @@ for ii, file in enumerate(stimSorted):
         responseData = pd.DataFrame(data=np.array(responseData[response]),
                                     index=columns, columns=[file]).transpose()
         
-        # if responseData is not all NaN (no responses), calculate median and mean
+        # if responseData is not all NaN (no responses), calculate median and mean and bootstrapped confidence intervals
         if not np.all(responseData.isna()):
+
+            responseMedianBoot = stats.bootstrap(responseData.values, statistic=np.nanmedian, confidence_level=0.95,
+                                                  method='basic', n_resamples=20000, random_state=rng)
+            responseMeanBoot = stats.bootstrap(responseData.values, statistic=np.nanmean, confidence_level=0.95,
+                                                method='basic', n_resamples=20000, random_state=rng)
+
             responseAgg = pd.DataFrame(data=np.vstack([np.nanpercentile(responseData.values,
                                                                         q=50, axis=1,
                                                                         method='median_unbiased')[0],
-                                                    np.nanmean(responseData.values, axis=1)[0]]),
+                                                       responseMedianBoot.confidence_interval.low,
+                                                       responseMedianBoot.confidence_interval.high,
+                                                       np.nanmean(responseData.values, axis=1)[0],
+                                                       responseMeanBoot.confidence_interval.low,
+                                                       responseMeanBoot.confidence_interval.high]),
                                        index=[response + 'Median',
-                                              response + 'Mean'],
+                                              response + 'MedianCI_Low',
+                                              response + 'MedianCI_High',
+                                              response + 'Mean',
+                                              response + 'MeanCI_Low',
+                                              response + 'MeanCI_High'],
                                        columns=[file]).transpose()
         else:
-            responseAgg = pd.DataFrame(data=np.vstack([np.nan, np.nan]),
+            responseAgg = pd.DataFrame(data=np.vstack([np.nan, np.nan, np.nan,
+                                                       np.nan, np.nan, np.nan]),
                                        index=[response + 'Median',
-                                              response + 'Mean'],
+                                              response + 'MedianCI_Low',
+                                              response + 'MedianCI_High',
+                                              response + 'Mean',
+                                              response + 'MeanCI_Low',
+                                              response + 'MeanCI_High'],
                                        columns=[file]).transpose()
 
         # add to testData DataFrame
@@ -2373,7 +2395,11 @@ for ii, file in enumerate(stimSorted):
             testData = testData.join(responseData, how='outer')
         else:
             testData.loc[file, response + 'Median'] = responseAgg.loc[file, response + 'Median']
+            testData.loc[file, response + 'MedianCI_Low'] = responseAgg.loc[file, response + 'MedianCI_Low']
+            testData.loc[file, response + 'MedianCI_High'] = responseAgg.loc[file, response + 'MedianCI_High']
             testData.loc[file, response + 'Mean'] = responseAgg.loc[file, response + 'Mean']
+            testData.loc[file, response + 'MeanCI_Low'] = responseAgg.loc[file, response + 'MeanCI_Low']
+            testData.loc[file, response + 'MeanCI_High'] = responseAgg.loc[file, response + 'MeanCI_High']
             
             for col in columns:
                 testData.loc[file, col] = responseData.loc[file, col]
@@ -2444,7 +2470,11 @@ for ii, file in enumerate(stimSorted):
 # and group by response type
 indivCols = [col for col in testData.columns
              if not (col.endswith('Median')
+                     or col.endswith('MedianCI_Low')
+                     or col.endswith('MedianCI_High')
                      or col.endswith('Mean')
+                     or col.endswith('MeanCI_Low')
+                     or col.endswith('MeanCI_High')
                      or col.endswith('Total')
                      or col.endswith('Prop'))]
 indivCols.sort()
