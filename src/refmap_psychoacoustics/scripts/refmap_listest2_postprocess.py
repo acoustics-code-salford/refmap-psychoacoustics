@@ -2358,19 +2358,30 @@ for ii, file in enumerate(stimSorted):
         # if responseData is not all NaN (no responses), calculate median and mean and bootstrapped confidence intervals
         if not np.all(responseData.isna()):
 
-            responseMedianBoot = stats.bootstrap(responseData.values, statistic=np.nanmedian, confidence_level=0.95,
-                                                  method='basic', n_resamples=20000, random_state=rng)
-            responseMeanBoot = stats.bootstrap(responseData.values, statistic=np.nanmean, confidence_level=0.95,
-                                                method='basic', n_resamples=20000, random_state=rng)
+            # if file contains "Baseline", and response contains "d", skip bootstrapping and set confidence intervals to 0, since these are difference scores relative to the Baseline condition
+            if "Baseline" in file and "d" in response:
+                medianCI_Low = 0
+                medianCI_High = 0
+                meanCI_Low = 0
+                meanCI_High = 0
+                
+            else:
+                responseMedianBoot = stats.bootstrap(responseData.values, statistic=np.nanmedian, confidence_level=0.95,
+                                                    method='percentile', n_resamples=20000, random_state=rng)
+                responseMeanBoot = stats.bootstrap(responseData.values, statistic=np.nanmean, confidence_level=0.95,
+                                                    method='BCa', n_resamples=20000, random_state=rng)
+                
+                medianCI_Low = responseMedianBoot.confidence_interval.low
+                medianCI_High = responseMedianBoot.confidence_interval.high
+                meanCI_Low = responseMeanBoot.confidence_interval.low
+                meanCI_High = responseMeanBoot.confidence_interval.high
 
             responseAgg = pd.DataFrame(data=np.vstack([np.nanpercentile(responseData.values,
                                                                         q=50, axis=1,
                                                                         method='median_unbiased')[0],
-                                                       responseMedianBoot.confidence_interval.low,
-                                                       responseMedianBoot.confidence_interval.high,
+                                                       medianCI_Low, medianCI_High,
                                                        np.nanmean(responseData.values, axis=1)[0],
-                                                       responseMeanBoot.confidence_interval.low,
-                                                       responseMeanBoot.confidence_interval.high]),
+                                                       meanCI_Low, meanCI_High]),
                                        index=[response + 'Median',
                                               response + 'MedianCI_Low',
                                               response + 'MedianCI_High',
@@ -2414,17 +2425,37 @@ for ii, file in enumerate(stimSorted):
         
         # if responseData is not all NaN (no responses), calculate total and proportion
         if not np.all(responseData.isna()):
+
+            # if file contains "Baseline", and response contains "d", skip bootstrapping and set confidence intervals to 0, since these are difference scores relative to the Baseline condition
+            if ("Baseline" in file and "d" in response) or np.nansum(responseData.values) == 0:
+                meanCI_Low = 0
+                meanCI_High = 0
+
+            else:
+
+                responseMeanBoot = stats.bootstrap(responseData.values, statistic=np.nanmean, confidence_level=0.95,
+                                                    method='BCa', n_resamples=20000, random_state=rng)
+
+                meanCI_Low = responseMeanBoot.confidence_interval.low
+                meanCI_High = responseMeanBoot.confidence_interval.high
+
             responseAgg = pd.DataFrame(data=np.vstack([np.nansum(responseData.values,
                                                                  axis=1)[0],
                                                        np.nanmean(responseData.values,
-                                                                  axis=1)[0]]),
+                                                                  axis=1)[0],
+                                                       meanCI_Low,
+                                                       meanCI_High]),
                                        index=[response + 'Total',
-                                              response + 'Prop'],
+                                              response + 'Prop',
+                                              response + 'PropCI_Low',
+                                              response + 'PropCI_High'],
                                        columns=[file]).transpose()
         else:
-            responseAgg = pd.DataFrame(data=np.vstack([np.nan, np.nan]),
+            responseAgg = pd.DataFrame(data=np.vstack([np.nan, np.nan, np.nan, np.nan]),
                                        index=[response + 'Total',
-                                              response + 'Prop'],
+                                              response + 'Prop',
+                                              response + 'PropCI_Low',
+                                              response + 'PropCI_High'],
                                        columns=[file]).transpose()
 
         # add to testData DataFrame
@@ -2434,6 +2465,8 @@ for ii, file in enumerate(stimSorted):
         else:
             testData.loc[file, response + 'Total'] = responseAgg.loc[file, response + 'Total']
             testData.loc[file, response + 'Prop'] = responseAgg.loc[file, response + 'Prop']
+            testData.loc[file, response + 'PropCI_Low'] = responseAgg.loc[file, response + 'PropCI_Low']
+            testData.loc[file, response + 'PropCI_High'] = responseAgg.loc[file, response + 'PropCI_High']
             
             for col in columns:
                 testData.loc[file, col] = responseData.loc[file, col]
@@ -2448,12 +2481,30 @@ for ii, file in enumerate(stimSorted):
         
         # if responseData is not all NaN (no responses), calculate mean
         if not np.all(responseData.isna()):
-            responseAgg = pd.DataFrame(data=np.nanmean(responseData.values, axis=1)[0],
-                                       index=[response + 'Mean'],
+
+            if "Baseline" in file and "d" in response:
+                meanCI_Low = 0
+                meanCI_High = 0
+
+            else:
+                responseMeanBoot = stats.bootstrap(responseData.values, statistic=np.nanmean, confidence_level=0.95,
+                                                    method='BCa', n_resamples=20000, random_state=rng)
+
+                meanCI_Low = responseMeanBoot.confidence_interval.low
+                meanCI_High = responseMeanBoot.confidence_interval.high
+
+            responseAgg = pd.DataFrame(data=np.vstack([np.nanmean(responseData.values, axis=1)[0],
+                                                       meanCI_Low,
+                                                       meanCI_High]),
+                                       index=[response + 'Mean',
+                                              response + 'MeanCI_Low',
+                                              response + 'MeanCI_High'],
                                        columns=[file]).transpose()
         else:
-            responseAgg = pd.DataFrame(data=np.nan,
-                                       index=[response + 'Mean'],
+            responseAgg = pd.DataFrame(data=np.vstack([np.nan, np.nan, np.nan]),
+                                       index=[response + 'Mean',
+                                              response + 'MeanCI_Low',
+                                              response + 'MeanCI_High'],
                                        columns=[file]).transpose()
         
         # add to testData DataFrame
@@ -2462,6 +2513,8 @@ for ii, file in enumerate(stimSorted):
             testData = testData.join(responseData, how='outer')
         else:
             testData.loc[file, response + 'Mean'] = responseAgg.loc[file, response + 'Mean']
+            testData.loc[file, response + 'MeanCI_Low'] = responseAgg.loc[file, response + 'MeanCI_Low']
+            testData.loc[file, response + 'MeanCI_High'] = responseAgg.loc[file, response + 'MeanCI_High']
             
             for col in columns:
                 testData.loc[file, col] = responseData.loc[file, col]
@@ -2476,7 +2529,9 @@ indivCols = [col for col in testData.columns
                      or col.endswith('MeanCI_Low')
                      or col.endswith('MeanCI_High')
                      or col.endswith('Total')
-                     or col.endswith('Prop'))]
+                     or col.endswith('Prop')
+                     or col.endswith('PropCI_Low')
+                     or col.endswith('PropCI_High'))]
 indivCols.sort()
 cols = list(testData.columns)
 cols.sort()
