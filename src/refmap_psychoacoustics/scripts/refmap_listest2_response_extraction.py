@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 from PyQt5.QtWidgets import QFileDialog, QApplication
 from warnings import simplefilter
+from refmap_psychoacoustics.utils import data_helpers
 
 # suppress pandas performance warnings
 simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
@@ -97,9 +98,21 @@ df_endAnnoy.drop(columns=['response'], inplace=True)
 
 df_endCircumplex = df[df['response'] == "EndCircumplex"]
 df_endCircumplex = df_endCircumplex.loc[:, ~((df_endCircumplex.columns.str.contains('^Unnamed')) & (df_endCircumplex.isnull().all()))]
-df_endCircumplex.rename(columns={"rating" : "Pleasantness"}, inplace=True)
-df_endCircumplex.rename(columns={df_endCircumplex.columns[df_endCircumplex.columns.str.contains('^Unnamed')][0] : "Eventfulness"}, inplace=True)
-df_endCircumplex.drop(columns=['response'], inplace=True)
+df_endCircumplex.rename(columns={"rating" : "XPleasantness"}, inplace=True)
+df_endCircumplex.rename(columns={df_endCircumplex.columns[df_endCircumplex.columns.str.contains('^Unnamed')][0] : "YEventfulness"}, inplace=True)
+
+# Transformation from raw input circumplex XY to ISO 12913-3:2025 Annex A transformed coordinates
+# form an array from the original circumplex coordinates and apply the ISO transform to get the transformed coordinates
+circumplexXY = np.array([df_endCircumplex['XPleasantness'], df_endCircumplex['YEventfulness']]).T
+transformedCircumplexXY = np.zeros(circumplexXY.shape)
+for row in range(circumplexXY.shape[0]):
+    transformedCircumplexXY[row] = data_helpers.iso_transform_circ(circumplexXY[row, 0], circumplexXY[row, 1])
+
+df_endCircumplex['Pleasantness'] = transformedCircumplexXY[:, 0]
+df_endCircumplex['Eventfulness'] = transformedCircumplexXY[:, 1]
+
+df_endCircumplex.drop(columns=['response', 'XPleasantness', 'YEventfulness'], inplace=True)
+
 # merge DataFrames
 df_endResponse = pd.merge(df_endAnnoy, df_endCircumplex, how='inner')
 
