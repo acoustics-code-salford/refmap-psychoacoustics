@@ -32,6 +32,8 @@ violin_facet(data, plot_func, facet_col=None, facet_row=None, col_order=None,
                 yticks=None, **plot_kwargs)
     Create a faceted grid of violin plots using a custom plotting function.
 
+
+
 Requirements
 ------------
 matplotlib
@@ -44,7 +46,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
  
 Date created: 17/03/2026
-Date last modified: 17/03/2026
+Date last modified: 22/04/2026
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -723,3 +725,4 @@ def violin_facet(data, plot_func, facet_col=None, facet_row=None,
     fig.tight_layout()
 
     return fig, axes
+
