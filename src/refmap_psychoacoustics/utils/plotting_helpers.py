@@ -46,7 +46,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
  
 Date created: 17/03/2026
-Date last modified: 22/04/2026
+Date last modified: 03/05/2026
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -274,10 +274,63 @@ def spiderplot(df, *, id_column, categories=None, ax=None,
 
 
 # %% violin
-def violin(data, x, y, xCats=None, xjitter=0.05, yjitter=0, yjitter_type="auto",
-           seed=123, palette=None, figsize=(7, 4), size_pt=10, alpha_pt=0.2,
+def violin(data, x, y, xCats=None, xjitter=0.05, yjitter=0, yjitter_type='auto',
+           seed=808, palette=None, figsize=(7, 4), size_pt=10, alpha_pt=0.2,
            ax=None):
+    """
+    Create a violin plot with optional jittered points.
+
+    Inputs
+    ------
+    data: pandas DataFrame
+        DataFrame containing the data to plot.
+
+    x: str
+        Column name for the violin groups.
     
+    y: str
+        Column name for the variable to plot.
+
+    xCats: list of str, optional
+        Ordered list of categories for the x variable. If None, categories are inferred from the data
+        in sorted order.
+    
+    xjitter: float, default=0.05
+        Maximum jitter factor to apply to x-positions of points. If 0, no x-jitter is applied.
+
+    yjitter: float, default=0
+        Standard deviation of jitter to apply to y-values. If 0, no y-jitter is applied.
+
+    yjitter_type: str, default='auto'
+        Method for determining y-jitter type. Options are 'auto', 'discrete', or 'continuous'.
+        If 'auto', the function will determine whether the y variable is likely discrete
+        (based on the number of unique values) and apply jitter accordingly. If 'discrete',
+        jitter will be applied based on discrete counts of unique y values. If 'continuous',
+        jitter will be applied based on a continuous kernel density estimate of the y values.
+    
+    seed: int, default=808
+        Random seed for jitter generation to ensure reproducibility.
+    
+    palette: list of colors, optional
+        List of colors to use for the violins and points. If None, the default color cycle is used.
+    
+    figsize: tuple, default=(7, 4)
+        Size of the figure to create if ax is None.
+    
+    size_pt: int, default=10
+        Size of the points to plot.
+    
+    alpha_pt: float, default=0.2
+        Alpha (transparency) of the points to plot.
+    
+    ax: matplotlib Axes, optional
+        Axes to plot on. If None, a new figure and axes are created.
+    
+    Returns
+    -------
+    fig, ax: matplotlib Figure and Axes
+        The figure and axes objects containing the plot.
+    """
     # remove any rows with missing data in the relevant columns
     data = data.dropna(subset=[x, y])
 
@@ -399,9 +452,71 @@ def violin(data, x, y, xCats=None, xjitter=0.05, yjitter=0, yjitter_type="auto",
 
 # %% violinsplit
 def violinsplit(data, x, y, hue, xCats=None, xjitter=0.05, yjitter=0,
-                 yjitter_type='auto', seed=123, med_trace=False,
-                 palette=None, violin_width=0.5, figsize=(7, 4.65),
-                 size_pt=10, alpha_pt=0.25, ax=None):
+                yjitter_type='auto', seed=808, med_trace=False,
+                palette=None, violin_width=0.5, figsize=(7, 4.65),
+                size_pt=10, alpha_pt=0.25, ax=None):
+    """
+    Create a split violin plot with optional jittered points and median trace.
+    Inputs
+    ------
+    data: pandas DataFrame
+        DataFrame containing the data to plot.
+
+    x: str
+        Column name for the violin groups.
+    
+    y: str
+        Column name for the variable to plot.
+    
+    hue: str
+        Column name for the hue variable to split the violins by.
+
+    xCats: list of str, optional
+        Ordered list of categories for the x variable. If None, categories are inferred from the data
+        in sorted order.
+    
+    xjitter: float, default=0.05
+        Maximum jitter factor to apply to x-positions of points. If 0, no x-jitter is applied.
+
+    yjitter: float, default=0
+        Standard deviation of jitter to apply to y-values. If 0, no y-jitter is applied.
+
+    yjitter_type: str, default='auto'
+        Method for determining y-jitter type. Options are 'auto', 'discrete', or 'continuous'.
+        If 'auto', the function will determine whether the y variable is likely discrete
+        (based on the number of unique values) and apply jitter accordingly. If 'discrete',
+        jitter will be applied based on discrete counts of unique y values. If 'continuous',
+        jitter will be applied based on a continuous kernel density estimate of the y values.
+    
+    seed: int, default=808
+        Random seed for jitter generation to ensure reproducibility.
+
+    med_trace: bool, default=False
+        Whether to plot a trace connecting the medians of each group across x categories.
+    
+    palette: list of colors, optional
+        List of colors to use for the violins and points. If None, the default color cycle is used.
+
+    violin_width: float, default=0.5
+        Width of the violins.
+    
+    figsize: tuple, default=(7, 4)
+        Size of the figure to create if ax is None.
+    
+    size_pt: int, default=10
+        Size of the points to plot.
+    
+    alpha_pt: float, default=0.2
+        Alpha (transparency) of the points to plot.
+    
+    ax: matplotlib Axes, optional
+        Axes to plot on. If None, a new figure and axes are created.
+    
+    Returns
+    -------
+    fig, ax: matplotlib Figure and Axes
+        The figure and axes objects containing the plot.    
+    """
 
     # remove any rows with missing data in the relevant columns
     data = data.dropna(subset=[x, y, hue])
@@ -562,6 +677,86 @@ def violin_facet(data, plot_func, facet_col=None, facet_row=None,
                  legend_ncol=None, legend_bbox_to_anchor=None,
                  xlabel=None, ylabel=None, xticks=None, yticks=None,
                  **plot_kwargs):
+    """
+    Create a faceted grid of violin plots using a specified violin plotting function.
+
+    Inputs
+    ------
+    data: pandas DataFrame
+        DataFrame containing the data to plot.
+    
+    plot_func: function
+        Function to use for plotting each facet. This should be a function that takes a DataFrame
+        and an 'ax' keyword argument, along with any additional plotting parameters.
+    
+    facet_col: str, optional
+        Column name to facet by for columns. If None, no column faceting is applied.
+    
+    facet_row: str, optional
+        Column name to facet by for rows. If None, no row faceting is applied.
+
+    col_order: list of str, optional
+        Ordered list of categories for the facet_col variable. If None, categories are inferred from the data
+        in sorted order.
+    
+    row_order: list of str, optional
+        Ordered list of categories for the facet_row variable. If None, categories are inferred from the data
+        in sorted order.
+    
+    wrap_cols: int, optional
+        If facet_row is None, the number of columns to use for wrapping the facet_col variable into a grid.
+        If None, no wrapping is applied and all facets are arranged in a single row.
+    
+    sharex: bool, default=True
+        Whether to share x-axis limits across facets.
+    
+    sharey: bool, default=True
+        Whether to share y-axis limits across facets.
+    
+    figsize: tuple, default=(10, 6)
+        Size of the figure to create.
+    
+    panel_titles: bool, default=True
+        Whether to display titles for each facet panel.
+    
+    title_fmt: str, default='{row} | {col}'
+        Format string for facet panel titles when both row and column facets are used.
+        Can use {row} and {col} as placeholders for the respective facet category values.
+    
+    legend: bool, default=True
+        Whether to include a shared legend for the facets.
+    
+    legend_loc: str, default='upper center'
+        Location for the shared legend. This can be any valid matplotlib legend location string.
+    
+    legend_ncol: int, optional
+        Number of columns to use in the shared legend. If None, this is set to the number of legend entries.
+    
+    legend_bbox_to_anchor: tuple, optional
+        If specified, this is passed to the legend as the bbox_to_anchor parameter to
+        fine-tune legend placement.
+    
+    xlabel: str, optional
+        Label for the shared x-axis. If None, no label is set.
+    
+    ylabel: str, optional
+        Label for the shared y-axis. If None, no label is set.
+    
+    xticks: list, optional
+        List of x-tick locations to set for all facets. If None, ticks are determined automatically.
+    
+    yticks: list, optional
+        List of y-tick locations to set for all facets. If None, ticks are determined automatically.
+    
+    **plot_kwargs:
+        Additional keyword arguments to pass to the plotting function for each facet.
+    
+    Returns
+    -------
+    fig, axes: matplotlib Figure and array of Axes
+        The figure and array of axes objects containing the facets. The shape of the axes array
+        depends on the number of row and column facets.
+    """
 
     if facet_col is None and facet_row is None:
         raise ValueError("At least one of facet_col or facet_row must be specified")
