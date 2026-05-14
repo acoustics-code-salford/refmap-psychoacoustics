@@ -84,6 +84,8 @@ colnames(stimData)[1] <- "Stimulus"
 # make response proportions into percentages
 stimData[['HighAnnoyPc']] <- stimData[['HighlyAnnoyedProp']]*100
 stimData[['dHighAnnoyPc']] <- stimData[['dHighlyAnnoyedProp']]*100
+stimData[['ProbHA20kPc']] <- stimData[['ProbHA20kMean']]*100
+stimData[['ProbHA10kPc']] <- stimData[['ProbHA10kMean']]*100
 
 ```
 
@@ -104,7 +106,7 @@ stimDataUAS <- cbind(Stimulus = stimData[, "Stimulus"],
                      stimData[, which(colnames(stimData)=="LAeqLAF90diff"):
                                 which(colnames(stimData)=="dPsychAnnoyBoucher")],
                      stimData[, which(colnames(stimData)=="AnnoyanceMean"):
-                                which(colnames(stimData)=="dHighAnnoyPc")])
+                                which(colnames(stimData)=="dProbHA20kMeanCI_Low")])
 
 stimDataAmb <- cbind(Stimulus = stimData[, "Stimulus"],
                      UASEvents = stimData[, "UASEvents"],
@@ -115,7 +117,7 @@ stimDataAmb <- cbind(Stimulus = stimData[, "Stimulus"],
                      stimData[, which(colnames(stimData)=="AmbImpulsSHMPowAvg"):
                                 which(colnames(stimData)=="AmbPsychAnnoyBoucher")],
                      stimData[, which(colnames(stimData)=="AnnoyanceMean"):
-                                which(colnames(stimData)=="dHighAnnoyPc")])
+                                which(colnames(stimData)=="dProbHA20kMeanCI_Low")])
 
 
 # omit ambient-only stimuli
@@ -159,7 +161,7 @@ if (loadExisting){
 
 # Random forest functions
 
-Write a function to train a conditional-inference random forest (crf) model on input data according to input formula, iterate over input random seeds, average error and variable importance metrics, and output metrics with plotted
+A function to train a conditional-inference random forest (crf) model on input data according to input formula, iterate over input random seeds, average error and variable importance metrics, and output metrics with plotted
 
 ## Averaging over multiple random seeds
 
@@ -2864,7 +2866,7 @@ resdHiAnnoyPermImp <- list()
 
 iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEvents'):which(names(stimDataNum) == 'UASPsychAnnoyBoucher')]
 
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 seeds <- c(2612618, 6541, 237, 723075032, 786312)
 
@@ -3030,7 +3032,7 @@ absVar <- "UASLAF50ExMaxLR"
 
 iVars <- c(absVar, eventVar, ambVar, "UASSharpAurISO3PowAvg", "UASSharpAurISO305Ex", "UASSharpAurSHMPowAvg", "UASSharpAurSHM05Ex", "UASSharpAurISO1PowAvg", "UASSharpAurISO105Ex", "UASSharpvBISO1PowAvg", "UASSharpvBISO105Ex", "UASSharpDINPowAvg", "UASSharpDIN05Ex", "UASSharpAurISO1Med",
          "UASTonShpAurSHMPowAvg", "UASTonShpAurSHM05Ex")
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 seeds <- c(832178, 1352546, 6854, 64014, 78523)
 
@@ -3137,7 +3139,7 @@ sharpVar <- "UASSharpvBISO105Ex"
 
 iVars <- c(absVar, eventVar, ambVar, "UASTonalECMAAvg", "UASTonalSHMInt05Ex", "UASTonalSHMIntAvg", "UASTonalECMA05Ex", "UASTonalAwSHMAvg",	"UASTonalAwSHM05Ex",	"UASTonalAwSHMIntAvg", 	"UASTonalAwSHMInt05Ex", "UASTonLdECMAPowAvg", "UASTonLdECMA05Ex", "UASTonalAurAvg", "UASTonalAur05Ex", "UASTonalAur10Ex",
          "UASTonShpAurSHMPowAvg", "UASTonShpAurSHM05Ex")
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 seeds <- c(8654, 6854, 3512864, 418650, 645098)
 
@@ -3242,7 +3244,7 @@ tonLdVar <- "UASTonLdECMAPowAvg"
 ```{r}
 
 iVars <- c(absVar, eventVar, ambVar, "UASTonalECMAAvg", "UASTonalSHMInt05Ex", "UASTonalSHMIntAvg", "UASTonalECMA05Ex", "UASTonalAwSHMAvg",	"UASTonalAwSHM05Ex",	"UASTonalAwSHMIntAvg", "UASTonalAwSHMInt05Ex",	"UASTonalAurAvg", "UASTonalAur05Ex", "UASTonalAur10Ex")
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 seeds <- c(418659, 654641, 58541, 793265, 846951)
 
@@ -3352,7 +3354,7 @@ tonalVar <- "UASTonalECMA05Ex"
 
 # Fluctuation strength
 iVars <- c(absVar, eventVar, ambVar, "UASFluctOldSHM10Ex", "UASFluctOldSHM05Ex", "UASFluctECMA10Ex", "UASFluctECMA05Ex", "UASFluctFZ10Ex", "UASFluctFZ05Ex", "UASFluctOV10Ex", "UASFluctOV05Ex")
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 seeds <- c(46851, 78220178, 18659, 792530, 312789)
 
@@ -3458,7 +3460,7 @@ fluctVar <- "UASFluctOV10Ex"
 
 # Roughness
 iVars <- c(absVar, eventVar, ambVar, "UASRoughECMA10Ex", "UASRoughECMA05Ex", "UASRoughFZ10Ex", "UASRoughFZ05Ex", "UASRoughDW10Ex", "UASRoughDW05Ex")
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 seeds <- c(849651, 105362, 8, 58641, 615)
 
@@ -3562,7 +3564,7 @@ roughVar <- "UASRoughDW05Ex"
 ```{r}
 # Impulsiveness
 iVars <- c(absVar, eventVar, ambVar, "UASImpulsSHMAvg", "UASImpulsSHM05Ex", "UASImpulsSHMPowAvg", "UASImpulsLoudWZAvg", "UASImpulsLoudWZ05Ex", "UASImpulsLoudWZPowAvg", "UASImpulsLoudWECMAAvg", "UASImpulsLoudWECMA05Ex", "UASImpulsLoudWECMAPowAvg")
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 seeds <- c(23782, 641095, 3526178, 4865, 36512)
 
@@ -3670,7 +3672,7 @@ Now the highest importance SQMs are ranked against each other, controlling for U
 ```{r}
 
 iVars <- c(absVar, eventVar, ambVar, sharpVar, tonLdVar, fluctVar, roughVar, impulsVar)
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 seeds <- c(419865, 6541851, 4532, 320785, 8546)
 
@@ -3767,7 +3769,7 @@ if (saveplots){
 ```{r}
 
 iVars <- c(absVar, eventVar, ambVar, sharpVar, tonalVar, fluctVar, roughVar, impulsVar)
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 seeds <- c(150864, 698541, 30841, 5406854, 20387)
 
@@ -3863,7 +3865,7 @@ if (saveplots){
 ```{r}
 
 iVars <- c(ambVar, "UASPsychAnnoyWidmann", "UASPsychAnnoyMore", "UASPsychAnnoyDi", "UASPsychAnnoyTorija", "UASPsychAnnoyWillemsen", "UASPsychAnnoyBoucher")
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 seeds <- c(865414, 7180, 6513, 973, 79320)
 
@@ -3964,7 +3966,7 @@ iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEvents'):which(names
 
 iVars <- c(iVars, "AmbientEnvVar")
 
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 seeds <- c(649851, 60, 732, 52537, 160598)
 
@@ -4126,7 +4128,7 @@ iVars <- c(allVar, eventVar, ambVar, "dSharpAurISO3PowAvg", "dSharpAurISO305Ex",
            "PartSharpvBSHM05Ex", "PartSharpWidSHMPowAvg",
            "PartSharpWidSHM05Ex", "UASSharpAurISO3PowAvg", "UASSharpAurISO305Ex", "UASSharpAurSHMPowAvg", "UASSharpAurSHM05Ex", "UASSharpAurISO1PowAvg", "UASSharpAurISO105Ex", "UASSharpvBISO1PowAvg", "UASSharpvBISO105Ex", "UASSharpDINPowAvg", "UASSharpDIN05Ex", "UASSharpAurISO1Med",
          "UASTonShpAurSHMPowAvg", "UASTonShpAurSHM05Ex")
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 seeds <- c(9864, 65341, 468951, 410856, 288649, 7419)
 
@@ -4232,7 +4234,7 @@ allSharpVar <- "UASSharpAurISO1Med"
 iVars <- c(allVar, eventVar, ambVar, "dTonalECMAAvg", "dTonalSHMInt05Ex", "dTonalSHMIntAvg", "dTonalECMA05Ex", "dTonalAwSHMAvg",	"dTonalAwSHM05Ex",	"dTonalAwSHMIntAvg", 	"dTonalAwSHMInt05Ex", "dTonLdECMAPowAvg", "dTonLdECMA05Ex", "dTonShpAurSHMPowAvg",
            "dTonShpAurSHM05Ex", "PartTonLdSHMPowAvg", "UASTonalECMAAvg", "UASTonalSHMInt05Ex", "UASTonalSHMIntAvg", "UASTonalECMA05Ex", "UASTonalAwSHMAvg",	"UASTonalAwSHM05Ex",	"UASTonalAwSHMIntAvg", 	"UASTonalAwSHMInt05Ex", "UASTonLdECMAPowAvg", "UASTonLdECMA05Ex", "UASTonalAurAvg", "UASTonalAur05Ex", "UASTonalAur10Ex",
          "UASTonShpAurSHMPowAvg", "UASTonShpAurSHM05Ex")
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 ```
 
@@ -4336,7 +4338,7 @@ allTonLdVar <- "UASTonShpAurSHM05Ex"
 ```{r}
 
 iVars <- c(allVar, eventVar, ambVar, "dTonalECMAAvg", "dTonalSHMInt05Ex", "dTonalSHMIntAvg", "dTonalECMA05Ex", "dTonalAwSHMAvg",	"dTonalAwSHM05Ex",	"dTonalAwSHMIntAvg", 	"dTonalAwSHMInt05Ex", "UASTonalECMAAvg", "UASTonalSHMInt05Ex", "UASTonalSHMIntAvg", "UASTonalECMA05Ex", "UASTonalAwSHMAvg",	"UASTonalAwSHM05Ex",	"UASTonalAwSHMIntAvg", "UASTonalAwSHMInt05Ex",	"UASTonalAurAvg", "UASTonalAur05Ex", "UASTonalAur10Ex")
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 seeds <- c(4106985, 188519, 536110, 87964, 986541)
 
@@ -4445,7 +4447,7 @@ allTonalVar <- "UASTonalAurAvg"
 
 # Fluctuation strength
 iVars <- c(allVar, eventVar, ambVar, "dFluctECMA10Ex", "dFluctECMA05Ex", "dFluctOV10Ex", "dFluctOV05Ex", "UASFluctOldSHM10Ex", "UASFluctOldSHM05Ex", "UASFluctECMA10Ex", "UASFluctECMA05Ex", "UASFluctFZ10Ex", "UASFluctFZ05Ex", "UASFluctOV10Ex", "UASFluctOV05Ex")
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 seeds <- c(841489, 152148, 697280, 1537856, 86541)
 
@@ -4551,7 +4553,7 @@ allFluctVar <- "UASFluctFZ05Ex"
 
 # Roughness
 iVars <- c(allVar, eventVar, ambVar, "dRoughECMA10Ex", "dRoughECMA05Ex", "dRoughFZ10Ex", "dRoughFZ05Ex", "UASRoughECMA10Ex", "UASRoughECMA05Ex", "UASRoughFZ10Ex", "UASRoughFZ05Ex", "UASRoughDW10Ex", "UASRoughDW05Ex")
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 seeds <- c(854196, 4735, 96452, 3651, 48652)
 
@@ -4655,7 +4657,7 @@ allRoughVar <- "UASRoughDW05Ex"
 iVars <- c(allVar, eventVar, ambVar, "dImpulsSHMAvg", "dImpulsSHM05Ex", "dImpulsSHMPowAvg",
            "dImpulsLoudWZAvg", "dImpulsLoudWZ05Ex", "dImpulsLoudWZPowAvg",
            "dImpulsLoudWECMAAvg", "dImpulsLoudWECMA05Ex", "dImpulsLoudWECMAPowAvg", "UASImpulsSHMAvg", "UASImpulsSHM05Ex", "UASImpulsSHMPowAvg", "UASImpulsLoudWZAvg", "UASImpulsLoudWZ05Ex", "UASImpulsLoudWZPowAvg", "UASImpulsLoudWECMAAvg", "UASImpulsLoudWECMA05Ex", "UASImpulsLoudWECMAPowAvg")
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 seeds <- c(48615, 27684, 58954, 6541346, 98764346)
 
@@ -4763,7 +4765,7 @@ Now the highest importance dSQMs are ranked against each other, controlling for 
 ```{r}
 
 iVars <- c(allVar, eventVar, ambVar, allSharpVar, allTonLdVar, allFluctVar, allRoughVar, allImpulsVar)
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 seeds <- c(619845, 541634, 89, 6536541, 1854)
 
@@ -4860,7 +4862,7 @@ if (saveplots){
 ```{r}
 
 iVars <- c(allVar, eventVar, ambVar, allSharpVar, allTonalVar, allFluctVar, allRoughVar, allImpulsVar)
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 seeds <- c(418569, 269884, 848116, 4151, 8428)
 
@@ -4956,7 +4958,7 @@ if (saveplots){
 ```{r}
 
 iVars <- c(ambVar, "dPsychAnnoyWidmann", "dPsychAnnoyMore", "dPsychAnnoyDi", "dPsychAnnoyTorija", "dPsychAnnoyWillemsen", "dPsychAnnoyBoucher", "UASPsychAnnoyWidmann", "UASPsychAnnoyMore", "UASPsychAnnoyDi", "UASPsychAnnoyTorija", "UASPsychAnnoyWillemsen", "UASPsychAnnoyBoucher")
-dVar <- "dHighAnnoyPc"
+dVar <- "dProbHA20kPc"
 
 seeds <- c(9726, 81235, 7235, 320179, 586410)
 

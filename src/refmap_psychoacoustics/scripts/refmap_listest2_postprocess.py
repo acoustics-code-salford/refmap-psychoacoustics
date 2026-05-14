@@ -2511,8 +2511,8 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
                     for col in columns:
                         testData.loc[file, col] = responseData.loc[file, col]
             
-            elif response in ['ProbHA30k', 'ProbHA20k', 'ProbHA10k',
-                              'dProbHA30k', 'dProbHA20k', 'dProbHA10k']:
+            elif response in ['ProbHA20k', 'ProbHA10k',
+                              'dProbHA20k', 'dProbHA10k']:
                 responseData = testResponseData.loc[testResponseData['stimulus'] == file,
                                                 ['participant', response]]
                 columns = [response + "_" + str(ID) for ID in responseData['participant']]
@@ -2588,8 +2588,8 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
 testData = dataAggregation(testResponses, ["Pleasantness", "Eventfulness", "Annoyance",
                                            "dPleasantness", "dEventfulness", "dAnnoyance",
                                            "HighlyAnnoyed", "dHighlyAnnoyed",
-                                           "ProbHA30k", "ProbHA20k", "ProbHA10k",
-                                           "dProbHA30k", "dProbHA20k", "dProbHA10k"],
+                                           "ProbHA20k", "ProbHA10k",
+                                           "dProbHA20k", "dProbHA10k"],
                            stimuliNames=stimSorted, randomState=rng)
 
 # create a copy of testresponses with the stimulus names modified to match the combined stimulus names in dataByStimCombi, by removing "_left" and "_right" from the stimulus names
@@ -2605,8 +2605,8 @@ stimSortedCombi = np.sort(testResponsesCombi['stimulus'].unique())
 testDataCombi = dataAggregation(testResponsesCombi, ["Pleasantness", "Eventfulness", "Annoyance",
                                                      "dPleasantness", "dEventfulness", "dAnnoyance",
                                                      "HighlyAnnoyed", "dHighlyAnnoyed",
-                                                     "ProbHA30k", "ProbHA20k", "ProbHA10k",
-                                                     "dProbHA30k", "dProbHA20k", "dProbHA10k"],
+                                                     "ProbHA20k", "ProbHA10k",
+                                                     "dProbHA20k", "dProbHA10k"],
                                 stimuliNames=stimSortedCombi, randomState=rng)
 
 # %%%%%%%%%%%%%%%%%%

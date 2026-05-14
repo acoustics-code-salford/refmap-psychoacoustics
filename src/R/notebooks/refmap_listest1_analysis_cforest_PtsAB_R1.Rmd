@@ -5073,3 +5073,12 @@ if (savedata){
 }
 
 ```
+
+#### Save the workspace to file
+
+```{r}
+if (savedata){
+  save.image(file.path(outDataPath, "PtsABCRFWorkspace.RData"))
+}
+
+```

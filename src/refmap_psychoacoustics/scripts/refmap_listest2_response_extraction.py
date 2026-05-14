@@ -125,7 +125,6 @@ def logistic(x, L, x0, k):
 # add change in response columns
 df_endResponse['HighlyAnnoyed'] = df_endResponse['Annoyance'] >= 10*(8/11)  # mark highly annoyed responses (>= 8 on 0-10 scale)
 # logistic function to convert annoyance ratings to probability of being highly annoyed
-df_endResponse['ProbHA30k'] = df_endResponse['Annoyance'].apply(lambda x: logistic(x, L=1, x0=10*(8/11), k=30))
 df_endResponse['ProbHA20k'] = df_endResponse['Annoyance'].apply(lambda x: logistic(x, L=1, x0=10*(8/11), k=20))
 df_endResponse['ProbHA10k'] = df_endResponse['Annoyance'].apply(lambda x: logistic(x, L=1, x0=10*(8/11), k=10))
 
@@ -169,7 +168,7 @@ for response in ['Annoyance', 'Pleasantness', 'Eventfulness']:
 # if the baseline probability is <0.5, otherwise they are NaN
 # loop through participants
 for participant in df_endResponse['participant'].unique():
-    for response in ['HighlyAnnoyed', 'ProbHA30k', 'ProbHA20k', 'ProbHA10k']:
+    for response in ['HighlyAnnoyed', 'ProbHA20k', 'ProbHA10k']:
         
         df_endResponse.loc[df_endResponse['participant'] == participant, 'd' + response] = np.nan  # initialize column with NaN values
 
@@ -180,12 +179,10 @@ for participant in df_endResponse['participant'].unique():
                                                     & (df_endResponse['stimulus'].str.contains("Baseline"))
                                                     & (df_endResponse['ambientRef']
                                                         == ambient)), response]
-            
+
             # this is needed for participant 49 who is missing data for baseline HA
             if df_baseResponse.empty:
                 continue
-
-            
 
             if response == 'HighlyAnnoyed':
                 # if baseline is HA, skip
@@ -227,6 +224,10 @@ for participant in df_endResponse['participant'].unique():
 # convert HighlyAnnoyed and dHighlyAnnoyed to binary 0 or 1 integers
 df_endResponse['HighlyAnnoyed'] = df_endResponse['HighlyAnnoyed'].astype(int)
 df_endResponse['dHighlyAnnoyed'] = df_endResponse['dHighlyAnnoyed'].astype('Int64')
+
+# fix dPropHA20k and dProbHA10k to be 0 for baseline responses (by definition)
+df_endResponse.loc[df_endResponse['stimulus'].str.contains("Baseline"), 'dProbHA20k'] = 0
+df_endResponse.loc[df_endResponse['stimulus'].str.contains("Baseline"), 'dProbHA10k'] = 0
 
 # extract MomentAnnoyance data
 df_momentAnnoy = df[df['response'] == "MomentAnnoyance"]

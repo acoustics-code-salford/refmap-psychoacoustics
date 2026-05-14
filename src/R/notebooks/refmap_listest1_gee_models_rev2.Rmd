@@ -3233,18 +3233,22 @@ performance::check_outliers(mABLAExTypeOpxLAExEnv1_QxLAESqNatAttNo28.GEE,
 
 ```{R}
 # add a rescaled dAnnoyance variable to subjDataNoAmb
-subjDataNoAmb <- subjDataNoAmb %>%
+subjDataNoAmb <- subjDataNoAmb |>
   mutate(dAnnoyanceOrdBetaScl = betaTransform(dAnnoyance, -10, 10,
                                            direction='forward', squeeze='none'))
 
-subjDataNoAmb <- subjDataNoAmb %>%
+subjDataNoAmb <- subjDataNoAmb |>
   mutate(dAnnoyanceBetaScl = betaTransform(dAnnoyance, -10, 10,
                                            direction='forward', squeeze='basic'))
+
+subjDataNoAmb <- subjDataNoAmb |>
+  mutate(dAnnoyanceOrd = factor(dAnnoyance, levels=seq(-10, 10, by=1), ordered=TRUE))h
+  
 
 modelNull <- glmmTMB::glmmTMB(dAnnoyanceOrdBetaScl ~ 1 + (1 | ID),
                         data=subjDataNoAmb, family=ordbeta(link="logit"))
 
-modelMinItx <- buildmer::buildglmmTMB(dAnnoyanceOrdBetaScl ~ TrialNumberScl +
+modelMinX <- buildmer::buildglmmTMB(dAnnoyanceOrdBetaScl ~ 1 + TrialNumberScl +
                                      UASLAEMaxLRScl*AmbientEnv*UASOperation*UASType +
                                      UASLAEMaxLRScl*I(UASEvents^-1) +
                                   NationGeo2 + AAM_attitude2 +
@@ -3252,15 +3256,24 @@ modelMinItx <- buildmer::buildglmmTMB(dAnnoyanceOrdBetaScl ~ TrialNumberScl +
                         data=subjDataNoAmb, family=ordbeta(link="logit"),
                        buildmerControl = buildMercontrol)
 
+model1 <- modelMinX@model
 
-model1 <- modelGLMMBTest <- glmmTMB::glmmTMB(dAnnoyanceOrdBetaScl ~ TrialNumberScl +
+modelMinX2 <- buildmer::buildglmmTMB(dAnnoyanceOrdBetaScl ~ 1 + TrialNumberScl +
+                                     UASLAEMaxLRScl*AmbientEnv*UASOperation*UASType +
+                                     UASLAEMaxLRScl*I(UASEvents^-1) +
+                                  NationGeo2 + AAM_attitude2 +
+                                  (1 | ID) + (1 | StimID),
+                        data=subjDataNoAmb, family=ordbeta(link="logit"),
+                       buildmerControl = buildMercontrol)
+
+model1 <- glmmTMB::glmmTMB(dAnnoyanceOrdBetaScl ~ 1 + TrialNumberScl +
                                      UASLAEMaxLRScl*AmbientEnv +
                                      UASLAEMaxLRScl*I(UASEvents^-1) +
                                 UASLAEMaxLRScl*UASOperation +
                                   UASType +
                                   NationGeo2 + AAM_attitude2 +
-                                  (1 | ID),
-                        data=subjDataNoAmb, family=ordbeta(link="logit"),
+                                  (1 | ID) + (1 | StimID),
+                        data=subjDataNoAmb, family=gaussian,
                         control=glmTMBcontrol)
 
 model2 <- glmmTMB::glmmTMB(dAnnoyanceOrdBetaScl ~ NationGeo2 +  

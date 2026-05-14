@@ -4,19 +4,19 @@ output: html_document
 date: "2025-10-24"
 ---
 
+# Setup
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
-# Setup
 
 ## Load packages
 
 ```{r packages}
 # load packages
-library(tidyr)
-library(ggplot2)
+
 library(conflicted)
+library(tidyr)
 library(tidyverse)
 library(corrr)
 library(openxlsx)
@@ -71,84 +71,384 @@ if (savedata){
   outDataPath <- utils::choose.dir(caption="Select output folder to save data")
 }
 
-set.seed(98415616)
+set.seed(808)
 
 
 ```
 
 ## Import data and wrangle
 
-### Parts A & B combined
-
 ```{r}
 
-stimDataPath <- utils::choose.files(caption=r"(Select refmap_listest1_testdata_ByStim.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
-                                     filters=matrix(data=c("refmap_listest1_testdata_ByStim.csv", "refmap_listest1_testdata_ByStim.csv"), ncol=2))
+stimDataAPath <- utils::choose.files(caption=r"(Select refmap_listest1_testdataA_ByStim.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
+                                     filters=matrix(data=c("refmap_listest1_testdataA_ByStim.csv", "refmap_listest1_testdataA_ByStim.csv"), ncol=2))
 
-stimData <- read.csv(stimDataPath, header=TRUE)
+stimDataA <- read.csv(stimDataAPath, header=TRUE, row.names = 1)
 
 ```
 
-```{r}
-# definition of ordinal variable levels
-UASLAeqCatsA <- c("No UAS", "42", "48", "54", "60")
-SNRCatsA <- c("No UAS", "-16", "-10", "-4", "2", "8")
-UASOpCatsA <- c("No UAS", "Flyover", "Landing", "Takeoff")
-UASTypeCatsA <- c("No UAS", "H520", "M300", "T150")
-
-# omit ambient-only stimuli
-stimDataNoAmb <- stimData |> dplyr::filter(UASLAeq != "No UAS")
-
-# re-encode factors omitting ambient-only stimuli
-stimDataNoAmb$SNRlevel <- factor(stimDataNoAmb$SNRlevel, levels=SNRCatsA[2:length(SNRCatsA)], order=TRUE)
-stimDataNoAmb$UASOperation <- factor(stimDataNoAmb$UASOperation, levels=UASOpCatsA[2: length(UASOpCatsA)])
-stimDataNoAmb$UASType <- factor(stimDataNoAmb$UASType, levels=UASTypeCatsA[2:length(UASTypeCatsA)])
-
-# select subset of variables for analysis:
-# UASLAEMaxLR, AmbLAeqMaxLR, UASImpulsLoudWZAvgMaxLR,
-# UASFluctECMA10ExBin,
-# UASRoughFZ05ExMaxLR, UASSharpAurISO305ExBin, UASEvents
-
-stimDataPCA <- stimDataNoAmb |>
-  dplyr::select(UASLAEMaxLR,
-                UASImpulsLoudWZAvgMaxLR,
-                UASFluctECMA10ExBin,
-                UASRoughFZ05ExMaxLR,
-                UASSharpAurISO305ExBin)
-
-res.pca <- PCA(stimDataPCA, scale.unit = T, graph = T)
-
-# plot biplot without 
-fviz_pca_var(res.pca, repel = TRUE, 
-                col.var = "contrib", # Color by contributions to the PC
-                gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07")
-)
-# Contribution of variables to PC1
-fviz_contrib(res.pca, choice = "var", axes = 1, top = 10)
-# Contribution of variables to PC2
-fviz_contrib(res.pca, choice = "var", axes = 2, top = 10)
-
-# scree plot with variance data labels
-fviz_screeplot(res.pca, addlabels = TRUE, ylim = c( 0, 100))
-
-
-fviz_pca_ind(res.pca,
-             label = "none", # hide individual labels
-             habillage = stimDataNoAmb$UASOperation, # color by groups
-             palette = c("#00AFBB", "#E7B800", "#FC4E07"),
-             addEllipses = TRUE # Concentration ellipses
-             )
-```
-
-
-## Functions
 
 ## Analysis
 
 ```{r}
+# definition of ordinal variable levels
+UASLAeqCatsA <- c("Baseline", "42", "48", "54", "60")
+SNRCatsA <- c("Baseline", "-16", "-10", "-4", "2", "8")
+UASOpCatsA <- c("Baseline", "Overflight", "Landing", "Takeoff")
+UASTypeCatsA <- c("Baseline", "H520", "M300", "T150")
 
+# omit ambient-only stimuli
+stimDataANoAmb <- stimDataA |> dplyr::filter(UASLAeq != "Baseline")
+
+
+# re-encode factors omitting ambient-only stimuli
+stimDataANoAmb <- stimDataANoAmb |>
+  dplyr::mutate(UASLAeq = factor(UASLAeq, levels=UASLAeqCatsA[2:length(UASLAeqCatsA)], order=TRUE)) |>
+  dplyr::mutate(SNRlevel = factor(SNRlevel, levels=SNRCatsA[2:length(SNRCatsA)], order=TRUE)) |>
+  dplyr::mutate(UASOperation = factor(UASOperation, levels=UASOpCatsA[2: length(UASOpCatsA)])) |>
+  dplyr::mutate(UASType = factor(UASType, levels=UASTypeCatsA[2:length(UASTypeCatsA)]))
+
+# list of independent variables of interest
+iVarsAll <- c("LAELAF50diff", "LAELAF90diff", "LAELAeqdiff", "EPNLLAF50diff",
+              "dTonLdECMAPowAvgBin", "Detect0p5dBIntMaxLR", "EPNLLAF90diff", "UASLAEMaxLR",
+              "Detect0p1dBIntMaxLR", "Detect0p5dBIntEx50MaxLR", "dSharpAurISO3PowAvgMaxLR",
+              "dSharpAurISO305ExMaxLR", "dTonLdECMAPowAvgBin", "PartTonLdSHMPowAvgBin",
+              "dFluctECMA10ExBin", "dFluctECMA05ExBin", "dFluctOV10ExMaxLR", "dRoughFZ05ExMaxLR",
+              "dRoughFZ10ExMaxLR", "dImpulsLoudWZAvgMaxLR", "dImpulsLoudWECMAAvgBin",
+              "dImpulsLoudWECMAPowAvgBin")
+
+iVarsAbs <- c("UASLAEMaxLR", "UASEvents", "UASEPNLMaxLR",
+              "UASSharpAurISO305ExMaxLR", "UASSharpAurISO105ExMaxLR", "UASSharpAurSHM05ExMaxLR",
+              "UASSharpAurISO1PowAvgMaxLR", "UASTonLdECMAPowAvgBin", "UASTonLdECMA05ExBin",
+              "UASFluctECMA10ExBin", "UASFluctECMA05ExBin", "UASFluctOV10ExMaxLR",
+              "UASRoughFZ05ExMaxLR", "UASRoughFZ10ExMaxLR", "UASRoughECMA10ExBin",
+              "UASRoughDW10ExMaxLR", "UASRoughECMA05ExBin", "UASImpulsLoudWZAvgMaxLR",
+              "UASImpulsLoudWZ05ExMaxLR", "UASImpulsLoudWECMAAvgBin",
+              "UASImpulsLoudWZPowAvgMaxLR")
+
+suppVars <- c("dAnnoyMean", "dHighAnnoyProp", "dValenceMean", "dArousalMean", "UASEvents", "UASType", "UASOperation", "AmbientEnv")
+
+stimDataAPCAAll <- stimDataANoAmb |> dplyr::select(all_of(suppVars),
+                                                   all_of(iVarsAll))
+
+stimDataAPCAAbs <- stimDataANoAmb |> dplyr::select(all_of(suppVars),
+                                                   all_of(iVarsAbs))
+
+resA.pcaAll <- FactoMineR::PCA(stimDataAPCAAll, ncp=10, scale.unit = T, quanti.sup=1:5,
+                               quali.sup=6:8, graph = T)
+resA.pcaAbs <- FactoMineR::PCA(stimDataAPCAAbs, ncp = 10, scale.unit = T, quanti.sup=1:5,
+                               quali.sup=6:8, graph = T)
+
+```
+
+### Scree plots
+
+```{r}
+# scree plot with variance data labels
+comps_to_show = 10
+pScreeAbs <- factoextra::fviz_screeplot(resA.pcaAbs, addlabels = FALSE,
+                                     ylim = c( 0, 100), ncp=comps_to_show) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_line(linetype=3),
+        text=element_text(family = "serif", size=14)) +
+  
+  scale_y_continuous(breaks = seq(0, 100, by = 10)) +
+  # add y data labels for each bar using res.pca$eig
+  geom_text(aes(x = seq_along(resA.pcaAbs$eig[1:comps_to_show, 2]),
+                y = resA.pcaAbs$eig[1:comps_to_show, 2],
+                label = paste0(round(resA.pcaAbs$eig[1:comps_to_show, 2], 1), "%"),
+                vjust = -0.5,
+                family = "serif"))
+pScreeAbs
+
+comps_to_show = 10
+pScreeAll <- factoextra::fviz_screeplot(resA.pcaAll, addlabels = FALSE,
+                                     ylim = c( 0, 100), ncp=comps_to_show) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_line(linetype=3),
+        text=element_text(family = "serif", size=14)) +
+  
+  scale_y_continuous(breaks = seq(0, 100, by = 10)) +
+  # add y data labels for each bar using res.pca$eig
+  geom_text(aes(x = seq_along(resA.pcaAll$eig[1:comps_to_show, 2]),
+                y = resA.pcaAll$eig[1:comps_to_show, 2],
+                label = paste0(round(resA.pcaAll$eig[1:comps_to_show, 2], 1), "%"),
+                vjust = -0.5,
+                family = "serif"))
+pScreeAll
 
 
 ```
+### Absolute variables
+
+#### Variable contributions
+
+```{r}
+
+# Contribution of variables to PC1
+factoextra::fviz_contrib(resA.pcaAbs, choice = "var", axes = 1, top = 16,
+                         color=mycolours[1], fill=mycolours[1], xtickslab.rt = 90) +
+  theme(panel.grid=element_blank(),
+        text=element_text(family = "serif", size=14))
+# Contribution of variables to PC2
+factoextra::fviz_contrib(resA.pcaAbs, choice = "var", axes = 2, top = 10,
+                         color=mycolours[1], fill=mycolours[1], xtickslab.rt = 90) +
+  theme(panel.grid=element_blank(),
+        text=element_text(family = "serif", size=14))
+# Contribution of variables to PC3
+factoextra::fviz_contrib(resA.pcaAbs, choice = "var", axes = 3, top = 10,
+                         color=mycolours[1], fill=mycolours[1], xtickslab.rt = 90) +
+  theme(panel.grid=element_blank(),
+        text=element_text(family = "serif", size=14))
+# Contribution of variables to PC4
+factoextra::fviz_contrib(resA.pcaAbs, choice = "var", axes = 4, top = 10,
+                         color=mycolours[1], fill=mycolours[1], xtickslab.rt = 90) +
+  theme(panel.grid=element_blank(),
+        text=element_text(family = "serif", size=14))
+
+```
+
+#### Biplot types
+
+```{r, fig.width=7, fig.height=5.5}
+pBiAbsType12 <- factoextra::fviz_pca_biplot(resA.pcaAbs, repel = TRUE,
+                # Individuals
+                geom.ind = 'point',
+                habillage = "UASType",
+                pointshape = 4, pointsize = 2,
+                palette = c(mycolours[2], mycolours[3], mycolours[4]),
+                addEllipses = TRUE, ellipse.alpha = 0.0,
+                # Variables
+                select.var = list(contrib = 8), labelsize=3, arrowsize=0.25,
+                title=""
+                ) +
+  theme(panel.grid=element_blank(),
+        text=element_text(family = "serif", size=14))
+pBiAbsType12
+
+if (saveplots) {
+  filename = "PtAPCAAbsBiType"
+
+  ggsave(filename=paste(filename, ".svg", sep = ""), width=7, height=5.5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep = ""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep = ""), width=7, height=5.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep = ""))
+}
+
+pBiAbsType34 <- factoextra::fviz_pca_biplot(resA.pcaAbs, repel = TRUE, axes=c(3, 4),
+                # Individuals
+                geom.ind = 'point',
+                habillage = "UASType",
+                pointshape = 4, pointsize = 2,
+                palette = c(mycolours[2], mycolours[3], mycolours[4]),
+                addEllipses = TRUE, ellipse.alpha = 0.0,
+                # Variables
+                select.var = list(contrib = 8), labelsize=3, arrowsize=0.25,
+                title=""
+                ) +
+  theme(panel.grid=element_blank(),
+        text=element_text(family = "serif", size=14))
+pBiAbsType34
+
+
+```
+
+#### Biplot operations
+
+```{r, fig.width=7, fig.height=5.5}
+pBiAbsOp <- factoextra::fviz_pca_biplot(resA.pcaAbs, repel = TRUE,
+                # Individuals
+                geom.ind = 'point',
+                habillage = "UASOperation",
+                pointshape = 4, pointsize = 2,
+                palette = c(mycolours[5], mycolours[6], mycolours[7]),
+                addEllipses = TRUE, ellipse.alpha = 0.0,
+                # Variables
+                select.var = list(contrib = 8), labelsize=3, arrowsize=0.25,
+                title=""
+                ) +
+  theme(panel.grid=element_blank(),
+        text=element_text(family = "serif", size=14))
+pBiAbsOp
+
+if (saveplots) {
+  filename = "PtAPCAAbsBiOp"
+
+  ggsave(filename=paste(filename, ".svg", sep = ""), width=7, height=5.5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep = ""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep = ""), width=7, height=5.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep = ""))
+}
+
+```
+
+### All variables
+
+#### Variable contributions
+
+```{r}
+
+# Contribution of variables to PC1
+factoextra::fviz_contrib(resA.pcaAll, choice = "var", axes = 1, top = 16,
+                         color=mycolours[1], fill=mycolours[1], xtickslab.rt = 90) +
+  theme(panel.grid=element_blank(),
+        text=element_text(family = "serif", size=14))
+# Contribution of variables to PC2
+factoextra::fviz_contrib(resA.pcaAll, choice = "var", axes = 2, top = 10,
+                         color=mycolours[2], fill=mycolours[2], xtickslab.rt = 90) +
+  theme(panel.grid=element_blank(),
+        text=element_text(family = "serif", size=14))
+# Contribution of variables to PC3
+factoextra::fviz_contrib(resA.pcaAll, choice = "var", axes = 3, top = 10,
+                         color=mycolours[4], fill=mycolours[4], xtickslab.rt = 90) +
+  theme(panel.grid=element_blank(),
+        text=element_text(family = "serif", size=14))
+# Contribution of variables to PC4
+factoextra::fviz_contrib(resA.pcaAll, choice = "var", axes = 4, top = 10,
+                         color=mycolours[5], fill=mycolours[5], xtickslab.rt = 90) +
+  theme(panel.grid=element_blank(),
+        text=element_text(family = "serif", size=14))
+
+```
+#### Biplot types
+
+```{r, fig.width=7, fig.height=5.5}
+pBiAllType12 <- factoextra::fviz_pca_biplot(resA.pcaAll, repel = TRUE,
+                # Individuals
+                geom.ind = 'point',
+                habillage = "UASType",
+                pointshape = 4, pointsize = 2,
+                palette = c(mycolours[2], mycolours[3], mycolours[4]),
+                addEllipses = TRUE, ellipse.alpha = 0.0,
+                # Variables
+                select.var = list(contrib = 8), labelsize=3, arrowsize=0.25,
+                title=""
+                ) +
+  theme(panel.grid=element_blank(),
+        text=element_text(family = "serif", size=14))
+pBiAllType12
+
+if (saveplots) {
+  filename = "PtAPCAAllBiType"
+
+  ggsave(filename=paste(filename, ".svg", sep = ""), width=7, height=5.5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep = ""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep = ""), width=7, height=5.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep = ""))
+}
+
+pBiAllType34 <- factoextra::fviz_pca_biplot(resA.pcaAll, repel = TRUE, axes=c(3, 4),
+                # Individuals
+                geom.ind = 'point',
+                habillage = "UASType",
+                pointshape = 4, pointsize = 2,
+                palette = c(mycolours[2], mycolours[3], mycolours[4]),
+                addEllipses = TRUE, ellipse.alpha = 0.0,
+                # Variables
+                select.var = list(contrib = 8), labelsize=3, arrowsize=0.25,
+                title=""
+                ) +
+  theme(panel.grid=element_blank(),
+        text=element_text(family = "serif", size=14))
+pBiAllType34
+
+```
+
+#### Biplot operations
+
+```{r, fig.width=7, fig.height=5.5}
+pBiAllOp12 <- factoextra::fviz_pca_biplot(resA.pcaAll, repel = TRUE,
+                # Individuals
+                geom.ind = 'point',
+                habillage = "UASOperation",
+                pointshape = 4, pointsize = 2,
+                palette = c(mycolours[5], mycolours[6], mycolours[7]),
+                addEllipses = TRUE, ellipse.alpha = 0.0,
+                # Variables
+                select.var = list(contrib = 8), labelsize=3, arrowsize=0.25,
+                title=""
+                ) +
+  theme(panel.grid=element_blank(),
+        text=element_text(family = "serif", size=14))
+pBiAllOp12
+
+if (saveplots) {
+  filename = "PtAPCAAllBiOp"
+
+  ggsave(filename=paste(filename, ".svg", sep = ""), width=7, height=5.5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep = ""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep = ""), width=7, height=5.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep = ""))
+}
+
+pBiAllOp34 <- factoextra::fviz_pca_biplot(resA.pcaAll, repel = TRUE, axes=c(3, 4),
+                # Individuals
+                geom.ind = 'point',
+                habillage = "UASOperation",
+                pointshape = 4, pointsize = 2,
+                palette = c(mycolours[5], mycolours[6], mycolours[7]),
+                addEllipses = TRUE, ellipse.alpha = 0.0,
+                # Variables
+                select.var = list(contrib = 8), labelsize=3, arrowsize=0.25,
+                title=""
+                ) +
+  theme(panel.grid=element_blank(),
+        text=element_text(family = "serif", size=14))
+pBiAllOp34
+
+```
+
+#### Biplot environments
+
+```{r, fig.width=7, fig.height=5.5}
+pBiAllEnv12 <- factoextra::fviz_pca_biplot(resA.pcaAll, repel = TRUE,
+                # Individuals
+                geom.ind = 'point',
+                habillage = "AmbientEnv",
+                pointshape = 4, pointsize = 2,
+                palette = c(mycolours[1], mycolours[2]),
+                addEllipses = TRUE, ellipse.alpha = 0.0,
+                # Variables
+                select.var = list(contrib = 8), labelsize=3, arrowsize=0.25,
+                title=""
+                ) +
+  theme(panel.grid=element_blank(),
+        text=element_text(family = "serif", size=14))
+pBiAllEnv12
+
+if (saveplots) {
+  filename = "PtAPCAAllBiEnv"
+
+  ggsave(filename=paste(filename, ".svg", sep = ""), width=7, height=5.5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep = ""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep = ""), width=7, height=5.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep = ""))
+}
+
+pBiAllEnv34 <- factoextra::fviz_pca_biplot(resA.pcaAll, repel = TRUE, axes=c(3, 4),
+                # Individuals
+                geom.ind = 'point',
+                habillage = "AmbientEnv",
+                pointshape = 4, pointsize = 2,
+                palette = c(mycolours[1], mycolours[2]),
+                addEllipses = TRUE, ellipse.alpha = 0.0,
+                # Variables
+                select.var = list(contrib = 8), labelsize=3, arrowsize=0.25,
+                title=""
+                ) +
+  theme(panel.grid=element_blank(),
+        text=element_text(family = "serif", size=14))
+pBiAllEnv34
+
+```
+
+```{r}
+
+
 
 
