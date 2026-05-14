@@ -16,7 +16,7 @@ A python version of the aural detectability metric is also available in the [met
 # References
 [1] Ecma International. (2025). Psychoacoustic metrics for ITT equipment - Part 2 (methods for describing human perception based on the Sottek Hearing Model) (Standard No. 418-2, 4th Edition/June 2025). [https://ecma-international.org/wp-content/uploads/ECMA-418-2_4th_edition_june_2025.pdf](https://ecma-international.org/wp-content/uploads/ECMA-418-2_4th_edition_june_2025.pdf).
 
-[2] Lotinga, M. J. B., Torjussen, M, & Felix Greco, G. (2025). Verified implementations of the Sottek psychoacoustic Hearing Model standardised sound quality metrics (ECMA-418-2 loudness, tonality and roughness). 11th Convention of the European Acoustics Association (Forum Acusticum / Euronoise), 23--26 June 2025, Malaga, Spain. [https://www.researchgate.net/publication/392904348](https://www.researchgate.net/publication/392904348).
+[2] Lotinga, M. J. B., Torjussen, M, & Felix Greco, G. (2025). Verified implementations of the Sottek psychoacoustic Hearing Model standardised sound quality metrics (ECMA-418-2 loudness, tonality and roughness). 11th Convention of the European Acoustics Association (Forum Acusticum / Euronoise), 23-26 June 2025, Malaga, Spain. [https://www.researchgate.net/publication/392904348](https://www.researchgate.net/publication/392904348).
 
 [3] Fidell, S., Pearsons, K. S., & Bennett, R. (1974). Prediction of aural detectability of noise signals. Human Factors, 16(4), 373–383. [DOI: 10.1177/001872087401600405](https://doi.org/10.1177/001872087401600405).
 
