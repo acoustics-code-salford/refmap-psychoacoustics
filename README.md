@@ -8,7 +8,7 @@ Verified implementations of the standardised Sottek Hearing Model sound quality 
 
 An implementation of the aural detectability metric [3, 4] is available in the [Metrics](src/mlab/Metrics) folder.
 
-### Python
+### python
 The MATLAB implementations of the Sottek Hearing Model SQMs have been translated into a python package, [sottek-hearing-model](https://github.com/mlotinga/sottek-hearing-model).
 
 A python version of the aural detectability metric is also available in the [metrics](src/refmap_psychoacoustics/metrics) folder.
