@@ -27,6 +27,7 @@ library(posterior)
 library(loo)
 library(shinystan)
 library(shinybrms)
+library(ggdist)
 
 # set package parameters
 theme_set(theme_bw())
@@ -78,13 +79,17 @@ subjData$Home_Area <- factor(subjData$Home_Area)
 subjData$Area_soundscape <- factor(subjData$Area_soundscape)
 subjData$NationGeo <- factor(subjData$NationGeo)
 
+# For Age column in subjData, replace "No answer" with NA, and then convert to numeric using dplyr and pipe
+subjData <- subjData |> dplyr::mutate(Age = case_when(Age == "No answer" ~ NA_character_, TRUE ~ Age)) |>
+  dplyr::mutate(Age = as.numeric(Age))
+
 # recode AAM_attitude to 3 groups
 subjData <- subjData |> dplyr::mutate(AAM_attitude3 = case_match(AAM_attitude,
                                                                     "Supportive" ~ "Supportive",
                                                                     c("Ambivalent",
                                                                       "Concerned") ~ "Ambiv_Concern",
                                                                       "Neutral" ~ "Neutral"))
-subjData$AAM_attitude3 <- factor(subjData$AAM_attitude3)
+subjData$AAM_attitude3 <- factor(subjData$AAM_attitude3, levels=c("Supportive", "Ambiv_Concern", "Neutral"))
 
 # recode AAM_attitude to 2 groups
 subjData <- subjData |> dplyr::mutate(AAM_attitude2 = case_match(AAM_attitude,
@@ -92,7 +97,7 @@ subjData <- subjData |> dplyr::mutate(AAM_attitude2 = case_match(AAM_attitude,
                                                                     c("Ambivalent",
                                                                       "Concerned",
                                                                       "Neutral") ~ "Ambiv_Concern_Neutral"))
-subjData$AAM_attitude2 <- factor(subjData$AAM_attitude2)
+subjData$AAM_attitude2 <- factor(subjData$AAM_attitude2, levels=c("Supportive", "Ambiv_Concern_Neutral"))
 
 # recode AAM_attitude to 2 other groups
 subjData <- subjData |> dplyr::mutate(AAM_attitude2_2 = case_match(AAM_attitude,
@@ -101,7 +106,7 @@ subjData <- subjData |> dplyr::mutate(AAM_attitude2_2 = case_match(AAM_attitude,
                                                                     c("Concerned",
                                                                       "Neutral") ~ "Concern_Neutral"))
 
-subjData$AAM_attitude2_2 <- factor(subjData$AAM_attitude2_2)
+subjData$AAM_attitude2_2 <- factor(subjData$AAM_attitude2_2, levels=c("Support_Ambiv", "Concern_Neutral"))
 
 # recode NationGeo to 4 groups
 subjData <- subjData |> dplyr::mutate(NationGeo4 = case_match(NationGeo,
@@ -185,7 +190,7 @@ subjData <- subjData |> dplyr::mutate(IntermitRatioC3MaxLRScl = IntermitRatioC3M
 subjData <- subjData |> dplyr::mutate(IntermitRatioC5MaxLRScl = IntermitRatioC5MaxLR/100)
 subjData <- subjData |> dplyr::mutate(AmbLAeqMaxLRScl = datawizard::standardise(AmbLAeqMaxLR, scale=FALSE))
 subjData <- subjData |> dplyr::mutate(AmbLAF50ExMaxLRScl = datawizard::standardise(AmbLAF50ExMaxLR, scale=FALSE))
-
+subjData <- subjData |> dplyr::mutate(AgeScl = datawizard::standardise(Age, scale=FALSE))
 
 stimData <- stimData |> dplyr::mutate(UASLAeqMaxLRScl = datawizard::standardise(UASLAeqMaxLR, scale=FALSE))
 stimData <- stimData |> dplyr::mutate(UASLAEMaxLRScl = datawizard::standardise(UASLAEMaxLR, scale=FALSE))
@@ -212,6 +217,7 @@ subjData <- subjData |> dplyr::mutate(Detect0p1IntMaxLRLogScl = datawizard::stan
 subjData <- subjData |> dplyr::mutate(Detect0p5IntMaxLRLogScl = datawizard::standardise(Detect0p5IntMaxLRLog, scale=FALSE))
 subjData <- subjData |> dplyr::mutate(Detect0p1MaxMaxLRLogScl = datawizard::standardise(Detect0p1MaxMaxLRLog, scale=FALSE))
 subjData <- subjData |> dplyr::mutate(Detect0p5MaxMaxLRLogScl = datawizard::standardise(Detect0p5MaxMaxLRLog, scale=FALSE))
+
 
 stimData <- stimData |> dplyr::mutate(Detect0p1IntMaxLRLog = Detect0p1dBIntMaxLR/10)
 stimData <- stimData |> dplyr::mutate(Detect0p5IntMaxLRLog = Detect0p5dBIntMaxLR/10)
@@ -248,175 +254,237 @@ stimDataNoAmb$SNRlevel <- factor(stimDataNoAmb$SNRlevel, levels=SNRCatsA[2:lengt
 stimDataNoAmb$UASOperation <- factor(stimDataNoAmb$UASOperation, levels=UASOpCatsA[2: length(UASOpCatsA)])
 stimDataNoAmb$UASType <- factor(stimDataNoAmb$UASType, levels=UASTypeCatsA[2:length(UASTypeCatsA)])
 
-# Convert Age variable to numeric
-subjDataNoAmb <- subjDataNoAmb |> dplyr::mutate(Age=as.numeric(Age))
-
 # re-encode dAnnoyance variable as ordinal
 subjDataNoAmb <- subjDataNoAmb |> dplyr::mutate(dAnnoyanceOrd=factor(dAnnoyance, levels=seq(-10, 10, by=1), ordered=TRUE))
+
+# now drop any unused levels in dAnnoyanceOrd
+subjDataNoAmb$dAnnoyanceOrd <- droplevels(subjDataNoAmb$dAnnoyanceOrd)
 
 
 ```
 
+# Functions
+
+## ppd_ridgeplot
+Adapted from: https://bruno.nicenboim.me/posts/posts/2026-01-09-ordinal-models/index.html
+```{r}
+
+ppd_ridgeplot <- function(fit, title = "Prior Predictive Distribution", 
+                          subtitle = NULL, ndraws = 500) {
+  
+  yrep <- brms::posterior_predict(fit, ndraws = ndraws)
+
+  # extract observed response categories from model
+  response_name <- all.vars(fit$formula$formula)[1]
+  
+  observed_y <- fit$data[[response_name]]
+
+  # preserve ordinal ordering
+  response_levels <- sort(unique(observed_y))
+
+  proportions_per_draw <- lapply(seq_len(nrow(yrep)), function(i) {
+    props <- table(factor(yrep[i, ], levels = response_levels)) / ncol(yrep)
+    data.frame(
+      draw = i,
+      response = factor(response_levels,
+                        levels = response_levels,
+                        ordered = TRUE),
+      proportion = as.numeric(props)
+    )
+  })
+  
+  ppd_data <- do.call(rbind, proportions_per_draw)
+  
+  # reference line for equal occupancy
+  equal_prob <- 1 / length(response_levels)
+  
+  ggplot(ppd_data, aes(x = proportion, y = response)) +
+    ggridges::geom_density_ridges(fill = "steelblue", alpha = 0.7, scale = 0.9, stat = "binline") +
+    scale_x_continuous(breaks = seq(0, 1, by = 0.2), limits = c(0, 1)) +
+    geom_vline(xintercept = equal_prob, linetype = "dashed") +
+    labs(title = title,
+         subtitle = subtitle,
+         x = "Predicted category proportion",
+         y = "Response category") +
+    theme_minimal(base_size = 12) +
+    coord_flip()
+
+}
+
+```
+
+# Model 0: maximal model for annoyance
+
+```{r}
+
+# re-encode Annoyance variable as ordinal
+subjDataNoAmb <- subjDataNoAmb |> dplyr::mutate(AnnoyanceOrd=factor(Annoyance, levels=seq(0, 10, by=1), ordered=TRUE))
+subjDataNoAmb.cc <- subjDataNoAmb.cc |> dplyr::mutate(AnnoyanceOrd=factor(Annoyance, levels=seq(0, 10, by=1), ordered=TRUE))
+
+# now drop any unused levels in AnnoyanceOrd
+subjDataNoAmb$AnnoyanceOrd <- droplevels(subjDataNoAmb$AnnoyanceOrd)
+subjDataNoAmb.cc$AnnoyanceOrd <- droplevels(subjDataNoAmb.cc$AnnoyanceOrd)
+
+emp_thresh0 <- round(qlogis(cumsum(prop.table(table(subjDataNoAmb.cc$AnnoyanceOrd)))), 2)
+# truncate emp_thresh to remove infinite values
+emp_thresh0 <- emp_thresh0[is.finite(emp_thresh0)]
+
+priors0 <- c(
+  set_prior("normal(0, 2)", class='b'),
+  brms::prior(normal(0.25, 1), class='b', coef='UASLAEMaxLRScl'),
+  brms::prior(normal(1.5, 1), class='b', coef='Ilog10UASEvents'),
+  brms::prior(normal(0.1, 1), class='b', coef='TrialNumberScl'),
+  brms::prior(normal(0.1, 1), class='b', coef='SessionPartB'),
+  brms::prior_string(paste0("normal(", emp_thresh0,", 1)"), class = "Intercept", coef = 1:length(emp_thresh0))
+)
+
+model0formula <- AnnoyanceOrd ~ 1 + SessionPart + TrialNumberScl +
+                    UASLAEMaxLRScl*I(log10(UASEvents)) +
+                   UASLAEMaxLRScl*AmbientEnv*UASOperation +
+                   UASLAEMaxLRScl*AmbientEnv*UASType +
+                   UASOperation*UASType +
+                   NationGeo2 + AAM_attitude2 + Home_Area2 +
+                   Age + Sex + NSSTotal + Area_soundscape2 +
+                   (1 + UASLAEMaxLRScl + AmbientEnv + I(log10(UASEvents)) +
+                      UASOperation + UASType | ID) +
+                     (1 | StimID)
+
+tic()
+model0Priors <- brms::brm(model0formula,
+                 data=subjDataNoAmb.cc,
+                 family=cumulative(link='logit'),
+                 future=TRUE, backend='cmdstanr', prior = priors0,
+                 sample_prior='only', seed=808,
+                 chains=4, iter=2000, warmup=1000)
+toc()
+
+model0_ppd <- ppd_ridgeplot(model0Priors, ndraws = 100)
+model0_ppd
+
+model0PriorCheck <- brms::pp_check(model0Priors, type='bars', ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+model0PriorCheck
+
+tic()
+model0 <- brms::brm(model0formula,
+                 data=subjDataNoAmb.cc,
+                 family=cumulative(link='logit'),
+                 future=TRUE, backend='cmdstanr', prior = priors0,
+                 threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+                 seed=808, chains=4, iter=2000, warmup=1000)
+toc()
+
+model0PostCheck <- brms::pp_check(model0, type='bars', ndraw=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Ordinal category index")
+model0PostCheck
+
+```
 # dAnnoyance
 
 ## Priors
 
 ```{r}
 
+# the first models will be run on the data with complete cases, which means excluding one participant with missing age
+# the  be based on the empirical distribution of the complete cases, which is what model1a and subsequent models will be fitted to
+
+# subset data to exclude the missing age participant
+subjDataNoAmb.cc <- subset(subjDataNoAmb, !is.na(Age))
+
+# redefine the response for the subsetted data to drop unused levels
+subjDataNoAmb.cc$dAnnoyanceOrd <- droplevels(subjDataNoAmb.cc$dAnnoyanceOrd)
+
+# empirical distribution converted into threshold centres for the cumulative logit model
+emp_thresh1 <- round(qlogis(cumsum(prop.table(table(subjDataNoAmb.cc$dAnnoyanceOrd)))), 2)
+# truncate emp_thresh to remove infinite values
+emp_thresh1 <- emp_thresh[is.finite(emp_thresh1)]
+
 priors1 <- c(
-  brms::prior(normal(0.2, 0.5), class='b', coef='UASLAEMaxLRScl'),
-  brms::prior(normal(-1.5, 0.75), class='b', coef='IUASEventsEM1'),
-  brms::prior(normal(0, 0.5), class='b', coef='UASLAEMaxLRScl:IUASEventsEM1'),
-  brms::prior(normal(0.1, 0.25), class='b', coef='TrialNumberScl'),
-  brms::prior(normal(0, 0.5), class='b', coef='SessionPartB'),
-  set_prior("normal(0, 1)", class = 'Intercept'),
-  set_prior("normal(0, 0.5)", class='b')
+  set_prior("normal(0, 2)", class='b'),
+  brms::prior(normal(0.25, 1), class='b', coef='UASLAEMaxLRScl'),
+  brms::prior(normal(1.5, 1), class='b', coef='Ilog10UASEvents'),
+  brms::prior(normal(0.1, 1), class='b', coef='TrialNumberScl'),
+  brms::prior(normal(0.1, 1), class='b', coef='SessionPartB'),
+  brms::prior_string(paste0("normal(", emp_thresh1,", 1)"), class = "Intercept", coef = 1:length(emp_thresh1))
 )
 
 ```
 
-## Model 1a: maximal model
+## Model 1: maximal model
 
 ```{r}
 
-model1aformula <- dAnnoyanceOrd ~ 1 + TrialNumberScl +
+model1formula <- dAnnoyanceOrd ~ 1 + TrialNumberScl +
                       SessionPart +
-                   UASLAEMaxLRScl*AmbientEnv +
-                   UASLAEMaxLRScl*I(UASEvents^-1) +
-                   UASLAEMaxLRScl*UASOperation +
-                   UASLAEMaxLRScl*UASType +
-                   NationGeo2 + AAM_attitude + Home_Area2 +
-                   Age + Sex + NSSTotal + NativeLang +
-                   Area_soundscape + PANAS_positive +
-                   PANAS_negative +
-                   (1 + UASLAEMaxLRScl + AmbientEnv + I(UASEvents^-1) +
+                   UASLAEMaxLRScl*I(log10(UASEvents)) +
+                   UASLAEMaxLRScl*AmbientEnv*UASOperation +
+                   UASLAEMaxLRScl*AmbientEnv*UASType +
+                   UASOperation*UASType +
+                   NationGeo2 + AAM_attitude2 + Home_Area2 +
+                   Age + Sex + NSSTotal + Area_soundscape2 +
+                   (1 + UASLAEMaxLRScl + AmbientEnv + I(log10(UASEvents)) +
                       UASOperation + UASType | ID) +
                      (1 | StimID)
 
 tic()
-model1aPriors <- brms::brm(model1aformula,
-                 data=subjDataNoAmb,
+model1Priors <- brms::brm(model1formula,
+                 data=subjDataNoAmb.cc,
                  family=cumulative(link='logit'),
                  future=TRUE, backend='cmdstanr', prior = priors1,
                  sample_prior='only', seed=808,
                  chains=4, iter=2000, warmup=1000)
 toc()
 
-model1aPriorCheck <- brms::pp_check(model1aPriors, type='bars', ndraws = 100) +
+model1_ppd <- ppd_ridgeplot(model1Priors, ndraws = 100)
+model1_ppd
+
+model1PriorCheck <- brms::pp_check(model1Priors, type='bars', ndraws = 100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Mean change in annoyance")
-model1aPriorCheck
+model1PriorCheck
 
 tic()
-model1a <- brms::brm(model1aformula,
-                 data=subjDataNoAmb,
+model1 <- brms::brm(model1formula,
+                 data=subjDataNoAmb.cc,
                  family=cumulative(link='logit'),
                  future=TRUE, backend='cmdstanr', prior = priors1,
                  threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
                  seed=808, chains=4, iter=2000, warmup=1000)
 toc()
 
-model1aPostCheck <- brms::pp_check(model1a, type='bars', ndraw=100) +
+model1 <- brms::add_criterion(model1, criterion=c('loo', 'loo_R2'), cores=n_cores)
+
+model1PostCheck <- brms::pp_check(model1, type='bars', ndraw=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Ordinal category index")
-model1aPostCheck
+model1PostCheck
 
 ```
 
-## Model 1b: omit stimID random effect
+## Model 2: omit stimID random effect
 
 ```{r}
 
-model1bformula <- dAnnoyanceOrd ~ 1 + TrialNumberScl +
+model2formula <- dAnnoyanceOrd ~ 1 + TrialNumberScl +
                       SessionPart +
-                   UASLAEMaxLRScl*AmbientEnv +
-                   UASLAEMaxLRScl*I(UASEvents^-1) +
-                   UASLAEMaxLRScl*UASOperation +
-                   UASLAEMaxLRScl*UASType +
-                   NationGeo2 + AAM_attitude + Home_Area2 +
-                   Age + Sex + NSSTotal + NativeLang +
-                   Area_soundscape + PANAS_positive +
-                   PANAS_negative +
-                   (1 + UASLAEMaxLRScl + AmbientEnv + I(UASEvents^-1) +
+                   UASLAEMaxLRScl*I(log10(UASEvents)) +
+                   UASLAEMaxLRScl*AmbientEnv*UASOperation +
+                   UASLAEMaxLRScl*AmbientEnv*UASType +
+                   UASOperation*UASType +
+                   NationGeo2 + AAM_attitude2 + Home_Area2 +
+                   Age + Sex + NSSTotal + Area_soundscape2 +
+                   (1 + UASLAEMaxLRScl + AmbientEnv + I(log10(UASEvents)) +
                       UASOperation + UASType | ID)
 
 tic()
-model1b <- brms::brm(model1bformula,
-                 data=insight::get_data(model1a),
+model2 <- brms::brm(model2formula,
+                 data=insight::get_data(model1),
                  family=cumulative(link='logit'),
                  future=TRUE, backend='cmdstanr', prior = priors1,
                  threads=threading(threads=3, static=TRUE), # check threads*chains = n_cores,
                  seed=303, chains=4, iter=2000, warmup=1000)
-toc()
-
-model1bPostCheck <- brms::pp_check(model1b, type='bars', ndraw=100) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Ordinal category index")
-model1bPostCheck
-
-```
-
-## Model 1a and 1b comparison
-
-```{r}
-model1a <- brms::add_criterion(model1a, criterion=c('loo', 'loo_R2'), cores=n_cores)
-model1b <- brms::add_criterion(model1b, criterion=c('loo', 'loo_R2'), cores=n_cores)
-```
-
-```{r}
-
-loo::loo(model1a)
-loo::loo(model1b)
-
-model1aVs1b_loo <- loo::loo_compare(model1a, model1b, criterion='loo')
-model1aVs1b_loo
-
-# elpd_diff se_diff
-# model1a  0.0       0.0   
-# model1b -3.5       1.6
-
-```
-
-```{r}
-
-# #diagnostics
-# posterior_m1b <- as.array(model1b)
-# lp_m1b <- brms::log_posterior(model1b)
-# np_m1b <- brms::nuts_params(model1b)
-# 
-# p_mcmc <- bayesplot::mcmc_parcoord(posterior_m1b, np=np_m1b)
-# p_mcmc + ylim(-50, 50)
-# 
-# brms::mcmc_plot(model1b, type='rhat')
-# brms::mcmc_plot(model1b, type='nuts_acceptance')
-# brms::mcmc_plot(model1b, type='nuts_divergence')
-# brms::mcmc_plot(model1b, type='trace_highlight', variable=c('b_UASLAEMaxLRScl', 'b_IUASEventsEM1', 'b_UASLAEMaxLRScl:IUASEventsEM1', 'b_NationGeo2UK'))
-
-```
-
-## Model 2: omit group slopes for UASOperation and UASType
-
-```{r}
-model2formula <- dAnnoyanceOrd ~ 1 + TrialNumberScl +
-                      SessionPart +
-                   UASLAEMaxLRScl*AmbientEnv +
-                   UASLAEMaxLRScl*I(UASEvents^-1) +
-                   UASLAEMaxLRScl*UASOperation +
-                   UASLAEMaxLRScl*UASType +
-                   NationGeo2 + AAM_attitude + Home_Area2 +
-                   Age + Sex + NSSTotal + NativeLang +
-                   Area_soundscape + PANAS_positive +
-                   PANAS_negative +
-                   (1 + UASLAEMaxLRScl + AmbientEnv + I(UASEvents^-1) | ID)
-
-# update model1 with a reduced random effects structure
-tic()
-model2 <- brms::brm(model2formula,
-                   data=insight::get_data(model1a),
-                   family=cumulative(link='logit'),
-                   future=TRUE, backend='cmdstanr', prior = priors1,,
-                   threads=threading(threads=3, static=TRUE), # check threads*chains = n_cores
-                   seed=707, chains=4, iter=2000, warmup=1000)
 toc()
 
 model2 <- brms::add_criterion(model2, criterion=c('loo', 'loo_R2'), cores=n_cores)
@@ -428,46 +496,54 @@ model2PostCheck
 
 ```
 
-## Model 1a and Model 2 comparison
+## Model 1 and 2 comparison
 
 ```{r}
 
-loo::loo(model1a)
+loo::loo(model1)
 loo::loo(model2)
 
-model1aVs2_loo <- loo::loo_compare(model1a, model2, criterion='loo')
-model1aVs2_loo
+model1.2_loo <- loo::loo_compare(model1, model2, criterion='loo')
+model1.2_loo
 
-#         elpd_diff se_diff
-# model1a   0.0       0.0  
-# model2  -13.8       7.9 
+#        elpd_diff se_diff
+# model1  0.0       0.0   
+# model2 -3.8       2.2
 
 ```
 
-## Model 3: omit group slope for 1/UASEvents
+## Model 2 analysis
 
 ```{r}
 
+# visualise the effects of the main predictors in model2
+
+tidybayes::spread_draws(model2, b_UASLAEMaxLRScl, b_Ilog10UASEvents, b_UASTypeM300,
+                        b_UASTypeT150, b_UASOperationLanding, b_UASOperationTakeoff, b_AmbientEnvStreet)
+
+
+```
+
+## Model 3: omit group slopes for UASOperation and UASType
+
+```{r}
 model3formula <- dAnnoyanceOrd ~ 1 + TrialNumberScl +
                       SessionPart +
-                   UASLAEMaxLRScl*AmbientEnv +
-                   UASLAEMaxLRScl*I(UASEvents^-1) +
-                   UASLAEMaxLRScl*UASOperation +
-                   UASLAEMaxLRScl*UASType +
-                   NationGeo2 + AAM_attitude + Home_Area2 +
-                   Age + Sex + NSSTotal + NativeLang +
-                   Area_soundscape + PANAS_positive +
-                   PANAS_negative +
-                   (1 + UASLAEMaxLRScl + AmbientEnv | ID)
+                   UASLAEMaxLRScl*I(log10(UASEvents)) +
+                   UASLAEMaxLRScl*AmbientEnv*UASOperation +
+                   UASLAEMaxLRScl*AmbientEnv*UASType +
+                   UASOperation*UASType +
+                   NationGeo2 + AAM_attitude2 + Home_Area2 +
+                   Age + Sex + NSSTotal + Area_soundscape2 +
+                   (1 + UASLAEMaxLRScl + AmbientEnv + I(log10(UASEvents)) | ID)
 
-# update model1 with a reduced random effects structure
 tic()
 model3 <- brms::brm(model3formula,
-                   data=insight::get_data(model1a),
+                   data=insight::get_data(model1),
                    family=cumulative(link='logit'),
-                   future=TRUE, backend='cmdstanr', prior = priors1,,
+                   future=TRUE, backend='cmdstanr', prior = priors1,
                    threads=threading(threads=3, static=TRUE), # check threads*chains = n_cores
-                   seed=999, chains=4, iter=2000, warmup=1000)
+                   seed=707, chains=4, iter=2000, warmup=1000)
 toc()
 
 model3 <- brms::add_criterion(model3, criterion=c('loo', 'loo_R2'), cores=n_cores)
@@ -479,23 +555,707 @@ model3PostCheck
 
 ```
 
-## Model 1a and Model 2 comparison
+## Model 1-3 comparison
 
 ```{r}
 
-loo::loo(model1a)
+loo::loo(model1)
 loo::loo(model2)
 loo::loo(model3)
 
-model1aVs2Vs3_loo <- loo::loo_compare(model1a, model1b, model2, model3, criterion='loo')
-model1aVs2Vs3_loo
+model1.2.3_loo <- loo::loo_compare(model1, model2, model3, criterion='loo')
+model1.2.3_loo
+
+
+
+
+```
+
+## Model 4: omit group slope for UASEvents
+
+```{r}
+
+model4formula <- dAnnoyanceOrd ~ 1 + TrialNumberScl +
+                      SessionPart +
+                   UASLAEMaxLRScl*I(log10(UASEvents)) +
+                   UASLAEMaxLRScl*AmbientEnv*UASOperation +
+                   UASLAEMaxLRScl*AmbientEnv*UASType +
+                   UASOperation*UASType +
+                   NationGeo2 + AAM_attitude2 + Home_Area2 +
+                   Age + Sex + NSSTotal + Area_soundscape2 +
+                   (1 + UASLAEMaxLRScl + AmbientEnv | ID)
+
+
+tic()
+model4 <- brms::brm(model4formula,
+                   data=insight::get_data(model1),
+                   family=cumulative(link='logit'),
+                   future=TRUE, backend='cmdstanr', prior = priors1,
+                   threads=threading(threads=3, static=TRUE), # check threads*chains = n_cores
+                   seed=999, chains=4, iter=2000, warmup=1000)
+toc()
+
+model4 <- brms::add_criterion(model4, criterion=c('loo', 'loo_R2'), cores=n_cores)
+
+model4PostCheck <- brms::pp_check(model4, type='bars', ndraw=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Ordinal category index")
+model4PostCheck
+
+```
+
+## Models 1-4 comparison
+
+```{r}
+
+loo::loo(model1)
+loo::loo(model2)
+loo::loo(model3)
+loo::loo(model4)
+
+model1.2.3.4_loo <- loo::loo_compare(model1, model2, model3, model4, criterion='loo')
+model1.2.3.4_loo
+
+#         elpd_diff se_diff
+# model1    0.0       0.0 
+# model2   -36.6       9.7 
+# model3  -206.7      20.3 
+# model4  -813.2      39.4
+
+```
+
+## Model 5: omit group slope for AmbientEnv
+
+```{r}
+
+model5formula <- dAnnoyanceOrd ~ 1 + TrialNumberScl +
+                      SessionPart +
+                   UASLAEMaxLRScl*I(log10(UASEvents)) +
+                   UASLAEMaxLRScl*AmbientEnv*UASOperation +
+                   UASLAEMaxLRScl*AmbientEnv*UASType +
+                   UASOperation*UASType +
+                   NationGeo2 + AAM_attitude2 + Home_Area2 +
+                   Age + Sex + NSSTotal + Area_soundscape2 +
+                   (1 + UASLAEMaxLRScl | ID)
+
+
+tic()
+model5 <- brms::brm(model5formula,
+                   data=insight::get_data(model1),
+                   family=cumulative(link='logit'),
+                   future=TRUE, backend='cmdstanr', prior = priors1,
+                   threads=threading(threads=3, static=TRUE), # check threads*chains = n_cores
+                   seed=118, chains=4, iter=2000, warmup=1000)
+toc()
+
+model5 <- brms::add_criterion(model5, criterion=c('loo', 'loo_R2'), cores=n_cores)
+
+model5PostCheck <- brms::pp_check(model5, type='bars', ndraw=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Ordinal category index")
+model5PostCheck
+
+```
+
+## Models 1-5 comparison
+
+```{r}
+
+loo::loo(model1)
+loo::loo(model2)
+loo::loo(model3)
+loo::loo(model4)
+loo::loo(model5)
+
+model1.2.3.4.5_loo <- loo::loo_compare(model1, model2, model3, model4, model5, criterion='loo')
+model1.2.3.4.5_loo
+
+#         elpd_diff se_diff
+# model1a    0.0       0.0 
+# model1b   -4.8       2.6 
+# model2   -36.6       9.7 
+# model3  -206.7      20.3 
+# model4  -813.2      39.4 
+
+```
+
+## Model 6: omit group slope for UASLAEMaxLRScl but retain AmbientEnv
+
+```{r}
+
+model6formula <- dAnnoyanceOrd ~ 1 + TrialNumberScl +
+                      SessionPart +
+                   UASLAEMaxLRScl*I(log10(UASEvents)) +
+                   UASLAEMaxLRScl*AmbientEnv*UASOperation +
+                   UASLAEMaxLRScl*AmbientEnv*UASType +
+                   UASOperation*UASType +
+                   NationGeo2 + AAM_attitude2 + Home_Area2 +
+                   Age + Sex + NSSTotal + Area_soundscape2 +
+                   (1 + AmbientEnv  | ID)
+
+
+tic()
+model6 <- brms::brm(model6formula,
+                   data=insight::get_data(model1),
+                   family=cumulative(link='logit'),
+                   future=TRUE, backend='cmdstanr', prior = priors1,
+                   threads=threading(threads=3, static=TRUE), # check threads*chains = n_cores
+                   seed=111, chains=4, iter=2000, warmup=1000)
+toc()
+
+model6 <- brms::add_criterion(model6, criterion=c('loo', 'loo_R2'), cores=n_cores)
+
+model6PostCheck <- brms::pp_check(model6, type='bars', ndraw=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Ordinal category index")
+model6PostCheck
+
+```
+
+## Models 1-6 comparison
+
+```{r}
+
+loo::loo(model1)
+loo::loo(model2)
+loo::loo(model3)
+loo::loo(model4)
+loo::loo(model5)
+
+
+model1.2.3.4.5.6_loo <- loo::loo_compare(model1, model2, model3, model4, model5,
+                                         model6, criterion='loo')
+model1.2.3.4.5.6_loo
+
+#         elpd_diff se_diff
+# model1a    0.0       0.0 
+# model1b   -4.8       2.6 
+# model2   -36.6       9.7 
+# model3  -206.7      20.3 
+# model5  -274.6      24.5 
+# model4  -813.2      39.4 
+
+```
+
+## Model 7: omit group slope for UASLAEMaxLRScl and AmbientEnv but retain UASEvents
+
+```{r}
+
+model7formula <- dAnnoyanceOrd ~ 1 + TrialNumberScl +
+                      SessionPart +
+                   UASLAEMaxLRScl*I(log10(UASEvents)) +
+                   UASLAEMaxLRScl*AmbientEnv*UASOperation +
+                   UASLAEMaxLRScl*AmbientEnv*UASType +
+                   UASOperation*UASType +
+                   NationGeo2 + AAM_attitude2 + Home_Area2 +
+                   Age + Sex + NSSTotal + Area_soundscape2 +
+                   (1 + I(log10(UASEvents)) | ID)
+
+
+tic()
+model7 <- brms::brm(model7formula,
+                   data=insight::get_data(model1),
+                   family=cumulative(link='logit'),
+                   future=TRUE, backend='cmdstanr', prior = priors1,
+                   threads=threading(threads=3, static=TRUE), # check threads*chains = n_cores
+                   seed=57132, chains=4, iter=2000, warmup=1000)
+toc()
+
+model6 <- brms::add_criterion(model7, criterion=c('loo', 'loo_R2'), cores=n_cores)
+
+model7PostCheck <- brms::pp_check(model7, type='bars', ndraw=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Ordinal category index")
+model7PostCheck
+
+```
+
+## Models 1-7 comparison
+
+```{r}
+
+loo::loo(model1)
+loo::loo(model2)
+loo::loo(model3)
+loo::loo(model4)
+loo::loo(model5)
+loo::loo(model6)
+loo::loo(model7)
+
+model1.2.3.4.5.6.7_loo <- loo::loo_compare(model1, model2, model3,
+                                               model4, model5, model6, model7, criterion='loo')
+model1.2.3.4.5.6.7_loo
 
 #         elpd_diff se_diff
 # model1a    0.0       0.0 
 # model1b   -3.5       1.6 
 # model2   -13.8       7.9 
-# model3  -187.7      18.6 
+# model3  -187.7      18.6  (1 + UASLAEMaxLRScl + AmbientEnv | ID)
+# model5  -255.5      22.3  (1 + AmbientEnv | ID)
+# model6  -723.2      35.8  (1 + I(UASEvents^-1) | ID)
+# model4  -788.4      36.3  (1 + UASLAEMaxLRScl | ID)
+
+model3Vs5_loo <- loo::loo_compare(model3, model5, criterion='loo')
+model3Vs5_loo
 
 ```
+
+## Model 8: omit group slope for UASLAEMaxLRScl
+
+```{r}
+
+model8formula <- dAnnoyanceOrd ~ 1 + TrialNumberScl +
+                      SessionPart +
+                   UASLAEMaxLRScl*I(log10(UASEvents)) +
+                   UASLAEMaxLRScl*AmbientEnv*UASOperation +
+                   UASLAEMaxLRScl*AmbientEnv*UASType +
+                   UASOperation*UASType +
+                   NationGeo2 + AAM_attitude2 + Home_Area2 +
+                   Age + Sex + NSSTotal + Area_soundscape2 +
+                   (1 + AmbientEnv + I(log10(UASEvents)) | ID)
+
+tic()
+model8 <- brms::brm(model8formula,
+                   data=insight::get_data(model1),
+                   family=cumulative(link='logit'),
+                   future=TRUE, backend='cmdstanr', prior = priors1,
+                   threads=threading(threads=3, static=TRUE), # check threads*chains = n_cores
+                   seed=985416, chains=4, iter=2000, warmup=1000)
+toc()
+
+model8 <- brms::add_criterion(model8, criterion=c('loo', 'loo_R2'), cores=n_cores)
+
+model8PostCheck <- brms::pp_check(model8, type='bars', ndraw=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Ordinal category index")
+model8PostCheck
+
+```
+
+## Models 1-8 comparison
+
+```{r}
+
+loo::loo(model1)
+loo::loo(model2)
+loo::loo(model3)
+loo::loo(model4)
+loo::loo(model5)
+loo::loo(model6)
+loo::loo(model7)
+loo::loo(model8)
+
+model1.2.3.4.5.6.7.8_loo <- loo::loo_compare(model1, model2, model3,
+                                               model4, model5, model6, model7,
+                                             model8, criterion='loo')
+model1.2.3.4.5.6.7.8_loo
+
+#         elpd_diff se_diff
+# model1a    0.0       0.0 (1 + UASLAEMaxLRScl + AmbientEnv + I(UASEvents^-1) + UASOperation + UASType | ID) + (1 | StimID)
+# model1b   -4.8       2.6 (1 + UASLAEMaxLRScl + AmbientEnv + I(UASEvents^-1) + UASOperation + UASType | ID)
+# model2   -36.6       9.7 (1 + UASLAEMaxLRScl + AmbientEnv + I(UASEvents^-1) | ID)
+# model7  -104.8      15.8  (1 + AmbientEnv + I(UASEvents^-1) | ID)
+# model3  -206.7      20.3 (1 + UASLAEMaxLRScl + AmbientEnv | ID)
+# model5  -274.6      24.5 (1 + AmbientEnv | ID)
+# model6  -746.2      38.8 (1 + I(UASEvents^-1) | ID)
+# model4  -813.2      39.4 (1 + UASLAEMaxLRScl | ID)
+
+```
+
+## Model 9: omit between-subjects effects expected to be negligible
+
+```{r}
+
+model9formula <- dAnnoyanceOrd ~ 1 + TrialNumberScl +
+                      SessionPart +
+                   UASLAEMaxLRScl*I(log10(UASEvents)) +
+                   UASLAEMaxLRScl*AmbientEnv*UASOperation +
+                   UASLAEMaxLRScl*AmbientEnv*UASType +
+                   UASOperation*UASType +
+                   NationGeo2 + AAM_attitude2 + Home_Area2 +
+                   (1 + UASLAEMaxLRScl + AmbientEnv + I(log10(UASEvents)) | ID)
+
+tic()
+model9 <- brms::brm(model9formula,
+                   data=insight::get_data(model1),
+                   family=cumulative(link='logit'),
+                   future=TRUE, backend='cmdstanr', prior = priors1,
+                   threads=threading(threads=3, static=TRUE), # check threads*chains = n_cores
+                   seed=1678, chains=4, iter=2000, warmup=1000)
+toc()
+
+model9 <- brms::add_criterion(model9, criterion=c('loo', 'loo_R2'), cores=n_cores)
+
+model9PostCheck <- brms::pp_check(model9, type='bars', ndraw=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Ordinal category index")
+model9PostCheck
+
+```
+
+## Model 1 & 9 comparison
+
+```{r}
+
+loo::loo(model1)
+loo::loo(model9)
+
+model1.9_loo <- loo::loo_compare(model1, model9, criterion='loo')
+model1.9_loo
+
+#         elpd_diff se_diff
+# model1a   0.0       0.0  
+# model8  -12.4       7.9  
+
+```
+
+## Model 10: omit further between-subjects effects expected to have minor effects
+
+```{r}
+
+model10formula <- dAnnoyanceOrd ~ 1 + TrialNumberScl +
+                      SessionPart +
+                   UASLAEMaxLRScl*I(log10(UASEvents)) +
+                   UASLAEMaxLRScl*AmbientEnv*UASOperation +
+                   UASLAEMaxLRScl*AmbientEnv*UASType +
+                   UASOperation*UASType +
+                   NationGeo2 + AAM_attitude2 +
+                   (1 + UASLAEMaxLRScl + AmbientEnv +
+                      I(log10(UASEvents)) | ID)
+
+
+tic()
+model10 <- brms::brm(model10formula,
+                   data=insight::get_data(model1),
+                   family=cumulative(link='logit'),
+                   future=TRUE, backend='cmdstanr', prior = priors1,
+                   threads=threading(threads=3, static=TRUE), # check threads*chains = n_cores
+                   seed=1678, chains=4, iter=2000, warmup=1000)
+toc()
+
+model10 <- brms::add_criterion(model10, criterion=c('loo', 'loo_R2'), cores=n_cores)
+
+model10PostCheck <- brms::pp_check(model10, type='bars', ndraw=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Ordinal category index")
+model10PostCheck
+
+```
+
+## Model 1, 9 and 10 comparison
+
+```{r}
+
+loo::loo(model1)
+loo::loo(model9)
+loo::loo(model10)
+
+model1.9.10_loo <- loo::loo_compare(model1, model9, model10, criterion='loo')
+model1.9.10_loo
+
+#         elpd_diff se_diff
+# model1a   0.0       0.0  
+# model8  -12.4       7.9  
+# model9  -12.4       7.9    
+
+```
+
+## Model 11: omit NationGeo2 and Home_Area2 between-subjects effects
+
+```{r}
+
+model11formula <- dAnnoyanceOrd ~ 1 + TrialNumberScl +
+                      SessionPart +
+                   UASLAEMaxLRScl*I(log10(UASEvents)) +
+                   UASLAEMaxLRScl*AmbientEnv*UASOperation +
+                   UASLAEMaxLRScl*AmbientEnv*UASType +
+                   UASOperation*UASType +
+                   AAM_attitude2 +
+                   (1 + UASLAEMaxLRScl + AmbientEnv +
+                      I(log10(UASEvents)) | ID)
+
+
+tic()
+model11 <- brms::brm(model11formula,
+                   data=insight::get_data(model1),
+                   family=cumulative(link='logit'),
+                   future=TRUE, backend='cmdstanr', prior = priors1,
+                   threads=threading(threads=3, static=TRUE), # check threads*chains = n_cores
+                   seed=1678, chains=4, iter=2000, warmup=1000)
+toc()
+
+model11 <- brms::add_criterion(model11, criterion=c('loo', 'loo_R2'), cores=n_cores)
+
+model11PostCheck <- brms::pp_check(model11, type='bars', ndraw=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Ordinal category index")
+model11PostCheck
+
+```
+
+## Model 1 & 9-11 comparison
+
+```{r}
+
+loo::loo(model1)
+loo::loo(model9)
+loo::loo(model10)
+loo::loo(model11)
+
+model1.9.10.11_loo <- loo::loo_compare(model1, model9, model10, model11, criterion='loo')
+model1.9.10.11_loo
+
+#         elpd_diff se_diff
+# model1a   0.0       0.0  
+# model8  -12.4       7.9  
+# model9  -12.4       7.9  
+# model10 -13.5       7.9   
+
+```
+
+## Model 12: omit all between-subjects effects
+
+```{r}
+
+model12formula <- dAnnoyanceOrd ~ 1 + TrialNumberScl +
+                      SessionPart +
+                   UASLAEMaxLRScl*I(log10(UASEvents)) +
+                   UASLAEMaxLRScl*AmbientEnv*UASOperation +
+                   UASLAEMaxLRScl*AmbientEnv*UASType +
+                   UASOperation*UASType +
+                   (1 + UASLAEMaxLRScl + AmbientEnv +
+                      I(log10(UASEvents)) | ID)
+
+
+tic()
+model12 <- brms::brm(model12formula,
+                   data=insight::get_data(model1),
+                   family=cumulative(link='logit'),
+                   future=TRUE, backend='cmdstanr', prior = priors1,
+                   threads=threading(threads=3, static=TRUE), # check threads*chains = n_cores
+                   seed=1678, chains=4, iter=2000, warmup=1000)
+toc()
+
+model12 <- brms::add_criterion(model12, criterion=c('loo', 'loo_R2'), cores=n_cores)
+
+model12PostCheck <- brms::pp_check(model12, type='bars', ndraw=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Ordinal category index")
+model12PostCheck
+
+```
+
+## Model 1 & 9-12 comparison
+
+```{r}
+
+loo::loo(model1)
+loo::loo(model9)
+loo::loo(model10)
+loo::loo(model11)
+loo::loo(model12)
+
+model1.9.10.11.12_loo <- loo::loo_compare(model1, model9,
+                                              model10, model11, model12, criterion='loo')
+model1.9.10.11.12_loo
+
+#         elpd_diff se_diff
+# model1a   0.0       0.0  (NationGeo2 + AAM_attitude3 + Home_Area2 + Age + Sex + NSSTotal + NativeLang + Area_soundscape + PANAS_positive + PANAS_negative)
+# model8  -12.4       7.9  (NationGeo2 + AAM_attitude3 + Home_Area2 + Age + NSSTotal + Area_soundscape)
+# model9  -12.4       7.9  (NationGeo2 + AAM_attitude3 + Home_Area2)
+# model11 -12.7       7.9  ()
+# model10 -13.5       7.9  (AAM_attitude3)
+
+```
+
+## Model 13: retain Home_Area between-subjects effect
+
+```{r}
+
+model13formula <- dAnnoyanceOrd ~ 1 + TrialNumberScl +
+                      SessionPart +
+                   UASLAEMaxLRScl*I(log10(UASEvents)) +
+                   UASLAEMaxLRScl*AmbientEnv*UASOperation +
+                   UASLAEMaxLRScl*AmbientEnv*UASType +
+                   UASOperation*UASType +
+                    Home_Area2 +
+                   (1 + UASLAEMaxLRScl + AmbientEnv +
+                      I(log10(UASEvents)) | ID)
+
+tic()
+model13 <- brms::brm(model13formula,
+                   data=insight::get_data(model1),
+                   family=cumulative(link='logit'),
+                   future=TRUE, backend='cmdstanr', prior = priors1,
+                   threads=threading(threads=3, static=TRUE), # check threads*chains = n_cores
+                   seed=1678, chains=4, iter=2000, warmup=1000)
+toc()
+
+model13 <- brms::add_criterion(model13, criterion=c('loo', 'loo_R2'), cores=n_cores)
+
+model13PostCheck <- brms::pp_check(model13, type='bars', ndraw=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Ordinal category index")
+model13PostCheck
+
+```
+
+## Model 1 & 9-13 comparison
+
+```{r}
+
+loo::loo(model1)
+loo::loo(model9)
+loo::loo(model10)
+loo::loo(model11)
+loo::loo(model12)
+loo::loo(model13)
+
+model1.9.10.11.12.13_loo <- loo::loo_compare(model1, model9,
+                                              model10, model11, model12,
+                                             model13, criterion='loo')
+model1.9.10.11.12.13_loo
+
+#         elpd_diff se_diff
+# model1a   0.0       0.0  
+# model8  -36.0       9.7  
+# model12 -36.0       9.8  
+# model9  -36.4       9.7  
+# model11 -36.5       9.8  
+# model10 -36.8       9.7  
+
+```
+
+## Model 14: retain NationGeo between-subjects effect
+
+```{r}
+
+model14formula <- dAnnoyanceOrd ~ 1 + TrialNumberScl +
+                      SessionPart +
+                   UASLAEMaxLRScl*I(log10(UASEvents)) +
+                   UASLAEMaxLRScl*AmbientEnv*UASOperation +
+                   UASLAEMaxLRScl*AmbientEnv*UASType +
+                   UASOperation*UASType +
+                   NationGeo2 +
+                   (1 + UASLAEMaxLRScl + AmbientEnv +
+                      I(log10(UASEvents)) | ID)
+
+
+tic()
+model14 <- brms::brm(model14formula,
+                   data=insight::get_data(model1),
+                   family=cumulative(link='logit'),
+                   future=TRUE, backend='cmdstanr', prior = priors1,
+                   threads=threading(threads=3, static=TRUE), # check threads*chains = n_cores
+                   seed=1678, chains=4, iter=2000, warmup=1000)
+toc()
+
+model14 <- brms::add_criterion(model14, criterion=c('loo', 'loo_R2'), cores=n_cores)
+
+model14PostCheck <- brms::pp_check(model14, type='bars', ndraw=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Ordinal category index")
+model14PostCheck
+
+```
+
+## Model 1 & 9-14 comparison
+
+```{r}
+
+loo::loo(model1)
+loo::loo(model9)
+loo::loo(model10)
+loo::loo(model11)
+loo::loo(model12)
+loo::loo(model13)
+loo::loo(model14)
+
+model1.9.10.11.12.13.14_loo <- loo::loo_compare(model1, model9,
+                                              model10, model11, model12, model13,
+                                              model14, criterion='loo')
+model1.9.10.11.12.13.14_loo
+
+```
+
+## Model 15: retain Sex between-subjects effect
+
+```{r}
+
+model15formula <- dAnnoyanceOrd ~ 1 + TrialNumberScl +
+                      SessionPart +
+                   UASLAEMaxLRScl*I(log10(UASEvents)) +
+                   UASLAEMaxLRScl*AmbientEnv*UASOperation +
+                   UASLAEMaxLRScl*AmbientEnv*UASType +
+                   UASOperation*UASType +
+                   Sex +
+                   (1 + UASLAEMaxLRScl + AmbientEnv +
+                      I(log10(UASEvents)) | ID)
+
+
+tic()
+model15 <- brms::brm(model15formula,
+                   data=insight::get_data(model1),
+                   family=cumulative(link='logit'),
+                   future=TRUE, backend='cmdstanr', prior = priors1,
+                   threads=threading(threads=3, static=TRUE), # check threads*chains = n_cores
+                   seed=1678, chains=4, iter=2000, warmup=1000)
+toc()
+
+model15 <- brms::add_criterion(model15, criterion=c('loo', 'loo_R2'), cores=n_cores)
+
+model15PostCheck <- brms::pp_check(model15, type='bars', ndraw=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Ordinal category index")
+model15PostCheck
+
+```
+
+## Model 1 & 9-15 comparison
+
+```{r}
+
+loo::loo(model1)
+loo::loo(model9)
+loo::loo(model10)
+loo::loo(model11)
+loo::loo(model12)
+loo::loo(model13)
+loo::loo(model14)
+loo::loo(model15)
+
+model1.9.10.11.12.13.14.15_loo <- loo::loo_compare(model1, model9,
+                                              model10, model11, model12, model13,
+                                              model14, model15, criterion='loo')
+model1.9.10.11.12.13.14.15_loo
+
+```
+
+## model 16: 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
