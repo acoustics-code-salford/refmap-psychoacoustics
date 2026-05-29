@@ -24,7 +24,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 15/11/2025
-Date last modified: 01/12/2025
+Date last modified: 29/05/2026
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -97,11 +97,28 @@ def widmannPA(loud5ExZwicker, sharp5ExWidmann, rough5ExFastl, fluct5ExFastl):
     (Technical University of Munich)]
 
     """
-    wS = (sharp5ExWidmann - 1.75)*0.25*np.log10(loud5ExZwicker + 10)
-    wS[wS <= 1.75] = 0
-    wMod = 2.18/(loud5ExZwicker)**0.4*(0.4*fluct5ExFastl + 0.6*rough5ExFastl)
+    # assign to shorthand variables
+    loud = loud5ExZwicker
+    sharp = sharp5ExWidmann
+    rough = rough5ExFastl
+    fluct = fluct5ExFastl
 
-    psych_annoy = loud5ExZwicker*(1 + np.sqrt(wS**2 + wMod**2))
+    # check if all inputs are same sized arrays or scalars, and if not, raise error
+    if not all([np.isscalar(x) or x.shape == loud.shape for x in [sharp, rough, fluct]]):
+        raise ValueError("All inputs must be either scalars or arrays of the same shape as loud5ExZwicker.")
+    
+    # if all inputs are scalars, convert all to arrays for consistent processing
+    if all(np.isscalar(x) for x in [loud, sharp, rough, fluct]):
+        loud = np.array([loud])
+        sharp = np.array([sharp])
+        rough = np.array([rough])
+        fluct = np.array([fluct])
+
+    wS = (sharp - 1.75)*0.25*np.log10(loud + 10)
+    wS[sharp <= 1.75] = 0
+    wMod = 2.18/(loud)**0.4*(0.4*fluct + 0.6*rough)
+
+    psych_annoy = loud*(1 + np.sqrt(wS**2 + wMod**2))
 
     return psych_annoy
 
@@ -170,20 +187,40 @@ def morePA(loud5ExZwicker, sharp5ExMore, rough5ExFastl, fluct5ExFastl, tonal5ExA
     Zwicker, E. & Fastl, H. (1999). Psychoacoustics: Facts and models (2nd ed.). Springer.
 
     """
-    wS = (sharp5ExMore - 1.75)*0.25*np.log10(loud5ExZwicker + 10)
-    wS[wS <= 1.75] = 0
-    wMod = 2.18/(loud5ExZwicker)**0.4*(0.4*fluct5ExFastl + 0.6*rough5ExFastl)
-    wT = (1 - np.exp(-0.29*loud5ExZwicker))*(1 - np.exp(-5.49*tonal5ExAures))
+
+    # assign to shorthand variables
+    loud = loud5ExZwicker
+    sharp = sharp5ExMore
+    rough = rough5ExFastl
+    fluct = fluct5ExFastl
+    tonal = tonal5ExAures
+
+    # check if all inputs are same sized arrays or scalars, and if not, raise error
+    if not all([np.isscalar(x) or x.shape == loud.shape for x in [sharp, rough, fluct, tonal]]):
+        raise ValueError("All inputs must be either scalars or arrays of the same shape as loud5ExZwicker.")
+    
+    # if all inputs are scalars, convert all to arrays for consistent processing
+    if all(np.isscalar(x) for x in [loud, sharp, rough, fluct, tonal]):
+        loud = np.array([loud])
+        sharp = np.array([sharp])
+        rough = np.array([rough])
+        fluct = np.array([fluct])
+        tonal = np.array([tonal])
+
+    wS = (sharp - 1.75)*0.25*np.log10(loud + 10)
+    wS[sharp <= 1.75] = 0
+    wMod = 2.18/(loud)**0.4*(0.4*fluct + 0.6*rough)
+    wT = (1 - np.exp(-0.29*loud))*(1 - np.exp(-5.49*tonal))
 
     sqm = np.maximum(0, -0.16 + 11.48*(wS**2) + 0.84*(wMod**2) + 1.25*(wT**2))
 
-    psych_annoy = loud5ExZwicker*(1 + np.sqrt(sqm))
+    psych_annoy = loud*(1 + np.sqrt(sqm))
 
     return psych_annoy
 
 
 # %% willemsenPA
-def willemsenPA(loud5ExZwicker, sharpMedAures, rough5ExHEAD, impulsAvgWillemsen):
+def willemsenPA(loud5ExZwicker, sharpMedAures, rough5ExHEAD907, impulsAvgWillemsen):
     """
     Returns Willemsen et al. (2010) psychoacoustic annoyance metric based on time-aggregated sound quality
     metrics loudness, sharpness, roughness, fluctuation strength, tonality and impulsive loudness. The sound
@@ -197,7 +234,7 @@ def willemsenPA(loud5ExZwicker, sharpMedAures, rough5ExHEAD, impulsAvgWillemsen)
     sharpMedAures : float or array
         Median Aures sharpness values as defined in Aures (1985), 5%-exceeded (95th percentile), acum.
 
-    rough5ExHEAD : float or array
+    rough5ExHEAD907 : float or array
         HEAD acoustics early Sottek Hearing Model roughness values as defined in ArtemiS SUITE software
         (module ACM 907), 5%-exceeded (95th percentile), asper. In lieu of HEAD roughness values, ECMA-418-2
         roughness values may be used as the nearest approximation.
@@ -230,13 +267,31 @@ def willemsenPA(loud5ExZwicker, sharpMedAures, rough5ExHEAD, impulsAvgWillemsen)
     using loudness based metric. In: Proceedings of ICA 2010, Sydney, Australia, 23–27 August 2010.
 
     """
-    psych_annoy = 0.86*loud5ExZwicker*sharpMedAures + 1.81*rough5ExHEAD + 1.24*impulsAvgWillemsen + 27.73
+
+    # assign to shorthand variables
+    loud = loud5ExZwicker
+    sharp = sharpMedAures
+    rough = rough5ExHEAD907
+    impuls = impulsAvgWillemsen
+
+    # check if all inputs are same sized arrays or scalars, and if not, raise error
+    if not all([np.isscalar(x) or x.shape == loud.shape for x in [sharp, rough, impuls]]):
+        raise ValueError("All inputs must be either scalars or arrays of the same shape as loud5ExZwicker.")
+    
+    # if all inputs are scalars, convert all to arrays for consistent processing
+    if np.isscalar(loud):
+        loud = np.array([loud])
+        sharp = np.array([sharp])
+        rough = np.array([rough])
+        impuls = np.array([impuls])
+
+    psych_annoy = 0.86*loud*sharp + 1.81*rough + 1.24*impuls + 27.73
 
     return psych_annoy
 
 
 # %% diPA
-def diPA(loud5ExZwicker, sharp5ExAures, roughAvgHEAD, fluctAvgHEAD, tonalAvgAures):
+def diPA(loud5ExZwicker, sharp5ExAures, roughAvgHEAD907, fluctAvgHEAD907, tonalAvgAures):
     """
     Returns Di et al. (2016) psychoacoustic annoyance metric based on time-aggregated sound quality
     metrics loudness, sharpness, roughness, fluctuation strength and tonality. The sound quality
@@ -251,12 +306,12 @@ def diPA(loud5ExZwicker, sharp5ExAures, roughAvgHEAD, fluctAvgHEAD, tonalAvgAure
         Aures-weighted sharpness values as defined in Aures (1985, using Zwicker loudness input),
         5%-exceeded (95th percentile), acum.
 
-    roughAvgHEAD : float or array
-        HEAD acoustics roughness values as defined in v10 of ArtemiS SUITE software (module ACM 900),
+    roughAvgHEAD907 : float or array
+        HEAD acoustics roughness values as defined in v10 of ArtemiS SUITE software (module ACM 907),
         arithmetic time-average, asper. In lieu of HEAD roughness values, ECMA-418-2 roughness
         values may be used as the nearest approximation.
 
-    fluctAvgHEAD : float or array
+    fluctAvgHEAD907 : float or array
         HEAD acoustics fluctuation strength values as defined in v10 of ArtemiS SUITE software
         (module ACM 907), arithmetic time-average, vacil. In lieu of HEAD fluctuation strength
         values, early-version SHM or ECMA-418-2 fluctuation strength values may be used as the nearest
@@ -289,17 +344,25 @@ def diPA(loud5ExZwicker, sharp5ExAures, roughAvgHEAD, fluctAvgHEAD, tonalAvgAure
     ISO 532-1:2017. Acoustics — Method for calculating loudness — Part 1: Zwicker method.
 
     """
-    wS = (sharp5ExAures - 1.75)*0.25*np.log10(loud5ExZwicker + 10)
-    wS[wS <= 1.75] = 0
-    wMod = 2.18/(loud5ExZwicker)**0.4*(0.4*fluctAvgHEAD + 0.6*roughAvgHEAD)
-    wT = 6.41*tonalAvgAures/loud5ExZwicker**0.52
 
-    psych_annoy = loud5ExZwicker*(1 + np.sqrt(wS**2 + wMod**2 + wT**2))
+    # assign to shorthand variables
+    loud = loud5ExZwicker
+    sharp = sharp5ExAures
+    rough = roughAvgHEAD907
+    fluct = fluctAvgHEAD907
+    tonal = tonalAvgAures
+
+    wS = (sharp - 1.75)*0.25*np.log10(loud + 10)
+    wS[sharp <= 1.75] = 0
+    wMod = 2.18/(loud)**0.4*(0.4*fluct + 0.6*rough)
+    wT = 6.41*tonal/loud**0.52
+
+    psych_annoy = loud*(1 + np.sqrt(wS**2 + wMod**2 + wT**2))
 
     return psych_annoy
 
 # %% torijaPA
-def torijaPA(loud5ExZwicker, sharp5ExWidmann, rough5ExSHMOld, fluct5ExSHMOld, tonal5ExAures, impuls5ExSHMOld):
+def torijaPA(loud5ExZwicker, sharp5ExWidmann, rough5ExHEAD907, fluct5ExHEAD907, tonal5ExAures, impuls5ExSHMOld):
     """
     Returns Torija et al. (2022) psychoacoustic annoyance metric based on time-aggregated sound quality
     metrics loudness, sharpness, roughness, fluctuation strength, tonality and impulsiveness. The sound
@@ -314,12 +377,12 @@ def torijaPA(loud5ExZwicker, sharp5ExWidmann, rough5ExSHMOld, fluct5ExSHMOld, to
         Widmann-weighted sharpness values as defined in DIN 45692:2009 and Widmann (1992)
         (using Zwicker loudness input), 5%-exceeded (95th percentile), acum.
 
-    rough5ExSHMOld : float or array
+    rough5ExHEAD907 : float or array
         HEAD acoustics early Sottek Hearing Model roughness values as defined in ArtemiS SUITE software
         (module ACM 907), 5%-exceeded (95th percentile), asper. In lieu of HEAD roughness values,
         ECMA-418-2 roughness values may be used as the nearest approximation.
 
-    fluct5ExSHMOld : float or array
+    fluct5ExHEAD907 : float or array
         HEAD acoustics early Sottek Hearing Model fluctuation strength values as defined in ArtemiS
         SUITE software (module ACM 907), 5%-exceeded (95th percentile), vacil. In lieu of HEAD
         fluctuation strength values, ECMA-418-2 fluctuation strength values may be used as the nearest
@@ -328,10 +391,9 @@ def torijaPA(loud5ExZwicker, sharp5ExWidmann, rough5ExSHMOld, fluct5ExSHMOld, to
     tonal5ExAures : float or array
         Aures tonality values as defined in Aures (1985), 5%-exceeded (95th percentile), tu.
 
-    impuls5ExSHMOld : float or array
+    impuls5ExSHM : float or array
         HEAD acoustics early Sottek Hearing Model impulsiveness values as defined in ArtemiS SUITE
-        software (module ACM 907), 5%-exceeded (95th percentile), iu. No nearest alternative metric is
-        currently known.
+        software, 5%-exceeded (95th percentile), iu.
 
     Returns
     -------
@@ -361,20 +423,42 @@ def torijaPA(loud5ExZwicker, sharp5ExWidmann, rough5ExSHMOld, fluct5ExSHMOld, to
     Zwicker, E. & Fastl, H. (1999). Psychoacoustics: Facts and models (2nd ed.). Springer.
 
     """
-    wS = (sharp5ExWidmann - 1.75)*0.25*np.log10(loud5ExZwicker + 10)
-    wS[wS <= 1.75] = 0
-    wMod = 2.18/(loud5ExZwicker)**0.4*(0.4*fluct5ExSHMOld + 0.6*rough5ExSHMOld)
-    wT = (1 - np.exp(-0.29*loud5ExZwicker))*(1 - np.exp(-5.49*tonal5ExAures))
-    wI = 0.075*impuls5ExSHMOld/loud5ExZwicker**-1.334
+
+    # assign to shorthand variables
+    loud = loud5ExZwicker
+    sharp = sharp5ExWidmann
+    rough = rough5ExHEAD907
+    fluct = fluct5ExHEAD907
+    tonal = tonal5ExAures
+    impuls = impuls5ExSHM
+
+    # check if all inputs are same sized arrays or scalars, and if not, raise error
+    if not all([np.isscalar(x) or x.shape == loud.shape for x in [sharp, rough, fluct, tonal, impuls]]):
+        raise ValueError("All inputs must be either scalars or arrays of the same shape as loud.")
+    
+    # if all inputs are scalars, convert all to arrays for consistent processing
+    if all(np.isscalar(x) for x in [loud, sharp, rough, fluct, tonal, impuls]):
+        loud = np.array([loud])
+        sharp = np.array([sharp])
+        rough = np.array([rough])
+        fluct = np.array([fluct])
+        tonal = np.array([tonal])
+        impuls = np.array([impuls])
+
+    wS = (sharp - 1.75)*0.25*np.log10(loud + 10)
+    wS[sharp <= 1.75] = 0
+    wMod = 2.18/(loud)**0.4*(0.4*fluct + 0.6*rough)
+    wT = (1 - np.exp(-0.29*loud))*(1 - np.exp(-5.49*tonal))
+    wI = 0.075*impuls/loud**-1.334
 
     sqm = np.maximum(0, 103.08 + 339.49*(wS**2) + 121.88*(wMod**2) + 77.2*(wT**2) + 29.29*(wI**2))
 
-    psych_annoy = loud5ExZwicker*(1 + np.sqrt(sqm))
+    psych_annoy = loud*(1 + np.sqrt(sqm))
 
     return psych_annoy
 
 # %% boucherPA
-def boucherPA(loud5ExZwicker, sharp5ExWidmann, rough10ExECMA, fluctAvgSHMOld, tonalAvgECMA):
+def boucherPA(loud5ExZwicker, sharp5ExWidmann, rough10ExECMA, fluctAvgHEAD907, tonalAvgECMA):
     """
     Returns Boucher et al.2024) psychoacoustic annoyance metric based on time-aggregated sound quality
     metrics loudness, sharpness, roughness, fluctuation strength and tonality.
@@ -391,7 +475,7 @@ def boucherPA(loud5ExZwicker, sharp5ExWidmann, rough10ExECMA, fluctAvgSHMOld, to
     rough10ExECMA : float or array
         ECMA-418-2 roughness values as defined in ECMA-418-2:2025, 10%-exceeded (90th percentile), asper.
 
-    fluctAvgSHMOld : float or array
+    fluctAvgHEAD907 : float or array
         HEAD acoustics early Sottek Hearing Model fluctuation strength values as defined in ArtemiS
         SUITE software (module ACM 907), arithmetic time-average, vacil. In lieu of HEAD
         fluctuation strength values, ECMA-418-2 fluctuation strength values may be used as the nearest
@@ -427,11 +511,31 @@ def boucherPA(loud5ExZwicker, sharp5ExWidmann, rough10ExECMA, fluctAvgSHMOld, to
     (Technical University of Munich)]
 
     """
-    wS = (sharp5ExWidmann - 1.75)*0.25*np.log10(loud5ExZwicker + 10)
-    wS[wS <= 1.75] = 0
-    wMod = 2.18/(loud5ExZwicker)**0.4*(0.4*fluctAvgSHMOld + 0.6*rough10ExECMA)
-    wT = 3.2*tonalAvgECMA/loud5ExZwicker
 
-    psych_annoy = loud5ExZwicker*(1 + np.sqrt(wS**2 + wMod**2 + wT**2))
+    # assign to shorthand variables
+    loud = loud5ExZwicker
+    sharp = sharp5ExWidmann
+    rough = rough10ExECMA
+    fluct = fluctAvgHEAD907
+    tonal = tonalAvgECMA
+
+    # check if all inputs are same sized arrays or scalars, and if not, raise error
+    if not all([np.isscalar(x) or x.shape == loud.shape for x in [sharp, rough, fluct, tonal]]):
+        raise ValueError("All inputs must be either scalars or arrays of the same shape as loud5ExZwicker.")
+    
+    # if all inputs are scalars, convert all to arrays for consistent processing
+    if all(np.isscalar(x) for x in [loud, sharp, rough, fluct, tonal]):
+        loud = np.array([loud])
+        sharp = np.array([sharp])
+        rough = np.array([rough])
+        fluct = np.array([fluct])
+        tonal = np.array([tonal])
+
+    wS = (sharp - 1.75)*0.25*np.log10(loud + 10)
+    wS[sharp <= 1.75] = 0
+    wMod = 2.18/(loud)**0.4*(0.4*fluct + 0.6*rough)
+    wT = 3.2*tonal/loud
+
+    psych_annoy = loud*(1 + np.sqrt(wS**2 + wMod**2 + wT**2))
 
     return psych_annoy
