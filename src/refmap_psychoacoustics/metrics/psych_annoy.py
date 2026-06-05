@@ -362,7 +362,7 @@ def diPA(loud5ExZwicker, sharp5ExAures, roughAvgHEAD907, fluctAvgHEAD907, tonalA
     return psych_annoy
 
 # %% torijaPA
-def torijaPA(loud5ExZwicker, sharp5ExWidmann, rough5ExHEAD907, fluct5ExHEAD907, tonal5ExAures, impuls5ExSHMOld):
+def torijaPA(loud5ExZwicker, sharp5ExWidmann, rough5ExHEAD907, fluct5ExHEAD907, tonal5ExAures, impuls5ExSHM):
     """
     Returns Torija et al. (2022) psychoacoustic annoyance metric based on time-aggregated sound quality
     metrics loudness, sharpness, roughness, fluctuation strength, tonality and impulsiveness. The sound
