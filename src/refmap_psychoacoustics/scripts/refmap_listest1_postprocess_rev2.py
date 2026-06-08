@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from PyQt5.QtWidgets import QFileDialog, QApplication
 import librosa
-from refmap_psychoacoustics.dsp import filterFuncs
+from refmap_psychoacoustics.dsp import filter_funcs
 from refmap_psychoacoustics.metrics import psych_annoy
 from scipy import stats, io
 from warnings import simplefilter

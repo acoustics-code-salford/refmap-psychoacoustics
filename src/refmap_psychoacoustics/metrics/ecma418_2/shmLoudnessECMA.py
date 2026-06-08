@@ -23,7 +23,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 29/05/2023
-Date last modified: 20/11/2025
+Date last modified: 08/06/2026
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
@@ -46,7 +46,7 @@ from refmap_psychoacoustics.metrics.ecma418_2.shmSubs import (shmResample,
                                                               shmDimensional, shmRMS,
                                                               shmRound, shmInCheck)
 from refmap_psychoacoustics.metrics.ecma418_2.shmTonalityECMA import shmTonalityECMA
-from refmap_psychoacoustics.dsp.filterFuncs import A_weight_T
+from refmap_psychoacoustics.dsp.filter_funcs import A_weight_T
 
 # %% Module settings
 mpl.rcParams['font.family'] = 'sans-serif'
