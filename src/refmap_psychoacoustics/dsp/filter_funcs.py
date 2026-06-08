@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-filterFuncs.py
+filter_funcs.py
 ------------
 
 Filter functions:
@@ -19,7 +19,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 22/01/2024
-Date last modified: 02/06/2025
+Date last modified: 08/06/2025
 Python version: 3.11.5
 
 Copyright statements: This file and code is part of work undertaken within
