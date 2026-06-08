@@ -10,20 +10,22 @@ resolution-markers = [
 
 [[package]]
 name = "acoustic-toolbox"
-version = "0.1.2"
+version = "0.2.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "matplotlib" },
+    { name = "numba" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "pyoctaveband" },
     { name = "pysoundfile" },
     { name = "scipy" },
     { name = "six" },
     { name = "tabulate" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7c/35/b0ac49de2c9bc334514b048d58ae683ee7e20b13b980e0534d13f51b0f1c/acoustic_toolbox-0.1.2.tar.gz", hash = "sha256:e0b97a172b734d30c7e9f885dfbfd25b3a1a779cb25d1f99e6de11e5d419e9a2", size = 4203264, upload-time = "2025-02-22T21:54:41.262Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/62/2c/845fae14414c78f6538ec0989f52164ae3c8cea65da9d6e540286e3cddf7/acoustic_toolbox-0.2.2.tar.gz", hash = "sha256:79ff4d738194c5483f9443a62006d493734b0ab5e980ebb6047c58f7553dc0a0", size = 4204253, upload-time = "2026-01-26T11:46:02.439Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/89/6d/28946f0b70bfc5791c4d1b111df49adfbdd86206ac353577383a0fcd2dc0/acoustic_toolbox-0.1.2-py3-none-any.whl", hash = "sha256:514dda70833124c534d949c7d3f150d0ccb374086676db7aaeb652f653a31501", size = 76861, upload-time = "2025-02-22T21:54:39.71Z" },
+    { url = "https://files.pythonhosted.org/packages/38/eb/a06005807d5b746e914be2286ae1e44b15c9c2431c295e3bec3d95f50a95/acoustic_toolbox-0.2.2-py3-none-any.whl", hash = "sha256:10d1861467a86d5e3e805b932fc6e25298c90ee1d1ef6777185431eb5e2b9e25", size = 76660, upload-time = "2026-01-26T11:46:01.22Z" },
 ]
 
 [[package]]
@@ -2349,6 +2351,21 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b0/77/a5b8c569bf593b0140bde72ea885a803b82086995367bf2037de0159d924/pygments-2.19.2.tar.gz", hash = "sha256:636cb2477cec7f8952536970bc533bc43743542f70392ae026374600add5b887", size = 4968631, upload-time = "2025-06-21T13:39:12.283Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c7/21/705964c7812476f378728bdf590ca4b771ec72385c533964653c68e86bdc/pygments-2.19.2-py3-none-any.whl", hash = "sha256:86540386c03d588bb81d44bc3928634ff26449851e99741617ecb9037ee5ec0b", size = 1225217, upload-time = "2025-06-21T13:39:07.939Z" },
+]
+
+[[package]]
+name = "pyoctaveband"
+version = "1.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "matplotlib" },
+    { name = "numba" },
+    { name = "numpy" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8b/d5/1fa2415d7bff629d3615377ac699e10b3e1aa41378fa5a0496c0b1ded58e/pyoctaveband-1.2.1.tar.gz", hash = "sha256:f4519387f2cdfdb6bfe1297a2686f60a0654ad1632af5ac28173d5caa22a35a6", size = 55853, upload-time = "2026-03-08T10:37:47.89Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7b/1d/83832e539175e44b492870d41afbb5ba20082529f65bdea178b8c1360c6b/pyoctaveband-1.2.1-py3-none-any.whl", hash = "sha256:8255afb23413ddae69f43245805a9821ffd3a7fae1407b9b2b6c858635016e69", size = 35885, upload-time = "2026-03-08T10:37:46.733Z" },
 ]
 
 [[package]]
