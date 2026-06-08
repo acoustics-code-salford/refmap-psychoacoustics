@@ -39,12 +39,12 @@ from refmap_psychoacoustics.dsp.noct import noctf
 from math import gcd
 
 
-def A_weight_T(x, fs, axis=0, check=False):
+def A_weight_T(x, fs, axis=0, prewarp=True, check=False):
     """
     Return time-domain-filtered signal according to standard sound frequency
     weighting 'A'.
 
-    Implements IIR filter via bilinear transform. Includes pre-warping of
+    Implements IIR filter via bilinear transform. Includes optional pre-warping of
     analogue design frequencies to compensate for bilinear transform frequency
     distortion.
 
@@ -62,6 +62,10 @@ def A_weight_T(x, fs, axis=0, check=False):
          the sampling frequency of the signals to be processed
     axis : integer
            the signal array axis along which to apply the filter
+    prewarp : Boolean
+              indicates whether frequency pre-warping should be applied to
+              compensate filter coefficients for frequency distortion introduced
+              by the bilinear transform
     check : boolean
             flag to check the filter against IEC acceptance limits
 
@@ -118,20 +122,27 @@ def A_weight_T(x, fs, axis=0, check=False):
     f2 = 10**2.45*((3 - np.sqrt(5))/2)
     f3 = 10**2.45*((3 + np.sqrt(5))/2)
 
-    w1 = 2*np.pi*f1
-    w1w = 2/dtu*np.tan(w1*dtu/2)  # pre-warped frequency
-    w4 = 2*np.pi*f4
-    w4w = 2/dtu*np.tan(w4*dtu/2)  # pre-warped frequency
-    w2 = 2*np.pi*f2
-    w2w = 2/dtu*np.tan(w2*dtu/2)  # pre-warped frequency
-    w3 = 2*np.pi*f3
-    w3w = 2/dtu*np.tan(w3*dtu/2)  # pre-warped frequency
+    w1u = 2*np.pi*f1  # unwarped frequency
+    w4u = 2*np.pi*f4  # unwarped frequency
+    w2u = 2*np.pi*f2  # unwarped frequency
+    w3u = 2*np.pi*f3  # unwarped frequency
 
-    B = np.array([G_Aw*w4w**2, 0, 0, 0, 0])
-    A1 = [1.0, 2*w4w, (w4w)**2]
-    A2 = [1.0, 2*w1w, (w1w)**2]
-    A3 = [1.0, w3w]
-    A4 = [1.0, w2w]
+    if prewarp:
+        w1 = 2/dtu*np.tan(w1u*dtu/2)  # pre-warped frequency
+        w4 = 2/dtu*np.tan(w4u*dtu/2)  # pre-warped frequency
+        w2 = 2/dtu*np.tan(w2u*dtu/2)  # pre-warped frequency
+        w3 = 2/dtu*np.tan(w3u*dtu/2)  # pre-warped frequency
+    else:
+        w1 = w1u
+        w4 = w4u
+        w2 = w2u
+        w3 = w3u
+
+    B = np.array([G_Aw*w4**2, 0, 0, 0, 0])
+    A1 = [1.0, 2*w4, (w4)**2]
+    A2 = [1.0, 2*w1, (w1)**2]
+    A3 = [1.0, w3]
+    A4 = [1.0, w2]
     A = np.convolve(np.convolve(np.convolve(A1, A2), A3), A4)
 
     b, a = bilinear(B, A, fsu)
