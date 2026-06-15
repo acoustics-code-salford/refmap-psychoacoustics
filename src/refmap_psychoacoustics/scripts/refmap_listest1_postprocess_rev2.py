@@ -224,9 +224,9 @@ for ii, file in enumerate(filelist):
     timeVectorSkip = timeVector[start_skips:-end_skips]
 
     # apply weighting filters
-    signalA = filterFuncs.A_weight_T(signal, sampleRatein)
-    signalmagAF = filterFuncs.time_weight(signalA, sampleRatein, tau=0.125)
-    signalmagAS = filterFuncs.time_weight(signalA, sampleRatein, tau=1)
+    signalA = filter_funcs.A_weight_T(signal, sampleRatein)
+    signalmagAF = filter_funcs.time_weight(signalA, sampleRatein, tau=0.125)
+    signalmagAS = filter_funcs.time_weight(signalA, sampleRatein, tau=1)
 
     # calculate weighted dB time series
     signaldBAF = 20*np.log10(signalmagAF[start_skips:-end_skips]/2e-5)
@@ -3608,6 +3608,7 @@ partADataBySubj = pd.merge(left=partADataBySubj,
 partADataBySubj.drop(columns=['Part', 'Recording'], inplace=True)
 partADataBySubj.insert(loc=0, column='SessionPart',
                        value=partADataBySubj.pop('SessionPart'))
+partADataBySubj.sort_values(by=['ID', 'PartTrialNumber'], axis=0, inplace=True)
 
 partBDataBySubj = pd.merge(left=partBData,
                            right=dataByStimTestB.loc[:, :dataByStimTestB.columns[dataByStimTestB.columns.get_loc('Arousal_1') - 1]],
@@ -3619,16 +3620,47 @@ partBDataBySubj = pd.merge(left=partBDataBySubj,
 partBDataBySubj.drop(columns=['Part', 'Recording'], inplace=True)
 partBDataBySubj.insert(loc=0, column='SessionPart',
                        value=partBDataBySubj.pop('SessionPart'))
+partBDataBySubj.sort_values(by=['ID', 'PartTrialNumber'], axis=0, inplace=True)
 
-allDataBySubj = pd.concat([partADataBySubj, partBDataBySubj], axis=0,
+# create a partADataMiss dataframe
+partADataMiss17 = partAData[partAData['ID'] == 1].copy()
+partADataMiss17['ID'] = 17
+
+# set the PartTrialNumber for values to missing
+partADataMiss17['PartTrialNumber'] = np.nan
+partADataMiss17['PartTrialNumber'] = partADataMiss17['PartTrialNumber'].astype(pd.Int64Dtype())
+
+# drop the response columns from the partADataMiss17 dataframe
+# in a loop to make only the response columns are dropped
+responses = ["Valence", "Arousal", "Annoyance", "HighAnnoy", "UAS_noticed",
+             "dValence", "dArousal", "dAnnoyance", "dHighAnnoy"]
+for response in responses:
+    partADataMiss17.drop(columns=[response], inplace=True)
+
+# merge the partADataMiss17 dataframe with the partADataBySubj dataframe
+partADataMiss = pd.concat([partAData, partADataMiss17], axis=0,
                           ignore_index=True)
+
+partADataBySubjMiss = pd.merge(left=partADataMiss,
+                               right=dataByStimTestA.loc[:, :dataByStimTestA.columns[dataByStimTestA.columns.get_loc('Arousal_1') - 1]],
+                               how='outer', left_on='Recording', right_on='CALBINRecFiles')
+partADataBySubjMiss.sort_values(by='ID', axis=0, inplace=True)
+partADataBySubjMiss = pd.merge(left=partADataBySubjMiss,
+                               right=prePostTestResponses, how='left',
+                               left_on='ID', right_on='ID')
+partADataBySubjMiss.drop(columns=['Part', 'Recording'], inplace=True)
+partADataBySubjMiss.insert(loc=0, column='SessionPart',
+                           value=partADataBySubjMiss.pop('SessionPart'))
+
+allDataBySubj = pd.concat([partADataBySubjMiss, partBDataBySubj], axis=0,
+                           ignore_index=True)
 
 # add a column TrialNumber indicating overall trial number across parts A and B by adding
 # the Part B PartTrialNumber to the maximum PartTrialNumber in Part A, if it exists for each
 # participant, otherwise use the PartTrialNumber as is
 # the exception is participant ID 17, who had done 60 trials in Part A that weren't saved
 # so we manually set their max Part A trial number to 60
-maxPartATrialNumbers = partADataBySubj.groupby('ID')['PartTrialNumber'].max().to_dict()
+maxPartATrialNumbers = partADataBySubjMiss.groupby('ID')['PartTrialNumber'].max().to_dict()
 maxPartATrialNumbers[17] = 60
 allDataBySubj['TrialNumber'] = allDataBySubj.apply(
     lambda row: row['PartTrialNumber'] + maxPartATrialNumbers[row['ID']]
@@ -3638,6 +3670,7 @@ allDataBySubj['TrialNumber'] = allDataBySubj.apply(
 )
 # Then move the TrialNumber column to be before the PartTrialNumber column
 allDataBySubj.insert(allDataBySubj.columns.get_loc('PartTrialNumber'), 'TrialNumber', allDataBySubj.pop('TrialNumber'))
+allDataBySubj.sort_values(by=['ID', 'TrialNumber'], axis=0, inplace=True)
 
 allDataBySubj.to_csv(os.path.join(outFilePath,
                                   "refmap_listest1_testdata_BySubj.csv"),

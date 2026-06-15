@@ -77,9 +77,7 @@ if (savedata){
 stimDatapath <- utils::choose.files(caption=r"(Select refmap_listest1_testdata_ByStim.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
                                      filters=matrix(data=c("refmap_listest1_testdata_ByStim.csv", "refmap_listest1_testdata_ByStim.csv"), ncol=2))
 
-stimData <- utils::read.csv(stimDatapath, header=TRUE)
-
-colnames(stimData)[1] <- "Stimulus"
+stimData <- utils::read.csv(stimDatapath, header=TRUE, row.names=1)
 
 # make response proportions into percentages
 stimData[['HighAnnoyPc']] <- stimData[['HighAnnoyProp']]*100
@@ -104,10 +102,11 @@ The aggregated data by stimulus are assigned to a dataframe, relevant categorica
 
 ```{r}
 
-stimDataNum <- data.frame()
+# make numeric dataframe with selected variables for random forest model, and convert categorical variables to ordinal numeric variables
+# assign rownames from stimData dataframe to new dataframe
+stimDataNum <- data.frame(UASEvents=stimData[, "UASEvents"])
 
-stimDataNum <- cbind(stimData[, 'Stimulus'],
-                     stimData[, "UASEvents"],
+stimDataNum <- cbind(stimDataNum,
                      stimData[, which(colnames(stimData)=="UASLAeq"):
                                 which(colnames(stimData)=="SNRlevel")],
                      stimData[, which(colnames(stimData)=="IntermitRatioC2MaxLR"):
@@ -122,16 +121,15 @@ stimDataNum <- cbind(stimData[, 'Stimulus'],
                                 which(colnames(stimData)=="UASPsychAnnoyBoucher")],
                      stimData[, which(colnames(stimData)=="LAeqLAF90diff"):
                                 which(colnames(stimData)=="dPsychAnnoyBoucher")],
-                     stimData[, which(colnames(stimData)=="ValenceMedian"):
+                     stimData[, which(colnames(stimData)=="ArousalMedian"):
                                 which(colnames(stimData)=="dHighAnnoyProp")],
                      stimData[, which(colnames(stimData)=="HighAnnoyPc"):
                                 which(colnames(stimData)=="dHighAnnoyPc")])
 
+row.names(stimDataNum) <- rownames(stimData)
+
 # remove duplicated variables
 stimDataNum <- subset(stimDataNum, select = -c(UASLAeq))
-
-colnames(stimDataNum)[1] <- "Stimulus"
-colnames(stimDataNum)[2] <- "UASEvents"
 
 # make the discrete ordinal outcome variables factors
 stimDataNum[['UASEvents']] <- factor(stimDataNum[['UASEvents']], levels=c(0, 1, 3, 5, 9), order=TRUE)
@@ -159,7 +157,7 @@ stimDataNum$SNRlevel <- as.numeric(stimDataNum$SNRlevel)
 
 ```{r}
 
-loadExisting <- FALSE
+loadExisting <- TRUE
 
 if (loadExisting){
   # annoy mean results
@@ -170,7 +168,7 @@ if (loadExisting){
   sheetNames<- wb_get_sheet_names(wb)
 
   for (sheet in sheetNames){
-    col_name <- names(openxlsx2::wb_to_df(wb, sheet, row_names=TRUE))
+    col_name <- names(openxlsx2::wb_to_df(wb, sheet, row_names=TRUE))[1]
     resdAnnoyMnPermImpAB[[col_name]] <- openxlsx2::wb_to_df(wb, sheet, row_names=TRUE)
   }
   
@@ -182,7 +180,7 @@ if (loadExisting){
   sheetNames<- wb_get_sheet_names(wb)
 
   for (sheet in sheetNames){
-    col_name <- names(openxlsx2::wb_to_df(wb, sheet, row_names=TRUE))
+    col_name <- names(openxlsx2::wb_to_df(wb, sheet, row_names=TRUE))[1]
     resdHiAnnoyPermImpAB[[col_name]] <- openxlsx2::wb_to_df(wb, sheet, row_names=TRUE)
   }
 }
@@ -513,10 +511,14 @@ ambVar <- "AmbientLAeq"
 ### Initialise results output variables
 
 ```{r}
-resdAnnoyMnFitAB <- data.frame(RMSE = numeric(),
+
+if (!loadExisting) {
+  resdAnnoyMnFitAB <- data.frame(RMSE = numeric(),
                                MAE = numeric(),
                                Rsquared = numeric())
-resdAnnoyMnPermImpAB <- list()
+  resdAnnoyMnPermImpAB <- list()  
+}
+
 
 ```
 
@@ -1520,7 +1522,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1501
+ntree <- 501
 mtry <- as.integer(length(iVars)/1.75)
 
 ```
@@ -2594,7 +2596,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 5501
+ntree <- 4001
 mtry <-  as.integer(length(iVars)/1.25)
 
 ```
@@ -2675,7 +2677,7 @@ if (savedata){
   }
   openxlsx2::write_xlsx(temp, paste(outDataPath, "\\PtsABCRFdAnnoyMnConPermimp.xlsx",
                                    sep=""),
-                       rowNames=TRUE)
+                        rowNames=TRUE)
 }
 
 ```
@@ -2685,10 +2687,14 @@ if (savedata){
 ### Initialise results output variables
 
 ```{r}
-resdHiAnnoyFitAB <- data.frame(RMSE = numeric(),
+
+if (!loadExisting) {
+  resdHiAnnoyFitAB <- data.frame(RMSE = numeric(),
                              MAE = numeric(),
                              Rsquared = numeric())
-resdHiAnnoyPermImpAB <- list()
+  resdHiAnnoyPermImpAB <- list()
+}
+
 
 ```
 
@@ -3793,7 +3799,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1001
+ntree <- 2501
 mtry <- as.integer(length(iVars)/2.25)
 
 ```

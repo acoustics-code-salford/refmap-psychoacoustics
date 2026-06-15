@@ -159,9 +159,9 @@ for ii, file in enumerate(filelist):
     timeVectorSkip = timeVector[start_skips:-end_skips]
 
     # apply weighting filters
-    signalA = filterFuncs.A_weight_T(signal, sampleRatein)
-    signalmagAF = filterFuncs.time_weight(signalA, sampleRatein, tau=0.125)
-    signalmagAS = filterFuncs.time_weight(signalA, sampleRatein, tau=1)
+    signalA = filter_funcs.A_weight_T(signal, sampleRatein)
+    signalmagAF = filter_funcs.time_weight(signalA, sampleRatein, tau=0.125)
+    signalmagAS = filter_funcs.time_weight(signalA, sampleRatein, tau=1)
 
     # calculate weighted dB time series
     signaldBAF = 20*np.log10(signalmagAF[start_skips:-end_skips]/2e-5)
@@ -2368,6 +2368,9 @@ filepath = QFileDialog.getOpenFileName(filter=fileExts,
 # read in data and add column indicating the stimulus recording file
 testResponses = pd.read_csv(filepath, header=0)
 
+# set HighlyAnnoyed binary to int64 type to accommodate NaN values
+testResponses['HighlyAnnoyed'] = testResponses['HighlyAnnoyed'].astype(pd.Int64Dtype())
+
 # sort stimulus names
 stimSorted = np.sort(testResponses['stimulus'].unique())
 
@@ -2391,7 +2394,7 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
                             "Eventfulness", "dEventfulness",
                             "Annoyance", "dAnnoyance"]:
                 responseData = testResponseData.loc[testResponseData['stimulus'] == file,
-                                                ['participant', response]]
+                                                    ['participant', response]]
                 columns = [response + "_" + str(ID) for ID in responseData['participant']]
                 responseData = pd.DataFrame(data=np.array(responseData[response]),
                                             index=columns, columns=[file]).transpose()
@@ -2408,9 +2411,9 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
                         
                     else:
                         responseMedianBoot = stats.bootstrap(responseData.values, statistic=np.nanmedian, confidence_level=0.95,
-                                                            method='percentile', n_resamples=20000, random_state=randomState)
+                                                             method='percentile', n_resamples=20000, random_state=randomState)
                         responseMeanBoot = stats.bootstrap(responseData.values, statistic=np.nanmean, confidence_level=0.95,
-                                                            method='BCa', n_resamples=20000, random_state=randomState)
+                                                           method='BCa', n_resamples=20000, random_state=randomState)
                         
                         medianCI_Low = responseMedianBoot.confidence_interval.low
                         medianCI_High = responseMedianBoot.confidence_interval.high
@@ -2420,26 +2423,26 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
                     responseAgg = pd.DataFrame(data=np.vstack([np.nanpercentile(responseData.values,
                                                                                 q=50, axis=1,
                                                                                 method='median_unbiased')[0],
-                                                            medianCI_Low, medianCI_High,
-                                                            np.nanmean(responseData.values, axis=1)[0],
-                                                            meanCI_Low, meanCI_High]),
-                                            index=[response + 'Median',
-                                                    response + 'MedianCI_Low',
-                                                    response + 'MedianCI_High',
-                                                    response + 'Mean',
-                                                    response + 'MeanCI_Low',
-                                                    response + 'MeanCI_High'],
-                                            columns=[file]).transpose()
+                                                               medianCI_Low, medianCI_High,
+                                                               np.nanmean(responseData.values, axis=1)[0],
+                                                               meanCI_Low, meanCI_High]),
+                                               index=[response + 'Median',
+                                                      response + 'MedianCI_Low',
+                                                      response + 'MedianCI_High',
+                                                      response + 'Mean',
+                                                      response + 'MeanCI_Low',
+                                                      response + 'MeanCI_High'],
+                                               columns=[file]).transpose()
                 else:
                     responseAgg = pd.DataFrame(data=np.vstack([np.nan, np.nan, np.nan,
-                                                            np.nan, np.nan, np.nan]),
-                                            index=[response + 'Median',
-                                                    response + 'MedianCI_Low',
-                                                    response + 'MedianCI_High',
-                                                    response + 'Mean',
-                                                    response + 'MeanCI_Low',
-                                                    response + 'MeanCI_High'],
-                                            columns=[file]).transpose()
+                                                               np.nan, np.nan, np.nan]),
+                                               index=[response + 'Median',
+                                                      response + 'MedianCI_Low',
+                                                      response + 'MedianCI_High',
+                                                      response + 'Mean',
+                                                      response + 'MeanCI_Low',
+                                                      response + 'MeanCI_High'],
+                                               columns=[file]).transpose()
 
                 # add to testData DataFrame
                 if ii == 0:
@@ -2458,7 +2461,7 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
             
             elif response in ["HighlyAnnoyed", "dHighlyAnnoyed"]:
                 responseData = testResponseData.loc[testResponseData['stimulus'] == file,
-                                                ['participant', response]]
+                                                    ['participant', response]]
                 columns = [response + "_" + str(ID) for ID in responseData['participant']]
                 responseData = pd.DataFrame(data=np.array(responseData[response]),
                                             index=columns, columns=[file]).transpose()
@@ -2474,29 +2477,29 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
                     else:
 
                         responseMeanBoot = stats.bootstrap(responseData.values, statistic=np.nanmean, confidence_level=0.95,
-                                                            method='BCa', n_resamples=20000, random_state=randomState)
+                                                           method='BCa', n_resamples=20000, random_state=randomState)
 
                         meanCI_Low = responseMeanBoot.confidence_interval.low
                         meanCI_High = responseMeanBoot.confidence_interval.high
 
                     responseAgg = pd.DataFrame(data=np.vstack([np.nansum(responseData.values,
-                                                                        axis=1)[0],
-                                                            np.nanmean(responseData.values,
-                                                                        axis=1)[0],
-                                                            meanCI_Low,
-                                                            meanCI_High]),
-                                            index=[response + 'Total',
-                                                    response + 'Prop',
-                                                    response + 'PropCI_Low',
-                                                    response + 'PropCI_High'],
-                                            columns=[file]).transpose()
+                                                                         axis=1)[0],
+                                                               np.nanmean(responseData.values,
+                                                                          axis=1)[0],
+                                                               meanCI_Low,
+                                                               meanCI_High]),
+                                               index=[response + 'Total',
+                                                      response + 'Prop',
+                                                      response + 'PropCI_Low',
+                                                      response + 'PropCI_High'],
+                                               columns=[file]).transpose()
                 else:
                     responseAgg = pd.DataFrame(data=np.vstack([np.nan, np.nan, np.nan, np.nan]),
-                                            index=[response + 'Total',
-                                                    response + 'Prop',
-                                                    response + 'PropCI_Low',
-                                                    response + 'PropCI_High'],
-                                            columns=[file]).transpose()
+                                               index=[response + 'Total',
+                                                      response + 'Prop',
+                                                      response + 'PropCI_Low',
+                                                      response + 'PropCI_High'],
+                                               columns=[file]).transpose()
 
                 # add to testData DataFrame
                 if ii == 0:
@@ -2514,7 +2517,7 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
             elif response in ['ProbHA20k', 'ProbHA10k',
                               'dProbHA20k', 'dProbHA10k']:
                 responseData = testResponseData.loc[testResponseData['stimulus'] == file,
-                                                ['participant', response]]
+                                                    ['participant', response]]
                 columns = [response + "_" + str(ID) for ID in responseData['participant']]
                 responseData = pd.DataFrame(data=np.array(responseData[response]),
                                             index=columns, columns=[file]).transpose()
@@ -2528,24 +2531,24 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
 
                     else:
                         responseMeanBoot = stats.bootstrap(responseData.values, statistic=np.nanmean, confidence_level=0.95,
-                                                            method='BCa', n_resamples=20000, random_state=randomState)
+                                                           method='BCa', n_resamples=20000, random_state=randomState)
 
                         meanCI_Low = responseMeanBoot.confidence_interval.low
                         meanCI_High = responseMeanBoot.confidence_interval.high
 
                     responseAgg = pd.DataFrame(data=np.vstack([np.nanmean(responseData.values, axis=1)[0],
-                                                            meanCI_Low,
-                                                            meanCI_High]),
-                                            index=[response + 'Mean',
-                                                    response + 'MeanCI_Low',
-                                                    response + 'MeanCI_High'],
-                                            columns=[file]).transpose()
+                                                               meanCI_Low,
+                                                               meanCI_High]),
+                                               index=[response + 'Mean',
+                                                      response + 'MeanCI_Low',
+                                                      response + 'MeanCI_High'],
+                                               columns=[file]).transpose()
                 else:
                     responseAgg = pd.DataFrame(data=np.vstack([np.nan, np.nan, np.nan]),
-                                            index=[response + 'Mean',
-                                                    response + 'MeanCI_Low',
-                                                    response + 'MeanCI_High'],
-                                            columns=[file]).transpose()
+                                               index=[response + 'Mean',
+                                                      response + 'MeanCI_Low',
+                                                      response + 'MeanCI_High'],
+                                               columns=[file]).transpose()
                 
                 # add to testData DataFrame
                 if ii == 0:
@@ -2685,12 +2688,58 @@ dataByStimTestCombi.to_csv(os.path.join(outFilePath,
 dataByStimAuxCombi.to_csv(os.path.join(outFilePath,
                                        "refmap_listest2_auxdata_ByStimCombi.csv"))
 
-# merge response and stimuli data into 'by participant' test datasets, and
-# save to file
+# fill in missing data rows for participant 49, merge response and stimuli data into
+# 'by participant' test datasets, and save to file
+# first, identify which stimuli are missing from participant 49 responses,
+# by comparing the stimulus names in testResponses for participant 49 with those for participant 1
+allStimuliNames = testResponsesCombi['stimulus'].unique()
+testResponsesCombiMiss49 = (testResponsesCombi.loc[testResponsesCombi['participant']
+                                                   == 1].loc[~testResponsesCombi.loc[testResponsesCombi['participant']
+                                                                                     == 1,
+                                                                                     'stimulus'].isin(testResponsesCombi.loc[testResponsesCombi['participant']
+                                                                                                                             == 49,
+                                                                                                                             'stimulus']), :])
 
-testDataBySubj = pd.merge(left=testResponses.drop(columns=['ambientRef', 'sourceType',
-                                                           'sourceMode', 'sourceProximity',
-                                                           'sourceStart', 'sourceEvents', 'sourceInterval']),
+testResponsesCombiMiss49['participant'] = 49
+testResponsesCombiMiss49['trial'] = np.nan
+
+# set all responses to NaN for these missing stimuli
+testResponsesCombiMiss49.loc[:, 'Annoyance':'dProbHA10k'] = np.nan
+
+# 
+testResponsesMiss49 = testResponsesCombiMiss49.copy()
+testResponsesMiss49['sourceStart'] = "Baseline"
+# move sourceStart column to after sourceProximity column using insert
+cols = list(testResponsesMiss49.columns)
+cols.insert(cols.index('sourceProximity') + 1, cols.pop(cols.index('sourceStart')))
+testResponsesMiss49 = testResponsesMiss49[cols]
+noBaselineMask = testResponsesMiss49['sourceMode'] != "Baseline"
+# generate a series with values randomly assigned 0 or 1 of length equal to the number of
+# true values in noBaselineMask, using the random number generator rng
+randomSeries = pd.Series(rng.integers(0, 2, size=noBaselineMask.sum()), index=testResponsesMiss49[noBaselineMask].index)
+randomStart = randomSeries.map({0: "left", 1: "right"})
+testResponsesMiss49.loc[noBaselineMask, 'sourceStart'] = randomStart
+
+# insert each sourceStart string value (except Baseline entries) into the stimulus name prior to the final underscore,
+# e.g. "Chunk1_Chunk2_asphalt_left_2" or "Chunk1_Chunk2_grass_right_1"
+for ii, row in testResponsesMiss49[noBaselineMask].iterrows():
+    stimName = row['stimulus']
+    startPos = row['sourceStart']
+    # find the last underscore in the stimulus name
+    lastUnderscorePos = stimName.rfind('_')
+    # insert the sourceStart string prior to the last underscore
+    newStimName = stimName[:lastUnderscorePos] + '_' + startPos + stimName[lastUnderscorePos:]
+    testResponsesMiss49.at[ii, 'stimulus'] = newStimName
+
+testResponsesMiss = pd.concat([testResponses, testResponsesMiss49], axis=0, ignore_index=True)
+# make trial int64 type to accommodate NaN values
+testResponsesMiss['trial'] = testResponsesMiss['trial'].astype(pd.Int64Dtype())
+# sort testResponsesMiss by participant ID and trial number
+testResponsesMiss.sort_values(by=['participant', 'trial'], axis=0, inplace=True)
+
+testDataBySubj = pd.merge(left=testResponsesMiss.drop(columns=['ambientRef', 'sourceType',
+                                                               'sourceMode', 'sourceProximity',
+                                                               'sourceStart', 'sourceEvents', 'sourceInterval']),
                           right=dataByStimTest.loc[:, :dataByStimTest.columns[dataByStimTest.columns.get_loc('Annoyance_1') - 1]],
                           how='outer', left_on='stimulus', right_index=True)
 
@@ -2701,7 +2750,7 @@ testDataBySubj = pd.merge(left=testDataBySubj,
 # rename participant column to ID
 testDataBySubj.rename(columns={'participant': 'ID', 'trial': 'Trial', 'stimulus': 'Stimulus'}, inplace=True)
 testDataBySubj.drop(columns=['ParticipantID'], inplace=True)
-testDataBySubj.sort_values(by='ID', axis=0, inplace=True)
+testDataBySubj.sort_values(by=['ID', 'Trial'], axis=0, inplace=True)
 
 testDataBySubj.to_csv(os.path.join(outFilePath,
                                   "refmap_listest2_testdata_BySubj.csv"),
@@ -2798,7 +2847,14 @@ testdEventfulDataBySubjWide.to_csv(os.path.join(outFilePath,
                                    index=False)
 
 # repeat for combined dataset
-testDataCombiBySubj = pd.merge(left=testResponsesCombi.drop(columns=['ambientRef', 'sourceType',
+testResponsesCombiMiss = pd.concat([testResponsesCombi, testResponsesCombiMiss49], axis=0, ignore_index=True)
+# make trial int64 type to accommodate NaN values
+testResponsesCombiMiss['trial'] = testResponsesCombiMiss['trial'].astype(pd.Int64Dtype())
+# sort testResponsesCombiMiss by participant ID and trial number
+testResponsesCombiMiss.sort_values(by=['participant', 'trial'], axis=0, inplace=True)
+
+
+testDataCombiBySubj = pd.merge(left=testResponsesCombiMiss.drop(columns=['ambientRef', 'sourceType',
                                                                      'sourceMode', 'sourceProximity',
                                                                      'sourceEvents', 'sourceInterval']),
                                right=dataByStimTestCombi.loc[:, :dataByStimTestCombi.columns[dataByStimTestCombi.columns.get_loc('Annoyance_1') - 1]],
@@ -2810,7 +2866,7 @@ testDataCombiBySubj = pd.merge(left=testDataCombiBySubj,
 
 testDataCombiBySubj.rename(columns={'participant': 'ID', 'trial': 'Trial', 'stimulus': 'Stimulus'}, inplace=True)
 testDataCombiBySubj.drop(columns=['ParticipantID'], inplace=True)
-testDataCombiBySubj.sort_values(by='ID', axis=0, inplace=True)
+testDataCombiBySubj.sort_values(by=['ID', 'Trial'], axis=0, inplace=True)
 
 testDataCombiBySubj.to_csv(os.path.join(outFilePath,
                                         "refmap_listest2_testdataCombi_BySubj.csv"),

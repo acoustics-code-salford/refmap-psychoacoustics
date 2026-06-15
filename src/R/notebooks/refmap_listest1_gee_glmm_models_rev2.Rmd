@@ -3080,25 +3080,27 @@ subjDataNoAmb <- subjDataNoAmb |>
 modelNull <- glmmTMB::glmmTMB(dAnnoyanceOrdBetaScl ~ 1 + (1 | ID),
                         data=subjDataNoAmb, family=ordbeta(link="logit"))
 
-modelMinX <- buildmer::buildglmmTMB(dAnnoyanceOrdBetaScl ~ 1 + TrialNumberScl +
+modelMinX <- buildmer::buildglmmTMB(dAnnoyanceOrdBetaScl ~ 1+ SessionPart + TrialNumberScl +
+                                     UASLAEMaxLRScl*I(log10(UASEvents)) +
                                      UASLAEMaxLRScl*AmbientEnv*UASOperation +
                                      UASLAEMaxLRScl*AmbientEnv*UASType +
-                                     UASOperation*UAsType +
-                                     UASLAEMaxLRScl*I(log10(UASEvents)) +
-                                  NationGeo2 + AAM_attitude2 + Home_Area2 +
+                                     UASOperation*UASType +
+                                     NationGeo2 + AAM_attitude2 + Home_Area2 +
+                                     Age + Sex + NSSTotal + Area_soundscape2 +
                                   (1 + UASLAEMaxLRScl + AmbientEnv + I(log10(UASEvents)) | ID),
                         data=subjDataNoAmb, family=ordbeta(link="logit"),
                        buildmerControl = buildMercontrol)
 
-model1 <- modelMinX@model
+modelMin <- modelMinX@model
 
 
 model1 <- glmmTMB::glmmTMB(dAnnoyanceOrdBetaScl ~ 1 + SessionPart + TrialNumberScl +
-                                     UASLAEMaxLRScl*AmbientEnv*UASOperation +
-                                     UASLAEMaxLRScl*UASType +
                                      UASLAEMaxLRScl*I(log10(UASEvents)) +
-                                  AAM_attitude2 + Sex +
-                                  Home_Area2 + NationGeo2 +
+                                     UASLAEMaxLRScl*AmbientEnv*UASOperation +
+                                     UASLAEMaxLRScl*AmbientEnv*UASType +
+                                     UASOperation*UASType +
+                                     NationGeo2 + AAM_attitude2 + Home_Area2 +
+                                     Age + Sex + NSSTotal + Area_soundscape2 +
                                   (1 + UASLAEMaxLRScl + AmbientEnv + I(log10(UASEvents)) | ID),
                         data=subjDataNoAmb, family=ordbeta(link="logit"),
                         control=glmTMBcontrol)

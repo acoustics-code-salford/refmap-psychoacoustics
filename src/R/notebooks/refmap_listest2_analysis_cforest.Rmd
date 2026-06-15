@@ -77,24 +77,24 @@ if (savedata){
 stimDatapath <- utils::choose.files(caption=r"(Select refmap_listest2_testdata_ByStim.csv from 03 Experiment\Experiment 2\Analysis\PostProcess)",
                                      filters=matrix(data=c("refmap_listest2_testdata_ByStim.csv", "refmap_listest2_testdata_ByStim.csv"), ncol=2))
 
-stimData <- utils::read.csv(stimDatapath, header=TRUE)
-
-colnames(stimData)[1] <- "Stimulus"
+stimData <- utils::read.csv(stimDatapath, header=TRUE, row.names=1)
 
 # make response proportions into percentages
 stimData[['HighAnnoyPc']] <- stimData[['HighlyAnnoyedProp']]*100
 stimData[['dHighAnnoyPc']] <- stimData[['dHighlyAnnoyedProp']]*100
 stimData[['ProbHA20kPc']] <- stimData[['ProbHA20kMean']]*100
 stimData[['ProbHA10kPc']] <- stimData[['ProbHA10kMean']]*100
+stimData[['dProbHA20kPc']] <- stimData[['dProbHA20kMean']]*100
+stimData[['dProbHA10kPc']] <- stimData[['dProbHA10kMean']]*100
 
 ```
 
 The aggregated data by stimulus are assigned to a dataframe, relevant categorical variables are converted to ordinal, and then the variable subset of interest is selected, NA rows dropped (ie, the 'Baseline' stimuli, as the conditional variable importance algorithm cannot currently handle NA values, which are present in all the UAS dB metrics), and a formula assigned.
 
 ```{r}
+stimDataNum <- data.frame(UASEvents=stimData[, "UASEvents"])
 
-stimDataUAS <- cbind(Stimulus = stimData[, "Stimulus"],
-                     UASEvents = stimData[, "UASEvents"],
+stimDataUAS <- cbind(stimDataNum,
                      stimData[, which(colnames(stimData)=="UASLAeqMaxLR"):
                                 which(colnames(stimData)=="UASLoudISO305Ex")],
                      stimData[, which(colnames(stimData)=="UASTonalECMAAvg"):
@@ -106,10 +106,11 @@ stimDataUAS <- cbind(Stimulus = stimData[, "Stimulus"],
                      stimData[, which(colnames(stimData)=="LAeqLAF90diff"):
                                 which(colnames(stimData)=="dPsychAnnoyBoucher")],
                      stimData[, which(colnames(stimData)=="AnnoyanceMean"):
-                                which(colnames(stimData)=="dProbHA20kMeanCI_Low")])
+                                which(colnames(stimData)=="dProbHA10kPc")])
 
-stimDataAmb <- cbind(Stimulus = stimData[, "Stimulus"],
-                     UASEvents = stimData[, "UASEvents"],
+row.names(stimDataUAS) <- rownames(stimData)
+
+stimDataAmb <- cbind(stimDataNum,
                      stimData[, which(colnames(stimData)=="AmbLAeqMaxLR"):
                                 which(colnames(stimData)=="AmbLoudISO305Ex")],
                      stimData[, which(colnames(stimData)=="AmbTonalECMAAvg"):
@@ -117,8 +118,9 @@ stimDataAmb <- cbind(Stimulus = stimData[, "Stimulus"],
                      stimData[, which(colnames(stimData)=="AmbImpulsSHMPowAvg"):
                                 which(colnames(stimData)=="AmbPsychAnnoyBoucher")],
                      stimData[, which(colnames(stimData)=="AnnoyanceMean"):
-                                which(colnames(stimData)=="dProbHA20kMeanCI_Low")])
+                                which(colnames(stimData)=="dProbHA10kPc")])
 
+row.names(stimDataAmb) <- rownames(stimData)
 
 # omit ambient-only stimuli
 stimDataUAS <- stimDataUAS |> dplyr::filter(UASEvents != 0)
@@ -129,7 +131,7 @@ stimDataUAS <- stimDataUAS |> dplyr::filter(UASEvents != 0)
 
 ```{r}
 
-loadExisting <- FALSE
+loadExisting <- TRUE
 
 if (loadExisting){
   # annoy mean results
@@ -140,7 +142,7 @@ if (loadExisting){
   sheetNames<- wb_get_sheet_names(wb)
 
   for (sheet in sheetNames){
-    col_name <- names(openxlsx2::wb_to_df(wb, sheet, row_names=TRUE))
+    col_name <- names(openxlsx2::wb_to_df(wb, sheet, row_names=TRUE))[1]
     resdAnnoyMnPermImp[[col_name]] <- openxlsx2::wb_to_df(wb, sheet, row_names=TRUE)
   }
   
@@ -152,7 +154,7 @@ if (loadExisting){
   sheetNames<- wb_get_sheet_names(wb)
 
   for (sheet in sheetNames){
-    col_name <- names(openxlsx2::wb_to_df(wb, sheet, row_names=TRUE))
+    col_name <- names(openxlsx2::wb_to_df(wb, sheet, row_names=TRUE))[1]
     resdHiAnnoyPermImp[[col_name]] <- openxlsx2::wb_to_df(wb, sheet, row_names=TRUE)
   }
 }
@@ -620,10 +622,14 @@ ambVar <- "AmbientEnvVar"
 ### Initialise results output variables
 
 ```{r}
-resdAnnoyMnFit <- data.frame(RMSE = numeric(),
+if (!loadExisting) {
+ 
+  resdAnnoyMnFit <- data.frame(RMSE = numeric(),
                                MAE = numeric(),
                                Rsquared = numeric())
-resdAnnoyMnPermImp <- list()
+  resdAnnoyMnPermImp <- list()
+   
+}
 
 ```
 
@@ -2851,10 +2857,13 @@ if (savedata){
 ### Initialise results output variables
 
 ```{r}
-resdHiAnnoyFit <- data.frame(RMSE = numeric(),
+if (!loadExisting) {
+  resdHiAnnoyFit <- data.frame(RMSE = numeric(),
                              MAE = numeric(),
                              Rsquared = numeric())
-resdHiAnnoyPermImp <- list()
+  resdHiAnnoyPermImp <- list()
+  
+}
 
 ```
 
@@ -2895,7 +2904,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1501
+ntree <- 2501
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -3374,7 +3383,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1001
+ntree <- 251
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -3480,8 +3489,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 5501
-mtry <- as.integer(length(iVars)/1.25)
+ntree <- 1501
+mtry <- as.integer(length(iVars)/1.5)
 
 ```
 
@@ -3584,8 +3593,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
-mtry <- as.integer(length(iVars)/1.5)
+ntree <- 501
+mtry <- as.integer(length(iVars)/1.25)
 
 ```
 
@@ -3789,7 +3798,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 501
+ntree <- 251
 mtry <- as.integer(length(iVars)/1.6)
 
 ```
@@ -3801,7 +3810,7 @@ Train preliminary model
 
 ```{r}
 
-nperm <- 5
+nperm <- 15
 
 resultsOutSQMs2 <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
 
@@ -3887,7 +3896,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
+ntree <- 1501
 mtry <- as.integer(length(iVars)/1.75)
 
 ```
@@ -3986,8 +3995,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 5501
-mtry <- as.integer(length(iVars)/2.75)
+ntree <- 501
+mtry <- as.integer(length(iVars)/2.25)
 
 ```
 
@@ -4148,7 +4157,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 2501
+ntree <- 501
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -4253,7 +4262,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 4001
+ntree <- 1501
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -4327,7 +4336,7 @@ Selected metric
 
 ```{r}
 
-allTonLdVar <- "UASTonShpAurSHM05Ex"
+allTonLdVar <- "PartTonLdSHMPowAvg"
 
 ```
 
@@ -4358,7 +4367,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
+ntree <- 5501
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -4468,7 +4477,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 5501
+ntree <- 251
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -4677,8 +4686,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
-mtry <- as.integer(length(iVars)/1.5)
+ntree <- 1001
+mtry <- as.integer(length(iVars)/1.25)
 
 ```
 
@@ -4785,7 +4794,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 4001
+ntree <- 251
 mtry <- as.integer(length(iVars)/1.6)
 
 ```
@@ -4882,7 +4891,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1501
+ntree <- 4001
 mtry <- as.integer(length(iVars)/1.6)
 
 ```
