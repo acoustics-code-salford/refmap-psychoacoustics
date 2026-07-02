@@ -10,12 +10,12 @@ date: "2026-05-07"
 knitr::opts_chunk$set(echo = TRUE)
 
 # load packages
+library(easystats)
 library(conflicted)
 library(brms)
 library(bayestestR)
 library(tidybayes)
 library(bayesplot)
-library(easystats)
 library(tidyverse)
 library(DHARMa)
 library(tictoc)
@@ -39,6 +39,121 @@ options(marginaleffects_parallel_inferences = TRUE)
 options(marginaleffects_parallel_packages = c("marginaleffects", "brms"))
 
 set.seed(808)
+
+```
+
+# Functions
+
+## Prior predictive distribution ppd_ridgeplot
+Adapted from: https://bruno.nicenboim.me/posts/posts/2026-01-09-ordinal-models/index.html
+
+```{r}
+
+ppd_ridgeplot <- function(fit, title = "Prior Predictive Distribution", 
+                          subtitle = NULL, ndraws = 500) {
+  
+  yrep <- brms::posterior_predict(fit, ndraws = ndraws)
+
+  # extract observed response categories from model
+  response_name <- all.vars(fit$formula$formula)[1]
+  
+  observed_y <- fit$data[[response_name]]
+
+  # preserve ordinal ordering
+  response_levels <- sort(unique(observed_y))
+
+  proportions_per_draw <- lapply(seq_len(nrow(yrep)), function(i) {
+    props <- table(factor(yrep[i, ], levels = response_levels)) / ncol(yrep)
+    data.frame(
+      draw = i,
+      response = factor(response_levels,
+                        levels = response_levels,
+                        ordered = TRUE),
+      proportion = as.numeric(props)
+    )
+  })
+  
+  ppd_data <- do.call(rbind, proportions_per_draw)
+  
+  # reference line for equal occupancy
+  equal_prob <- 1 / length(response_levels)
+  
+  ggplot(ppd_data, aes(x = proportion, y = response)) +
+    ggridges::geom_density_ridges(fill = "steelblue", alpha = 0.7, scale = 0.9, stat = "binline") +
+    scale_x_continuous(breaks = seq(0, 1, by = 0.2), limits = c(0, 1)) +
+    geom_vline(xintercept = equal_prob, linetype = "dashed") +
+    labs(title = title,
+         subtitle = subtitle,
+         x = "Predicted category proportion",
+         y = "Response category") +
+    theme_minimal(base_size = 12) +
+    coord_flip()
+
+}
+
+```
+
+## Beta distribution transform from arbitrary scale to (0, 1) or back again
+
+```{r}
+
+betaTransform <- function(x, scaleMin, scaleMax,
+                          direction=c('forward', 'reverse')[1],
+                          squeeze=c('none', 'basic', 'smithson')[1],
+                          basic_val=1e-6){
+  "Squeeze algorithm is from:
+  Smithson, M & Verkuilen, J, 2006. A better lemon squeezer? Maximum-likelihood
+  regression with beta-distributed dependent variables. Psychological Methods,
+  11(1), 54-71."
+  
+  if (direction == 'forward') {
+    # transform from original scale to (0,1)
+    x_scale <- (x - scaleMin) / (scaleMax - scaleMin)
+    
+    if (squeeze == 'smithson') {
+      
+      N = length(x_scale)
+      x_out <- (x_scale*(N - 1) + 0.5) / N
+      
+    } else if (squeeze == 'basic') {
+      
+      x_out <- x_scale*(1 - 2*basic_val) + basic_val
+      
+    } else {
+      
+      x_out <- x_scale
+      
+    }
+
+  } else if (direction == 'reverse') {
+    # transform from (0, 1) back to original scale
+    x_scale <- x * (scaleMax - scaleMin) + scaleMin
+    
+    if (squeeze == 'smithson') {
+      
+      N = length(x_scale)
+      x_out <- (x_scale*N - 0.5)/(N - 1)
+      
+    } else if (squeeze == 'basic') {
+      
+      x_out <- (x_scale - basic_val)/(1 - 2*basic_val)
+      
+    } else {
+      
+      x_out <- x_scale
+      
+    }
+
+  } else {
+    
+    stop("Invalid direction argument: must be 'forward' or 'reverse'")
+    
+  }
+  
+  return(x_out)
+  
+}
+
 
 ```
 
@@ -84,7 +199,7 @@ subjData <- subjData |> dplyr::mutate(Age = case_when(Age == "No answer" ~ NA_ch
   dplyr::mutate(Age = as.numeric(Age))
 
 # recode AAM_attitude to 3 groups
-subjData <- subjData |> dplyr::mutate(AAM_attitude3 = case_match(AAM_attitude,
+subjData <- subjData |> dplyr::mutate(AAM_attitude3 = dplyr::recode_values(AAM_attitude,
                                                                     "Supportive" ~ "Supportive",
                                                                     c("Ambivalent",
                                                                       "Concerned") ~ "Ambiv_Concern",
@@ -92,7 +207,7 @@ subjData <- subjData |> dplyr::mutate(AAM_attitude3 = case_match(AAM_attitude,
 subjData$AAM_attitude3 <- factor(subjData$AAM_attitude3, levels=c("Supportive", "Ambiv_Concern", "Neutral"))
 
 # recode AAM_attitude to 2 groups
-subjData <- subjData |> dplyr::mutate(AAM_attitude2 = case_match(AAM_attitude,
+subjData <- subjData |> dplyr::mutate(AAM_attitude2 = dplyr::recode_values(AAM_attitude,
                                                                     "Supportive" ~ "Supportive",
                                                                     c("Ambivalent",
                                                                       "Concerned",
@@ -100,7 +215,7 @@ subjData <- subjData |> dplyr::mutate(AAM_attitude2 = case_match(AAM_attitude,
 subjData$AAM_attitude2 <- factor(subjData$AAM_attitude2, levels=c("Supportive", "Ambiv_Concern_Neutral"))
 
 # recode AAM_attitude to 2 other groups
-subjData <- subjData |> dplyr::mutate(AAM_attitude2_2 = case_match(AAM_attitude,
+subjData <- subjData |> dplyr::mutate(AAM_attitude2_2 = dplyr::recode_values(AAM_attitude,
                                                                     c("Supportive",
                                                                       "Ambivalent") ~ "Support_Ambiv",
                                                                     c("Concerned",
@@ -109,7 +224,7 @@ subjData <- subjData |> dplyr::mutate(AAM_attitude2_2 = case_match(AAM_attitude,
 subjData$AAM_attitude2_2 <- factor(subjData$AAM_attitude2_2, levels=c("Support_Ambiv", "Concern_Neutral"))
 
 # recode NationGeo to 4 groups
-subjData <- subjData |> dplyr::mutate(NationGeo4 = case_match(NationGeo,
+subjData <- subjData |> dplyr::mutate(NationGeo4 = dplyr::recode_values(NationGeo,
                                                                "UK" ~ "UK",
                                                                c("Africa",
                                                                  "SouthAsia") ~ "Africa_SAsia",
@@ -122,7 +237,7 @@ subjData <- subjData |> dplyr::mutate(NationGeo4 = case_match(NationGeo,
 subjData$NationGeo4 <- factor(subjData$NationGeo4)
 
 # recode NationGeo to 3 groups
-subjData <- subjData |> dplyr::mutate(NationGeo3 = case_match(NationGeo,
+subjData <- subjData |> dplyr::mutate(NationGeo3 = dplyr::recode_values(NationGeo,
                                                                  "UK" ~ "UK",
                                                                  c("Africa",
                                                                    "SouthAsia") ~ "Africa_SAsia",
@@ -135,7 +250,7 @@ subjData <- subjData |> dplyr::mutate(NationGeo3 = case_match(NationGeo,
 subjData$NationGeo3 <- factor(subjData$NationGeo3)
 
 # recode NationGeo to 2 groups
-subjData <- subjData |> dplyr::mutate(NationGeo2 = case_match(NationGeo,
+subjData <- subjData |> dplyr::mutate(NationGeo2 = dplyr::recode_values(NationGeo,
                                                                  "UK" ~ "UK",
                                                                  c("Africa",
                                                                    "SouthAsia",
@@ -151,7 +266,7 @@ subjData$NationGeo2 <- factor(subjData$NationGeo2)
 subjData$NationGeo3 <- factor(subjData$NationGeo3)
 
 # recode Area of residence to 2 groups
-subjData <- subjData |> dplyr::mutate(Home_Area2 = case_match(Home_Area,
+subjData <- subjData |> dplyr::mutate(Home_Area2 = dplyr::recode_values(Home_Area,
                                                          "Urban" ~ "Urban",
                                                          c("Suburban",
                                                            "Rural") ~ "Suburban_Rural"))
@@ -159,7 +274,7 @@ subjData$Home_Area2 <- factor(subjData$Home_Area2)
 
 
 # recode Area soundscape to 2 groups
-subjData <- subjData |> dplyr::mutate(Area_soundscape2 = case_match(Area_soundscape,
+subjData <- subjData |> dplyr::mutate(Area_soundscape2 = dplyr::recode_values(Area_soundscape,
                                                                        c("Calm",
                                                                          "Monotonous") ~ "Uneventful",
                                                                        c("Chaotic",
@@ -190,7 +305,6 @@ subjData <- subjData |> dplyr::mutate(IntermitRatioC3MaxLRScl = IntermitRatioC3M
 subjData <- subjData |> dplyr::mutate(IntermitRatioC5MaxLRScl = IntermitRatioC5MaxLR/100)
 subjData <- subjData |> dplyr::mutate(AmbLAeqMaxLRScl = datawizard::standardise(AmbLAeqMaxLR, scale=FALSE))
 subjData <- subjData |> dplyr::mutate(AmbLAF50ExMaxLRScl = datawizard::standardise(AmbLAF50ExMaxLR, scale=FALSE))
-subjData <- subjData |> dplyr::mutate(AgeScl = datawizard::standardise(Age, scale=FALSE))
 
 stimData <- stimData |> dplyr::mutate(UASLAeqMaxLRScl = datawizard::standardise(UASLAeqMaxLR, scale=FALSE))
 stimData <- stimData |> dplyr::mutate(UASLAEMaxLRScl = datawizard::standardise(UASLAEMaxLR, scale=FALSE))
@@ -242,101 +356,79 @@ stimData$PartLoudMGSTPowAvgLog <- log(stimData$PartLoudMGSTPowAvg)
 # reorder by participant ID and trial number
 subjData <- subjData[with(subjData, order(ID, TrialNumber)), ]
 
+# re-encode Annoyance variables as ordinal
+subjData <- subjData |> dplyr::mutate(AnnoyanceOrd=factor(Annoyance,
+                                                          levels=seq(0, 10, by=1),
+                                                          ordered=TRUE),
+                                      dAnnoyanceOrd=factor(dAnnoyance,
+                                                           levels=seq(-10, 10, by=1),
+                                                           ordered=TRUE))
+
+
+# add a rescaled dAnnoyance variable
+subjData <- subjData |>
+  dplyr::mutate(AnnoyanceOrdBetaScl = betaTransform(Annoyance, 0, 10,
+                                                    direction='forward', squeeze='none'),
+                dAnnoyanceOrdBetaScl = betaTransform(dAnnoyance, -10, 10,
+                                                     direction='forward', squeeze='none'))
+
 # omit ambient-only stimuli
 subjDataNoAmb <- subjData |> dplyr::filter(UASLAeq != "Baseline")
 stimDataNoAmb <- stimData |> dplyr::filter(UASLAeq != "Baseline")
 
-# re-encode factors omitting ambient-only stimuli
-subjDataNoAmb$SNRlevel <- factor(subjDataNoAmb$SNRlevel, levels=SNRCatsA[2:length(SNRCatsA)], order=TRUE)
-subjDataNoAmb$UASOperation <- factor(subjDataNoAmb$UASOperation, levels=UASOpCatsA[2: length(UASOpCatsA)])
-subjDataNoAmb$UASType <- factor(subjDataNoAmb$UASType, levels=UASTypeCatsA[2:length(UASTypeCatsA)])
-stimDataNoAmb$SNRlevel <- factor(stimDataNoAmb$SNRlevel, levels=SNRCatsA[2:length(SNRCatsA)], order=TRUE)
-stimDataNoAmb$UASOperation <- factor(stimDataNoAmb$UASOperation, levels=UASOpCatsA[2: length(UASOpCatsA)])
-stimDataNoAmb$UASType <- factor(stimDataNoAmb$UASType, levels=UASTypeCatsA[2:length(UASTypeCatsA)])
+# filter data to exclude the missing age participant and the missing response data
+subjDataNoAmb.cc <- subjDataNoAmb |> dplyr::filter(!is.na(Age) & !is.na(TrialNumber))
 
-# re-encode dAnnoyance variable as ordinal
-subjDataNoAmb <- subjDataNoAmb |> dplyr::mutate(dAnnoyanceOrd=factor(dAnnoyance, levels=seq(-10, 10, by=1), ordered=TRUE))
-
-# now drop any unused levels in dAnnoyanceOrd
-subjDataNoAmb$dAnnoyanceOrd <- droplevels(subjDataNoAmb$dAnnoyanceOrd)
-
+# now drop any unused levels
+subjDataNoAmb <- droplevels(subjDataNoAmb)
+stimDataNoAmb <- droplevels(stimDataNoAmb)
+subjDataNoAmb.cc <- droplevels(subjDataNoAmb.cc)
 
 ```
 
-# Functions
+## impute missing age data
 
-## ppd_ridgeplot
-Adapted from: https://bruno.nicenboim.me/posts/posts/2026-01-09-ordinal-models/index.html
-```{r}
+```{R}
 
-ppd_ridgeplot <- function(fit, title = "Prior Predictive Distribution", 
-                          subtitle = NULL, ndraws = 500) {
-  
-  yrep <- brms::posterior_predict(fit, ndraws = ndraws)
+# first create a participant-level dataset
+subj_dat <- subjData |> dplyr::select(ID, Age) |> dplyr::distinct()
 
-  # extract observed response categories from model
-  response_name <- all.vars(fit$formula$formula)[1]
-  
-  observed_y <- fit$data[[response_name]]
+# create a median imputation for missing age data
+subj_dat.med <- subj_dat |> dplyr::mutate(Age = ifelse(is.na(Age),
+                                                   median(Age, na.rm=TRUE),
+                                                   Age))
 
-  # preserve ordinal ordering
-  response_levels <- sort(unique(observed_y))
+# now merge the imputed age data back into the main dataset
+subjData.med <- subjData |> dplyr::select(-Age) |> dplyr::left_join(subj_dat.med, by="ID")
 
-  proportions_per_draw <- lapply(seq_len(nrow(yrep)), function(i) {
-    props <- table(factor(yrep[i, ], levels = response_levels)) / ncol(yrep)
-    data.frame(
-      draw = i,
-      response = factor(response_levels,
-                        levels = response_levels,
-                        ordered = TRUE),
-      proportion = as.numeric(props)
-    )
-  })
-  
-  ppd_data <- do.call(rbind, proportions_per_draw)
-  
-  # reference line for equal occupancy
-  equal_prob <- 1 / length(response_levels)
-  
-  ggplot(ppd_data, aes(x = proportion, y = response)) +
-    ggridges::geom_density_ridges(fill = "steelblue", alpha = 0.7, scale = 0.9, stat = "binline") +
-    scale_x_continuous(breaks = seq(0, 1, by = 0.2), limits = c(0, 1)) +
-    geom_vline(xintercept = equal_prob, linetype = "dashed") +
-    labs(title = title,
-         subtitle = subtitle,
-         x = "Predicted category proportion",
-         y = "Response category") +
-    theme_minimal(base_size = 12) +
-    coord_flip()
+# now filter the dataset to exclude ambient-only stimuli
+subjDataNoAmb.med <- subjData.med |> dplyr::filter(UASLAeq != "Baseline") |>
+  droplevels()
 
-}
+# use multiple imputation to impute missing age data
+imp_data <- mice::mice(subj_dat, m=5, method='pmm', seed=808)
+
+completed_list <- mice::complete(imp_data, action='all')
+
+# merge the completed datasets back into a main dataset list and filter baseline
+subjData.imp <- lapply(completed_list,
+                       function(df) {subjData |>
+                           dplyr::select(-Age) |>
+                           dplyr::left_join(df, by="ID")})
+
+subjDataNoAmb.imp <- lapply(subjData.imp,
+                            function(df) {subjData |>
+                                dplyr::filter(UASLAeq != "Baseline") |>
+                                droplevels()
+                            } )
 
 ```
 
-# Model 0: maximal model for annoyance
+# Annoyance
 
-```{r}
+## Model 0 formula
 
-# re-encode Annoyance variable as ordinal
-subjDataNoAmb <- subjDataNoAmb |> dplyr::mutate(AnnoyanceOrd=factor(Annoyance, levels=seq(0, 10, by=1), ordered=TRUE))
-subjDataNoAmb.cc <- subjDataNoAmb.cc |> dplyr::mutate(AnnoyanceOrd=factor(Annoyance, levels=seq(0, 10, by=1), ordered=TRUE))
-
-# now drop any unused levels in AnnoyanceOrd
-subjDataNoAmb$AnnoyanceOrd <- droplevels(subjDataNoAmb$AnnoyanceOrd)
-subjDataNoAmb.cc$AnnoyanceOrd <- droplevels(subjDataNoAmb.cc$AnnoyanceOrd)
-
-emp_thresh0 <- round(qlogis(cumsum(prop.table(table(subjDataNoAmb.cc$AnnoyanceOrd)))), 2)
-# truncate emp_thresh to remove infinite values
-emp_thresh0 <- emp_thresh0[is.finite(emp_thresh0)]
-
-priors0 <- c(
-  set_prior("normal(0, 2)", class='b'),
-  brms::prior(normal(0.25, 1), class='b', coef='UASLAEMaxLRScl'),
-  brms::prior(normal(1.5, 1), class='b', coef='Ilog10UASEvents'),
-  brms::prior(normal(0.1, 1), class='b', coef='TrialNumberScl'),
-  brms::prior(normal(0.1, 1), class='b', coef='SessionPartB'),
-  brms::prior_string(paste0("normal(", emp_thresh0,", 1)"), class = "Intercept", coef = 1:length(emp_thresh0))
-)
+```{R}
 
 model0formula <- AnnoyanceOrd ~ 1 + SessionPart + TrialNumberScl +
                     UASLAEMaxLRScl*I(log10(UASEvents)) +
@@ -349,49 +441,173 @@ model0formula <- AnnoyanceOrd ~ 1 + SessionPart + TrialNumberScl +
                       UASOperation + UASType | ID) +
                      (1 | StimID)
 
+```
+
+## Model 0a: maximal model for annoyance, complete cases
+
+```{r}
+
+emp_thresh0a <- round(qlogis(cumsum(prop.table(table(subjDataNoAmb.cc$AnnoyanceOrd)))), 2)
+# truncate emp_thresh to remove infinite values
+emp_thresh0a <- emp_thresh0a[is.finite(emp_thresh0a)]
+
+priors0a <- c(
+  set_prior("normal(0, 2)", class='b'),
+  brms::prior(normal(0.2, 1), class='b', coef='UASLAEMaxLRScl'),
+  brms::prior(normal(1.5, 1), class='b', coef='Ilog10UASEvents'),
+  brms::prior(normal(0.1, 1), class='b', coef='TrialNumberScl'),
+  brms::prior(normal(0.1, 1), class='b', coef='SessionPartB'),
+  brms::prior_string(paste0("normal(", emp_thresh0a,", 1)"), class = "Intercept", coef = 1:length(emp_thresh0a))
+)
+
+# extract the data for the model
+model0aData <- subjDataNoAmb.cc[, all.vars(model0formula), drop=FALSE]
+
 tic()
-model0Priors <- brms::brm(model0formula,
-                 data=subjDataNoAmb.cc,
+model0aPriors <- brms::brm(model0formula,
+                 data=model0aData,
                  family=cumulative(link='logit'),
-                 future=TRUE, backend='cmdstanr', prior = priors0,
+                 future=TRUE, backend='cmdstanr', prior=priors0a,
                  sample_prior='only', seed=808,
                  chains=4, iter=2000, warmup=1000)
 toc()
 
-model0_ppd <- ppd_ridgeplot(model0Priors, ndraws = 100)
-model0_ppd
+model0a_ppd <- ppd_ridgeplot(model0aPriors, ndraws = 100)
+model0a_ppd
 
-model0PriorCheck <- brms::pp_check(model0Priors, type='bars', ndraws = 100) +
+model0aPriorCheck <- brms::pp_check(model0aPriors, type='bars', ndraws = 100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Mean change in annoyance")
-model0PriorCheck
+model0aPriorCheck
 
 tic()
-model0 <- brms::brm(model0formula,
-                 data=subjDataNoAmb.cc,
+model0a <- brms::brm(model0formula,
+                 data=model0aData,
                  family=cumulative(link='logit'),
-                 future=TRUE, backend='cmdstanr', prior = priors0,
+                 future=TRUE, backend='cmdstanr', prior=priors0a,
                  threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
                  seed=808, chains=4, iter=2000, warmup=1000)
 toc()
 
-model0PostCheck <- brms::pp_check(model0, type='bars', ndraw=100) +
+model0aPostCheck <- brms::pp_check(model0a, type='bars', ndraw=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Ordinal category index")
-model0PostCheck
+model0aPostCheck
 
 ```
+
+## Model 0b: maximal model for annoyance, median imputed
+
+```{r}
+
+emp_thresh0b <- round(qlogis(cumsum(prop.table(table(subjDataNoAmb$AnnoyanceOrd)))), 2)
+# truncate emp_thresh to remove infinite values
+emp_thresh0b <- emp_thresh0b[is.finite(emp_thresh0b)]
+
+priors0b <- c(
+  set_prior("normal(0, 2)", class='b'),
+  brms::prior(normal(0.2, 1), class='b', coef='UASLAEMaxLRScl'),
+  brms::prior(normal(1.5, 1), class='b', coef='Ilog10UASEvents'),
+  brms::prior(normal(0.1, 1), class='b', coef='TrialNumberScl'),
+  brms::prior(normal(0.1, 1), class='b', coef='SessionPartB'),
+  brms::prior_string(paste0("normal(", emp_thresh0b,", 1)"), class = "Intercept", coef = 1:length(emp_thresh0b))
+)
+
+# extract the data for the model
+model0bData <- subjDataNoAmb.med[, all.vars(model0formula), drop=FALSE]
+
+tic()
+model0bPriors <- brms::brm(model0formula,
+                 data=model0bData,
+                 family=cumulative(link='logit'),
+                 future=TRUE, backend='cmdstanr', prior=priors0b,
+                 sample_prior='only', seed=808,
+                 chains=4, iter=2000, warmup=1000)
+toc()
+
+model0b_ppd <- ppd_ridgeplot(model0bPriors, ndraws = 100)
+model0b_ppd
+
+model0bPriorCheck <- brms::pp_check(model0bPriors, type='bars', ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+model0bPriorCheck
+
+tic()
+model0b <- brms::brm(model0formula,
+                 data=model0bData,
+                 family=cumulative(link='logit'),
+                 future=TRUE, backend='cmdstanr', prior=priors0b,
+                 threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+                 seed=808, chains=4, iter=2000, warmup=1000)
+toc()
+
+model0bPostCheck <- brms::pp_check(model0b, type='bars', ndraw=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Ordinal category index")
+model0bPostCheck
+
+```
+
+## Model 0c: maximal model for annoyance, multiple imputed
+
+```{r}
+
+emp_thresh0c <- round(qlogis(cumsum(prop.table(table(subjDataNoAmb$AnnoyanceOrd)))), 2)
+# truncate emp_thresh to remove infinite values
+emp_thresh0c <- emp_thresh0c[is.finite(emp_thresh0c)]
+
+priors0c <- c(
+  set_prior("normal(0, 2)", class='b'),
+  brms::prior(normal(0.2, 1), class='b', coef='UASLAEMaxLRScl'),
+  brms::prior(normal(1.5, 1), class='b', coef='Ilog10UASEvents'),
+  brms::prior(normal(0.1, 1), class='b', coef='TrialNumberScl'),
+  brms::prior(normal(0.1, 1), class='b', coef='SessionPartB'),
+  brms::prior_string(paste0("normal(", emp_thresh0c,", 1)"), class = "Intercept", coef = 1:length(emp_thresh0c))
+)
+
+# extract the data for the model
+model0cData <- lapply(subjDataNoAmb.imp,
+                      function(df) {df[, all.vars(model0formula), drop=FALSE]})
+
+tic()
+model0cPriors <- brms::brm_multiple(model0formula,
+                 data=model0cData,
+                 family=cumulative(link='logit'),
+                 future=TRUE, backend='cmdstanr', prior=priors0c,
+                 sample_prior='only', seed=808,
+                 chains=4, iter=2000, warmup=1000)
+toc()
+
+model0c_ppd <- ppd_ridgeplot(model0cPriors, ndraws = 100)
+model0c_ppd
+
+model0cPriorCheck <- brms::pp_check(model0cPriors, type='bars', ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+model0cPriorCheck
+
+tic()
+model0c <- brms::brm_multiple(model0formula,
+                 data=model0cData,
+                 family=cumulative(link='logit'),
+                 future=TRUE, backend='cmdstanr', prior = priors0c,
+                 threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+                 seed=808, chains=4, iter=2000, warmup=1000)
+toc()
+
+model0cPostCheck <- brms::pp_check(model0c, type='bars', ndraw=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Ordinal category index")
+model0cPostCheck
+
+```
+
 # dAnnoyance
 
 ## Priors
 
 ```{r}
-
-# the first models will be run on the data with complete cases, which means excluding one participant with missing age
-# the  be based on the empirical distribution of the complete cases, which is what model1a and subsequent models will be fitted to
-
-# subset data to exclude the missing age participant
-subjDataNoAmb.cc <- subset(subjDataNoAmb, !is.na(Age))
 
 # redefine the response for the subsetted data to drop unused levels
 subjDataNoAmb.cc$dAnnoyanceOrd <- droplevels(subjDataNoAmb.cc$dAnnoyanceOrd)
