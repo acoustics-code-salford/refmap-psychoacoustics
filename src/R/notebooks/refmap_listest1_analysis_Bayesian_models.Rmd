@@ -477,7 +477,7 @@ model0a_ppd
 
 model0aPriorCheck <- brms::pp_check(model0aPriors, type='bars', ndraws = 100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Mean annoyance rating category index")
 model0aPriorCheck
 
 tic()
@@ -491,7 +491,7 @@ toc()
 
 model0aPostCheck <- brms::pp_check(model0a, type='bars', ndraw=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Ordinal category index")
+  labs(x="Mean annoyance rating category index")
 model0aPostCheck
 
 ```
@@ -530,7 +530,7 @@ model0b_ppd
 
 model0bPriorCheck <- brms::pp_check(model0bPriors, type='bars', ndraws = 100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Mean annoyance rating category index")
 model0bPriorCheck
 
 tic()
@@ -544,7 +544,7 @@ toc()
 
 model0bPostCheck <- brms::pp_check(model0b, type='bars', ndraw=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Ordinal category index")
+  labs(x="Mean annoyance rating category index")
 model0bPostCheck
 
 ```
@@ -584,7 +584,7 @@ model0c_ppd
 
 model0cPriorCheck <- brms::pp_check(model0cPriors, type='bars', ndraws = 100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Mean annoyance rating category index")
 model0cPriorCheck
 
 tic()
@@ -598,8 +598,63 @@ toc()
 
 model0cPostCheck <- brms::pp_check(model0c, type='bars', ndraw=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Ordinal category index")
+  labs(x="Mean annoyance rating category index")
 model0cPostCheck
+
+```
+
+## Model 1: maximal ordbeta model for annoyance, median imputed
+
+### model 1 formula
+
+```{r}
+
+model1formula <- update(model0formula, AnnoyanceOrdBetaScl ~ .)
+
+```
+
+```{r}
+
+priors1 <- c(
+  set_prior("normal(0, 2)", class='b'),
+  brms::prior(normal(0.2, 1), class='b', coef='UASLAEMaxLRScl'),
+  brms::prior(normal(1.5, 1), class='b', coef='Ilog10UASEvents'),
+  brms::prior(normal(0.1, 1), class='b', coef='TrialNumberScl'),
+  brms::prior(normal(0.1, 1), class='b', coef='SessionPartB'),
+  brms::prior(gamma(2, 0.1), class='phi')
+)
+
+# extract the data for the model
+model1Data <- subjDataNoAmb.med[, all.vars(model1formula), drop=FALSE]
+
+tic()
+model1Priors <- brms::brm(model1formula,
+                 data=model1Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priors1, sample_prior='only', seed=808,
+                 chains=4, iter=2000, warmup=1000)
+toc()
+
+model1PriorCheck <- brms::pp_check(model1Priors, ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean annoyance rating index")
+model1PriorCheck
+
+tic()
+model1 <- brms::brm(model1formula,
+                 data=model1Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priors1,
+                 threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+                 seed=808, chains=4, iter=2000, warmup=1000)
+toc()
+
+model1PostCheck <- brms::pp_check(model1, ndraw=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean annoyance rating index")
+model1PostCheck
 
 ```
 
