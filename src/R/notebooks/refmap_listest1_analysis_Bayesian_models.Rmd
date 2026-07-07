@@ -28,17 +28,66 @@ library(loo)
 library(shinystan)
 library(shinybrms)
 library(ggdist)
+library(brmsmargins)
+library(viridis)
+library(ggnewscale)
+library(patchwork)
+library(ggpmisc)
+library(gginnards)
+library(ggdist)
 
 # set package parameters
 theme_set(theme_bw())
 
-n_cores <- max(1, parallel::detectCores() - 4)
+n_cores <- max(1, parallelly::availableCores() - 4)
 future::plan(future::multisession, workers = n_cores)
 
 options(marginaleffects_parallel_inferences = TRUE)
 options(marginaleffects_parallel_packages = c("marginaleffects", "brms"))
 
 set.seed(808)
+
+```
+
+Set parameters
+
+```{r}
+
+# plot colour scheme
+
+mycolourlist = list(c(0, 102, 255), c(0, 204, 153), c(255, 0, 102), c(74, 111, 152), c(251, 164, 49), c(204, 153, 255), c(90, 192, 255), c(80, 245, 233), c(255, 90, 192), c(164, 201, 242), c(255, 254, 139), c(255, 243, 255))
+mycolours = matrix()
+
+for (ii in 1:length(mycolourlist)){
+  mycolours[ii] = rgb(mycolourlist[[ii]][1]/255,
+                      mycolourlist[[ii]][2]/255,
+                      mycolourlist[[ii]][3]/255)
+}
+
+# toggle to save plots
+saveplots = TRUE
+
+if (saveplots){
+  # set output plot directory
+  choose.files(caption="Just cancel this", filters=matrix(data=c(" ", " "), ncol=2))  # workaround for bug in RTerm choose.dir
+  outFigPath <- utils::choose.dir(caption="Select output folder to save plots")
+  
+  if (!dir.exists(file.path(outFigPath, "svg"))){dir.create(file.path(outFigPath, "svg"))}
+  if (!dir.exists(file.path(outFigPath, "pdf"))){dir.create(file.path(outFigPath, "pdf"))}
+  
+}
+
+# toggle to save data
+savedata = TRUE
+
+if (savedata){
+  # set output plot directory
+  if (saveplots==FALSE){
+    choose.files(caption="Just cancel this", filters=matrix(data=c(" ", " "), ncol=2))  # workaround for bug in RTerm choose.dir
+  }
+  outDataPath <- utils::choose.dir(caption="Select output folder to save data")
+}
+
 
 ```
 
@@ -101,7 +150,7 @@ betaTransform <- function(x, scaleMin, scaleMax,
                           direction=c('forward', 'reverse')[1],
                           squeeze=c('none', 'basic', 'smithson')[1],
                           basic_val=1e-6){
-  "Squeeze algorithm is from:
+  "Squeeze algorithm 'smithson' is from:
   Smithson, M & Verkuilen, J, 2006. A better lemon squeezer? Maximum-likelihood
   regression with beta-distributed dependent variables. Psychological Methods,
   11(1), 54-71."
@@ -152,6 +201,83 @@ betaTransform <- function(x, scaleMin, scaleMax,
   
   return(x_out)
   
+}
+
+
+```
+
+## Bayesian version of McKelvey and Zavoina's pseudo-R2
+
+From https://discourse.mc-stan.org/t/r-2-calculation-for-brm-model-with-cumulative-family-type/14752/2
+
+```{R}
+# Bayesian McKelvey-Zavoina R2 ------------------------------------------------
+# Bayesian version of McKelvey and Zavoina's pseudo-R2 for binary and ordinal
+# brms models (McKelvey and Zavoina, 1975). See also Gelman et al. (2018). This
+# pseudo-R2 closely approximates the R2 that would have been obtained if a
+# linear model had have been run on observations of the continuous latent
+# variable underlying the discrete responses (Veall and Zimmermann, 1992; Hagle
+# and Mitchell, 1992; Veall and Zimmermann, 1994).
+Bayes_R2_MZ <- function(fit, ...) {
+  y_pred <- fitted(fit, scale = "linear", summary = FALSE, ...)
+  var_fit <- apply(y_pred, 1, stats::var)
+  if (fit$formula$family$family == "cumulative" ||
+      fit$formula$family$family == "bernoulli") {
+    if (fit$formula$family$link == "probit" || 
+        fit$formula$family$link == "probit_approx") {
+      var_res <- 1
+    }
+    else if (fit$formula$family$link == "logit") {
+      var_res <- pi^2 / 3 
+    }
+  } 
+  else {
+    sum_fit <- summary(fit)
+    sig_res <- sum_fit$spec_pars["sigma", "Estimate"]
+    var_res <- sig_res^2
+  } 
+  R2_MZ <- var_fit / (var_fit + var_res)
+  print(
+    data.frame(
+      Estimate = mean(R2_MZ), 
+      Est.Error = stats::sd(R2_MZ), 
+      "l-95% CI" = quantile(R2_MZ, 0.025),
+      "u-95% CI" = quantile(R2_MZ, 0.975),
+      row.names = "Bayes_R2_MZ", 
+      check.names = FALSE), 
+    digits = 3)
+}
+
+```
+
+## Rescale ggplot tick marks for variables
+
+```{r}
+
+rescaleTicks <- function(dataVar, dataVarScl, sep=3, ax='x'){
+  
+  if (ax == 'x'){
+    outAx <- scale_x_continuous(breaks=seq(floor(min(dataVar)),
+                                           ceiling(max(dataVar)),
+                                           by=sep) -
+                                  (max(dataVar) - max(dataVarScl)),
+                                labels=seq(floor(min(dataVar)),
+                                           ceiling(max(dataVar)),
+                                           by=sep))
+
+  } else if (ax == 'y'){
+    outAx <- scale_y_continuous(breaks=seq(floor(min(dataVar)),
+                                           ceiling(max(dataVar)),
+                                           by=sep) -
+                                  (max(dataVar) - max(dataVarScl)),
+                                labels=seq(floor(min(dataVar)),
+                                           ceiling(max(dataVar)),
+                                           by=sep))
+  } else {
+    stop("Invalid axis argument")
+  }
+ 
+  return(outAx) 
 }
 
 
@@ -406,7 +532,7 @@ subjDataNoAmb.med <- subjData.med |> dplyr::filter(UASLAeq != "Baseline") |>
   droplevels()
 
 # use multiple imputation to impute missing age data
-imp_data <- mice::mice(subj_dat, m=5, method='pmm', seed=808)
+imp_data <- mice::mice(subj_dat, m=5, method='pmm', seed=808, printFlag=F)
 
 completed_list <- mice::complete(imp_data, action='all')
 
@@ -430,7 +556,7 @@ subjDataNoAmb.imp <- lapply(subjData.imp,
 
 ```{R}
 
-model0formula <- AnnoyanceOrd ~ 1 + SessionPart + TrialNumberScl +
+m0formula <- AnnoyanceOrd ~ 1 + SessionPart + TrialNumberScl +
                     UASLAEMaxLRScl*I(log10(UASEvents)) +
                    UASLAEMaxLRScl*AmbientEnv*UASOperation +
                    UASLAEMaxLRScl*AmbientEnv*UASType +
@@ -461,38 +587,47 @@ priors0a <- c(
 )
 
 # extract the data for the model
-model0aData <- subjDataNoAmb.cc[, all.vars(model0formula), drop=FALSE]
+m0aData <- subjDataNoAmb.cc[, all.vars(m0formula), drop=FALSE]
 
 tic()
-model0aPriors <- brms::brm(model0formula,
-                 data=model0aData,
+m0aPriors <- brms::brm(m0formula,
+                 data=m0aData,
                  family=cumulative(link='logit'),
                  future=TRUE, backend='cmdstanr', prior=priors0a,
                  sample_prior='only', seed=808,
                  chains=4, iter=2000, warmup=1000)
 toc()
 
-model0a_ppd <- ppd_ridgeplot(model0aPriors, ndraws = 100)
-model0a_ppd
+m0a_ppd <- ppd_ridgeplot(m0aPriors, ndraws = 100)
+m0a_ppd
 
-model0aPriorCheck <- brms::pp_check(model0aPriors, type='bars', ndraws = 100) +
+m0aPriorCheck <- brms::pp_check(m0aPriors, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Mean annoyance rating category index")
-model0aPriorCheck
+m0aPriorCheck
 
 tic()
-model0a <- brms::brm(model0formula,
-                 data=model0aData,
+m0a <- brms::brm(m0formula,
+                 data=m0aData,
                  family=cumulative(link='logit'),
                  future=TRUE, backend='cmdstanr', prior=priors0a,
                  threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
                  seed=808, chains=4, iter=2000, warmup=1000)
 toc()
 
-model0aPostCheck <- brms::pp_check(model0a, type='bars', ndraw=100) +
+tic()
+m0a <- brms::add_criterion(m0a, criterion=c('loo', 'loo_R2'))
+toc()
+
+m0a$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m0a))
+m0a$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m0a, re_formula=NA))
+m0a$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m0a, re_formula=NULL))
+m0a$criteria$bayes_R2_MZ <- as.data.frame(Bayes_R2_MZ(m0a))
+
+m0aPostCheck <- brms::pp_check(m0a, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Mean annoyance rating category index")
-model0aPostCheck
+m0aPostCheck
 
 ```
 
@@ -514,38 +649,47 @@ priors0b <- c(
 )
 
 # extract the data for the model
-model0bData <- subjDataNoAmb.med[, all.vars(model0formula), drop=FALSE]
+m0bData <- subjDataNoAmb.med[, all.vars(m0formula), drop=FALSE]
 
 tic()
-model0bPriors <- brms::brm(model0formula,
-                 data=model0bData,
+m0bPriors <- brms::brm(m0formula,
+                 data=m0bData,
                  family=cumulative(link='logit'),
                  future=TRUE, backend='cmdstanr', prior=priors0b,
                  sample_prior='only', seed=808,
                  chains=4, iter=2000, warmup=1000)
 toc()
 
-model0b_ppd <- ppd_ridgeplot(model0bPriors, ndraws = 100)
-model0b_ppd
+m0b_ppd <- ppd_ridgeplot(m0bPriors, ndraws = 100)
+m0b_ppd
 
-model0bPriorCheck <- brms::pp_check(model0bPriors, type='bars', ndraws = 100) +
+m0bPriorCheck <- brms::pp_check(m0bPriors, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Mean annoyance rating category index")
-model0bPriorCheck
+m0bPriorCheck
 
 tic()
-model0b <- brms::brm(model0formula,
-                 data=model0bData,
+m0b <- brms::brm(m0formula,
+                 data=m0bData,
                  family=cumulative(link='logit'),
                  future=TRUE, backend='cmdstanr', prior=priors0b,
                  threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
                  seed=808, chains=4, iter=2000, warmup=1000)
 toc()
 
-model0bPostCheck <- brms::pp_check(model0b, type='bars', ndraw=100) +
+tic()
+m0b <- brms::add_criterion(m0b, criterion=c('loo', 'loo_R2'))
+toc()
+
+m0b$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m0b))
+m0b$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m0b, re_formula=NA))
+m0b$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m0b, re_formula=NULL))
+m0b$criteria$bayes_R2_MZ <- as.data.frame(Bayes_R2_MZ(m0b))
+
+m0bPostCheck <- brms::pp_check(m0b, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Mean annoyance rating category index")
-model0bPostCheck
+m0bPostCheck
 
 ```
 
@@ -567,39 +711,48 @@ priors0c <- c(
 )
 
 # extract the data for the model
-model0cData <- lapply(subjDataNoAmb.imp,
-                      function(df) {df[, all.vars(model0formula), drop=FALSE]})
+m0cData <- lapply(subjDataNoAmb.imp,
+                      function(df) {df[, all.vars(m0formula), drop=FALSE]})
 
 tic()
-model0cPriors <- brms::brm_multiple(model0formula,
-                 data=model0cData,
+m0cPriors <- brms::brm_multiple(m0formula,
+                 data=m0cData,
                  family=cumulative(link='logit'),
                  future=TRUE, backend='cmdstanr', prior=priors0c,
                  sample_prior='only', seed=808,
                  chains=4, iter=2000, warmup=1000)
 toc()
 
-model0c_ppd <- ppd_ridgeplot(model0cPriors, ndraws = 100)
-model0c_ppd
+m0c_ppd <- ppd_ridgeplot(m0cPriors, ndraws = 100)
+m0c_ppd
 
-model0cPriorCheck <- brms::pp_check(model0cPriors, type='bars', ndraws = 100) +
+m0cPriorCheck <- brms::pp_check(m0cPriors, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Mean annoyance rating category index")
-model0cPriorCheck
+m0cPriorCheck
 
 tic()
-model0c <- brms::brm_multiple(model0formula,
-                 data=model0cData,
+m0c <- brms::brm_multiple(m0formula,
+                 data=m0cData,
                  family=cumulative(link='logit'),
                  future=TRUE, backend='cmdstanr', prior = priors0c,
                  threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
                  seed=808, chains=4, iter=2000, warmup=1000)
 toc()
 
-model0cPostCheck <- brms::pp_check(model0c, type='bars', ndraw=100) +
+tic()
+m0c <- brms::add_criterion(m0c, criterion=c('loo', 'loo_R2'))
+toc()
+
+m0c$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m0c))
+m0c$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m0c, re_formula=NA))
+m0c$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m0c, re_formula=NULL))
+m0c$criteria$bayes_R2_MZ <- as.data.frame(Bayes_R2_MZ(m0c))
+
+m0cPostCheck <- brms::pp_check(m0c, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Mean annoyance rating category index")
-model0cPostCheck
+m0cPostCheck
 
 ```
 
@@ -609,9 +762,11 @@ model0cPostCheck
 
 ```{r}
 
-model1formula <- update(model0formula, AnnoyanceOrdBetaScl ~ .)
+m1formula <- update(m0formula, AnnoyanceOrdBetaScl ~ .)
 
 ```
+
+### run model
 
 ```{r}
 
@@ -625,25 +780,25 @@ priors1 <- c(
 )
 
 # extract the data for the model
-model1Data <- subjDataNoAmb.med[, all.vars(model1formula), drop=FALSE]
+m1Data <- subjDataNoAmb.med[, all.vars(m1formula), drop=FALSE]
 
 tic()
-model1Priors <- brms::brm(model1formula,
-                 data=model1Data,
+m1Priors <- brms::brm(m1formula,
+                 data=m1Data,
                  family=ordbeta(link='logit'),
                  future=TRUE, backend='cmdstanr', init=0,
                  prior=priors1, sample_prior='only', seed=808,
                  chains=4, iter=2000, warmup=1000)
 toc()
 
-model1PriorCheck <- brms::pp_check(model1Priors, ndraws = 100) +
+m1PriorCheck <- brms::pp_check(m1Priors, ndraws = 100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean annoyance rating index")
-model1PriorCheck
+  labs(x="Mean annoyance rating")
+m1PriorCheck
 
 tic()
-model1 <- brms::brm(model1formula,
-                 data=model1Data,
+m1 <- brms::brm(m1formula,
+                 data=m1Data,
                  family=ordbeta(link='logit'),
                  future=TRUE, backend='cmdstanr', init=0,
                  prior=priors1,
@@ -651,12 +806,606 @@ model1 <- brms::brm(model1formula,
                  seed=808, chains=4, iter=2000, warmup=1000)
 toc()
 
-model1PostCheck <- brms::pp_check(model1, ndraw=100) +
+tic()
+m1 <- brms::add_criterion(m1, criterion=c('loo', 'loo_R2'))
+toc()
+
+m1$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m1))
+m1$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m1, re_formula=NA))
+m1$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m1, re_formula=NULL))
+
+m1PostCheck <- brms::pp_check(m1, ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean annoyance rating index")
-model1PostCheck
+  labs(x="Mean annoyance rating")
+m1PostCheck
 
 ```
+
+### model 1b formula
+
+```{r}
+
+m1bformula <- AnnoyanceOrdBetaScl ~ 1 + SessionPart*PartTrialNumberScl +
+                    UASLAEMaxLRScl*I(log10(UASEvents)) +
+                   UASLAEMaxLRScl*AmbientEnv*UASOperation +
+                   UASLAEMaxLRScl*AmbientEnv*UASType +
+                   UASOperation*UASType +
+                   NationGeo2 + AAM_attitude2 + Home_Area2 +
+                   Age + Sex + NSSTotal + Area_soundscape2 +
+                   (1 + UASLAEMaxLRScl + AmbientEnv + I(log10(UASEvents)) +
+                      UASOperation + UASType | ID) +
+                     (1 | StimID)
+
+```
+
+### run modelb
+
+```{r}
+
+priors1b <- c(
+  set_prior("normal(0, 2)", class='b'),
+  brms::prior(normal(0.2, 1), class='b', coef='UASLAEMaxLRScl'),
+  brms::prior(normal(1.5, 1), class='b', coef='Ilog10UASEvents'),
+  brms::prior(normal(0.1, 1), class='b', coef='PartTrialNumberScl'),
+  brms::prior(normal(0.1, 1), class='b', coef='SessionPartB'),
+  brms::prior(gamma(2, 0.1), class='phi')
+)
+
+# extract the data for the model
+m1bData <- subjDataNoAmb.med[, all.vars(m1bformula), drop=FALSE]
+
+tic()
+m1bPriors <- brms::brm(m1bformula,
+                 data=m1bData,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priors1b, sample_prior='only', seed=808,
+                 chains=4, iter=2000, warmup=1000)
+toc()
+
+m1bPriorCheck <- brms::pp_check(m1bPriors, ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean annoyance rating")
+m1bPriorCheck
+
+tic()
+m1b <- brms::brm(m1bformula,
+                 data=m1bData,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priors1b,
+                 threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+                 seed=808, chains=4, iter=2000, warmup=1000)
+toc()
+
+tic()
+m1b <- brms::add_criterion(m1b, criterion=c('loo', 'loo_R2'))
+toc()
+
+m1b$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m1b))
+m1b$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m1b, re_formula=NA))
+m1b$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m1b, re_formula=NULL))
+
+m1bPostCheck <- brms::pp_check(m1b, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean annoyance rating")
+m1bPostCheck
+
+```
+
+#### compare
+
+```{R}
+
+loo::loo(m1)
+loo::loo(m1b)
+
+m1b_loo <- loo::loo_compare(m1, m1b, criterion='loo')
+m1b_loo
+
+```
+
+### analyse results
+
+#### visualise posterior draws for population level effects
+
+```{R, fig.width=8, fig.height=6}
+
+m1_p_draws <- tidybayes::spread_draws(m1, b_UASLAEMaxLRScl, b_Ilog10UASEvents, b_UASTypeM300,
+                        b_UASTypeT150, b_UASOperationLanding, b_UASOperationTakeoff, b_AmbientEnvStreet, b_TrialNumberScl, b_SessionPartB, b_NationGeo2UK, b_AAM_attitude2Ambiv_Concern_Neutral, b_Home_Area2Urban, b_Age, b_SexMale, b_NSSTotal, b_Area_soundscape2Uneventful)
+
+
+spi1_range <- bayestestR::spi(m1, ci = c(0.5, 0.89, 0.95))
+
+# plot spi for within-subjects factors only
+spi1_wsf <- spi1_range |>
+  dplyr::filter(Parameter %in% c("b_SessionPartB", "b_UASTypeM300", "b_UASTypeT150", 
+                                 "b_UASOperationLanding", "b_UASOperationTakeoff",
+                                 "b_AmbientEnvStreet"))
+p_spi1_wsf <- plot(spi1_wsf, show_intercept=F) + 
+  labs(title="Within-subjects factors") +
+  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
+  scale_fill_manual(values=mycolours) +
+  labs(x="Coefficient posterior distribution", y=element_blank())
+p_spi1_wsf
+
+filename <- "PtsABAnnoyMnCatModSPI_brmsOb_wsf"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=9, height=5,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=9, height=5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+# plot spi for within-subjects factor interactions only
+spi1_wsfi <- spi1_range |>
+  dplyr::filter(Parameter %in% c("b_AmbientEnvStreet:UASOperationLanding",
+                                 "b_AmbientEnvStreet:UASOperationTakeoff",
+                                 "b_AmbientEnvStreet:UASTypeM300",
+                                 "b_AmbientEnvStreet:UASTypeT150",
+                                 "b_UASOperationLanding:UASTypeM300",
+                                 "b_UASOperationLanding:UASTypeT150"))
+plot(spi1_wsfi, show_intercept=F)
+
+# plot spi for within-subjects covariates only
+spi1_wsc <- spi1_range |>
+  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_TrialNumberScl"))
+plot(spi1_wsc, show_intercept=F)
+
+# plot spi for within-subjects covariate-factor interactions only
+spi1_wscfi <- spi1_range |>
+  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl:AmbientEnvStreet",
+                                 "b_UASLAEMaxLRScl:UASOperationLanding",
+                                 "b_UASLAEMaxLRScl:UASOperationTakeoff",
+                                 "b_UASLAEMaxLRScl:UASTypeM300",
+                                 "b_UASLAEMaxLRScl:UASTypeT150",
+                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
+                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff",
+                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeM300",
+                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeT150",
+                                 "b_UASLAEMaxLRScl:Ilog10UASEvents"))
+plot(spi1_wscfi, show_intercept=F)
+
+# plot spi for between-subjects factors only
+spi1_bsf <- spi1_range |>
+  dplyr::filter(Parameter %in% c("b_NationGeo2UK", "b_AAM_attitude2Ambiv_Concern_Neutral",
+                                 "b_Home_Area2Urban", "b_SexMale", 
+                                 "b_Area_soundscape2Uneventful"))
+plot(spi1_bsf, show_intercept=F)
+
+# plot spi for between-subjects covariates only
+spi1_bsc <- spi1_range |>
+  dplyr::filter(Parameter %in% c("b_Age", "b_NSSTotal"))
+plot(spi1_bsc, show_intercept=F)
+
+```
+
+#### analyse population-averaged effects (not conditional effects) using marginaleffects
+
+```{R}
+
+m1predictType <- marginaleffects::avg_predictions(m1, newdata=insight::get_data(m1),
+                                                  variables=list(UASLAEMaxLRScl=seq(
+                                                      min(stimDataNoAmb$UASLAEMaxLRScl),
+                                                      max(stimDataNoAmb$UASLAEMaxLRScl),
+                                                      length.out=25)),
+                                                  by=c("UASLAEMaxLRScl",
+                                                       "UASType",
+                                                       "AmbientEnv",
+                                                       "UASEvents"),
+                                                transform=\(x) betaTransform(x, 0, 10,
+                                                                             direction='reverse',
+                                                                             squeeze='none'))
+
+m1predOp <- marginaleffects::avg_predictions(m1, newdata=insight::get_data(m1),
+                                                variables=list(UASLAEMaxLRScl=seq(
+                                                    min(stimDataNoAmb$UASLAEMaxLRScl),
+                                                    max(stimDataNoAmb$UASLAEMaxLRScl),
+                                                    length.out=25)),
+                                                by=c("UASLAEMaxLRScl",
+                                                     "UASOperation",
+                                                     "AmbientEnv",
+                                                     "UASEvents"),
+                                              transform=\(x) betaTransform(x, 0, 10,
+                                                                           direction='reverse',
+                                                                           squeeze='none'))
+
+m1predEnv <- marginaleffects::avg_predictions(m1, newdata=insight::get_data(m1),
+                                                variables=list(UASLAEMaxLRScl=seq(
+                                                    min(stimDataNoAmb$UASLAEMaxLRScl),
+                                                    max(stimDataNoAmb$UASLAEMaxLRScl),
+                                                    length.out=25)),
+                                                by=c("UASLAEMaxLRScl",
+                                                     "AmbientEnv",
+                                                     "UASEvents"),
+                                              transform=\(x) betaTransform(x, 0, 10,
+                                                                           direction='reverse',
+                                                                           squeeze='none'))
+
+
+m1predEvt <- marginaleffects::avg_predictions(m1, newdata=insight::get_data(m1),
+                                            variables=list(UASLAEMaxLRScl=seq(
+                                                min(stimDataNoAmb$UASLAEMaxLRScl),
+                                                max(stimDataNoAmb$UASLAEMaxLRScl),
+                                                length.out=25)),
+                                            by=c("UASLAEMaxLRScl",
+                                                 "AmbientEnv",
+                                                 "UASEvents",
+                                                 "UASOperation"),
+                                          transform=\(x) betaTransform(x, 0, 10,
+                                                                       direction='reverse',
+                                                                       squeeze='none'))
+
+m1predEvt2 <- marginaleffects::avg_predictions(m1, newdata=insight::get_data(m1),
+                                              variables=list(UASLAEMaxLRScl=c(6, 12),
+                                                               UASType=c("H520", "T150")),
+                                              by=c("UASLAEMaxLRScl",
+                                                   "AmbientEnv",
+                                                   "UASEvents",
+                                                   "UASOperation",
+                                                   "SessionPart"),
+                                            transform=\(x) betaTransform(x, 0, 10,
+                                                                         direction='reverse',
+                                                                         squeeze='none'))
+
+m1predAtt <- marginaleffects::avg_predictions(m1, newdata=insight::get_data(m1),
+                                             variables=list(UASLAEMaxLRScl=seq(
+                                              min(stimDataNoAmb$UASLAEMaxLRScl),
+                                              max(stimDataNoAmb$UASLAEMaxLRScl),
+                                              length.out=25)),
+                                             by=c("UASLAEMaxLRScl", "AAM_attitude2"),
+                                             transform=\(x) betaTransform(x, 0, 10,
+                                                                         direction='reverse',
+                                                                         squeeze='none'))
+
+m1predAoR <- marginaleffects::avg_predictions(m1, newdata=insight::get_data(m1),
+                                             variables=list(UASLAEMaxLRScl=seq(
+                                              min(stimDataNoAmb$UASLAEMaxLRScl),
+                                              max(stimDataNoAmb$UASLAEMaxLRScl),
+                                              length.out=25)),
+                                             by=c("UASLAEMaxLRScl", "Home_Area2"),
+                                             transform=\(x) betaTransform(x, 0, 10,
+                                                                         direction='reverse',
+                                                                         squeeze='none'))
+
+m1predScp <- marginaleffects::avg_predictions(m1, newdata=insight::get_data(m1),
+                                             variables=list(UASLAEMaxLRScl=seq(
+                                              min(stimDataNoAmb$UASLAEMaxLRScl),
+                                              max(stimDataNoAmb$UASLAEMaxLRScl),
+                                              length.out=25)),
+                                             by=c("UASLAEMaxLRScl", "Area_soundscape2"),
+                                             transform=\(x) betaTransform(x, 0, 10,
+                                                                         direction='reverse',
+                                                                         squeeze='none'))
+
+```
+
+#### visualise plots of PA effects
+
+```{R}
+
+p1 <- ggplot(data=subset(m1predType, UASEvents==1)) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35,
+                    text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_point(data=subset(stimDataNoAmb, UASEvents==1), aes(x=UASLAEMaxLRScl, y=AnnoyMean,
+                                                 colour=UASType, shape=UASType),
+                         alpha=0.35, size=2) +
+              
+              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=UASType),
+                          alpha=0.15) +
+              
+              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=UASType), linewidth=1) +
+              
+              scale_color_viridis(option='plasma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_fill_viridis(option='plasma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_shape_manual(values=c(10, 11, 12)) +
+              
+              guides(colour=guide_legend(title="UAS type", reverse=FALSE),
+                     fill=guide_legend(title="UAS type", reverse=FALSE),
+                     shape=guide_legend(title="UAS type", reverse=FALSE)) +
+            
+              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              
+              scale_y_continuous(breaks=seq(0, 10, by=1), limits=c(0, 10)) +
+              
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean annoyance rating") +
+              facet_grid(rows = vars(AmbientEnv))
+
+p2 <- ggplot(data=subset(m1predOp, UASEvents==1)) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35,
+                    text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_point(data=subset(stimDataNoAmb, UASEvents==1), aes(x=UASLAEMaxLRScl, y=AnnoyMean,
+                                                 colour=UASOperation, shape=UASOperation),
+                         alpha=0.35, size=2) +
+              
+              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=UASOperation),
+                          alpha=0.15) +
+              
+              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=UASOperation), linewidth=1) +
+              
+              scale_color_viridis(option='mako', discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_fill_viridis(option='mako', discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_shape_manual(values=c(9, 6, 2)) +
+              
+              guides(colour=guide_legend(title="UAS operation", reverse=TRUE),
+                     fill=guide_legend(title="UAS operation", reverse=TRUE),
+                     shape=guide_legend(title="UAS operation", reverse=TRUE)) +
+              
+              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              
+              scale_y_continuous(breaks=seq(0, 10, by=1), limits=c(0, 10)) +
+              
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean annoyance rating") +
+              facet_grid(rows = vars(AmbientEnv))
+
+p3 <- ggplot(data=subset(m1predEnv, UASEvents==1)) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35,
+                    text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14),
+                    axis.title.x=element_blank(),
+                    axis.text.x=element_blank(),
+                    axis.ticks.x=element_blank()) +
+              
+              geom_point(data=subset(stimDataNoAmb, UASEvents==1), aes(x=UASLAEMaxLRScl, y=AnnoyMean,
+                                                 colour=AmbientEnv, shape=AmbientEnv),
+                         alpha=0.35, size=2) +
+              
+              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=AmbientEnv),
+                          alpha=0.15) +
+              
+              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=AmbientEnv), linewidth=1) +
+              
+              scale_color_viridis(option='magma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.7) +
+              scale_fill_viridis(option='magma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.7) +
+              scale_shape_manual(values=c(1, 3)) +
+              
+              guides(colour=guide_legend(title="Amb. env.", reverse=FALSE),
+                     fill=guide_legend(title="Amb. env.", reverse=FALSE),
+                     shape=guide_legend(title="Amb. env.", reverse=FALSE)) +
+            
+              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              
+              scale_y_continuous(breaks=seq(0, 10, by=1), limits=c(0, 10)) +
+              
+              labs(y="Mean annoyance rating")
+
+
+p4 <- ggplot(data=subset(m1predEvt, AmbientEnv=='Park' & UASOperation=='Overflight')) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35,
+                    text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_point(data=subset(stimDataNoAmb, AmbientEnv=='Park' & UASOperation=='Overflight'),
+                         aes(x=UASLAEMaxLRScl, y=AnnoyMean,
+                             colour=factor(UASEvents), shape=factor(UASEvents)),
+                         alpha=0.55, size=2) +
+              
+              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=factor(UASEvents)),
+                          alpha=0.15) +
+              
+              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=factor(UASEvents)), linewidth=1) +
+              
+              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_shape_manual(values=c(4, 5, 7, 8)) +
+              
+              guides(colour=guide_legend(title="UAS events", reverse=TRUE),
+                     fill=guide_legend(title="UAS events", reverse=TRUE),
+                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
+            
+              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              
+              scale_y_continuous(breaks=seq(0, 10, by=1), limits=c(0, 10)) +
+              
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean annoyance rating")
+
+(p1 | p2) + (p3 / p4)
+
+# filename <- "PtsABAnnoyMnCatMod_brmsOb"
+# 
+# if (saveplots){
+#   ggsave(filename=paste(filename, ".svg", sep=""), width=15, height=8,
+#          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+#   unlink(paste(filename, ".svg", sep=""))
+# 
+#   ggsave(filename=paste(filename, ".pdf", sep=""), width=15, height=8, path=file.path(outFigPath, "pdf"))
+#   unlink(paste(filename, ".pdf", sep=""))
+# }
+
+# add faint dashed grey major grid lines to p1, p2, p3, p4 and remove minor grid lines and point data
+p1b <- p1 + theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+                 panel.grid.minor = element_blank())
+p1b <- gginnards::delete_layers(p1, "GeomPoint")
+p2b <- p2 + theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+                 panel.grid.minor = element_blank())
+p2b <- gginnards::delete_layers(p2, "GeomPoint")
+p3b <- p3 + theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+                 panel.grid.minor = element_blank())
+p3b <- gginnards::delete_layers(p3, "GeomPoint")
+p4b <- p4 + theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+                 panel.grid.minor = element_blank())
+p4b <- gginnards::delete_layers(p4, "GeomPoint")
+
+(p1b | p2b) + (p3b / p4b)
+
+# filename <- "PtsABdAnnoyMnCatModGrid_brmsOb"
+# 
+# if (saveplots){
+#   ggsave(filename=paste(filename, ".svg", sep=""), width=15, height=8,
+#          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+#   unlink(paste(filename, ".svg", sep=""))
+# 
+#   ggsave(filename=paste(filename, ".pdf", sep=""), width=15, height=8, path=file.path(outFigPath, "pdf"))
+#   unlink(paste(filename, ".pdf", sep=""))
+# }
+
+
+p3c <- p3 + theme(axis.title.x=element_text(family = "serif", size=14),
+                  axis.text.x=element_text(family = "serif", size=14),
+                  axis.ticks.x=element_line(colour="black", linewidth=1)) + 
+        labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)))
+
+# filename <- "PtsABdAnnoyMnCatModEnv_brmsOb"
+# 
+# if (saveplots){
+#   ggsave(filename=paste(filename, ".svg", sep=""), width=5, height=4,
+#          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+#   unlink(paste(filename, ".svg", sep=""))
+# 
+#   ggsave(filename=paste(filename, ".pdf", sep=""), width=5, height=4, path=file.path(outFigPath, "pdf"))
+#   unlink(paste(filename, ".pdf", sep=""))
+# }
+
+p5 <- ggplot(data=subset(m1predEvt2, UASOperation=="Overflight" & AmbientEnv=="Park" & SessionPart=="B")) +
+              theme(panel.grid = element_blank(), aspect.ratio=0.8,
+                    text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_point(data=subset(stimDataNoAmb, AmbientEnv=='Park' &
+                                       UASOperation=='Overflight' & SessionPart=='B'),
+                         aes(x=UASEvents, y=AnnoyMean,
+                             colour=UASLAEMaxLR, shape=UASType),
+                         alpha=0.35, size=2) +
+  
+              scale_color_viridis(option='inferno', direction=1, discrete=FALSE, begin = 0.2, end = 0.8,
+                                  breaks=c(73, 79)) +
+              
+              guides(colour=guide_legend(title=expression(paste(UAS~italic(L)[AE]~","~dB)), reverse=TRUE)) +
+  
+              ggnewscale::new_scale_color() +
+  
+              geom_ribbon(aes(x=UASEvents, ymin=conf.low, ymax=conf.high, fill=factor(UASLAEMaxLRScl)),
+                          alpha=0.05) +
+  
+              geom_line(aes(x=UASEvents, y=estimate, colour=factor(UASLAEMaxLRScl)), linewidth=1, alpha=0.5) +
+
+              scale_color_viridis(option='inferno', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
+                                   labels=function(x) format(round(as.numeric(x) +
+                                                                   mean(stimDataNoAmb$UASLAEMaxLR) -
+                                                                   mean(stimDataNoAmb$UASLAEMaxLRScl),
+                                                                   0),
+                                                             nsmall = 0)) +
+              scale_fill_viridis(option='inferno', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
+                                   labels=function(x) format(round(as.numeric(x) +
+                                                                   mean(stimDataNoAmb$UASLAEMaxLR) -
+                                                                   mean(stimDataNoAmb$UASLAEMaxLRScl),
+                                                                   0),
+                                                             nsmall = 0)) +
+              scale_shape_manual(values=c(10, 11, 12)) +
+              
+              guides(colour=guide_legend(title=expression(paste(UAS~italic(L)[AE]~","~dB)), reverse=TRUE),
+                     fill=guide_legend(title=expression(paste(UAS~italic(L)[AE]~","~dB)), reverse=TRUE),
+                     shape=guide_legend(title="UAS type"), reverse=FALSE) +
+            
+              scale_x_continuous(breaks=c(1, 3, 5, 9), labels=c(1, 3, 5, 9)) +
+              scale_y_continuous(breaks=seq(0, 10, by=1), limits=c(3, 8)) +
+              
+              labs(x="Number of UAS Overflight events", y="Mean annoyance rating")
+
+p5
+
+# filename <- "PtsABdAnnoyMnCatModEvtComp_brmsOb"
+# 
+# if (saveplots){
+#   ggsave(filename=paste(filename, ".svg", sep=""), width=6, height=4, path=file.path(outFigPath, "svg"))
+#   unlink(paste(filename, ".svg", sep=""))
+# 
+#   ggsave(filename=paste(filename, ".pdf", sep=""), width=6, height=4, path=file.path(outFigPath, "pdf"))
+#   unlink(paste(filename, ".pdf", sep=""))
+# }
+
+p6 <- ggplot(data=m1predAtt) +
+              theme(panel.grid = element_blank(),
+                    aspect.ratio=1.35, text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=AAM_attitude2), alpha=0.1) +
+              
+              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=AAM_attitude2), linewidth=1) +
+              
+              scale_color_viridis(option='rocket', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              scale_fill_viridis(option='rocket', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              
+              guides(colour=guide_legend(title="AAM attitude", reverse=TRUE),
+                     fill=guide_legend(title="AAM attitude", reverse=TRUE)) +
+            
+              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_y_continuous(breaks=seq(0, 10, by=1), limits=c(0, 10)) +
+              
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean annoyance rating")
+
+p7 <- ggplot(data=m1predAoR) +
+              theme(panel.grid = element_blank(),
+                    aspect.ratio=1.35, text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=Home_Area2), alpha=0.1) +
+              
+              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=Home_Area2), linewidth=1) +
+              
+              scale_color_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              scale_fill_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              
+              guides(colour=guide_legend(title="Area of residence", reverse=TRUE),
+                     fill=guide_legend(title="Area of residence", reverse=TRUE)) +
+            
+              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_y_continuous(breaks=seq(0, 10, by=1), limits=c(0, 10)) +
+              
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean annoyance rating")
+
+
+p8 <- ggplot(data=m1predScp) +
+              theme(panel.grid = element_blank(),
+                    aspect.ratio=1.35, text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=Area_soundscape2), alpha=0.1) +
+              
+              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=Area_soundscape2), linewidth=1) +
+              
+              scale_color_viridis(option='turbo', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              scale_fill_viridis(option='turbo', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              
+              guides(colour=guide_legend(title="Soundscape at residence", reverse=TRUE),
+                     fill=guide_legend(title="Soundscape at residence", reverse=TRUE)) +
+            
+              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_y_continuous(breaks=seq(0, 10, by=1), limits=c(0, 10)) +
+              
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean annoyance rating")
+
+
+p6 + p7 + p8
+
+
+# filename <- "PtsABdAnnoyMnAttAoRScpCatMod_brmsOb"
+# 
+# if (saveplots){
+#   ggsave(filename=paste(filename, ".svg", sep=""), width=15, height=4,
+#          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+#   unlink(paste(filename, ".svg", sep=""))
+# 
+#   ggsave(filename=paste(filename, ".pdf", sep=""), width=15, height=4, path=file.path(outFigPath, "pdf"))
+#   unlink(paste(filename, ".pdf", sep=""))
+# }
+
+```
+
 
 # dAnnoyance
 
