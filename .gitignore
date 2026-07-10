@@ -208,6 +208,7 @@ cython_debug/
 # Session Data files
 .RData
 .RDataTmp
+refmap_listest1_analysis_Bayesian_models.RData
 
 # User-specific files
 .Ruserdata

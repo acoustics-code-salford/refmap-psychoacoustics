@@ -3089,6 +3089,73 @@ loo::loo_compare(m7, m8, criterion='loo')
 
 ```
 
+## m8b: omit UASOperation group effect from m6
+
+### Formula
+
+```{R}
+
+m8bformula <- dAnnoyanceOrdBetaScl ~ 1 + SessionPart + TrialNumberScl +
+                    UASLAEMaxLRScl*I(log10(UASEvents)) +
+                   UASLAEMaxLRScl*AmbientEnv*UASOperation +
+                   UASLAEMaxLRScl*AmbientEnv*UASType +
+                   UASOperation*UASType +
+                   NationGeo2 + AAM_attitude2 + Home_Area2 +
+                   Age + Sex + NSSTotal + Area_soundscape2 +
+                   (1 + AmbientEnv + I(log10(UASEvents)) +
+                     UASLAEMaxLRScl | ID)
+
+```
+
+### run model 8b
+
+```{R}
+
+tic()
+m8b <- brms::brm(brms::bf(m8bformula, phi ~ 1 + AmbientEnv),
+                data=m3Data, family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priors3b,
+               threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+               seed=808, chains=4, iter=2000, warmup=1000)
+toc()
+
+tic()
+m8b <- brms::add_criterion(m8b, criterion=c('loo', 'loo_R2'),
+                          cores=n_cores,
+                          reloo=reloo_flag)
+toc()
+
+m8b$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m8b))
+m8b$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m8b, re_formula=NA))
+m8b$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m8b, re_formula=NULL))
+
+m8bPostCheck <- brms::pp_check(m8b, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m8bPostCheck
+
+```
+
+#### compare
+
+```{R}
+
+loo::loo(m3b)
+loo::loo(m5)
+loo::loo(m6)
+loo::loo(m7)
+loo::loo(m8)
+loo::loo(m8b)
+
+
+m8b_loo <- loo::loo_compare(m3b, m5, m6, m7, m8, m8b, criterion='loo')
+m8b_loo
+
+loo::loo_compare(m6, m8b, criterion='loo')
+
+```
+
 ## m9: omit population interaction effects from m6
 
 ### Formula
