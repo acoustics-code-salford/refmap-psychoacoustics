@@ -320,6 +320,7 @@ UASTypeCatsA <- c("Baseline", "H520", "M300", "T150")
 
 # encode factors
 subjData$ID <- factor(subjData$ID)
+subjData$SessionPart <- factor(subjData$SessionPart)
 subjData$UASLAeq <- factor(subjData$UASLAeq, levels=UASLAeqCatsA, order=TRUE)
 subjData$SNRlevel <- factor(subjData$SNRlevel, levels=SNRCatsA, order=TRUE)
 subjData$UASOperation <- factor(subjData$UASOperation, levels=UASOpCatsA)
@@ -1584,7 +1585,7 @@ p5 <- ggplot(data=subset(m1predEvt2, UASOperation=="Overflight" & AmbientEnv=="P
               
               guides(colour=guide_legend(title=expression(paste(UAS~italic(L)[AE]~","~dB)), reverse=TRUE),
                      fill=guide_legend(title=expression(paste(UAS~italic(L)[AE]~","~dB)), reverse=TRUE),
-                     shape=guide_legend(title="UAS type"), reverse=FALSE) +
+                     shape=guide_legend(title="UAS type", reverse=FALSE)) +
             
               scale_x_continuous(breaks=c(1, 3, 5, 9), labels=c(1, 3, 5, 9)) +
               scale_y_continuous(breaks=seq(0, 10, by=1), limits=c(3, 8)) +
@@ -2419,7 +2420,7 @@ p5 <- ggplot(data=subset(m3bpredEvt2, UASOperation=="Overflight" & AmbientEnv=="
               
               guides(colour=guide_legend(title=expression(paste(UAS~italic(L)[AE]~","~dB)), reverse=TRUE),
                      fill=guide_legend(title=expression(paste(UAS~italic(L)[AE]~","~dB)), reverse=TRUE),
-                     shape=guide_legend(title="UAS type"), reverse=FALSE) +
+                     shape=guide_legend(title="UAS type", reverse=FALSE)) +
             
               scale_x_continuous(breaks=c(1, 3, 5, 9), labels=c(1, 3, 5, 9)) +
               scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(2, 7)) +
@@ -2428,7 +2429,7 @@ p5 <- ggplot(data=subset(m3bpredEvt2, UASOperation=="Overflight" & AmbientEnv=="
 
 p5
 
-filename <- "PtsABdAnnoyMnCatModEvtComp_brmsOb"
+filename <- "PtsABdAnnoyMnCatModEvt2_brmsOb"
 
 if (saveplots){
   ggsave(filename=paste(filename, ".svg", sep=""), width=6, height=4, path=file.path(outFigPath, "svg"))
