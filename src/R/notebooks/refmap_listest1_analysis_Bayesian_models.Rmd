@@ -419,76 +419,28 @@ subjData <- subjData |> dplyr::mutate(Area_soundscape2 = dplyr::recode_values(Ar
 
 subjData$Area_soundscape2 <- factor(subjData$Area_soundscape2)
 
-# rescale trial number variables separately for each session part
-subjData <- rbind(subjData[subjData$SessionPart == "A", ] |> dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)),
-                    subjData[subjData$SessionPart == "B", ] |> dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)))
-subjData <- subjData |> dplyr::mutate(TrialNumberScl = datawizard::standardise(TrialNumber, scale=TRUE))
-
-# relocate new columns
-subjData <- subjData |> dplyr::relocate(TrialNumberScl, PartTrialNumberScl, .after=PartTrialNumber)
-
-# rescale variables
-subjData <- subjData |> dplyr::mutate(UASLAeqMaxLRScl = datawizard::standardise(UASLAeqMaxLR, scale=FALSE))
-subjData <- subjData |> dplyr::mutate(UASLAEMaxLRScl = datawizard::standardise(UASLAEMaxLR, scale=FALSE))
-subjData <- subjData |> dplyr::mutate(UASEPNLMaxLRScl = datawizard::standardise(UASEPNLMaxLR, scale=FALSE))
-subjData <- subjData |> dplyr::mutate(LAELAF50diffScl = datawizard::standardise(LAELAF50diff, scale=FALSE))
-subjData <- subjData |> dplyr::mutate(LAELAeqdiffScl = datawizard::standardise(LAELAeqdiff, scale=FALSE))
-subjData <- subjData |> dplyr::mutate(EPNLLAeqdiffScl = datawizard::standardise(EPNLLAeqdiff, scale=FALSE))
-subjData <- subjData |> dplyr::mutate(UASDisc0p5LAEMaxLRScl = datawizard::standardise(UASDisc0p5LAEMaxLR, scale=FALSE))
 subjData <- subjData |> dplyr::mutate(UASDisc0p5PAEMaxLR = 2e-5*10^(UASDisc0p5LAEMaxLR/20))
-subjData <- subjData |> dplyr::mutate(UASLoudECMAPowAvgBinScl = datawizard::standardise(UASLoudECMAPowAvgBin, scale=FALSE))
 subjData <- subjData |> dplyr::mutate(IntermitRatioC2MaxLRScl = IntermitRatioC2MaxLR/100)
 subjData <- subjData |> dplyr::mutate(IntermitRatioC3MaxLRScl = IntermitRatioC3MaxLR/100)
 subjData <- subjData |> dplyr::mutate(IntermitRatioC5MaxLRScl = IntermitRatioC5MaxLR/100)
-subjData <- subjData |> dplyr::mutate(AmbLAeqMaxLRScl = datawizard::standardise(AmbLAeqMaxLR, scale=FALSE))
-subjData <- subjData |> dplyr::mutate(AmbLAF50ExMaxLRScl = datawizard::standardise(AmbLAF50ExMaxLR, scale=FALSE))
 
-stimData <- stimData |> dplyr::mutate(UASLAeqMaxLRScl = datawizard::standardise(UASLAeqMaxLR, scale=FALSE))
-stimData <- stimData |> dplyr::mutate(UASLAEMaxLRScl = datawizard::standardise(UASLAEMaxLR, scale=FALSE))
-stimData <- stimData |> dplyr::mutate(UASEPNLMaxLRScl = datawizard::standardise(UASEPNLMaxLR, scale=FALSE))
-stimData <- stimData |> dplyr::mutate(LAELAF50diffScl = datawizard::standardise(LAELAF50diff, scale=FALSE))
-stimData <- stimData |> dplyr::mutate(LAELAeqdiffScl = datawizard::standardise(LAELAeqdiff, scale=FALSE))
-stimData <- stimData |> dplyr::mutate(EPNLLAeqdiffScl = datawizard::standardise(EPNLLAeqdiff, scale=FALSE))
-stimData <- stimData |> dplyr::mutate(UASDisc0p5LAEMaxLRScl = datawizard::standardise(UASDisc0p5LAEMaxLR, scale=FALSE))
 stimData <- stimData |> dplyr::mutate(UASDisc0p5PAEMaxLR = 2e-5*10^(UASDisc0p5LAEMaxLR/20))
-stimData <- stimData |> dplyr::mutate(UASLoudECMAPowAvgBinScl = datawizard::standardise(UASLoudECMAPowAvgBin, scale=FALSE))
 stimData <- stimData |> dplyr::mutate(IntermitRatioC2MaxLRScl = IntermitRatioC2MaxLR/100)
 stimData <- stimData |> dplyr::mutate(IntermitRatioC3MaxLRScl = IntermitRatioC3MaxLR/100)
 stimData <- stimData |> dplyr::mutate(IntermitRatioC5MaxLRScl = IntermitRatioC5MaxLR/100)
-stimData <- stimData |> dplyr::mutate(AmbLAeqMaxLRScl = datawizard::standardise(AmbLAeqMaxLR, scale=FALSE))
-stimData <- stimData |> dplyr::mutate(AmbLAF50ExMaxLRScl = datawizard::standardise(AmbLAF50ExMaxLR, scale=FALSE))
-
-
-# convert detectability dB to log variables
-subjData <- subjData |> dplyr::mutate(Detect0p1IntMaxLRLog = Detect0p1dBIntMaxLR/10)
-subjData <- subjData |> dplyr::mutate(Detect0p5IntMaxLRLog = Detect0p5dBIntMaxLR/10)
-subjData <- subjData |> dplyr::mutate(Detect0p1MaxMaxLRLog = Detect0p1dBMaxMaxLR/10)
-subjData <- subjData |> dplyr::mutate(Detect0p5MaxMaxLRLog = Detect0p5dBMaxMaxLR/10)
-subjData <- subjData |> dplyr::mutate(Detect0p1IntMaxLRLogScl = datawizard::standardise(Detect0p1IntMaxLRLog, scale=FALSE))
-subjData <- subjData |> dplyr::mutate(Detect0p5IntMaxLRLogScl = datawizard::standardise(Detect0p5IntMaxLRLog, scale=FALSE))
-subjData <- subjData |> dplyr::mutate(Detect0p1MaxMaxLRLogScl = datawizard::standardise(Detect0p1MaxMaxLRLog, scale=FALSE))
-subjData <- subjData |> dplyr::mutate(Detect0p5MaxMaxLRLogScl = datawizard::standardise(Detect0p5MaxMaxLRLog, scale=FALSE))
-
-
-stimData <- stimData |> dplyr::mutate(Detect0p1IntMaxLRLog = Detect0p1dBIntMaxLR/10)
-stimData <- stimData |> dplyr::mutate(Detect0p5IntMaxLRLog = Detect0p5dBIntMaxLR/10)
-stimData <- stimData |> dplyr::mutate(Detect0p1MaxMaxLRLog = Detect0p1dBMaxMaxLR/10)
-stimData <- stimData |> dplyr::mutate(Detect0p5MaxMaxLRLog = Detect0p5dBMaxMaxLR/10)
-stimData <- stimData |> dplyr::mutate(Detect0p1IntMaxLRLogScl = datawizard::standardise(Detect0p1IntMaxLRLog, scale=FALSE))
-stimData <- stimData |> dplyr::mutate(Detect0p5IntMaxLRLogScl = datawizard::standardise(Detect0p5IntMaxLRLog, scale=FALSE))
-stimData <- stimData |> dplyr::mutate(Detect0p1MaxMaxLRLogScl = datawizard::standardise(Detect0p1MaxMaxLRLog, scale=FALSE))
-stimData <- stimData |> dplyr::mutate(Detect0p5MaxMaxLRLogScl = datawizard::standardise(Detect0p5MaxMaxLRLog, scale=FALSE))
 
 # Log other variables
 subjData$PartLoudMGLT05ExLog <- log(subjData$PartLoudMGLT05Ex)
 subjData$PartLoudMGST05ExLog <- log(subjData$PartLoudMGST05Ex)
 subjData$PartLoudMGLTPowAvgLog <- log(subjData$PartLoudMGLTPowAvg)
 subjData$PartLoudMGSTPowAvgLog <- log(subjData$PartLoudMGSTPowAvg)
+subjData$PartLoudSHMPowAvgLog <- log(subjData$PartLoudSHMPowAvg)
 
 stimData$PartLoudMGLT05ExLog <- log(stimData$PartLoudMGLT05Ex)
 stimData$PartLoudMGST05ExLog <- log(stimData$PartLoudMGST05Ex)
 stimData$PartLoudMGLTPowAvgLog <- log(stimData$PartLoudMGLTPowAvg)
 stimData$PartLoudMGSTPowAvgLog <- log(stimData$PartLoudMGSTPowAvg)
+stimData$PartLoudSHMPowAvgLog <- log(stimData$PartLoudSHMPowAvg)
 
 # reorder by participant ID and trial number
 subjData <- subjData[with(subjData, order(ID, TrialNumber)), ]
@@ -501,7 +453,6 @@ subjData <- subjData |> dplyr::mutate(AnnoyanceOrd=factor(Annoyance,
                                                            levels=seq(-10, 10, by=1),
                                                            ordered=TRUE))
 
-
 # add a rescaled dAnnoyance variable
 subjData <- subjData |>
   dplyr::mutate(AnnoyanceOrdBetaScl = betaTransform(Annoyance, 0, 10,
@@ -509,9 +460,60 @@ subjData <- subjData |>
                 dAnnoyanceOrdBetaScl = betaTransform(dAnnoyance, -10, 10,
                                                      direction='forward', squeeze='none'))
 
+
+# add a rescaled dAnnoyance variable
+stimData <- stimData |>
+  dplyr::mutate(AnnoyMeanOrdBetaScl = betaTransform(AnnoyMean, 0, 10,
+                                                    direction='forward', squeeze='none'),
+                dAnnoyMeanOrdBetaScl = betaTransform(dAnnoyMean, -10, 10,
+                                                     direction='forward', squeeze='none'))
+
 # omit ambient-only stimuli
 subjDataNoAmb <- subjData |> dplyr::filter(UASLAeq != "Baseline")
 stimDataNoAmb <- stimData |> dplyr::filter(UASLAeq != "Baseline")
+
+```
+
+## rescaling variables
+
+```{r}
+
+# rescale variables
+out <- standardise_list(list(subjData, subjDataNoAmb, stimData, stimDataNoAmb),
+                        vars = c("UASLAeqMaxLR", "UASLAEMaxLR", "UASEPNLMaxLR",
+                                 "LAELAF50diff", "LAELAF90diff", "LAELAeqdiff",
+                                 "EPNLLAF50diff", "UASDisc0p1LAEMaxLR", "UASDisc0p5LAEMaxLR",
+                                 "UASLoudECMAPowAvgBin",  "AmbLAeqMaxLR", "AmbLAF50ExMaxLR",
+                                 "Detect0p5dBIntMaxLR", "Detect0p1dBIntMaxLR",
+                                 "Detect0p5dBIntEx50MaxLR", "Detect0p1dBMaxIntMaxLR"),
+                        scale = FALSE)
+
+subjData <- out[[1]]
+subjDataNoAmb <- out[[2]]
+stimData <- out[[3]]
+stimDataNoAmb <- out[[4]]
+
+out <- standardise_list(list(subjData, subjDataNoAmb),
+                        vars = c("TrialNumber"),
+                        scale = TRUE)
+
+subjData <- out[[1]]
+subjDataNoAmb <- out[[2]]
+
+# rescale trial number variables separately for each session part
+subjData <- rbind(subjData[subjData$SessionPart == "A", ] |> dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)),
+                    subjData[subjData$SessionPart == "B", ] |> dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)))
+
+subjDataNoAmb <- rbind(subjDataNoAmb[subjDataNoAmb$SessionPart == "A", ] |> dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)),
+                    subjDataNoAmb[subjDataNoAmb$SessionPart == "B", ] |> dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)))
+
+# filter data to exclude the missing age participant and the missing response data
+subjDataNoAmb.cc <- subjDataNoAmb |> dplyr::filter(!is.na(Age) & !is.na(TrialNumber))
+
+# now drop any unused levels
+subjDataNoAmb <- droplevels(subjDataNoAmb)
+stimDataNoAmb <- droplevels(stimDataNoAmb)
+subjDataNoAmb.cc <- droplevels(subjDataNoAmb.cc)
 
 # filter data to exclude the missing age participant and the missing response data
 subjDataNoAmb.cc <- subjDataNoAmb |> dplyr::filter(!is.na(Age) & !is.na(TrialNumber))
@@ -2077,6 +2079,9 @@ m3bpredType <- marginaleffects::avg_predictions(m3b, newdata=subset(m3bDataFit,
                                                        "AmbientEnv",
                                                        "UASEvents"),
                                                ndraws=ndraws_pred,
+                                               re_formula = NULL,
+                                               allow_new_levels = TRUE,
+                                               sample_new_levels = "gaussian",
                                                 transform=\(x) betaTransform(x, -10, 10,
                                                                              direction='reverse',
                                                                              squeeze='none'))

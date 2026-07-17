@@ -2052,7 +2052,7 @@ if (saveplots){
   ggsave(filename="PtsABdAnnoyMnAllTonalConPermimp.svg", width=8, height=5.8, path=file.path(outFigPath, "svg"))
   unlink("PtsABdAnnoyMnAllTonalConPermimp.svg")
   
-  ggsave(filename="PtsABAllAnnoyMndTonalConPermimp.pdf", width=8, height=5.8, path=file.path(outFigPath, "pdf"))
+  ggsave(filename="PtsABdAnnoyMnAllTonalConPermimp.pdf", width=8, height=5.8, path=file.path(outFigPath, "pdf"))
   unlink("PtsABdAnnoyMnAllTonalConPermimp.pdf")
 }
 
