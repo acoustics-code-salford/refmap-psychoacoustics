@@ -1200,9 +1200,11 @@ geeCluster_stemplot <- function(glmgeeMod, clusterVar, colour='blue', alpha=1){
   }
   
   # ensure cluster indexes are factors
-  ids_ordered <- factor(glmgeeMod$ids, levels=glmgeeMod$ids)
+  ids_ordered <- factor(glmgeeMod$ids, levels=sort(unique(glmgeeMod$model$`(id)`)))
   
   df <- data.frame(ID=ids_ordered, values=as.vector(clusterVar))
+  
+  df <- df |> dplyr::arrange(ID)
   
   ggplot(data=df) +
 
@@ -2315,7 +2317,7 @@ ggplot(data=cbind(m1dpredMeans,
   theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   
-  geom_point(mapping=aes(x=response, y=estimate), size=2.5, shape=4, stroke=1, colour=mycolours[1], alpha=0.5) +
+  geom_point(mapping=aes(x=response, y=estimate), size=1.75, shape=4, stroke=0.75, colour=mycolours[1], alpha=0.5) +
 
   geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
                             y=estimate), width=0, colour=mycolours[1], alpha=0.1) +
@@ -2876,7 +2878,7 @@ ggplot(data=cbind(m2predMeans,
   theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   
-  geom_point(mapping=aes(x=response, y=estimate), size=2.5, shape=4, stroke=1, colour=mycolours[3], alpha=0.5) +
+  geom_point(mapping=aes(x=response, y=estimate), size=1.75, shape=4, stroke=0.75, colour=mycolours[3], alpha=0.5) +
 
   geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
                             y=estimate), width=0, colour=mycolours[3], alpha=0.1) +
@@ -3083,7 +3085,7 @@ ggplot(data=cbind(m3predMeans,
   theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   
-  geom_point(mapping=aes(x=response, y=estimate), size=2.5, shape=4, stroke=1, colour=mycolours[3], alpha=0.5) +
+  geom_point(mapping=aes(x=response, y=estimate), size=1.75, shape=4, stroke=0.75, colour=mycolours[3], alpha=0.5) +
 
   geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
                             y=estimate), width=0, colour=mycolours[3], alpha=0.1) +
@@ -3176,7 +3178,7 @@ coef(m3b, s = "lambda.1se")
 
 ```
 
-```{r}
+```{r, fig.width=10, fig.height=5}
 
 # 1. Turn the glmnet path data into a clean data frame
 coefficient_paths <- broom::tidy(m3b$glmnet.fit, return_zeros=TRUE) |>
@@ -3302,7 +3304,7 @@ ggplot(data=cbind(m3cpredMeans,
   theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   
-  geom_point(mapping=aes(x=response, y=estimate), size=2.5, shape=4, stroke=1, colour=mycolours[4], alpha=0.5) +
+  geom_point(mapping=aes(x=response, y=estimate), size=1.75, shape=4, stroke=0.75, colour=mycolours[4], alpha=0.5) +
 
   geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
                             y=estimate), width=0, colour=mycolours[4], alpha=0.1) +
@@ -3426,7 +3428,7 @@ performance::check_collinearity(m4)
 
 ```{r}
 
-geeModelPerformance(m1d, m2, m3, m4)
+geeModelPerformance(m1d, m2, m3, m3c, m4)
 
 nd = na.omit(cbind(StimID = subjDataNoAmb.med$StimID, m4Data))
 
@@ -3441,7 +3443,7 @@ m4_cv <- cv_glmgee(m4, id_col="ID", K=10, seed=124,
           cv_aggregated_metrics(backtransform_fn=\(x) betaTransform(x, -10, 10,
                                 "reverse", squeeze="none"))
 
-compare_cv_results(list(m1d=m1d_cv, m2=m2_cv, m3=m3_cv, m4=m4_cv))
+compare_cv_results(list(m1d=m1d_cv, m2=m2_cv, m3=m3_cv, m3c=m3c_cv, m4=m4_cv))
 
 
 m4predMeans <- marginaleffects::avg_predictions(m4, newdata=nd,
@@ -3469,7 +3471,7 @@ ggplot(data=cbind(m4predMeans,
   theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   
-  geom_point(mapping=aes(x=response, y=estimate), size=2.5, shape=4, stroke=1, colour=mycolours[3], alpha=0.5) +
+  geom_point(mapping=aes(x=response, y=estimate), size=1.75, shape=4, stroke=0.75, colour=mycolours[3], alpha=0.5) +
 
   geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
                             y=estimate), width=0, colour=mycolours[3], alpha=0.1) +
@@ -3580,7 +3582,7 @@ performance::check_collinearity(m5)
 
 ```{r}
 
-geeModelPerformance(m1d, m2, m3, m4, m5)
+geeModelPerformance(m1d, m2, m3, m3c, m4, m5)
 
 nd = na.omit(cbind(StimID = subjDataNoAmb.med$StimID, m5Data))
 
@@ -3595,7 +3597,7 @@ m5_cv <- cv_glmgee(m5, id_col="ID", K=10, seed=124,
           cv_aggregated_metrics(backtransform_fn=\(x) betaTransform(x, -10, 10,
                                 "reverse", squeeze="none"))
 
-compare_cv_results(list(m1d=m1d_cv, m2=m2_cv, m3=m3_cv, m4=m4_cv, m5=m5_cv))
+compare_cv_results(list(m1d=m1d_cv, m2=m2_cv, m3=m3_cv, m3c=m3c_cv, m4=m4_cv, m5=m5_cv))
 
 
 m5predMeans <- marginaleffects::avg_predictions(m5, newdata=nd,
@@ -3623,7 +3625,7 @@ ggplot(data=cbind(m5predMeans,
   theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   
-  geom_point(mapping=aes(x=response, y=estimate), size=2.5, shape=4, stroke=1, colour=mycolours[2], alpha=0.5) +
+  geom_point(mapping=aes(x=response, y=estimate), size=1.75, shape=4, stroke=0.75, colour=mycolours[2], alpha=0.5) +
 
   geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
                             y=estimate), width=0, colour=mycolours[2], alpha=0.1) +
@@ -3701,7 +3703,7 @@ coef(m5b, s = "lambda.1se")
 
 ```
 
-```{r}
+```{r, fig.width=10, fig.height=5}
 
 # 1. Turn the glmnet path data into a clean data frame
 coefficient_paths <- broom::tidy(m5b$glmnet.fit, return_zeros=TRUE) |>
@@ -3799,9 +3801,9 @@ ggplot(data=subset(m5predSxT, AmbientEnv=="Park")) +
         scale_fill_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.15, end = 0.85,
                            labels=function(x) format(round(as.numeric(x), 2), nsmall = 2)) +
 
-        guides(colour=guide_legend(title=expression(paste(italic(T)[a~Sigma~5]~","~tu[SHM])),
+        guides(colour=guide_legend(title=expression(paste(italic(T)[a*Sigma*5]~","~tu[SHM])),
                                    reverse=TRUE),
-               fill=guide_legend(title=expression(paste(italic(T)[a~Sigma~5]~","~tu[SHM])),
+               fill=guide_legend(title=expression(paste(italic(T)[a*Sigma*5]~","~tu[SHM])),
                                  reverse=TRUE)) +
         
         ggnewscale::new_scale_color() +
@@ -3816,7 +3818,7 @@ ggplot(data=subset(m5predSxT, AmbientEnv=="Park")) +
                             labels=function(x) format(round(x, 2), nsmall = 2),
                             guide='none') +
 
-        # guides(colour=guide_legend(title=expression(paste(italic(T)[a~Sigma~5]~","~tu[SHM])),
+        # guides(colour=guide_legend(title=expression(paste(italic(T)[a*Sigma*5]~","~tu[SHM])),
         #                            reverse=TRUE)) +
   
         scale_x_continuous(breaks=seq(1.3, 2.9, by=0.3),
@@ -3851,7 +3853,8 @@ if (saveplots){
 ```{r}
 
 m6formula <- dAnnoyanceOrdBetaScl ~ TrialNumberScl +
-  LAELAF50diffScl*I(log10(UASEvents))
+  I(exp(0.045*LAELAF50diffScl)) +
+  I(log10(UASEvents))
 
 m6Data <- subjDataNoAmb.med[, c(StimID='StimID', ID='ID', all.vars(m6formula)), drop=FALSE]
 
@@ -3922,7 +3925,7 @@ performance::check_collinearity(m6)
 
 ```{r}
 
-geeModelPerformance(m1d, m2, m3, m4, m5, m6)
+geeModelPerformance(m1d, m2, m3, m3c, m4, m5, m6)
 
 nd = na.omit(cbind(StimID = subjDataNoAmb.med$StimID, m6Data))
 
@@ -3937,9 +3940,8 @@ m6_cv <- cv_glmgee(m6, id_col="ID", K=10, seed=124,
           cv_aggregated_metrics(backtransform_fn=\(x) betaTransform(x, -10, 10,
                                 "reverse", squeeze="none"))
 
-compare_cv_results(list(m1d=m1d_cv, m2=m2_cv, m3=m3_cv, m4=m4_cv, m5=m5_cv,
+compare_cv_results(list(m1d=m1d_cv, m2=m2_cv, m3=m3_cv, m3c=m3c_cv, m4=m4_cv, m5=m5_cv,
                         m6=m6_cv))
-
 
 m6predMeans <- marginaleffects::avg_predictions(m6, newdata=nd,
                                                   by=c("StimID",
@@ -3966,7 +3968,7 @@ ggplot(data=cbind(m6predMeans,
   theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   
-  geom_point(mapping=aes(x=response, y=estimate), size=2.5, shape=4, stroke=1, colour=mycolours[2], alpha=0.5) +
+  geom_point(mapping=aes(x=response, y=estimate), size=1.75, shape=4, stroke=0.75, colour=mycolours[2], alpha=0.5) +
 
   geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
                             y=estimate), width=0, colour=mycolours[2], alpha=0.1) +
@@ -3997,21 +3999,6 @@ if (saveplots){
 
 ```
 
-#### test model interactions
-
-##### stepwise back removal of variables
-
-```{r}
-
-modelStep <- glmtoolbox::stepCriterion(model=m6,
-                                       criterion='agpc', test='score',
-                                       direction='backward',
-                                       varest='bias-corrected')
-
-m6formula
-modelStep$final
-
-```
 ### SQ model
 
 #### model 7 formula
@@ -4019,7 +4006,8 @@ modelStep$final
 ```{r}
 
 m7formula <- dAnnoyanceOrdBetaScl ~ TrialNumberScl +
-  LAELAF50diffScl*I(log10(UASEvents)) +
+  I(exp(0.045*LAELAF50diffScl)) +
+  I(log10(UASEvents)) +
   UASTonalAwSHMInt05ExMaxLR*UASSharpAurISO305ExMaxLR +
                         UASImpulsLoudWZAvgMaxLR + UASFluctECMA10ExBin +
                         UASRoughFZ05ExMaxLR
@@ -4093,7 +4081,7 @@ performance::check_collinearity(m7)
 
 ```{r}
 
-geeModelPerformance(m1d, m2, m3, m4, m5, m6, m7)
+geeModelPerformance(m1d, m2, m3, m3c, m4, m5, m6, m7)
 
 nd = na.omit(cbind(StimID = subjDataNoAmb.med$StimID, m7Data))
 
@@ -4108,7 +4096,7 @@ m7_cv <- cv_glmgee(m7, id_col="ID", K=10, seed=124,
           cv_aggregated_metrics(backtransform_fn=\(x) betaTransform(x, -10, 10,
                                 "reverse", squeeze="none"))
 
-compare_cv_results(list(m1d=m1d_cv, m2=m2_cv, m3=m3_cv, m4=m4_cv, m5=m5_cv,
+compare_cv_results(list(m1d=m1d_cv, m2=m2_cv, m3=m3_cv, m3c=m3c_cv, m4=m4_cv, m5=m5_cv,
                         m6=m6_cv, m7=m7_cv))
 
 
@@ -4137,7 +4125,7 @@ ggplot(data=cbind(m7predMeans,
   theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   
-  geom_point(mapping=aes(x=response, y=estimate), size=2.5, shape=4, stroke=1, colour=mycolours[2], alpha=0.5) +
+  geom_point(mapping=aes(x=response, y=estimate), size=1.75, shape=4, stroke=0.75, colour=mycolours[2], alpha=0.5) +
 
   geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
                             y=estimate), width=0, colour=mycolours[2], alpha=0.1) +
@@ -4209,7 +4197,7 @@ stopifnot(length(foldid) == nrow(X_matrix), length(y_matrix) == nrow(X_matrix))
 set.seed(808)
 m7b <- glmnet::cv.glmnet(x=X_matrix, y=y_matrix, family=quasibinomial(link='logit'),
                          alpha=0.5, foldid=foldid, type.measure='deviance',
-                         standardize=TRUE, lambda.min.ratio = 1e-12, nlambda = 200,
+                         standardize=TRUE, lambda.min.ratio = 1e-18, nlambda = 200,
                          parallel=TRUE)
 
 coef(m7b, s = "lambda.min")
@@ -4217,7 +4205,7 @@ coef(m7b, s = "lambda.1se")
 
 ```
 
-```{r}
+```{r, fig.width=10, fig.height=5}
 
 # 1. Turn the glmnet path data into a clean data frame
 coefficient_paths <- broom::tidy(m7b$glmnet.fit, return_zeros=TRUE) |>
@@ -4267,483 +4255,65 @@ if (saveplots){
 
 ```{r}
 
-m7dDataFit <- insight::get_data(m7)
-m1dpredType <- marginaleffects::avg_predictions(m1d, newdata=subset(m1dDataFit,
-                                                             UASEvents==1),
-                                                    variables = list(UASLAEMaxLRScl=seq(
-                                                      min(stimDataNoAmb$UASLAEMaxLRScl),
-                                                      max(stimDataNoAmb$UASLAEMaxLRScl),
+m7DataFit <- insight::get_data(m7)
+m7predEvt <- marginaleffects::avg_predictions(m7, m7DataFit,
+                                                    variables = list(LAELAF50diffScl=seq(
+                                                      min(stimDataNoAmb$LAELAF50diffScl),
+                                                      max(stimDataNoAmb$LAELAF50diffScl),
                                                       length.out=25)),
-                                                  by=c("UASLAEMaxLRScl",
-                                                       "UASType",
-                                                       "AmbientEnv",
-                                                       "UASEvents"),
+                                                  by=c("LAELAF50diffScl", "UASEvents"),
                                                   vcov=vcov(m1d, type="bias-corrected"),
                                                   transform=\(x) betaTransform(x, -10, 10,
                                                                                direction='reverse',
                                                                                squeeze='none'))
 
-m1dpredOp <- marginaleffects::avg_predictions(m1d, newdata=subset(m1dDataFit,
-                                                             UASEvents==1),
-                                                      variables = list(UASLAEMaxLRScl=seq(
-                                                          min(stimDataNoAmb$UASLAEMaxLRScl),
-                                                          max(stimDataNoAmb$UASLAEMaxLRScl),
-                                                          length.out=25)),
-                                                      by=c("UASLAEMaxLRScl",
-                                                           "UASOperation",
-                                                           "AmbientEnv",
-                                                           "UASEvents"),
-                                                      vcov=vcov(m1d, type="bias-corrected"),
-                                                  transform=\(x) betaTransform(x, -10, 10,
-                                                                               direction='reverse',
-                                                                               squeeze='none'))
-
-m1dpredEnv <- marginaleffects::avg_predictions(m1d, , newdata=subset(m1dDataFit,
-                                                             UASEvents==1),
-                                                      variables = list(UASLAEMaxLRScl=seq(
-                                                          min(stimDataNoAmb$UASLAEMaxLRScl),
-                                                          max(stimDataNoAmb$UASLAEMaxLRScl),
-                                                          length.out=25)),
-                                                      by=c("UASLAEMaxLRScl",
-                                                           "AmbientEnv",
-                                                           "UASEvents"),
-                                                      vcov=vcov(m1d, type="bias-corrected"),
-                                                  transform=\(x) betaTransform(x, -10, 10,
-                                                                               direction='reverse',
-                                                                               squeeze='none'))
-
-m1dpredEvt <- marginaleffects::avg_predictions(m1d, newdata=subset(m1dDataFit,
-                                                                 AmbientEnv=="Park" &
-                                                                 UASOperation=="Overflight"),
-                                                      variables = list(UASLAEMaxLRScl=seq(
-                                                          min(stimDataNoAmb$UASLAEMaxLRScl),
-                                                          max(stimDataNoAmb$UASLAEMaxLRScl),
-                                                          length.out=25)),
-                                                      by=c("UASLAEMaxLRScl",
-                                                           "UASEvents",
-                                                           "UASOperation",
-                                                           "AmbientEnv"),
-                                                      vcov=vcov(m1d, type="bias-corrected"),
-                                                  transform=\(x) betaTransform(x, -10, 10,
-                                                                               direction='reverse',
-                                                                               squeeze='none'))
-
-m1dpredEvt2 <- marginaleffects::avg_predictions(m1d, newdata=subset(m1dDataFit,
-                                                                 AmbientEnv=="Park" &
-                                                                 UASOperation=="Overflight"),
-                                                      variables=(list(UASLAEMaxLRScl = c(6, 12), UASType=c("H520", "T150"))),
-                                                      by=c("UASLAEMaxLRScl",
-                                                           "UASEvents",
-                                                           "UASOperation",
-                                                           "AmbientEnv"),
-                                                      vcov=vcov(m1d, type="bias-corrected"),
-                                                  transform=\(x) betaTransform(x, -10, 10,
-                                                                               direction='reverse',
-                                                                               squeeze='none'))
-
 ```
 
-```
-
-### fit and examine final model
+#### visualise predictions
 
 ```{r}
 
-model1 <- mABISxTnxdLAEL501_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~
-                                                         LAELAF50diffScl*UASTonLdECMAPowAvgBin +
-                                                         I(UASEvents^-1) +
-                                                         UASImpulsSHMAvgMaxLR +
-                                                         UASSharpAurISO305ExMaxLR*UASTonLdECMAPowAvgBin +
-                                                         TrialNumberScl,
-                                                        data=subjDataNoAmb,
-                                                        family=gaussian(link='identity'),
-                                                        id=ID,
-                                                        corstr='exchangeable')
+ggplot(data=m7predEvt) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35,
+                    text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_point(data=stimDataNoAmb,
+                         aes(x=LAELAF50diffScl, y=dAnnoyMean,
+                             colour=factor(UASEvents), shape=factor(UASEvents)),
+                         alpha=0.55, size=2) +
+              
+              geom_ribbon(aes(x=LAELAF50diffScl, ymin=conf.low, ymax=conf.high, fill=factor(UASEvents)),
+                          alpha=0.15) +
+              
+              geom_line(aes(x=LAELAF50diffScl, y=estimate, colour=factor(UASEvents)), linewidth=1) +
+              
+              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_shape_manual(values=c(4, 5, 7, 8)) +
+              
+              guides(colour=guide_legend(title="UAS events", reverse=TRUE),
+                     fill=guide_legend(title="UAS events", reverse=TRUE),
+                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
+            
+              rescaleTicks(stimDataNoAmb$LAELAF50diff,
+                             stimDataNoAmb$LAELAF50diffScl, sep=5) +
+              
+              scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-3, 7)) +
+              
+              labs(x=expression(paste(UAS~italic(L)[AE]~-~amb.~italic(L)[AF50],",",~dB)), y="Mean change in annoyance")
 
-geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
-geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
-
-parameters::standardise_parameters(model1, method='refit', ci=0.843,
-                                   robust=FALSE, two_sd=TRUE, include_response=FALSE)
-parameters::standardise_parameters(model1, method='refit', ci=0.95,
-                                   robust=FALSE, two_sd=TRUE, include_response=FALSE)
-
-geeModelPerformance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABISxTnLAEx1_QSq.GEE,
-                    mABISxTnxdLAEL501_QSq.GEE)
-
-predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
-                           response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
-
-R2means <- cor(predictMeans$response, predictMeans$fit)^2
-R2means
-
-# using ggplot, plot the predicted fit against the responses in predictMeans
-ggplot(data=predictMeans) +
-  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=12),
-        axis.text=element_text(family = "serif", size=14)) +
-  
-  geom_point(mapping=aes(x=response, y=fit), size=2.5, shape=1, colour=mycolours[1], alpha=0.5) +
-  
-  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
-  
-  scale_x_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 7)) +
-  scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 7)) +
-  
-  labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance")
-
-
-filename <- "PtsABdAnnoyMndLAEPred"
+filename <- "PtsABdAnnoyMndLAESQModEvt_geeQb"
 
 if (saveplots){
-  ggsave(filename=paste(filename, ".svg", sep=""), width=3.5, height=3.5, path=file.path(outFigPath, "svg"))
+  ggsave(filename=paste(filename, ".svg", sep=""), width=5, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
 
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=3.5, height=3.5, path=file.path(outFigPath, "pdf"))
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=5, height=4, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 }
 
-model1predictEvt <- ggeffects::predict_response(model1, terms=c("LAELAF50diffScl [all]",
-                                                                "UASEvents [all]"),
-                                             margin='marginalmeans', type='fixed', 
-                                            vcov=vcov(model1, type="bias-corrected"))
 
-model1predictLxS <- ggeffects::predict_response(model1, terms=c("LAELAF50diffScl [all]",
-                                                               "UASSharpAurISO305ExMaxLR [1.2:3, by=0.4]",
-                                                                 "UASEvents [1]"),
-                                             margin='marginalmeans', type='fixed', 
-                                            vcov=vcov(model1, type="bias-corrected"))
-
-model1predictLxTn <- ggeffects::predict_response(model1, terms=c("LAELAF50diffScl [all]",
-                                                                 "UASTonLdECMAPowAvgBin [0.5:1.5, by=0.25]",
-                                                                 "UASEvents [1]"),
-                                             margin='marginalmeans', type='fixed', 
-                                            vcov=vcov(model1, type="bias-corrected"))
-
-model1predictLxI <- ggeffects::predict_response(model1, terms=c("LAELAF50diffScl [all]",
-                                                                 "UASImpulsSHMAvgMaxLR [0.15:0.35, by=0.05]",
-                                                                 "UASEvents [1]"),
-                                             margin='marginalmeans', type='fixed', 
-                                            vcov=vcov(model1, type="bias-corrected"))
-
-model1predictIxL <- ggeffects::predict_response(model1, terms=c("UASImpulsSHMAvgMaxLR [all]",
-                                                                "LAELAF50diffScl [-20, -10, 0, 10]",
-                                                                 "UASEvents [1]"),
-                                             margin='marginalmeans', type='fixed', 
-                                            vcov=vcov(model1, type="bias-corrected"))
-
-p1 <- ggplot(data=model1predictEvt) +
-              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
-                    axis.text=element_text(family = "serif", size=14)) +
-              
-              geom_point(data=stimDataNoAmb, aes(x=LAELAF50diffScl, y=dAnnoyMean, colour=factor(UASEvents), shape=factor(UASEvents)),
-                         alpha=0.55, size=2) +
-              
-              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.05) +
-              
-              geom_line(aes(x=x, y=predicted, colour=group), alpha=0.5, linewidth=1) +
-              
-              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_shape_manual(values=c(4, 5, 7, 8)) +
-              
-              guides(colour=guide_legend(title="UAS events", reverse=TRUE),
-                     fill=guide_legend(title="UAS events", reverse=TRUE),
-                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
-
-              rescaleTicks(stimDataNoAmb$LAELAF50diff,
-                             stimDataNoAmb$LAELAF50diffScl, sep=5) +
-              scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-2, 8)) +
-              
-              labs(x=expression(paste(UAS~italic(L)[AE]~-~amb.~env.~italic(L)[AF50],",",~dB)), y="Mean change in annoyance")
-
-p2 <- ggplot(data=model1predictLxS) +
-              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
-                    axis.text=element_text(family = "serif", size=14)) +
-
-              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.05) +
-              
-              geom_line(aes(x=x, y=predicted, colour=group), alpha=0.5, linewidth=1) +
-              
-              scale_color_viridis(option='mako', direction=-1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_fill_viridis(option='mako', direction=-1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              
-              guides(colour=guide_legend(title=expression(paste(UAS~italic(S)["5"]~","~acum[A~"|"~`M-G-S`])), reverse=TRUE),
-                     fill=guide_legend(title=expression(paste(UAS~italic(S)["5"]~","~acum[A~"|"~`M-G-S`])), reverse=TRUE)) +
-  
-              ggnewscale::new_scale_color() +
-            
-              scale_shape_manual(values=c(4, 5, 7, 8)) +
-              scale_color_viridis(option='mako', direction=-1, discrete=FALSE, begin = 0.1, end = 0.8) +
-
-              guides(colour=guide_legend(title=expression(paste(UAS~italic(S)["5"]~","~acum[A~"|"~`M-G-S`])), reverse=TRUE),
-                     shape=guide_legend(title="UAS events", reverse=TRUE)) +  
-
-
-              rescaleTicks(stimDataNoAmb$LAELAF50diff,
-                             stimDataNoAmb$LAELAF50diffScl, sep=5) +
-              scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-2, 8)) +
-              
-              geom_point(data=stimDataNoAmb, aes(x=LAELAF50diffScl, y=dAnnoyMean, colour=UASSharpAurISO305ExMaxLR, shape=factor(UASEvents)),
-                         alpha=0.55, size=2) +
-  
-              labs(x=expression(paste(UAS~italic(L)[AE]~-~amb.~env.~italic(L)[AF50],",",~dB)), y="Mean change in annoyance")
-
-
-p3 <- ggplot(data=model1predictLxTn) +
-              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
-                    axis.text=element_text(family = "serif", size=14)) +
-
-              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.05) +
-              
-              geom_line(aes(x=x, y=predicted, colour=group), alpha=0.5, linewidth=1) +
-              
-              scale_color_viridis(option='mako', direction=-1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_fill_viridis(option='mako', direction=-1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              
-              guides(colour=guide_legend(title=expression(paste(UAS~italic(T)[italic(N)]^"*"~","~sone[SHM])), reverse=TRUE),
-                     fill=guide_legend(title=expression(paste(UAS~italic(T)[italic(N)]^"*"~","~sone[SHM])), reverse=TRUE)) +
-              
-              ggnewscale::new_scale_color() +
-  
-              geom_point(data=stimDataNoAmb, aes(x=LAELAF50diffScl, y=dAnnoyMean, colour=UASTonLdECMAPowAvgBin, shape=factor(UASEvents)),
-                         alpha=0.35, size=2) +
-  
-              scale_shape_manual(values=c(4, 5, 7, 8)) +
-              scale_color_viridis(option='mako', direction=-1, discrete=FALSE, begin = 0.1, end = 0.8) +
-  
-              guides(colour=guide_legend(title=expression(paste(UAS~italic(T)[italic(N)]^"*"~","~sone[SHM])), reverse=TRUE),
-                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
-
-              rescaleTicks(stimDataNoAmb$LAELAF50diff,
-                             stimDataNoAmb$LAELAF50diffScl, sep=5) +
-              scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-2, 8)) +
-              
-              labs(x=expression(paste(UAS~italic(L)[AE]~-~amb.~env.~italic(L)[AF50],",",~dB)), y="Mean change in annoyance")
-
-
-p4 <- ggplot(data=model1predictLxI) +
-              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
-                    axis.text=element_text(family = "serif", size=14)) +
-
-              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.05) +
-              
-              geom_line(aes(x=x, y=predicted, colour=group), alpha=0.5, linewidth=1) +
-              
-              scale_color_viridis(option='mako', direction=-1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_fill_viridis(option='mako', direction=-1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              
-              guides(colour=guide_legend(title=expression(paste(UAS~italic(I)[av]~","~iu[SHM])), reverse=TRUE),
-                     fill=guide_legend(title=expression(paste(UAS~italic(I)[av]~","~iu[SHM])), reverse=TRUE)) +
-              
-              ggnewscale::new_scale_color() +
-  
-              geom_point(data=stimDataNoAmb, aes(x=LAELAF50diffScl, y=dAnnoyMean, colour=UASImpulsSHMAvgMaxLR, shape=factor(UASEvents)),
-                         alpha=0.35, size=2) +
-  
-              scale_shape_manual(values=c(4, 5, 7, 8)) +
-              scale_color_viridis(option='mako', direction=-1, discrete=FALSE, begin = 0.1, end = 0.8) +
-  
-              guides(colour=guide_legend(title=expression(paste(UAS~italic(I)[av]~","~iu[SHM])), reverse=TRUE),
-                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
-              
-              rescaleTicks(stimDataNoAmb$LAELAF50diff,
-                             stimDataNoAmb$LAELAF50diffScl, sep=5) +
-              scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-2, 8)) +
-              
-              labs(x=expression(paste(UAS~italic(L)[AE]~-~amb.~env.~italic(L)[AF50],",",~dB)), y="Mean change in annoyance")
-
-
-p5 <- ggplot(data=model1predictIxL) +
-              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
-                    axis.text=element_text(family = "serif", size=14)) +
-
-              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.05) +
-              
-              geom_line(aes(x=x, y=predicted, colour=group), alpha=0.5, linewidth=1) +
-              
-              scale_color_viridis(option='mako', direction=-1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_fill_viridis(option='mako', direction=-1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              
-              guides(colour=guide_legend(title=expression(paste(UAS~italic(L)[AE]~-~amb.~env.~italic(L)[AF50],",",~dB)), reverse=TRUE),
-                     fill=guide_legend(title=expression(paste(UAS~italic(L)[AE]~-~amb.~env.~italic(L)[AF50],",",~dB)), reverse=TRUE)) +
-              
-              ggnewscale::new_scale_color() +
-  
-              geom_point(data=stimDataNoAmb[stimDataNoAmb$SessionPart == "A", ],
-                         aes(x=UASImpulsSHMAvgMaxLR, y=dAnnoyMean, colour=LAELAF50diffScl),
-                         alpha=0.35, size=2) +
-  
-              scale_color_viridis(option='mako', direction=-1, discrete=FALSE, begin = 0.1, end = 0.8) +
-  
-              guides(colour=guide_legend(title=expression(paste(UAS~italic(L)[AE]~-~amb.~env.~italic(L)[AF50],",",~dB)), reverse=TRUE)) +
-
-              scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-2, 8)) +
-              
-              labs(x=expression(paste(UAS~italic(I)[av]~","~iu[SHM])), y="Mean change in annoyance")
-
-p1 + p2 + p3 + p4 + p5
-
-```
-
-### Model diagnostics
-
-```{r}
-
-mABISxTnxdLAEL501_QSq.GEE.resD <- residuals(mABISxTnxdLAEL501_QSq.GEE,
-                                                     type="deviance", plot.it=TRUE,
-                                                     pch=1, col=mycolours[1],identify=10)
-mABISxTnxdLAEL501_QSq.GEE.resM <- residuals(mABISxTnxdLAEL501_QSq.GEE,
-                                                     type="mahalanobis", plot.it=TRUE,
-                                                     col=mycolours[2], identify=10)
-mABISxTnxdLAEL501_QSq.GEE.resP <- residuals(mABISxTnxdLAEL501_QSq.GEE,
-                                                     type="pearson", plot.it=TRUE,
-                                                     pch=1, col=mycolours[3], identify=10)
-
-hist(mABISxTnxdLAEL501_QSq.GEE.resD, breaks=20, main="Deviance residuals")
-hist(mABISxTnxdLAEL501_QSq.GEE.resP, breaks=20, main="Pearson residuals")
-
-mABISxTnxdLAEL501_QSq.GEE.DfBc <- dfbeta(mABISxTnxdLAEL501_QSq.GEE,
-                                                  level='clusters', coefs=c('LAELAF50diffScl'))
-mABISxTnxdLAEL501_QSq.GEE.DfBo <- dfbeta(mABISxTnxdLAEL501_QSq.GEE,
-                                                  level='observations', coefs=c('LAELAF50diffScl'))
-
-mABISxTnxdLAEL501_QSq.GEE.Cook <- cooks.distance(mABISxTnxdLAEL501_QSq.GEE,
-                                                          plot.it=TRUE)
-
-performance::check_collinearity(mABISxTnxdLAEL501_QSq.GEE)
-performance::check_heteroskedasticity(mABISxTnxdLAEL501_QSq.GEE)
-
-```
-
-## with env LAeq and UAS LAE
-
-### fit and examine final model
-
-```{r}
-
-model1 <- mABEnvLAeqxLAEx1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~
-                                                         UASLAEMaxLRScl*AmbLAeqMaxLRScl +
-                                                         UASLAEMaxLRScl*I(UASEvents^-1) +
-                                                         TrialNumberScl,
-                                                        data=subjDataNoAmb,
-                                                        family=gaussian(link='identity'),
-                                                        id=ID,
-                                                        corstr='exchangeable')
-
-geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
-geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
-
-parameters::standardise_parameters(model1, method='refit', ci=0.843,
-                                   robust=FALSE, two_sd=TRUE, include_response=FALSE)
-parameters::standardise_parameters(model1, method='refit', ci=0.95,
-                                   robust=FALSE, two_sd=TRUE, include_response=FALSE)
-
-geeModelPerformance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABLAEx1_QSq.GEE,
-                    mABEnvLAeqxLAEx1_QSq.GEE)
-
-predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
-                           response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
-
-R2means <- cor(predictMeans$response, predictMeans$fit)^2
-R2means
-
-# using ggplot, plot the predicted fit against the responses in predictMeans
-ggplot(data=predictMeans) +
-  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=12),
-        axis.text=element_text(family = "serif", size=14)) +
-  
-  geom_point(mapping=aes(x=response, y=fit), size=2.5, shape=1, colour=mycolours[1], alpha=0.5) +
-  
-  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
-  
-  scale_x_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 7)) +
-  scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 7)) +
-  
-  labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance")
-
-
-# filename <- "PtsABdAnnoyMnLAEPred"
-
-# if (saveplots){
-#   ggsave(filename=paste(filename, ".svg", sep=""), width=3.5, height=3.5, path=file.path(outFigPath, "svg"))
-#   unlink(paste(filename, ".svg", sep=""))
-# 
-#   ggsave(filename=paste(filename, ".pdf", sep=""), width=3.5, height=3.5, path=file.path(outFigPath, "pdf"))
-#   unlink(paste(filename, ".pdf", sep=""))
-# }
-
-model1predictEvt <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl [-12:13]",
-                                                                "UASEvents [all]"),
-                                             margin='marginalmeans', type='fixed', 
-                                            vcov=vcov(model1, type="bias-corrected"))
-
-p1 <- ggplot(data=model1predictEvt) +
-              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
-                    axis.text=element_text(family = "serif", size=14)) +
-              
-              geom_point(data=stimDataNoAmb, aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
-                                                 colour=factor(UASEvents),
-                                                 shape=factor(UASEvents)),
-                         alpha=0.35, size=2) +
-              
-              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.1) +
-              
-              geom_line(aes(x=x, y=predicted, colour=group), linewidth=1) +
-              
-              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_shape_manual(values=c(4, 5, 7, 8)) +
-              
-              guides(colour=guide_legend(title="UAS events", reverse=TRUE),
-                     fill=guide_legend(title="UAS events", reverse=TRUE),
-                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
-            
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
-              scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-2, 8)) +
-
-              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
-
-p1
-
-if (savedata) {
-  # save the model
-  filename = "1B_dA_LAE_EnvLAeq"
-  saveRDS(model1, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
-}
-
-
-```
-
-### Model diagnostics
-
-```{r}
-
-mABEnvLAeqxLAEx1_QSq.GEE.resD <- residuals(mABEnvLAeqxLAEx1_QSq.GEE,
-                                           type="deviance", plot.it=TRUE,
-                                           pch=1, col=mycolours[1],identify=10)
-mABEnvLAeqxLAEx1_QSq.GEE.resM <- residuals(mABEnvLAeqxLAEx1_QSq.GEE,
-                                           type="mahalanobis", plot.it=TRUE,
-                                           col=mycolours[2], identify=10)
-mABEnvLAeqxLAEx1_QSq.GEE.resP <- residuals(mABEnvLAeqxLAEx1_QSq.GEE,
-                                           type="pearson", plot.it=TRUE,
-                                           pch=1, col=mycolours[3], identify=10)
-
-hist(mABEnvLAeqxLAEx1_QSq.GEE.resD, breaks=20, main="Deviance residuals")
-hist(mABEnvLAeqxLAEx1_QSq.GEE.resP, breaks=20, main="Pearson residuals")
-
-mABEnvLAeqxLAEx1_QSq.GEE.DfBc <- dfbeta(mABEnvLAeqxLAEx1_QSq.GEE,
-                                                  level='clusters', coefs=c('UASLAEMaxLRScl'))
-mABEnvLAeqxLAEx1_QSq.GEE.DfBo <- dfbeta(mABEnvLAeqxLAEx1_QSq.GEE,
-                                                  level='observations', coefs=c('UASLAEMaxLRScl'))
-
-mABEnvLAeqxLAEx1_QSq.GEE.Cook <- cooks.distance(mABEnvLAeqxLAEx1_QSq.GEE,
-                                                          plot.it=TRUE)
-
-performance::check_collinearity(mABEnvLAeqxLAEx1_QSq.GEE)
-performance::check_heteroskedasticity(mABEnvLAeqxLAEx1_QSq.GEE)
 
 ```
 
@@ -4751,323 +4321,594 @@ performance::check_heteroskedasticity(mABEnvLAeqxLAEx1_QSq.GEE)
 
 ### fit and examine detectability only model
 
+#### model 8 formula
+
 ```{r}
 
-model1 <- mABDt5i21_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ I(UASEvents^-1) + I(Detect0p5IntMaxLRLogScl^2) + 
-                                                    Detect0p5IntMaxLRLogScl +
-                                                   TrialNumberScl,
-                                                    data=subjDataNoAmb,
-                                                    family=gaussian(link='identity'),
-                                                    id=ID,
-                                                    corstr='exchangeable')
+m8formula <- dAnnoyanceOrdBetaScl ~ TrialNumberScl +
+  Detect0p5dBIntMaxLRScl*I(log10(UASEvents)) +
+  I(Detect0p5dBIntMaxLRScl^2)
 
-geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
-geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
-
-parameters::standardise_parameters(model1, method='refit', ci=0.843,
-                                   robust=FALSE, two_sd=TRUE, include_response=FALSE)
-parameters::standardise_parameters(model1, method='refit', ci=0.95,
-                                   robust=FALSE, two_sd=TRUE, include_response=FALSE)
-
-geeModelPerformance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABISxTnLAEx1_QSq.GEE,
-                    mABISxTnxEnvLAE1_QSq.GEE, mABISxTnxdLAEL501_QSq.GEE,
-                    mABDt5i21_QSq.GEE)
-
-predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
-                           response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
-
-R2means <- cor(predictMeans$response, predictMeans$fit)^2
-R2means
-
-# using ggplot, plot the predicted fit against the responses in predictMeans
-p0 <- ggplot(data=predictMeans) +
-              theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=12),
-                    axis.text=element_text(family = "serif", size=14)) +
-              
-              geom_point(mapping=aes(x=response, y=fit), size=2.5, shape=1, colour=mycolours[1], alpha=0.5) +
-              
-              geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
-              
-              scale_x_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 7)) +
-              scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 7)) +
-              
-              labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance")
-
-p0
-
-
-model1predictEvt <- ggeffects::predict_response(model1, terms=c("Detect0p5IntMaxLRLogScl [all]",
-                                                                "UASEvents [all]"),
-                                             margin='marginalmeans', type='fixed', 
-                                            vcov=vcov(model1, type="bias-corrected"))
-
-p1 <- ggplot(data=model1predictEvt) +
-              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
-                    axis.text=element_text(family = "serif", size=14)) +
-              
-              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.05) +
-              
-              geom_line(aes(x=x, y=predicted, colour=group), alpha=0.5, linewidth=1) +
-              
-              geom_point(data=stimDataNoAmb, aes(x=Detect0p5IntMaxLRLogScl, y=dAnnoyMean,
-                                                 colour=factor(UASEvents),
-                                                 shape=factor(UASEvents)),
-                          alpha=0.35, size=2) +
-              
-              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_shape_manual(values=c(4, 5, 7, 8)) +
-              
-              guides(colour=guide_legend(title="UAS events", reverse=TRUE),
-                     fill=guide_legend(title="UAS events", reverse=TRUE),
-                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
-
-              rescaleTicks(stimDataNoAmb$Detect0p5IntMaxLRLog, stimDataNoAmb$Detect0p5IntMaxLRLogScl, sep=1) +
-              scale_y_continuous(breaks=seq(-2, 10, by=1)) +
-              
-              labs(x=expression(paste(UAS~lg~"("~italic(d~"'")[Sigma~"0.5s"]~")")), y="Mean change in annoyance")
-p1
-
+m8Data <- subjDataNoAmb.med[, c(StimID='StimID', ID='ID', all.vars(m8formula)), drop=FALSE]
 
 ```
 
-### fit and examine final model
+#### run model
+
+##### check correlation structure
 
 ```{r}
 
-model1 <- mABLAExSxDt5i2I1_QSq.GEE <- glmtoolbox::glmgee(dAnnoyance ~ I(UASEvents^-1) + I(Detect0p5IntMaxLRLogScl^2) + 
-                                                            UASImpulsSHMAvgMaxLR +
-                                                             UASLAEMaxLRScl*UASSharpAurISO305ExMaxLR +
-                                                             UASLAEMaxLRScl*Detect0p5IntMaxLRLogScl +
-                                                           TrialNumberScl,
-                                                            data=subjDataNoAmb,
-                                                            family=gaussian(link='identity'),
-                                                            id=ID,
-                                                            corstr='exchangeable')
+geeCorStr(m8formula, data=m8Data, family=quasibinomial(link='logit'),
+           id=ID, maxit=2e3, verbose=FALSE)
 
-geeParams(model1, ci=0.843, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
-geeParams(model1, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+```
 
-parameters::standardise_parameters(model1, method='refit', ci=0.843,
-                                   robust=FALSE, two_sd=TRUE, include_response=FALSE)
-parameters::standardise_parameters(model1, method='refit', ci=0.95,
-                                   robust=FALSE, two_sd=TRUE, include_response=FALSE)
+```{r}
 
-geeModelPerformance(mABLAExTypeOpxLAExEnv1_QxLAESq.GEE, mABISxTnLAEx1_QSq.GEE,
-                    mABISxTnxEnvLAE1_QSq.GEE, mABISxTnxdLAEL501_QSq.GEE,
-                    mABDt5i21_QSq.GEE, mABLAExSxDt5i2I1_QSq.GEE)
+m8 <- glmtoolbox::glmgee(m8formula, data=m8Data,
+                         family=quasibinomial(link='logit'),
+                         id=ID,
+                         corstr='exchangeable')
 
-predictMeans <- predictNew(model=model1, newData=stimDataNoAmb,
-                           response=stimDataNoAmb$dAnnoyMean,
-                           fixVars=c(TrialNumberScl=mean(subjDataNoAmb$TrialNumberScl)))
+geeParams(m8, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
 
-R2means <- cor(predictMeans$response, predictMeans$fit)^2
-R2means
+```
+
+#### model diagnostics
+
+```{r, fig.width=12, fig.height=4}}
+
+m8.resP <- residuals(m8, type="pearson", plot.it=FALSE,
+                      pch=1, col=mycolours[3], identify=10)
+
+gee_residplot(m8, residual_vals=m8.resP,
+              colour=mycolours[3], alpha=0.3) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4, text=element_text (family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Fitted values", y="Standardised Pearson residuals")
+
+m8.resM <- residuals(m8, type="mahalanobis", plot.it=FALSE)
+
+# plot Mahalanobis residuals with ggplot2 on a stem plot replacing the index by the corresponding participant ID
+geeCluster_stemplot(m8,
+                    clusterVar=m8.resM,
+                    colour=mycolours[2], alpha=0.7) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Participant ID", y="Mahalanobis distance")
+
+m8.Cook <- cooks.distance(m8, plot.it=FALSE)
+
+geeCluster_stemplot(m8, clusterVar=m8.Cook,
+                    colour=mycolours[4], alpha=0.7) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Participant ID", y="Cook's distance")
+
+hist(m8.resP, breaks=20, main="Standardised Pearson residuals")
+
+performance::check_collinearity(m8)
+
+```
+
+#### analyse performance
+
+```{r}
+
+geeModelPerformance(m1d, m2, m3, m3c, m4, m5, m6, m7, m8)
+
+nd = na.omit(cbind(StimID = subjDataNoAmb.med$StimID, m8Data))
+
+m8_cv <- cv_glmgee(m8, id_col="ID", K=10, seed=124,
+                  data=nd, agg_cols="StimID",
+                  return_predictions=TRUE,
+                  backtransform_fn=\(x) betaTransform(x, -10, 10,
+                                                        direction="reverse",
+                                                        squeeze="none"),
+                  workers=n_cores) |>
+
+          cv_aggregated_metrics(backtransform_fn=\(x) betaTransform(x, -10, 10,
+                                "reverse", squeeze="none"))
+
+compare_cv_results(list(m1d=m1d_cv, m2=m2_cv, m3=m3_cv, m3c=m3c_cv, m4=m4_cv, m5=m5_cv,
+                        m6=m6_cv, m7=m7_cv, m8=m8_cv))
+
+
+m8predMeans <- marginaleffects::avg_predictions(m8, newdata=nd,
+                                                  by=c("StimID",
+                                                       "Detect0p5dBIntMaxLRScl",
+                                                       "UASEvents"),
+                                                  vcov=vcov(m8, type='bias-corrected'),
+                                                 type='response',
+                                                transform=\(x) betaTransform(x, -10, 10,
+                                                                             direction='reverse',
+                                                                             squeeze='none')) |>
+  dplyr::arrange(StimID)
+
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyMean - m8predMeans$estimate)^2)/sum((stimDataNoAmb$dAnnoyMean - mean(stimDataNoAmb$dAnnoyMean))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m8predMeans,
+                     measured_target='dAnnoyMean', measured_ci_low='dAnnoyMeanCI_Low',
+                     measured_ci_high='dAnnoyMeanCI_High', fitted='estimate')
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
-p0 <- ggplot(data=predictMeans) +
-              theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=12),
-                    axis.text=element_text(family = "serif", size=14)) +
-              
-              geom_point(mapping=aes(x=response, y=fit), size=2.5, shape=1, colour=mycolours[1], alpha=0.5) +
-              
-              geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
-              
-              scale_x_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 7)) +
-              scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-0.5, 7)) +
-              
-              labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance")
+ggplot(data=cbind(m8predMeans,
+                  response=stimDataNoAmb$dAnnoyMean,
+                  responseCI_Low=stimDataNoAmb$dAnnoyMeanCI_Low,
+                  responseCI_High=stimDataNoAmb$dAnnoyMeanCI_High)) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_point(mapping=aes(x=response, y=estimate), size=1.75, shape=4, stroke=0.75, colour=mycolours[2], alpha=0.5) +
 
-p0
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate), width=0, colour=mycolours[2], alpha=0.1) +
+  
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=conf.low, ymax=conf.high), width=0, colour=mycolours[2], alpha=0.1) +
 
-filename <- "PtsABdAnnoyMnDetectPred"
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  scale_x_continuous(breaks=seq(-2, 10, by=1), limits=c(-1, 9)) +
+  scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-1, 9)) +
+  
+  labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance") +
+  
+  ggplot2::annotate("text", x=0.1, y=6.75, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=0.1, y=6, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = 0.1, y = 5.25, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
+
+```
+
+#### test model interactions
+
+##### stepwise back removal of variables
+
+```{r}
+
+modelStep <- glmtoolbox::stepCriterion(model=m8,
+                                       criterion='agpc', test='score',
+                                       direction='backward',
+                                       varest='bias-corrected')
+
+m8formula
+modelStep$final
+
+```
+
+#### fit reduced model
+
+##### formula
+
+```{r}
+m8bformula <- update(m8formula, . ~ . - Detect0p5dBIntMaxLRScl:I(log10(UASEvents)))
+
+```
+
+##### check correlation structure
+
+```{r}
+
+geeCorStr(m8bformula, data=m8Data, family=quasibinomial(link='logit'),
+           id=ID, maxit=2e3, verbose=FALSE)
+
+```
+
+```{r}
+
+m8b <- glmtoolbox::glmgee(m8bformula, data=m8Data,
+                         family=quasibinomial(link='logit'),
+                         id=ID,
+                         corstr='exchangeable')
+
+geeParams(m8b, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+
+```
+
+##### analyse performance
+
+```{r}
+
+geeModelPerformance(m1d, m2, m3, m3c, m4, m5, m6, m7, m8,
+                    m8b)
+
+nd = na.omit(cbind(StimID = subjDataNoAmb.med$StimID, m8Data))
+
+m8b_cv <- cv_glmgee(m8b, id_col="ID", K=10, seed=124,
+                  data=nd, agg_cols="StimID",
+                  return_predictions=TRUE,
+                  backtransform_fn=\(x) betaTransform(x, -10, 10,
+                                                        direction="reverse",
+                                                        squeeze="none"),
+                  workers=n_cores) |>
+
+          cv_aggregated_metrics(backtransform_fn=\(x) betaTransform(x, -10, 10,
+                                "reverse", squeeze="none"))
+
+compare_cv_results(list(m1d=m1d_cv, m2=m2_cv, m3=m3_cv, m3c=m3c_cv, m4=m4_cv, m5=m5_cv,
+                        m6=m6_cv, m7=m7_cv, m8=m8_cv,
+                        m8b=m8b_cv))
+
+
+m8bpredMeans <- marginaleffects::avg_predictions(m8b, newdata=nd,
+                                                  by=c("StimID",
+                                                       "Detect0p5dBIntMaxLRScl",
+                                                       "UASEvents"),
+                                                  vcov=vcov(m8b, type='bias-corrected'),
+                                                 type='response',
+                                                transform=\(x) betaTransform(x, -10, 10,
+                                                                             direction='reverse',
+                                                                             squeeze='none')) |>
+  dplyr::arrange(StimID)
+
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyMean - m8bpredMeans$estimate)^2)/sum((stimDataNoAmb$dAnnoyMean - mean(stimDataNoAmb$dAnnoyMean))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m8bpredMeans,
+                     measured_target='dAnnoyMean', measured_ci_low='dAnnoyMeanCI_Low',
+                     measured_ci_high='dAnnoyMeanCI_High', fitted='estimate')
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=cbind(m8bpredMeans,
+                  response=stimDataNoAmb$dAnnoyMean,
+                  responseCI_Low=stimDataNoAmb$dAnnoyMeanCI_Low,
+                  responseCI_High=stimDataNoAmb$dAnnoyMeanCI_High)) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_point(mapping=aes(x=response, y=estimate), size=1.75, shape=4, stroke=0.75, colour=mycolours[1], alpha=0.5) +
+
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate), width=0, colour=mycolours[1], alpha=0.1) +
+  
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=conf.low, ymax=conf.high), width=0, colour=mycolours[1], alpha=0.1) +
+
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  scale_x_continuous(breaks=seq(-2, 10, by=1), limits=c(-1, 9)) +
+  scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-1, 9)) +
+  
+  labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance") +
+  
+  ggplot2::annotate("text", x=0.1, y=6.75, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=0.1, y=6, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = 0.1, y = 5.25, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
+
+filename <- "PtsABdAnnoyMnDetCal_geeQb"
 
 if (saveplots){
-  ggsave(filename=paste(filename, ".svg", sep=""), width=3.5, height=3.5, path=file.path(outFigPath, "svg"))
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
 
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=3.5, height=3.5, path=file.path(outFigPath, "pdf"))
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4, height=4, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 }
 
-model1predictEvt <- ggeffects::predict_response(model1, terms=c("Detect0p5IntMaxLRLogScl [all]",
-                                                                "UASEvents [all]"),
-                                             margin='marginalmeans', type='fixed', 
-                                            vcov=vcov(model1, type="bias-corrected"))
-
-model1predictEvt2 <- ggeffects::predict_response(model1, terms=c("UASLAEMaxLRScl [-12:13]",
-                                                                "UASEvents [all]"),
-                                             margin='marginalmeans', type='fixed', 
-                                            vcov=vcov(model1, type="bias-corrected"))
-
-model1predictDxS <- ggeffects::predict_response(model1, terms=c("Detect0p5IntMaxLRLogScl [all]",
-                                                               "UASSharpAurISO305ExMaxLR [1.6:2.8, by=0.4]",
-                                                                 "UASEvents [1]"),
-                                             margin='marginalmeans', type='fixed', 
-                                            vcov=vcov(model1, type="bias-corrected"))
-
-model1predictDxI <- ggeffects::predict_response(model1, terms=c("Detect0p5IntMaxLRLogScl [all]",
-                                                                 "UASImpulsSHMAvgMaxLR [0.15:0.35, by=0.05]",
-                                                                 "UASEvents [1]"),
-                                             margin='marginalmeans', type='fixed', 
-                                            vcov=vcov(model1, type="bias-corrected"))
-
-p1a <- ggplot(data=model1predictEvt) +
-              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
-                    axis.text=element_text(family = "serif", size=14)) +
-              
-              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.05) +
-              
-              geom_line(aes(x=x, y=predicted, colour=group), alpha=0.5, linewidth=1) +
-              
-              geom_point(data=stimDataNoAmb, aes(x=Detect0p5IntMaxLRLogScl, y=dAnnoyMean,
-                                                 colour=factor(UASEvents),
-                                                 shape=factor(UASEvents)),
-                          alpha=0.35, size=2) +
-              
-              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_shape_manual(values=c(4, 5, 7, 8)) +
-              
-              guides(colour=guide_legend(title="UAS events", reverse=TRUE),
-                     fill=guide_legend(title="UAS events", reverse=TRUE),
-                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
-
-              rescaleTicks(stimDataNoAmb$Detect0p5IntMaxLRLog, stimDataNoAmb$Detect0p5IntMaxLRLogScl, sep=1) +
-              scale_y_continuous(breaks=seq(-2, 10, by=1)) +
-              
-              labs(x=expression(paste(UAS~lg~"("~italic(d~"'")[Sigma~"0.5s"]~")")), y="Mean change in annoyance")
-
-p1b <- ggplot(data=model1predictEvt2) +
-              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
-                    axis.text=element_text(family = "serif", size=14)) +
-              
-              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.05) +
-              
-              geom_line(aes(x=x, y=predicted, colour=group), alpha=0.5, linewidth=1) +
-              
-              geom_point(data=stimDataNoAmb, aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
-                                                 colour=factor(UASEvents),
-                                                 shape=factor(UASEvents)),
-                          alpha=0.35, size=2) +
-              
-              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_shape_manual(values=c(4, 5, 7, 8)) +
-              
-              guides(colour=guide_legend(title="UAS events", reverse=TRUE),
-                     fill=guide_legend(title="UAS events", reverse=TRUE),
-                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
-
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
-              scale_y_continuous(breaks=seq(-2, 10, by=1)) +
-              
-              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
-
-p2 <- ggplot(data=model1predictDxS) +
-              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
-                    axis.text=element_text(family = "serif", size=14)) +
-
-              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.05) +
-              
-              geom_line(aes(x=x, y=predicted, colour=group), alpha=0.5, linewidth=1) +
-              
-              scale_color_viridis(option='mako', direction=-1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_fill_viridis(option='mako', direction=-1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              
-              guides(colour=guide_legend(title=expression(paste(UAS~italic(S)["5"]~","~acum[A~"|"~`M-G-S`])), reverse=TRUE),
-                     fill=guide_legend(title=expression(paste(UAS~italic(S)["5"]~","~acum[A~"|"~`M-G-S`])), reverse=TRUE)) +
-  
-              ggnewscale::new_scale_color() +
-            
-              scale_shape_manual(values=c(4, 5, 7, 8)) +
-              scale_color_viridis(option='mako', direction=-1, discrete=FALSE, begin = 0.1, end = 0.8) +
-
-              guides(colour=guide_legend(title=expression(paste(UAS~italic(S)["5"]~","~acum[A~"|"~`M-G-S`])), reverse=TRUE),
-                     shape=guide_legend(title="UAS events", reverse=TRUE)) +  
-
-              rescaleTicks(stimDataNoAmb$Detect0p5IntMaxLRLog, stimDataNoAmb$Detect0p5IntMaxLRLogScl, sep=1) +
-              scale_y_continuous(breaks=seq(-2, 10, by=1)) +
-              
-              geom_point(data=stimDataNoAmb, aes(x=Detect0p5IntMaxLRLogScl, y=dAnnoyMean,
-                                                 colour=UASSharpAurISO305ExMaxLR,
-                                                 shape=factor(UASEvents)),
-                         alpha=0.35, size=2) +
-  
-              labs(x=expression(paste(UAS~lg~"("~italic(d~"'")[Sigma~"0.5s"]~")")), y="Mean change in annoyance")
-
-
-p3 <- ggplot(data=model1predictDxI) +
-              theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
-                    axis.text=element_text(family = "serif", size=14)) +
-
-              geom_ribbon(aes(x=x, ymin=conf.low, ymax=conf.high, fill=group), alpha=0.05) +
-              
-              geom_line(aes(x=x, y=predicted, colour=group), alpha=0.5, linewidth=1) +
-              
-              scale_color_viridis(option='mako', direction=-1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              scale_fill_viridis(option='mako', direction=-1, discrete=TRUE, begin = 0.1, end = 0.8) +
-              
-              guides(colour=guide_legend(title=expression(paste(UAS~italic(I)[av]~","~iu[SHM])), reverse=TRUE),
-                     fill=guide_legend(title=expression(paste(UAS~italic(I)[av]~","~iu[SHM])), reverse=TRUE)) +
-              
-              ggnewscale::new_scale_color() +
-  
-              geom_point(data=stimDataNoAmb, aes(x=Detect0p5IntMaxLRLogScl, y=dAnnoyMean,
-                                                 colour=UASImpulsSHMAvgMaxLR,
-                                                 shape=factor(UASEvents)),
-                         alpha=0.35, size=2) +
-  
-              scale_shape_manual(values=c(4, 5, 7, 8)) +
-              scale_color_viridis(option='mako', direction=-1, discrete=FALSE, begin = 0.1, end = 0.8) +
-  
-              guides(colour=guide_legend(title=expression(paste(UAS~italic(I)[av]~","~iu[SHM])), reverse=TRUE),
-                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
-              
-              rescaleTicks(stimDataNoAmb$Detect0p5IntMaxLRLog, stimDataNoAmb$Detect0p5IntMaxLRLogScl, sep=1) +
-              scale_y_continuous(breaks=seq(-2, 10, by=1)) +
-              
-              labs(x=expression(paste(UAS~lg~"("~italic(d~"'")[Sigma~"0.5s"]~")")), y="Mean change in annoyance")
-
-
-(p1a / p1b) | (p2 + p3)
-
-
 ```
 
-### Model diagnostics
+### SQ model
+
+#### model 9 formula
 
 ```{r}
 
-mABLAExSxDt5i2I1_QSq.GEE.resD <- residuals(mABLAExSxDt5i2I1_QSq.GEE,
-                                                     type="deviance", plot.it=TRUE,
-                                                     pch=1, col=mycolours[1],identify=10)
-mABLAExSxDt5i2I1_QSq.GEE.resM <- residuals(mABLAExSxDt5i2I1_QSq.GEE,
-                                                     type="mahalanobis", plot.it=TRUE,
-                                                     col=mycolours[2], identify=10)
-mABLAExSxDt5i2I1_QSq.GEE.resP <- residuals(mABLAExSxDt5i2I1_QSq.GEE,
-                                                     type="pearson", plot.it=TRUE,
-                                                     pch=1, col=mycolours[3], identify=10)
+m9formula <- dAnnoyanceOrdBetaScl ~ TrialNumberScl +
+  Detect0p5dBIntMaxLRScl + I(log10(UASEvents)) +
+  I(Detect0p5dBIntMaxLRScl^2) +
+  UASTonalAwSHMInt05ExMaxLR*UASSharpAurISO305ExMaxLR +
+                        UASImpulsLoudWZAvgMaxLR + UASFluctECMA10ExBin +
+                        UASRoughFZ05ExMaxLR
 
-hist(mABLAExSxDt5i2I1_QSq.GEE.resD, breaks=20, main="Deviance residuals")
-hist(mABLAExSxDt5i2I1_QSq.GEE.resP, breaks=20, main="Pearson residuals")
-
-mABLAExSxDt5i2I1_QSq.GEE.DfBc <- dfbeta(mABLAExSxDt5i2I1_QSq.GEE,
-                                                  level='clusters',
-                                         coefs=c('Detect0p5IntMaxLRLogScl'))
-mABLAExSxDt5i2I1_QSq.GEE.DfBo <- dfbeta(mABLAExSxDt5i2I1_QSq.GEE,
-                                                  level='observations',
-                                         coefs=c('Detect0p5IntMaxLRLogScl'))
-
-mABLAExSxDt5i2I1_QSq.GEE.Cook <- cooks.distance(mABLAExSxDt5i2I1_QSq.GEE,
-                                                          plot.it=TRUE)
-
-performance::check_collinearity(mABLAExSxDt5i2I1_QSq.GEE)
-performance::check_heteroskedasticity(mABLAExSxDt5i2I1_QSq.GEE)
+m9Data <- subjDataNoAmb.med[, c(StimID='StimID', ID='ID', all.vars(m9formula)), drop=FALSE]
 
 ```
+
+#### run model
+
+##### check correlation structure
+
+```{r}
+
+geeCorStr(m9formula, data=m9Data, family=quasibinomial(link='logit'),
+           id=ID, maxit=2e3, verbose=FALSE)
+
+```
+
+```{r}
+
+m9 <- glmtoolbox::glmgee(m9formula, data=m9Data,
+                         family=quasibinomial(link='logit'),
+                         id=ID,
+                         corstr='exchangeable')
+
+geeParams(m9, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+
+```
+
+#### model diagnostics
+
+```{r, fig.width=12, fig.height=4}}
+
+m9.resP <- residuals(m9, type="pearson", plot.it=FALSE,
+                      pch=1, col=mycolours[3], identify=10)
+
+gee_residplot(m9, residual_vals=m9.resP,
+              colour=mycolours[3], alpha=0.3) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4, text=element_text (family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Fitted values", y="Standardised Pearson residuals")
+
+m9.resM <- residuals(m9, type="mahalanobis", plot.it=FALSE)
+
+# plot Mahalanobis residuals with ggplot2 on a stem plot replacing the index by the corresponding participant ID
+geeCluster_stemplot(m9,
+                    clusterVar=m9.resM,
+                    colour=mycolours[2], alpha=0.7) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Participant ID", y="Mahalanobis distance")
+
+m9.Cook <- cooks.distance(m9, plot.it=FALSE)
+
+geeCluster_stemplot(m9, clusterVar=m9.Cook,
+                    colour=mycolours[4], alpha=0.7) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Participant ID", y="Cook's distance")
+
+hist(m9.resP, breaks=20, main="Standardised Pearson residuals")
+
+performance::check_collinearity(m9)
+
+```
+
+#### analyse performance
+
+```{r}
+
+geeModelPerformance(m1d, m2, m3, m3c, m4, m5, m6, m7,
+                    m8, m8b, m9)
+
+nd = na.omit(cbind(StimID = subjDataNoAmb.med$StimID, m9Data))
+
+m9_cv <- cv_glmgee(m9, id_col="ID", K=10, seed=124,
+                  data=nd, agg_cols="StimID",
+                  return_predictions=TRUE,
+                  backtransform_fn=\(x) betaTransform(x, -10, 10,
+                                                        direction="reverse",
+                                                        squeeze="none"),
+                  workers=n_cores) |>
+
+          cv_aggregated_metrics(backtransform_fn=\(x) betaTransform(x, -10, 10,
+                                "reverse", squeeze="none"))
+
+compare_cv_results(list(m1d=m1d_cv, m2=m2_cv, m3=m3_cv, m3c=m3c_cv, m4=m4_cv, m5=m5_cv,
+                        m6=m6_cv, m7=m7_cv, m8=m8_cv,
+                        m8b=m8b_cv, m9=m9_cv))
+
+
+m9predMeans <- marginaleffects::avg_predictions(m9, newdata=nd,
+                                                  by=c("StimID",
+                                                       "Detect0p5dBIntMaxLRScl",
+                                                       "UASEvents"),
+                                                  vcov=vcov(m9, type='bias-corrected'),
+                                                 type='response',
+                                                transform=\(x) betaTransform(x, -10, 10,
+                                                                             direction='reverse',
+                                                                             squeeze='none')) |>
+  dplyr::arrange(StimID)
+
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyMean - m9predMeans$estimate)^2)/sum((stimDataNoAmb$dAnnoyMean - mean(stimDataNoAmb$dAnnoyMean))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m9predMeans,
+                     measured_target='dAnnoyMean', measured_ci_low='dAnnoyMeanCI_Low',
+                     measured_ci_high='dAnnoyMeanCI_High', fitted='estimate')
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=cbind(m9predMeans,
+                  response=stimDataNoAmb$dAnnoyMean,
+                  responseCI_Low=stimDataNoAmb$dAnnoyMeanCI_Low,
+                  responseCI_High=stimDataNoAmb$dAnnoyMeanCI_High)) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_point(mapping=aes(x=response, y=estimate), size=1.75, shape=4, stroke=0.75, colour=mycolours[2], alpha=0.5) +
+
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate), width=0, colour=mycolours[2], alpha=0.1) +
+  
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=conf.low, ymax=conf.high), width=0, colour=mycolours[2], alpha=0.1) +
+
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  scale_x_continuous(breaks=seq(-2, 10, by=1), limits=c(-1, 9)) +
+  scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-1, 9)) +
+  
+  labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance") +
+  
+  ggplot2::annotate("text", x=0.1, y=6.75, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=0.1, y=6, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = 0.1, y = 5.25, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
+
+filename <- "PtsABdAnnoyMnDetSQCal_geeQb"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
+#### test model interactions
+
+##### stepwise back removal of variables
+
+```{r}
+
+modelStep <- glmtoolbox::stepCriterion(model=m9,
+                                       criterion='agpc', test='score',
+                                       direction='backward',
+                                       varest='bias-corrected')
+
+m9formula
+modelStep$final
+
+```
+
+#### regularised version of model with glmnet
+
+```{r}
+
+mf <- model.frame(m9formula, data = m9Data)      # na.omit happens here
+kept_rows <- as.integer(rownames(mf))               # original row indices actually retained
+
+y_matrix <- model.response(mf)
+X_matrix <- model.matrix(m9formula, data=m9Data)[,-1]
+
+StimID_kept <- m9Data$StimID[kept_rows]
+
+stim_folds <- setNames(
+  sample(rep(1:10, length.out = length(unique(StimID_kept)))),
+  unique(StimID_kept)
+)
+foldid <- stim_folds[as.character(StimID_kept)]
+
+stopifnot(length(foldid) == nrow(X_matrix), length(y_matrix) == nrow(X_matrix))
+
+
+set.seed(808)
+m9b <- glmnet::cv.glmnet(x=X_matrix, y=y_matrix, family=quasibinomial(link='logit'),
+                         alpha=0.5, foldid=foldid, type.measure='deviance',
+                         standardize=TRUE, lambda.min.ratio = 1e-12, nlambda = 200,
+                         parallel=TRUE)
+
+coef(m9b, s = "lambda.min")
+coef(m9b, s = "lambda.1se")
+
+```
+
+```{r, fig.width=10, fig.height=5}
+
+# 1. Turn the glmnet path data into a clean data frame
+coefficient_paths <- broom::tidy(m9b$glmnet.fit, return_zeros=TRUE) |>
+  dplyr::filter(term != "(Intercept)") # Exclude intercept to keep scale clean
+
+
+# 3. Create the ggplot
+ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
+  geom_line(linewidth = 0.4, alpha=0.6) +
+  # Use your custom colour palette mycolours as colour scale
+  scale_color_manual(values = mycolours) +
+  scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
+  # scale_y_log10() +
+  geom_vline(xintercept = m9b$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
+  ggplot2::annotate("text", x = m9b$lambda.min*1.25, y = -max(coefficient_paths$estimate) * 0.25, 
+           label = expression(paste("Minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+  geom_vline(xintercept = m9b$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
+  ggplot2::annotate("text", x = m9b$lambda.1se*1.25, y = -max(coefficient_paths$estimate) * 0.25, 
+           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+  labs(x = expression(log[10]*(lambda)),
+      y = "Coefficient estimate",
+      color = "Predictors"
+  ) +
+  theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+        panel.grid.minor = element_blank(),
+        aspect.ratio=1,
+        text = element_text(family = "serif", size=14),
+        axis.text=element_text(family = "serif", size=14),
+        legend.text=element_text(family = "serif", size=12),
+        legend.position='right')
+
+  
+filename <- "PtsABdAnnoyMDetSQ_glmnetQb"
+ 
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=10, height=5,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=10, height=5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
+#### analyse population-average predictions
+
+```{r}
+
+m9DataFit <- insight::get_data(m9)
+m9predEvt <- marginaleffects::avg_predictions(m9, m9DataFit,
+                                                    variables = list(Detect0p5dBIntMaxLRScl=seq(
+                                                      min(stimDataNoAmb$Detect0p5dBIntMaxLRScl),
+                                                      max(stimDataNoAmb$Detect0p5dBIntMaxLRScl),
+                                                      length.out=25)),
+                                                  by=c("Detect0p5dBIntMaxLRScl", "UASEvents"),
+                                                  vcov=vcov(m1d, type="bias-corrected"),
+                                                  transform=\(x) betaTransform(x, -10, 10,
+                                                                               direction='reverse',
+                                                                               squeeze='none'))
+
+```
+
+#### visualise predictions
+
+```{r}
+
+
+ggplot(data=m9predEvt) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35,
+                    text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_point(data=stimDataNoAmb,
+                         aes(x=Detect0p5dBIntMaxLRScl, y=dAnnoyMean,
+                             colour=factor(UASEvents), shape=factor(UASEvents)),
+                         alpha=0.55, size=2) +
+              
+              geom_ribbon(aes(x=Detect0p5dBIntMaxLRScl, ymin=conf.low, ymax=conf.high, fill=factor(UASEvents)),
+                          alpha=0.15) +
+              
+              geom_line(aes(x=Detect0p5dBIntMaxLRScl, y=estimate, colour=factor(UASEvents)), linewidth=1) +
+              
+              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_shape_manual(values=c(4, 5, 7, 8)) +
+              
+              guides(colour=guide_legend(title="UAS events", reverse=TRUE),
+                     fill=guide_legend(title="UAS events", reverse=TRUE),
+                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
+            
+              rescaleTicks(stimDataNoAmb$Detect0p5dBIntMaxLRScl,
+                             stimDataNoAmb$Detect0p5dBIntMaxLRScl, sep=7) +
+              
+              scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
+              
+              labs(x=expression(paste(UAS~italic(d*"'")[Sigma*0.5*s],",",~dB~re.~1)), y="Mean change in annoyance")
+
+filename <- "PtsABdAnnoyMnDetSQModEvt_geeQb"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=5, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=5, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+
+
+```
+
 
 ## UAS all metrics
 
