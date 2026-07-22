@@ -293,6 +293,118 @@ rescaleTicks <- function(dataVar, dataVarScl, sep=3, ax='x'){
 
 ```
 
+## Scaling multiple dataframes
+
+```{r}
+
+#' Standardise selected columns across a list of data frames
+#'
+#' Applies \code{datawizard::standardise()} to user-specified columns in each
+#' data frame of a list, adding the result as new columns with "Scl"
+#' appended to the original column name. Standardisation can be switched on
+#' or off per variable via the \code{scale} argument.
+#'
+#' @param df_list A list of data frames.
+#' @param vars    Character vector of column names to (optionally) standardise.
+#' @param scale   Controls which variables get full standardisation vs.
+#'                centering only:
+#'                \itemize{
+#'                  \item A single logical (default \code{TRUE}) applied to all \code{vars}.
+#'                  \item An unnamed logical vector the same length as \code{vars},
+#'                        matched by position.
+#'                  \item A named logical vector, e.g. \code{c(height = TRUE, weight = FALSE)}.
+#'                        Any variable in \code{vars} not named here defaults to \code{TRUE}.
+#'                }
+#'                Variables with \code{scale = TRUE} are run through
+#'                \code{datawizard::standardise()} (centered AND scaled to SD = 1).
+#'                Variables with \code{scale = FALSE} are run through
+#'                \code{datawizard::center()} instead, so they are still
+#'                mean-centered but left on their original scale (SD unchanged).
+#'                Either way the new "Scl" column is always created.
+#' @param ...     Additional arguments passed on to \code{datawizard::standardise()}
+#'                and \code{datawizard::center()} (e.g. \code{robust}).
+#'                Note: only arguments valid for both functions can safely be
+#'                passed this way (see Details).
+#'
+#' @return A list of data frames (same length/order as \code{df_list}), each
+#'         with new "<var>Scl" columns added.
+#'
+#' @examples
+#' \dontrun{
+#' library(datawizard)
+#'
+#' df1 <- data.frame(height = rnorm(10, 170, 10), weight = rnorm(10, 70, 15))
+#' df2 <- data.frame(height = rnorm(10, 165, 8),  weight = rnorm(10, 65, 12))
+#'
+#' dfs <- list(df1, df2)
+#'
+#' # Standardise both variables in every data frame
+#' out <- standardise_list(dfs, vars = c("height", "weight"))
+#'
+#' # Fully standardise height, but only center weight (weightScl keeps its
+#' # original SD, just shifted to a mean of 0)
+#' out2 <- standardise_list(dfs, vars = c("height", "weight"),
+#'                           scale = c(height = TRUE, weight = FALSE))
+#' }
+#'
+#' @export
+standardise_list <- function(df_list, vars, scale = TRUE, ...) {
+
+  # --- Input checks --------------------------------------------------------
+  if (!is.list(df_list) || !all(vapply(df_list, is.data.frame, logical(1)))) {
+    stop("`df_list` must be a list of data frames.")
+  }
+  if (!is.character(vars) || length(vars) == 0) {
+    stop("`vars` must be a non-empty character vector of column names.")
+  }
+  if (!is.logical(scale)) {
+    stop("`scale` must be logical (TRUE/FALSE), optionally named.")
+  }
+
+  # --- Expand `scale` into a named logical vector aligned with `vars` -----
+  if (length(scale) == 1) {
+    scale <- stats::setNames(rep(scale, length(vars)), vars)
+  } else {
+    if (is.null(names(scale))) {
+      if (length(scale) != length(vars)) {
+        stop("`scale` must be length 1, named, or the same length as `vars`.")
+      }
+      names(scale) <- vars
+    }
+    # Any vars not explicitly named in `scale` default to TRUE
+    missing_vars <- setdiff(vars, names(scale))
+    if (length(missing_vars) > 0) {
+      scale <- c(scale, stats::setNames(rep(TRUE, length(missing_vars)), missing_vars))
+    }
+    scale <- scale[vars]  # align order, drop any extras not in `vars`
+  }
+
+  # --- Apply to each data frame --------------------------------------------
+  lapply(df_list, function(df) {
+
+    present_vars <- intersect(vars, names(df))
+    absent_vars  <- setdiff(vars, names(df))
+
+    if (length(absent_vars) > 0) {
+      warning("Columns not found and skipped: ", paste(absent_vars, collapse = ", "))
+    }
+
+    for (v in present_vars) {
+      new_name <- paste0(v, "Scl")
+
+      if (isTRUE(scale[[v]])) {
+        df[[new_name]] <- datawizard::standardise(df[[v]], ...)
+      } else {
+        df[[new_name]] <- datawizard::center(df[[v]], ...)
+      }
+    }
+
+    df
+  })
+}
+
+```
+
 # Import data and wrangle
 
 ## Parts A & B combined
@@ -474,60 +586,12 @@ stimDataNoAmb <- stimData |> dplyr::filter(UASLAeq != "Baseline")
 
 ```
 
-## rescaling variables
-
-```{r}
-
-# rescale variables
-out <- standardise_list(list(subjData, subjDataNoAmb, stimData, stimDataNoAmb),
-                        vars = c("UASLAeqMaxLR", "UASLAEMaxLR", "UASEPNLMaxLR",
-                                 "LAELAF50diff", "LAELAF90diff", "LAELAeqdiff",
-                                 "EPNLLAF50diff", "UASDisc0p1LAEMaxLR", "UASDisc0p5LAEMaxLR",
-                                 "UASLoudECMAPowAvgBin",  "AmbLAeqMaxLR", "AmbLAF50ExMaxLR",
-                                 "Detect0p5dBIntMaxLR", "Detect0p1dBIntMaxLR",
-                                 "Detect0p5dBIntEx50MaxLR", "Detect0p1dBMaxIntMaxLR"),
-                        scale = FALSE)
-
-subjData <- out[[1]]
-subjDataNoAmb <- out[[2]]
-stimData <- out[[3]]
-stimDataNoAmb <- out[[4]]
-
-out <- standardise_list(list(subjData, subjDataNoAmb),
-                        vars = c("TrialNumber"),
-                        scale = TRUE)
-
-subjData <- out[[1]]
-subjDataNoAmb <- out[[2]]
-
-# rescale trial number variables separately for each session part
-subjData <- rbind(subjData[subjData$SessionPart == "A", ] |> dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)),
-                    subjData[subjData$SessionPart == "B", ] |> dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)))
-
-subjDataNoAmb <- rbind(subjDataNoAmb[subjDataNoAmb$SessionPart == "A", ] |> dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)),
-                    subjDataNoAmb[subjDataNoAmb$SessionPart == "B", ] |> dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)))
-
-# filter data to exclude the missing age participant and the missing response data
-subjDataNoAmb.cc <- subjDataNoAmb |> dplyr::filter(!is.na(Age) & !is.na(TrialNumber))
-
-# now drop any unused levels
-subjDataNoAmb <- droplevels(subjDataNoAmb)
-stimDataNoAmb <- droplevels(stimDataNoAmb)
-subjDataNoAmb.cc <- droplevels(subjDataNoAmb.cc)
-
-# filter data to exclude the missing age participant and the missing response data
-subjDataNoAmb.cc <- subjDataNoAmb |> dplyr::filter(!is.na(Age) & !is.na(TrialNumber))
-
-# now drop any unused levels
-subjDataNoAmb <- droplevels(subjDataNoAmb)
-stimDataNoAmb <- droplevels(stimDataNoAmb)
-subjDataNoAmb.cc <- droplevels(subjDataNoAmb.cc)
-
-```
-
-## impute missing age data
+## filter and impute missing age data
 
 ```{R}
+
+# filter data to exclude the missing age participant and the missing response data
+subjDataNoAmb.cc <- subjDataNoAmb |> dplyr::filter(!is.na(Age) & !is.na(TrialNumber))
 
 # first create a participant-level dataset
 subj_dat <- subjData |> dplyr::select(ID, Age) |> dplyr::distinct()
@@ -560,6 +624,53 @@ subjDataNoAmb.imp <- lapply(subjData.imp,
                                 dplyr::filter(UASLAeq != "Baseline") |>
                                 droplevels()
                             } )
+
+```
+
+## rescaling variables
+
+```{r}
+
+out <- standardise_list(list(subjData, subjDataNoAmb, subjDataNoAmb.cc, subjDataNoAmb.med, subjDataNoAmb.imp),
+                        vars = c("TrialNumber"),
+                        scale = TRUE)
+
+subjData <- out[[1]]
+subjDataNoAmb <- out[[2]]
+subjDataNoAmb.cc <- out[[3]]
+subjDataNoAmb.med <- out[[4]]
+subjDataNoAmb.imp <- out[[5]]
+
+# rescale trial number variables separately for each session part
+subjData <- rbind(subjData[subjData$SessionPart == "A", ] |>
+                    dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)),
+                    subjData[subjData$SessionPart == "B", ] |>
+                    dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE))) |>
+  droplevels()
+
+subjDataNoAmb <- rbind(subjDataNoAmb[subjDataNoAmb$SessionPart == "A", ] |>
+                         dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)),
+                    subjDataNoAmb[subjDataNoAmb$SessionPart == "B", ] |>
+                      dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE))) |>
+  droplevels()
+
+subjDataNoAmb.cc <- rbind(subjDataNoAmb.cc[subjDataNoAmb.cc$SessionPart == "A", ] |>
+                            dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)),
+                    subjDataNoAmb.cc[subjDataNoAmb.cc$SessionPart == "B", ] |>
+                      dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE))) |>
+  droplevels()
+
+subjDataNoAmb.med <- rbind(subjDataNoAmb.med[subjDataNoAmb.med$SessionPart == "A", ] |>
+                             dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)),
+                    subjDataNoAmb.med[subjDataNoAmb.med$SessionPart == "B", ] |>
+                      dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE))) |>
+  droplevels()
+
+subjDataNoAmb.imp <- rbind(subjDataNoAmb.imp[subjDataNoAmb.imp$SessionPart == "A", ] |>
+                             dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)),
+                    subjDataNoAmb.imp[subjDataNoAmb.imp$SessionPart == "B", ] |>
+                      dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE))) |>
+  droplevels()
 
 ```
 

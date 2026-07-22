@@ -4,7 +4,7 @@
 # copy from an earlier session. Update the date string whenever you save a
 # new version of this file.
 # ============================================================================
-message("cv_glmm_gee.R loaded -- version 2026-07-17")
+message("cv_glmmTMB.R loaded -- version 2026-07-22")
 
 # ============================================================================
 # cv_glmmTMB(): grouped K-fold cross-validation for glmmTMB models, returning
@@ -303,7 +303,8 @@ cv_glmmTMB <- function(model,
     fold_rmse <- vapply(fold_out, function(f) sqrt(mean((f$y - f$mu)^2, na.rm = TRUE)), numeric(1))
   }
   if ("rmse" %in% metrics) {
-    result$rmse <- sqrt(mean(resid^2, na.rm = TRUE))
+    result$mse  <- mean(resid^2, na.rm = TRUE)   # = CV Brier score when y_all is binary (0/1)
+    result$rmse <- sqrt(result$mse)
     if (se) {
       # Fold-level SE, not sd(resid^2)/sqrt(n_obs): residuals within a fold are
       # correlated (they share that fold's fitted-model estimation error), so
@@ -449,6 +450,10 @@ cv_aggregated_metrics <- function(cv_result, backtransform_fn = NULL, bind = TRU
   resid <- agg$y_mean - agg$mu_mean
   agg_result <- list(
     n_groups     = nrow(agg),
+    mse_agg      = mean(resid^2),   # NOT "Brier score" -- y_mean is a group-averaged
+    # proportion here, not a single binary draw; that
+    # distinction only holds at the row level (see `mse`
+    # in cv_glmgee()/cv_glmmTMB()'s own output).
     rmse_agg     = sqrt(mean(resid^2)),
     mae_agg      = mean(abs(resid)),
     r2_agg       = 1 - sum(resid^2) / sum((agg$y_mean - mean(agg$y_mean))^2),
@@ -498,11 +503,11 @@ compare_cv_results <- function(cv_results, model_names = NULL) {
   scalar_fields <- c(
     "K_requested", "K_used", "n_obs",
     "elpd", "elpd_se",
-    "rmse", "rmse_se", "mae", "mae_se",
+    "mse", "rmse", "rmse_se", "mae", "mae_se",
     "r2_cv", "r2_cv_se", "r2_cv_gelman",
     "rmse_raw", "rmse_raw_se", "mae_raw", "mae_raw_se",
     "r2_cv_raw", "r2_cv_gelman_raw",
-    "n_groups", "rmse_agg", "mae_agg", "r2_agg",
+    "n_groups", "mse_agg", "rmse_agg", "mae_agg", "r2_agg",
     "rmse_agg_raw", "mae_agg_raw", "r2_agg_raw"
   )
   
@@ -1721,6 +1726,7 @@ cv_glmgee <- function(model,
   
   if ("rmse" %in% metrics) {
     mse <- mean(resid^2, na.rm = TRUE)
+    result$mse  <- mse   # = CV Brier score when y_all is binary (0/1)
     result$rmse <- sqrt(mse)
     if (se) {
       mse_se <- stats::sd(resid^2, na.rm = TRUE) / sqrt(n_obs)
