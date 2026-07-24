@@ -1,3 +1,6 @@
+require(insight)
+require(car)
+
 # =============================================================================
 # glmgee_vif(): collinearity diagnostics for glmtoolbox::glmgee models
 #

@@ -1,10 +1,17 @@
+require(lme4)
+require(glmmTMB)
+require(MASS)
+require(insight)
+require(future)
+require(glmtoolbox)
+
 # ============================================================================
 # VERSION STAMP -- prints on source() so you can confirm at a glance that
 # what's loaded matches what you think you just saved, rather than a stale
 # copy from an earlier session. Update the date string whenever you save a
 # new version of this file.
 # ============================================================================
-message("cv_glmmTMB.R loaded -- version 2026-07-22")
+message("cv_glmmTMB.R loaded -- version 2026-07-23")
 
 # ============================================================================
 # cv_glmmTMB(): grouped K-fold cross-validation for glmmTMB models, returning
@@ -484,6 +491,89 @@ cv_aggregated_metrics <- function(cv_result, backtransform_fn = NULL, bind = TRU
 }
 
 # ----------------------------------------------------------------------------
+# cv_binary_metrics(): post-hoc diagnostics for BINARY (0/1) outcomes only,
+# computed from an existing cv_result's pooled held-out y_all/mu_all -- same
+# design pattern as cv_aggregated_metrics() (no refitting, operates on what's
+# already there). Explicitly NOT run automatically inside cv_glmgee()/
+# cv_glmmTMB(), since none of these are meaningful for continuous/count y.
+#
+# Three things, each answering a different question Brier score/MSE alone
+# doesn't separate out:
+#   - auc: discrimination (ranking ability), via the exact Mann-Whitney-U
+#     formula -- no external package dependency, handles ties via average
+#     ranks the same way a Wilcoxon rank-sum test would.
+#   - calibration_intercept/calibration_slope: are the held-out predicted
+#     probabilities themselves trustworthy on their own scale? Standard
+#     "calibration-in-the-large" framework (Van Calster et al.; Steyerberg's
+#     clinical-prediction-model literature). Fit as y ~ logit(mu) on the link
+#     scale. slope ~= 1 and intercept ~= 0 indicate good calibration; slope
+#     substantially < 1 indicates the held-out predictions are systematically
+#     overconfident (too extreme) relative to what the data supports.
+#   - logloss: held-out Bernoulli log-density, summed and averaged -- the
+#     direct predictive-likelihood analogue of elpd for a binary outcome,
+#     and simpler than gee_pseudo_loglik() since it needs only the marginal
+#     Bernoulli density at each point, not the working-correlation matrix.
+#     Penalizes confident-and-wrong predictions far more harshly than Brier
+#     score does.
+# ----------------------------------------------------------------------------
+cv_binary_metrics <- function(cv_result, eps = 1e-6, bind = TRUE) {
+  y  <- cv_result$y_all
+  mu <- cv_result$mu_all
+  if (is.null(y) || is.null(mu)) {
+    stop("cv_result must come from cv_glmgee()/cv_glmmTMB(..., return_predictions = TRUE).")
+  }
+  if (!all(y %in% c(0, 1))) {
+    stop("cv_binary_metrics() requires binary (0/1) y_all -- AUC, calibration, and this ",
+         "form of log-loss are not meaningful for continuous/count outcomes.")
+  }
+  
+  n_pos <- sum(y == 1); n_neg <- sum(y == 0)
+  if (n_pos == 0 || n_neg == 0) stop("y_all contains only one class -- AUC is undefined.")
+  
+  # AUC via Mann-Whitney U: P(mu | y=1  >  mu | y=0), tie-corrected via
+  # average ranks (rank()'s default), exactly equivalent to a Wilcoxon
+  # rank-sum statistic rescaled to [0,1].
+  r   <- rank(mu)
+  auc <- (sum(r[y == 1]) - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
+  
+  # Tjur's D (Tjur, 2009): mean-separation discrimination -- direct CV
+  # counterpart to performance::r2_tjur()'s in-sample value, e.g. in
+  # geeModelPerformance()'s own "D" column. NOT a proper scoring rule (same
+  # caveat as AUC), but pairing it with its in-sample counterpart lets you
+  # see directly whether discrimination holds up out-of-sample.
+  tjur_d <- mean(mu[y == 1]) - mean(mu[y == 0])
+  
+  mu_c <- pmin(pmax(mu, eps), 1 - eps)   # avoid -Inf/Inf at exact 0/1 boundaries
+  
+  cal_fit <- tryCatch(
+    stats::glm(y ~ stats::qlogis(mu_c), family = stats::binomial()),
+    error = function(e) NULL
+  )
+  cal_intercept <- if (!is.null(cal_fit)) unname(stats::coef(cal_fit)[1]) else NA_real_
+  cal_slope     <- if (!is.null(cal_fit)) unname(stats::coef(cal_fit)[2]) else NA_real_
+  
+  logloss <- -mean(y * log(mu_c) + (1 - y) * log(1 - mu_c))
+  
+  binary_result <- list(
+    auc = auc, n_pos = n_pos, n_neg = n_neg, tjur_d = tjur_d,
+    calibration_intercept = cal_intercept,
+    calibration_slope     = cal_slope,
+    logloss = logloss
+  )
+  
+  if (!bind) return(binary_result)   # old standalone-list behavior
+  
+  # default: merge into a COPY of cv_result, same pattern as
+  # cv_aggregated_metrics(..., bind = TRUE) -- one combined object per model,
+  # so compare_cv_results() needs no model-type detection logic at all, just
+  # its existing graceful handling of fields that are present for some
+  # models and absent for others (same as elpd already is).
+  result <- cv_result
+  result[names(binary_result)] <- binary_result
+  result
+}
+
+# ----------------------------------------------------------------------------
 # Combines multiple cv_glmmTMB()/cv_glmgee() results (ideally already run
 # through cv_aggregated_metrics(..., bind = TRUE) so both row-level and
 # aggregate metrics are present) into ONE data frame, one row per model, for
@@ -507,6 +597,7 @@ compare_cv_results <- function(cv_results, model_names = NULL) {
     "r2_cv", "r2_cv_se", "r2_cv_gelman",
     "rmse_raw", "rmse_raw_se", "mae_raw", "mae_raw_se",
     "r2_cv_raw", "r2_cv_gelman_raw",
+    "auc", "tjur_d", "calibration_intercept", "calibration_slope", "logloss",
     "n_groups", "mse_agg", "rmse_agg", "mae_agg", "r2_agg",
     "rmse_agg_raw", "mae_agg_raw", "r2_agg_raw"
   )
@@ -1107,6 +1198,142 @@ cluster_boot_avg_predictions <- function(model, full_data, by, id_col,
   if (return_varcorr) attr(result, "varcorr_boot") <- Filter(Negate(is.null), boot_vc)
   if (return_fixef)   attr(result, "fixef_boot")    <- Filter(Negate(is.null), boot_fx)
   if (return_raw)      attr(result, "raw_boot")     <- long_df
+  result
+}
+
+# ----------------------------------------------------------------------------
+# GEE version of cluster_boot_avg_predictions() above. The glmmTMB version
+# does not work on glmgee objects (family(model) has no method for glmgee,
+# and glmgee has no dispformula/ziformula/random effects) -- this rebuilds
+# the same subject-level cluster bootstrap for glmgee specifically, reusing
+# every glmgee-specific fix already established elsewhere in this file:
+#   - model$family$family, not family(model) (see get_response_bounds, and
+#     the earlier bug in cv_glmgee_pseudo_loglik_sanity_check)
+#   - id passed via NSE (as.name), not as a bare column (see cv_glmgee header)
+#   - corstr extracted from the ORIGINAL model and passed through explicitly
+#     to every refit -- glmgee() silently defaults to independence otherwise
+#     (see cv_glmgee_pseudo_loglik's corstr bug and fix)
+#
+# No return_varcorr equivalent: GEE has no random effects/variance components
+# to bootstrap. return_fixef uses fit_r$coefficients directly (confirmed
+# present via names(fit_test) earlier), not summary()/coef() -- avoiding the
+# summary.glmgee() print/cost overhead already diagnosed in this file.
+#
+# UNVERIFIED ASSUMPTION, flagged rather than asserted: marginaleffects::
+# avg_predictions() is assumed to support glmgee objects the same way it
+# supports glmmTMB. insight::get_predicted() was noted earlier to work for
+# GEE, and marginaleffects leans on insight internally, so this is plausible
+# -- but it has NOT been directly confirmed in this file the way the glmmTMB
+# path has been exercised repeatedly. Given each replicate here means a
+# genuine refit (the expensive part), test on R = 2-3 first and inspect the
+# output structure before committing to R = 200, the same "cheap check
+# before expensive run" pattern used for cv_glmgee_pseudo_loglik earlier.
+# ----------------------------------------------------------------------------
+cluster_boot_avg_predictions_gee <- function(model, full_data, by, id_col,
+                                             R = 100, level = 0.95, seed = NULL,
+                                             return_raw = FALSE, return_fixef = FALSE,
+                                             workers = NULL) {
+  
+  ids  <- unique(full_data[[id_col]])
+  form <- tryCatch(model$formula, error = function(e) stats::formula(model))
+  fam  <- tryCatch(model$family,  error = function(e) NULL)
+  if (is.null(fam)) stop("Could not extract `family` from `model`.")
+  
+  model_corstr <- tryCatch(model$corstr, error = function(e) NULL)
+  if (is.null(model_corstr)) {
+    stop("Could not extract `corstr` from `model` via model$corstr -- accessor unconfirmed. ",
+         "Run `model$corstr` directly and check what it returns before proceeding.")
+  }
+  
+  if (is.null(workers)) workers <- max(1, parallelly::availableCores() - 1)
+  old_plan <- future::plan(future::multisession, workers = workers)
+  on.exit(future::plan(old_plan), add = TRUE)
+  
+  boot_out <- future.apply::future_lapply(seq_len(R), function(r) {
+    library(glmtoolbox)
+    
+    boot_ids  <- sample(ids, length(ids), replace = TRUE)
+    boot_rows <- lapply(seq_along(boot_ids), function(i) {
+      d <- full_data[full_data[[id_col]] == boot_ids[i], ]
+      d[[id_col]] <- paste0(d[[id_col]], "_rep", i)  # distinct cluster per draw --
+      # same rationale as the
+      # glmmTMB version: a
+      # duplicated subject must
+      # NOT be treated as one
+      # larger cluster
+      d
+    })
+    boot_data <- do.call(rbind, boot_rows)
+    
+    fit_err <- NULL
+    fit_r <- tryCatch(
+      do.call(glmtoolbox::glmgee,
+              list(formula = form, id = as.name(id_col), family = fam,
+                   corstr = model_corstr, data = boot_data)),
+      error = function(e) { fit_err <<- conditionMessage(e); NULL }
+    )
+    if (is.null(fit_r)) return(list(.failed = TRUE, .error = paste("fit:", fit_err)))
+    
+    # Predict on the SAME resampled+relabeled data the model was just fit on
+    # -- same rationale as the glmmTMB version (avg_predictions() needs each
+    # row's id to match a fitted level in fit_r).
+    pred_err <- NULL
+    pred_r <- tryCatch(
+      marginaleffects::avg_predictions(fit_r, newdata = boot_data, by = by,
+                                       vcov = FALSE, type = "response"),
+      error = function(e) { pred_err <<- conditionMessage(e); NULL }
+    )
+    if (is.null(pred_r)) return(list(.failed = TRUE, .error = paste("predict:", pred_err)))
+    
+    out <- list(
+      .failed = FALSE,
+      pred = as.data.frame(pred_r)[, c(by, "estimate"), drop = FALSE]
+    )
+    if (return_fixef) {
+      out$fx <- tryCatch(fit_r$coefficients, error = function(e) NULL)
+    }
+    out
+  }, future.seed = if (is.null(seed)) TRUE else seed)
+  
+  is_failure  <- vapply(boot_out, function(f) isTRUE(f$.failed), logical(1))
+  boot_errors <- lapply(boot_out[is_failure], function(f) f$.error)
+  boot_out    <- boot_out[!is_failure]
+  
+  if (length(boot_out) == 0) {
+    stop("All ", R, " bootstrap replicates failed.",
+         if (length(boot_errors) > 0) paste0(" First error encountered: ", boot_errors[[1]]) else "")
+  }
+  
+  n_fail <- sum(is_failure)
+  if (n_fail > 0) {
+    message(n_fail, " of ", R, " bootstrap replicates failed to fit/predict.")
+    err_table <- sort(table(unlist(boot_errors)), decreasing = TRUE)
+    message("Failure messages (count x message):")
+    for (i in seq_along(err_table)) message("  ", err_table[i], " x ", names(err_table)[i])
+  }
+  
+  boot_ests <- lapply(boot_out, `[[`, "pred")
+  boot_fx   <- if (return_fixef) lapply(boot_out, `[[`, "fx") else NULL
+  
+  long_df <- do.call(rbind, boot_ests)
+  grp_key <- interaction(long_df[by], drop = TRUE)
+  alpha   <- 1 - level
+  
+  result <- do.call(rbind, lapply(split(long_df, grp_key), function(sub) {
+    data.frame(
+      sub[1, by, drop = FALSE],
+      n_boot   = nrow(sub),
+      estimate = mean(sub$estimate, na.rm = TRUE),
+      sd_boot  = stats::sd(sub$estimate, na.rm = TRUE),
+      lower    = stats::quantile(sub$estimate, probs = alpha / 2, na.rm = TRUE),
+      upper    = stats::quantile(sub$estimate, probs = 1 - alpha / 2, na.rm = TRUE),
+      row.names = NULL
+    )
+  }))
+  
+  rownames(result) <- NULL
+  if (return_fixef) attr(result, "fixef_boot") <- Filter(Negate(is.null), boot_fx)
+  if (return_raw)   attr(result, "raw_boot")   <- long_df
   result
 }
 

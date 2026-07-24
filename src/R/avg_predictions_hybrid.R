@@ -1,3 +1,5 @@
+require(marginaleffects)
+
 #' Average predictions with a hybrid CI: response-scale point estimate,
 #' link-scale-derived (bounded) interval shape re-centred on that estimate.
 #'
@@ -7,8 +9,20 @@
 #' 'by' must be an explicit character vector of grouping columns (not by=TRUE),
 #' since the two internal calls need to be merged row-for-row.
 #'
-#' This is a pragmatic display fix, not a formally derived CI -- it does not
-#' correspond to inverting a known test statistic. Treat it as such if reporting.
+#' Point estimate: arithmetic mean of response-scale predictions (type="response"),
+#' the correct estimand for an averaged/marginal prediction.
+#'
+#' Interval: built on the link (logit) scale, where the Wald normal approximation
+#' is better behaved, using the critical value implied by marginaleffects' own
+#' link-scale interval (so it automatically respects whatever conf_level/df was
+#' used), re-centred on qlogis(response-scale estimate), then back-transformed.
+#' This guarantees the interval stays within (0,1) and always brackets the
+#' point estimate.
+#'
+#' This is a pragmatic, coherence-motivated construction, not a formally
+#' derived or validated CI -- treat it as such if reporting (e.g. describe the
+#' construction explicitly in methods text rather than presenting it as a
+#' standard named interval).
 #'
 #' @param ... arguments passed through to marginaleffects::avg_predictions()
 #' @param recentre if TRUE (default), return the merged/recentred table.
@@ -20,9 +34,10 @@
 #'   these are typically "estimate", "conf.low", "conf.high" in the underlying
 #'   data frame even though the printed table shows "Estimate", "2.5 %", "97.5 %".
 #'
-#' @return data.frame with the 'by' columns, response-scale 'estimate', and
-#'   recentred 'conf.low'/'conf.high'; other columns (p-value, S, etc.) from
-#'   the response-scale call are carried through unchanged.
+#' @return data.frame with the 'by' columns, response-scale 'estimate',
+#'   recentred 'conf.low'/'conf.high', diagnostic SE columns
+#'   (std.error.response_delta, std.error.link_delta, std.error.hybrid_implied),
+#'   and any other columns (p-value, S, etc.) from the response-scale call.
 avg_predictions_hybrid <- function(..., recentre = TRUE,
                                    est_col = "estimate",
                                    low_col = "conf.low",
@@ -51,16 +66,29 @@ avg_predictions_hybrid <- function(..., recentre = TRUE,
   stopifnot(all(c(by_cols, est_col) %in% names(resp)),
             all(c(by_cols, est_col, low_col, high_col, "std.error") %in% names(link)))
   
-  # rename immediately on entry to m, so nothing downstream is ambiguous
+  # rename SE columns immediately on entry, so nothing downstream is ambiguous
+  # about which delta-method SE (response-scale vs link-scale) it's looking at
   resp_se <- resp[, c(by_cols, "std.error")]
   names(resp_se)[names(resp_se) == "std.error"] <- "std.error.response_delta"
   
   link_renamed <- link[, c(by_cols, est_col, low_col, high_col, "std.error")]
   names(link_renamed)[names(link_renamed) == "std.error"] <- "std.error.link_delta"
   
+  # --- merge 1: response estimate + link estimate/CI/SE ---
   m <- merge(resp[, c(by_cols, est_col)], link_renamed,
              by = by_cols, suffixes = c(".resp", ".link"))
+  if (nrow(m) != nrow(resp)) {
+    warning(nrow(resp) - nrow(m), " group(s) dropped when merging response- and ",
+            "link-scale results -- inspect for mismatched groups between the two ",
+            "avg_predictions() calls.")
+  }
+  
+  # --- merge 2: bring in the response-scale SE for comparison ---
   m <- merge(m, resp_se, by = by_cols)
+  if (nrow(m) != nrow(resp)) {
+    warning(nrow(resp) - nrow(m), " group(s) dropped when merging in ",
+            "std.error.response_delta.")
+  }
   
   est_resp <- m[[paste0(est_col, ".resp")]]
   est_link <- m[[paste0(est_col, ".link")]]
@@ -69,7 +97,7 @@ avg_predictions_hybrid <- function(..., recentre = TRUE,
   # inherits whatever conf_level/df was actually used, not hardcoded
   mult <- (m[[high_col]] - est_link) / m$std.error.link_delta
   
-  target_link <- qlogis(est_resp)
+  target_link <- qlogis(est_resp)   # response-scale estimate, moved to link scale
   
   m$estimate  <- est_resp
   m$conf.low  <- plogis(target_link - mult * m$std.error.link_delta)
@@ -79,10 +107,9 @@ avg_predictions_hybrid <- function(..., recentre = TRUE,
   # using the SAME critical value as the interval itself (mult), so it
   # stays correct at any conf_level rather than assuming 95%
   m$std.error.hybrid_implied <- (m$conf.high - m$conf.low) / (2 * mult)
-  m$lower_halfwidth <- m$estimate - m$conf.low
-  m$upper_halfwidth <- m$conf.high - m$estimate
-  m$asymmetry_ratio  <- m$upper_halfwidth / m$lower_halfwidth
   
+  # sanity guard: should hold by construction, but catches coding errors
+  # or est_resp exactly 0/1 (qlogis(-Inf)/(Inf))
   bad <- !is.finite(m$conf.low) | !is.finite(m$conf.high) |
     m$conf.low > m$estimate | m$conf.high < m$estimate
   if (any(bad)) {
@@ -95,12 +122,19 @@ avg_predictions_hybrid <- function(..., recentre = TRUE,
   
   out <- m[, c(by_cols, "estimate", "conf.low", "conf.high",
                "std.error.response_delta", "std.error.link_delta",
-               "std.error.hybrid_implied",
-               "lower_halfwidth", "upper_halfwidth", "asymmetry_ratio")]
+               "std.error.hybrid_implied")]
+  
+  # --- merge 3: bring in any remaining columns (p-value, S, df, etc.) ---
   if (length(extra) > 0) {
     out <- merge(out, resp[, c(by_cols, extra)], by = by_cols)
+    if (nrow(out) != nrow(resp)) {
+      warning(nrow(resp) - nrow(out), " group(s) dropped when merging in ",
+              "extra columns from the response-scale call.")
+    }
   }
   
+  # restore the row order from the original response-scale call, since
+  # merge() doesn't preserve it
   out <- out[match(interaction(resp[by_cols]), interaction(out[by_cols])), ]
   rownames(out) <- NULL
   
