@@ -223,7 +223,7 @@ geeParams <- function(geeMod, ci=0.95, exponentiate=FALSE, varest='bias-correcte
   # Shannon information or 'surprisal' S-value with base 2 (Greenland, 2019)
   geeModParams$S2.value <- -log2(geeModParams$p.value)
   
-  # Bayes factor upper bound (Benjamin & Berger, 2016) - evidence in favour of the alternative hypothesis over the null hypothesis, based on the     p-value
+  # Bayes factor upper bound (Benjamin & Berger, 2016) - evidence in favour of the alternative hypothesis over the null hypothesis, based on the p-value
   geeModParams$Bfb <- 1/(-exp(1)*geeModParams$p.value*log(geeModParams$p.value))
   
   # Posterior probability from Bayes factor upper bound - probability that the alternative hypothesis is true given the data, assuming a prior probability of 0.5 for the alternative hypothesis
