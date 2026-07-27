@@ -631,6 +631,33 @@ subjDataNoAmb.imp <- lapply(subjData.imp,
 
 ```{r}
 
+# rescale variables
+
+centre_vars = c("UASLAeqMaxLR", "UASLAEMaxLR", "UASEPNLMaxLR",
+                 "LAELAF50diff", "LAELAF90diff", "LAELAeqdiff",
+                 "EPNLLAF50diff", "UASDisc0p1LAEMaxLR", "UASDisc0p5LAEMaxLR",
+                 "UASLoudECMAPowAvgBin",  "AmbLAeqMaxLR", "AmbLAF50ExMaxLR",
+                 "Detect0p5dBIntMaxLR", "Detect0p1dBIntMaxLR",
+                 "Detect0p5dBIntEx50MaxLR", "Detect0p1dBMaxIntMaxLR",
+                 "UASTonalAwSHMInt05ExMaxLR", "UASSharpAurISO3PowAvgMaxLR",
+                 "UASSharpAurISO305ExMaxLR",
+                 "UASTonLdECMAPowAvgBin", "UASLoudECMAPowAvgBin",
+                 "dTonalSHMIntAvgMaxLR", "dSharpAurISO3PowAvgMaxLR",
+                 "dSharpAurSHMPowAvgMaxLR")
+
+out <- standardise_list(list(subjData, subjDataNoAmb, subjDataNoAmb.cc,
+                             subjDataNoAmb.med, stimData, stimDataNoAmb),
+                        vars = centre_vars,
+                        scale = FALSE)
+
+subjData <- out[[1]]
+subjDataNoAmb <- out[[2]]
+subjDataNoAmb.cc <- out[[3]]
+subjDataNoAmb.med <- out[[4]]
+stimData <- out[[5]]
+stimDataNoAmb <- out[[6]]
+
+
 out <- standardise_list(list(subjData, subjDataNoAmb, subjDataNoAmb.cc, subjDataNoAmb.med, subjDataNoAmb.imp),
                         vars = c("TrialNumber"),
                         scale = TRUE)

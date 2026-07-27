@@ -1,5 +1,5 @@
 ---
-title: "REFMAP listening test 1 analysis: Regression modelling for annoyance"
+title: "REFMAP listening test 2 analysis: Regression modelling for annoyance"
 output: html_document
 date: "2025-02-08"
 ---
@@ -116,8 +116,8 @@ if (savedata){
   outDataPath <- utils::choose.dir(caption="Select output folder to save data")
 }
 
-set.seed(5419498)
-cv_seed <- 999
+set.seed(491378)
+cv_seed <- 777777
 cv_folds <- 40
 
 ```

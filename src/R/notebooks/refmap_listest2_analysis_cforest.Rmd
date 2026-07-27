@@ -2857,6 +2857,7 @@ if (savedata){
 ### Initialise results output variables
 
 ```{r}
+
 if (!loadExisting) {
   resdHiAnnoyFit <- data.frame(RMSE = numeric(),
                              MAE = numeric(),

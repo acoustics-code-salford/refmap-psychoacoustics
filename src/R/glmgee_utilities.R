@@ -30,14 +30,8 @@ geeCorStr <- function(formula, data, family, id,
       warn_msgs <- character(0)
       
       fit <- withCallingHandlers({
-        do.call(glmtoolbox::glmgee, c(
-          list(formula = formula,
-               data    = data,
-               family  = family,            # evaluated object embeds literally in the call
-               id      = quote(.geeCorStr_id),  # kept as a symbol, resolved via data as before
-               corstr  = cs),
-          list(...)
-        ))
+        glmtoolbox::glmgee(formula = formula, data = data, family = family,
+                           id = .geeCorStr_id, corstr = cs, ...)
       }, warning = function(w) {
         warn_msgs <<- c(warn_msgs, conditionMessage(w))
         invokeRestart("muffleWarning")
@@ -48,6 +42,12 @@ geeCorStr <- function(formula, data, family, id,
         stop(paste("Non-convergence detected:", paste(unique(warn_msgs), collapse = "; ")))
       }
       
+      # Tag with the true family name directly, since we already know it here.
+      # Avoids both (a) inspecting .x$call$family post-hoc, which is fragile
+      # once family is passed as a variable, and (b) do.call(), which was
+      # found to change how glmgee internally stores $y (vector vs matrix)
+      # and broke performance:: metrics downstream for true binomial fits.
+      attr(fit, "gee_family") <- family$family
       fit
     }, error = function(e) {
       warning(sprintf("Model failed for corstr = '%s': %s", cs, conditionMessage(e)))
@@ -77,18 +77,20 @@ geeCorStr <- function(formula, data, family, id,
 ## Compiling GEE GLM model performance parameters
 geeModelPerformance <- function(..., verbose=FALSE){
   
-  if (length(list(...)) == 1){
-    
-    model_objects <- insight::ellipsis_info(..., ..., only_models = TRUE,
-                                            verbose=verbose)
-    model_objects <- model_objects[1]
-    
-  } else{
-    
-    model_objects <- insight::ellipsis_info(..., only_models = TRUE,
-                                            verbose=verbose)
-    
-  }
+  model_objects <- list(...)
+  
+  # if (length(list(...)) == 1){
+  #   
+  #   model_objects <- insight::ellipsis_info(..., ..., only_models = TRUE,
+  #                                           verbose=verbose)
+  #   model_objects <- model_objects[1]
+  #   
+  # } else{
+  #   
+  #   model_objects <- insight::ellipsis_info(..., only_models = TRUE,
+  #                                           verbose=verbose)
+  #   
+  # }
   
   # ensure proper object names
   dot_names <- sapply(match.call(expand.dots = FALSE)[["..."]], as.character)
@@ -107,17 +109,20 @@ geeModelPerformance <- function(..., verbose=FALSE){
   
   # function to get the correct family name
   get_family_name <- function(x) {
+    # Preferred: an explicit tag set by geeCorStr at fit time. Sidesteps
+    # call/family-object inspection entirely, which is fragile once family
+    # is passed as a variable inside a wrapper function.
+    tagged <- attr(x, "gee_family")
+    if (!is.null(tagged)) return(tagged)
+    
     fam <- x$call$family
-    # Built via do.call: $family is already the literal family object
     if (is.list(fam) && !is.null(fam$family)) {
       return(fam$family)
     }
-    # Otherwise it's a language object (a call or symbol) - try to resolve it
     val <- tryCatch(eval(fam, envir = environment(x$formula)), error = function(e) NULL)
     if (is.list(val) && !is.null(val$family)) {
       return(val$family)
     }
-    # Last resort: the fitted family (may be demoted, e.g. quasibinomial -> binomial)
     x$family$family
   }
   
@@ -164,9 +169,9 @@ geeModelPerformance <- function(..., verbose=FALSE){
       
     }
     dat <- data.frame(R2=R2,
-                      RMSE=performance::rmse(.x, verbose=verbose),
-                      MSE=performance::mse(.x, verbose=verbose),
-                      MAE=performance::mae(.x, verbose=verbose),
+                      RMSE = sqrt(mean((.x$y - .x$fitted.values)^2, na.rm = TRUE)),
+                      MSE  = mean((.x$y - .x$fitted.values)^2, na.rm = TRUE),
+                      MAE  = mean(abs(.x$y - .x$fitted.values), na.rm = TRUE),
                       H=H,
                       D=D,
                       GPAIC=glmtoolbox::AGPC(.x, verbose=verbose),

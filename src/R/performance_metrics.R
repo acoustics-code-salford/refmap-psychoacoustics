@@ -6,18 +6,20 @@ require(performance)
 ## GEE Rsquared (Zheng, 2000)
 geeRsquared <- function(...){
   
-  if (length(list(...)) == 1){
-    
-    model_objects <- insight::ellipsis_info(..., ..., only_models = TRUE,
-                                            verbose=FALSE)
-    model_objects <- model_objects[1]
-    
-  } else{
-    
-    model_objects <- insight::ellipsis_info(..., only_models = TRUE,
-                                            verbose=FALSE)
-    
-  }
+  model_objects <- list(...)
+  
+  # if (length(list(...)) == 1){
+  #   
+  #   model_objects <- insight::ellipsis_info(..., ..., only_models = TRUE,
+  #                                           verbose=FALSE)
+  #   model_objects <- model_objects[1]
+  #   
+  # } else{
+  #   
+  #   model_objects <- insight::ellipsis_info(..., only_models = TRUE,
+  #                                           verbose=FALSE)
+  #   
+  # }
   
   # ensure proper object names
   dot_names <- sapply(match.call(expand.dots = FALSE)[["..."]], as.character)
@@ -57,12 +59,14 @@ geeEntropy <- function(..., varest = c("robust", "df-adjusted", "model", "bias-c
   
   varest <- match.arg(varest)
   
-  if (length(list(...)) == 1) {
-    model_objects <- insight::ellipsis_info(..., ..., only_models = TRUE, verbose = FALSE)
-    model_objects <- model_objects[1]
-  } else {
-    model_objects <- insight::ellipsis_info(..., only_models = TRUE, verbose = FALSE)
-  }
+  model_objects <- list(...)
+  
+  # if (length(list(...)) == 1) {
+  #   model_objects <- insight::ellipsis_info(..., ..., only_models = TRUE, verbose = FALSE)
+  #   model_objects <- model_objects[1]
+  # } else {
+  #   model_objects <- insight::ellipsis_info(..., only_models = TRUE, verbose = FALSE)
+  # }
   
   dot_names <- sapply(match.call(expand.dots = FALSE)[["..."]], as.character)
   check_object_names <- insight::compact_character(names(model_objects))
@@ -145,16 +149,19 @@ epsilonRMSE <- function(measured_data, predicted_data, measured_target=NULL,
 
 ## (Herron) estimated percentage correct predictions (ePCP) for GLMM models
 glmmPCP <- function(...){
-  if (length(list(...)) == 1){
-    
-    model_objects <- insight::ellipsis_info(..., ..., only_models = TRUE)
-    model_objects <- model_objects[1]
-    
-  } else{
-    
-    model_objects <- insight::ellipsis_info(..., only_models = TRUE)
-    
-  }
+  
+  model_objects <- list(...)
+  
+  # if (length(list(...)) == 1){
+  #   
+  #   model_objects <- insight::ellipsis_info(..., ..., only_models = TRUE)
+  #   model_objects <- model_objects[1]
+  #   
+  # } else{
+  #   
+  #   model_objects <- insight::ellipsis_info(..., only_models = TRUE)
+  #   
+  # }
   
   # ensure proper object names
   dot_names <- sapply(match.call(expand.dots = FALSE)[["..."]], as.character)
