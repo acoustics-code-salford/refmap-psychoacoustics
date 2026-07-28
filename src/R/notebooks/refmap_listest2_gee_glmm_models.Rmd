@@ -2429,11 +2429,10 @@ foldid <- stim_folds[as.character(StimID_kept)]
 
 stopifnot(length(foldid) == nrow(X_matrix), length(y_matrix) == nrow(X_matrix))
 
-
 set.seed(808)
 m5b <- glmnet::cv.glmnet(x=X_matrix, y=y_matrix, family=quasibinomial(link='logit'),
                          alpha=0.5, foldid=foldid, type.measure='deviance', standardize=TRUE,
-                         lambda.min.ratio = 1e-40, nlambda = 500)
+                         lambda.min.ratio = 1e-100, nlambda = 500)
 
 coef(m5b, s = "lambda.min")
 coef(m5b, s = "lambda.1se")
@@ -3027,7 +3026,7 @@ coefficient_paths <- broom::tidy(m7c$glmnet.fit, return_zeros=TRUE) |>
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_line(linewidth = 0.4, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
-  scale_color_manual(values = mycolours) +
+  # scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m7c$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
@@ -3550,7 +3549,7 @@ stopifnot(length(foldid) == nrow(X_matrix), length(y_matrix) == nrow(X_matrix))
 set.seed(808)
 m9c <- glmnet::cv.glmnet(x=X_matrix, y=y_matrix, family=quasibinomial(link='logit'),
                          alpha=0.5, foldid=foldid, type.measure='deviance',
-                         standardize=TRUE, lambda.min.ratio = 1e-200, nlambda = 600)
+                         standardize=TRUE, lambda.min.ratio = 1e-300, nlambda = 600)
 
 coef(m9c, s = "lambda.min")
 coef(m9c, s = "lambda.1se")
@@ -3568,7 +3567,7 @@ coefficient_paths <- broom::tidy(m9c$glmnet.fit, return_zeros=TRUE) |>
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_line(linewidth = 0.4, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
-  scale_color_manual(values = mycolours) +
+  # scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m9c$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
@@ -3926,7 +3925,7 @@ coefficient_paths <- broom::tidy(m10c$glmnet.fit, return_zeros=TRUE) |>
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_line(linewidth = 0.4, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
-  scale_color_manual(values = mycolours) +
+  # scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m10c$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
@@ -4615,7 +4614,7 @@ coefficient_paths <- broom::tidy(m11c$glmnet.fit, return_zeros=TRUE) |>
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_line(linewidth = 0.4, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
-  scale_color_manual(values = mycolours) +
+  # scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m11c$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
@@ -6951,7 +6950,7 @@ coefficient_paths <- broom::tidy(m14d$glmnet.fit, return_zeros=TRUE) |>
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_line(linewidth = 0.4, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
-  scale_color_manual(values = mycolours) +
+  # scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m14d$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
@@ -7465,7 +7464,7 @@ coefficient_paths <- broom::tidy(m16c$glmnet.fit, return_zeros=TRUE) |>
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_line(linewidth = 0.4, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
-  scale_color_manual(values = mycolours) +
+  # scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m16c$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
@@ -8149,7 +8148,7 @@ coefficient_paths <- broom::tidy(m18b$glmnet.fit, return_zeros=TRUE) |>
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_line(linewidth = 0.4, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
-  scale_color_manual(values = mycolours) +
+  # scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m18b$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
@@ -9088,7 +9087,6 @@ m19c <- glmtoolbox::glmgee(m19cformula, data=m19Data,
                           corstr='exchangeable')
 
 geeParams(m19c, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
-
 
 ```
 

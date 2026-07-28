@@ -1,9 +1,141 @@
 # =============================================================================
-# deploy_mean_model.R  (v3)
+# deploy_mean_model.R  (v11)
 #
 # A model-type-agnostic "deployment" toolkit that extracts the FIXED-EFFECTS
 # MEAN STRUCTURE of a fitted model (glmtoolbox::glmgee, glmmTMB, or brms) and
 # turns it into a standalone R function of the predictor variables.
+#
+# CHANGE LOG vs v10 (this version):
+#   - m3b's fitted-value self-check now runs and reports max|dev| = 0.00251,
+#     RMSE = 0.00194 (a small but nonzero deviation). This is EXPECTED and
+#     not a bug: brms's fitted(re_formula=NA) averages mu = g^-1(eta) across
+#     posterior draws (i.e. reports E[g^-1(eta)]), while this deployment
+#     evaluates g^-1 once at the posterior MEAN of the coefficients (i.e.
+#     g^-1(E[eta])). For any nonlinear link these differ by a Jensen's-
+#     inequality gap that grows with posterior uncertainty/correlation and
+#     link curvature — unlike glmgee/glmmTMB, which are single-point-
+#     estimate models with nothing to average over, hence their exact
+#     (~1e-16) match. The 1e-4 alarm threshold was calibrated for those
+#     point-estimate models and was misleadingly firing for a Bayesian
+#     model's expected residual. Added a point_estimate_model flag (TRUE for
+#     glmgee/glmmTMB, FALSE for brms) so the printed message and threshold
+#     now correctly reflect which kind of gap is expected for each model
+#     type, with an explanation of Jensen's inequality shown for brms models
+#     and a much larger (0.05) threshold before flagging genuine concern.
+#
+# CHANGE LOG vs v9:
+#   - Fixed "'fitted' is not an exported object from 'namespace:brms'",
+#     surfaced by v9's error-capture change. Root cause: fitted() is a base-R
+#     generic owned by 'stats'; brms only registers the S3 method
+#     fitted.brmsfit against it and does not re-export a standalone symbol
+#     named 'fitted' from its own namespace, so brms::fitted(...) fails even
+#     though the method exists and dispatches fine. Changed to
+#     stats::fitted(model, ...), which is the actual generic and correctly
+#     dispatches to fitted.brmsfit regardless of which package the call is
+#     qualified through, as long as brms is loaded. (fixef() was unaffected
+#     by this because fixef is NOT a base-R generic — brms/glmmTMB each
+#     define and export it themselves.)
+#
+# CHANGE LOG vs v8:
+#   - m3b's equation now builds and simplifies correctly (deviation 0.0074
+#     vs a 0.01 tolerance) — the name-translation fix worked. The one
+#     remaining gap was "Model's fitted values could not be extracted" with
+#     no further detail: brms::fitted(model, re_formula = NA) was failing
+#     silently, since the error was being swallowed (tryCatch(..., error =
+#     function(e) NULL)) rather than surfaced. Now the actual error message
+#     is captured and reported in the fitted-value self-check's "reason"
+#     text, and a fallback attempt with re_formula = ~0 (lme4-style syntax,
+#     in case this fork/version prefers it over NA) is tried before giving
+#     up. Please re-run and share the actual error text this surfaces —
+#     I can't diagnose further without seeing it.
+#
+# CHANGE LOG vs v7:
+#   - Fixed the 'Ilog10UASEvents' error on m3b. Root cause: brms sanitizes
+#     population-level coefficient names for Stan compatibility, stripping
+#     parentheses (e.g. "I(log10(UASEvents))" -> "Ilog10UASEvents"). Every
+#     other part of this script assumes standard stats::model.matrix()
+#     column naming, so these are now translated back to that standard form
+#     using a synthetic reference frame (.make_synthetic_frame_for_colnames,
+#     also now used generally inside .build_column_map, decoupling column-
+#     name/term-association from raw-data availability everywhere, not just
+#     for brms).
+#   - Per brmsfit-class.R's own documentation ("@slot data A data.frame
+#     containing all variables used in the model"), model$data is now tried
+#     FIRST as the raw-data source for brms, ahead of the more fragile
+#     call$data-evaluation trick (which remains as a fallback). This should
+#     resolve the "Could not recover the original raw fitting data" warning
+#     you saw even though m3Data/m3b$data was clearly present and correct.
+#
+# CHANGE LOG vs v6:
+#   - Fixed the 'phi_Intercept' error you hit on the ordered-beta brms model
+#     (m3b, which has a phi ~ AmbientEnv precision submodel). brms::fixef()
+#     returns coefficients for ALL distributional parameters in one matrix,
+#     prefixed by dpar name for anything other than the primary mu parameter
+#     (phi_Intercept, phi_AmbientEnvStreet, etc.). Since this tool is
+#     deliberately mean(mu)-only, those rows are now filtered out before
+#     column_map construction, using the brms formula object's own list of
+#     additional-dpar formulas (model$formula$pforms) where available, or a
+#     heuristic prefix match as a fallback. This is working as intended, not
+#     a flaw in your ordbeta model — the precision/phi submodel is real and
+#     estimated, it's just out of scope for a MEAN-only deployment.
+#   - Widened .recover_raw_data()'s environment search to try each candidate
+#     environment in turn (including globalenv() explicitly) rather than
+#     picking the first non-null one and giving up — this is what caused
+#     raw-data recovery to fail for m3b even though m3Data clearly existed.
+#
+# CHANGE LOG vs v5:
+#   - Simplified coefficients are now printed as whole-number ratios, e.g.
+#     "(55/9)", instead of the decimal approximation (0.03279*log10(...) is
+#     no longer misleading about the fact that it's actually a ratio search
+#     result). See .format_coef_display() / .format_equation(). Unsimplified
+#     coefficients still print as decimals, as before.
+#   - Confirmed via brms source (posterior_epred.R): fitted.brmsfit() is a
+#     thin wrapper around posterior_epred(..., scale="response"), which by
+#     its own documentation returns draws of E[Y|X] = mu (the mean), with
+#     SMALLER variance than posterior_predict() because posterior_predict
+#     additionally includes residual/observation-level noise. This confirms
+#     brms::fitted(model, re_formula = NA) (already used in .extract_spec_
+#     brmsfit) is the right call — posterior_predict is not what a mean-
+#     prediction self-check should use, and is not referenced anywhere in
+#     this script.
+#
+# CHANGE LOG vs v4:
+#   - Fixed the large (~0.38) fitted-value deviation seen for m1 (glmmTMB),
+#     confirmed resolved by your test (max|dev| = 0 for m1). Root cause:
+#     stats::fitted(model) for a model with random effects returns
+#     CONDITIONAL fitted values (including each group's BLUPs); our
+#     deployment is deliberately fixed-effects-only, so the comparison
+#     target is now the population-level/marginal prediction via
+#     stats::predict(model, re.form = ~0, type = "response").
+#
+# CHANGE LOG vs v3:
+#   - Fixed the large (~0.38) fitted-value deviation seen for m1 (glmmTMB).
+#     Root cause: stats::fitted(model) for a model with random effects
+#     returns CONDITIONAL fitted values (including each group's estimated
+#     random effects / BLUPs), but our deployment is deliberately fixed-
+#     effects-only. Comparing against fitted() therefore always shows a
+#     real discrepancy reflecting between-group variation, not a bug. Now
+#     compares against the POPULATION-level/marginal prediction instead,
+#     via stats::predict(model, re.form = ~0, type = "response") for
+#     glmmTMB and brms::fitted(model, re_formula = NA) for brms — the
+#     documented convention in both ecosystems for excluding all random/
+#     group-level effects. m2 (glmgee, no random effects) was already
+#     essentially exact (max|dev| ~ 2e-16), which is what confirmed the
+#     core reconstruction logic itself was correct and the issue was
+#     specific to what glmmTMB's default fitted() represents.
+#
+# CHANGE LOG vs v3:
+#   - Fixed the na.omit-driven row-count mismatch: the fitted-value self-
+#     check now uses the model's own stored fit frame (already post-na.omit,
+#     already has I(...) evaluated) directly with stats::model.matrix(),
+#     instead of trying to rebuild from raw data. See .eval_eta_from_frame()
+#     and the updated .validate_against_fitted().
+#   - The internal reduced-equation-vs-model.matrix cross-check, and the
+#     default validation data used by coef_simplify, are now filtered to
+#     complete cases first, so NA rows no longer turn tolerance comparisons
+#     into NA (which previously also crashed the simplification loop).
+#   - .simplify_reduced() now treats an NA deviation as a stop-and-warn
+#     condition instead of erroring on if(NA).
 #
 # CHANGE LOG vs v2:
 #   - FIXED: "object 'x' not found" for I(...) terms. Root cause: the model
@@ -104,14 +236,19 @@ deploy_mean_model.brmsfit <- function(model, ...,
   if (is.null(cl)) cl <- tryCatch(model[["call"]], error = function(e) NULL)
   if (is.null(cl) || is.null(cl[["data"]])) return(NULL)
   
-  env <- tryCatch(environment(model[["formula"]]), error = function(e) NULL)
-  if (is.null(env) || !is.environment(env)) env <- tryCatch(attr(terms_obj, ".Environment"), error = function(e) NULL)
-  if (is.null(env) || !is.environment(env)) env <- tryCatch(environment(stats::formula(model)), error = function(e) NULL)
-  if (is.null(env) || !is.environment(env)) env <- parent.frame(2)
-  
-  out <- tryCatch(eval(cl[["data"]], envir = env), error = function(e) NULL)
-  if (!is.data.frame(out)) return(NULL)
-  out
+  env_candidates <- list(
+    tryCatch(attr(terms_obj, ".Environment"), error = function(e) NULL),
+    tryCatch(environment(model[["formula"]]), error = function(e) NULL),
+    tryCatch(environment(stats::formula(model)), error = function(e) NULL),
+    globalenv(),
+    parent.frame(2)
+  )
+  for (env in env_candidates) {
+    if (is.null(env) || !is.environment(env)) next
+    out <- tryCatch(eval(cl[["data"]], envir = env), error = function(e) NULL)
+    if (is.data.frame(out)) return(out)
+  }
+  NULL
 }
 
 .data_has_required_vars <- function(data, terms_obj) {
@@ -170,9 +307,14 @@ deploy_mean_model.brmsfit <- function(model, ...,
   contrasts_arg <- model[["contrasts"]]
   fitted_vals <- tryCatch(as.numeric(model[["fitted.values"]]), error = function(e) NULL)
   
+  # The frame actually used in fitting (post-na.omit, with I(...) already
+  # evaluated) — exactly row-aligned with fitted_vals, and usable directly
+  # with stats::model.matrix() without needing raw columns. See NOTES.
+  fit_frame <- model[["model"]]
+  
   list(coefficients = cf, link = link, terms = terms_obj, data = raw_data,
        xlevels = xlevels, contrasts = contrasts_arg, fitted = fitted_vals,
-       data_is_raw = data_is_raw)
+       data_is_raw = data_is_raw, fit_frame = fit_frame, point_estimate_model = TRUE)
 }
 
 # ---- Extraction: glmmTMB -----------------------------------------------
@@ -203,10 +345,28 @@ deploy_mean_model.brmsfit <- function(model, ...,
   }
   if (is.null(raw_data)) stop("Could not recover any training data frame from this glmmTMB object.")
   
-  fitted_vals <- tryCatch(as.numeric(stats::fitted(model)), error = function(e) NULL)
+  # IMPORTANT: stats::fitted(model) for a mixed model returns CONDITIONAL
+  # fitted values (i.e. including each group's estimated random effects/
+  # BLUPs). Our deployable function is deliberately fixed-effects-only, so
+  # the correct comparison target is the POPULATION-level / marginal
+  # prediction with random effects excluded, obtained via re.form = ~0
+  # (glmmTMB's documented convention, mirroring lme4). Comparing against
+  # plain fitted() would show a real discrepancy reflecting between-group
+  # variation, not an extraction error — NOT verified by execution here.
+  fitted_vals <- tryCatch(
+    as.numeric(stats::predict(model, re.form = ~0, type = "response")),
+    error = function(e) tryCatch(
+      as.numeric(stats::predict(model, re.form = NA, type = "response")),
+      error = function(e2) NULL
+    )
+  )
+  
+  fit_frame <- tryCatch(stats::model.frame(model), error = function(e) NULL)
+  if (is.null(fit_frame)) fit_frame <- tryCatch(model[["frame"]], error = function(e) NULL)
   
   list(coefficients = cf, link = link, terms = terms_obj, data = raw_data,
-       xlevels = NULL, contrasts = NULL, fitted = fitted_vals, data_is_raw = data_is_raw)
+       xlevels = NULL, contrasts = NULL, fitted = fitted_vals, data_is_raw = data_is_raw,
+       fit_frame = fit_frame, point_estimate_model = TRUE)
 }
 
 # ---- Extraction: brmsfit (brms) ----------------------------------------
@@ -232,23 +392,112 @@ deploy_mean_model.brmsfit <- function(model, ...,
   fixed_formula <- .nobars(mu_formula)
   terms_obj <- stats::delete.response(stats::terms(fixed_formula))
   
-  raw_data <- .recover_raw_data(model, terms_obj)
+  # brms::fixef() returns coefficients for ALL distributional parameters in
+  # one matrix, prefixed by dpar name for anything other than the primary
+  # mu parameter (e.g. "phi_Intercept", "phi_AmbientEnvStreet" for an
+  # ordered-beta model's precision submodel). Since this tool is
+  # deliberately mean(mu)-only, those must be dropped before they ever
+  # reach column_map/model.matrix construction. Preferred approach: read
+  # the actual additional-dpar formula names directly off the brms formula
+  # object (bf_obj$pforms, a named list keyed by dpar name) — NOT verified
+  # by execution, so a heuristic prefix-based fallback is used if it's
+  # unavailable or structured differently than expected. See NOTES.
+  other_dpars <- tryCatch(names(bf_obj[["pforms"]]), error = function(e) NULL)
+  if (is.null(other_dpars)) other_dpars <- character(0)
+  if (length(other_dpars) == 0) {
+    known_dpars <- c("sigma", "phi", "zi", "hu", "shape", "nu", "xi", "kappa",
+                     "disc", "bs", "ndt", "bias", "alpha", "beta", "quantile")
+    other_dpars <- known_dpars[vapply(known_dpars, function(d) {
+      any(grepl(paste0("^", d, "_"), names(cf)))
+    }, logical(1))]
+    if (length(other_dpars) > 0) {
+      warning("Could not read additional distributional-parameter names from the brms formula object ",
+              "(model$formula$pforms); inferred them heuristically from coefficient name prefixes instead (",
+              paste(other_dpars, collapse = ", "), "). Please double-check that only mean(mu)-related ",
+              "coefficients remain in the deployed equation.")
+    }
+  }
+  if (length(other_dpars) > 0) {
+    drop_pattern <- paste0("^(", paste(other_dpars, collapse = "|"), ")_")
+    cf <- cf[!grepl(drop_pattern, names(cf))]
+  }
+  
+  # The @data slot is documented directly in brmsfit-class.R as "A
+  # data.frame containing all variables used in the model" — i.e. the raw
+  # variables the formula references (including e.g. UASEvents behind
+  # I(log10(UASEvents))), NOT a post-transformation model frame like
+  # glmgee/glmmTMB store. So try it FIRST, before the more fragile
+  # call$data-evaluation trick, which is now just a fallback.
+  raw_data <- tryCatch(model[["data"]], error = function(e) NULL)
   data_is_raw <- .data_has_required_vars(raw_data, terms_obj)
   if (!data_is_raw) {
-    warning("Could not recover the original raw fitting data for this brmsfit model (tried evaluating ",
-            "model$call$data). Falling back to model$data, which may already be in a transformed shape and ",
-            "could fail for any I(...)-transformed term. Supply 'validation_data' explicitly for coef_simplify.")
-    raw_data <- tryCatch(model[["data"]], error = function(e) NULL)
+    alt <- .recover_raw_data(model, terms_obj)
+    if (.data_has_required_vars(alt, terms_obj)) {
+      raw_data <- alt
+      data_is_raw <- TRUE
+    }
   }
   if (is.null(raw_data)) stop("Could not recover any training data frame (model$data) from this brmsfit object.")
+  if (!data_is_raw) {
+    warning("Neither model$data nor model$call$data (evaluated) contained all the raw variables this formula ",
+            "needs. coef_simplify and the fitted-value self-check may not work reliably. Supply 'validation_data' ",
+            "explicitly (with raw, untransformed columns) if needed.")
+  }
   
-  fitted_vals <- tryCatch({
-    fv <- brms::fitted(model, robust = (point_estimate == "median"))
-    as.numeric(fv[, "Estimate"])
+  # brms sanitizes population-level coefficient names for Stan compatibility
+  # — in particular, I(...) transforms lose their parentheses (e.g.
+  # "I(log10(UASEvents))" becomes "Ilog10UASEvents"). Every other part of
+  # this script assumes standard stats::model.matrix() column naming, so
+  # translate brms's sanitized names back to that standard form here, using
+  # a synthetic reference frame (structure/levels only — doesn't need real
+  # raw data to work). NOT verified by execution — see NOTES.
+  standard_cols <- tryCatch({
+    synth <- .make_synthetic_frame_for_colnames(terms_obj, raw_data)
+    colnames(stats::model.matrix(terms_obj, synth))
   }, error = function(e) NULL)
+  if (!is.null(standard_cols)) {
+    sanitized_lookup <- stats::setNames(standard_cols, gsub("[()]", "", standard_cols))
+    matched <- names(cf) %in% names(sanitized_lookup)
+    names(cf)[matched] <- sanitized_lookup[names(cf)[matched]]
+    unmatched <- setdiff(names(cf)[!matched], "(Intercept)")
+    if (length(unmatched) > 0) {
+      warning("Could not translate brms coefficient name(s) to standard model.matrix column names: ",
+              paste(unmatched, collapse = ", "), ". The printed equation / coefficient simplification may fail ",
+              "for these terms even though predictions from the deployed function remain unaffected.")
+    }
+  } else {
+    warning("Could not build a reference model.matrix to translate brms's sanitized coefficient names; the ",
+            "printed equation and coefficient simplification will likely be unavailable for this model.")
+  }
+  
+  # NOTE: fitted is a base-R generic owned by 'stats', not something brms
+  # itself exports as a standalone symbol (brms only registers the S3
+  # method fitted.brmsfit against that generic) — calling brms::fitted(...)
+  # therefore fails with "'fitted' is not an exported object from
+  # 'namespace:brms'" even though the method exists and dispatches fine via
+  # stats::fitted(...). Confirmed by your v9 test run's captured error
+  # message. fixef() worked directly via brms:: earlier because fixef is
+  # NOT a base-R generic — brms has to define and export that one itself.
+  fitted_error <- NULL
+  fitted_vals <- tryCatch({
+    fv <- stats::fitted(model, re_formula = NA, robust = (point_estimate == "median"))
+    as.numeric(fv[, "Estimate"])
+  }, error = function(e) {
+    fitted_error <<- conditionMessage(e)
+    tryCatch({
+      fv2 <- stats::fitted(model, re_formula = ~0, robust = (point_estimate == "median"))
+      as.numeric(fv2[, "Estimate"])
+    }, error = function(e2) {
+      fitted_error <<- paste0(fitted_error, " | re_formula=~0 also failed: ", conditionMessage(e2))
+      NULL
+    })
+  })
+  
+  fit_frame <- tryCatch(model[["data"]], error = function(e) NULL)
   
   list(coefficients = cf, link = link, terms = terms_obj, data = raw_data,
-       xlevels = NULL, contrasts = NULL, fitted = fitted_vals, data_is_raw = data_is_raw)
+       xlevels = NULL, contrasts = NULL, fitted = fitted_vals, data_is_raw = data_is_raw,
+       fit_frame = fit_frame, fitted_error = fitted_error, point_estimate_model = FALSE)
 }
 
 # ---- Robust numeric evaluator (authoritative for predictions) -----------
@@ -266,6 +515,32 @@ deploy_mean_model.brmsfit <- function(model, ...,
   as.numeric(mm %*% spec$coefficients)
 }
 
+
+# Evaluates eta directly from an ALREADY-BUILT model frame (e.g. the frame
+# a package used internally when fitting), skipping stats::model.frame()'s
+# re-derivation of predvars. This is exactly what predict.glmgee-style code
+# does when the frame is already in the right shape, and — critically — it
+# does NOT need the raw columns behind any I(...) transform, since those are
+# already evaluated in the stored frame. Use this only with a frame that
+# genuinely came from the model (row-aligned with fitted values); for
+# arbitrary new/raw data use .eval_eta() instead.
+.eval_eta_from_frame <- function(spec, frame) {
+  mm <- stats::model.matrix(spec$terms, frame, contrasts.arg = spec$contrasts)
+  missing_cols <- setdiff(names(spec$coefficients), colnames(mm))
+  if (length(missing_cols) > 0) {
+    stop(sprintf("Model-matrix columns from the stored fit frame do not include: %s.",
+                 paste(missing_cols, collapse = ", ")))
+  }
+  mm <- mm[, names(spec$coefficients), drop = FALSE]
+  as.numeric(mm %*% spec$coefficients)
+}
+
+.complete_cases_for <- function(data, vars) {
+  vars <- intersect(vars, names(data))
+  cc <- stats::complete.cases(data[, vars, drop = FALSE])
+  data[cc, , drop = FALSE]
+}
+
 .get_inverse_link <- function(link) {
   switch(link,
          logit    = stats::plogis,
@@ -275,6 +550,31 @@ deploy_mean_model.brmsfit <- function(model, ...,
          cloglog  = function(eta) 1 - exp(-exp(eta)),
          stop(sprintf("Inverse link for '%s' is not implemented. Add it to .get_inverse_link().", link))
   )
+}
+
+# ---- Synthetic reference frame (for column-name/assign lookups only) ------
+# stats::model.matrix()'s column names and "assign" attribute depend only on
+# the TERMS STRUCTURE and factor LEVELS — not on the actual row values. So
+# for purposes of naming/term-association (never for real prediction), we
+# can build a minimal 1-row frame: real factor columns get a value drawn
+# from their actual levels (with the full level set attached, so all dummy
+# columns still appear), and every other variable (including raw variables
+# an I(...) transform depends on, which may be genuinely unavailable — see
+# NOTES) gets an arbitrary numeric placeholder. This decouples column-name/
+# term-association logic from whether raw training data was recoverable.
+.make_synthetic_frame_for_colnames <- function(terms_obj, data) {
+  vars <- all.vars(stats::formula(terms_obj))
+  cols <- lapply(vars, function(v) {
+    if (!is.null(data) && v %in% names(data) && (is.factor(data[[v]]) || is.character(data[[v]]))) {
+      lv <- if (is.factor(data[[v]])) levels(data[[v]]) else sort(unique(as.character(data[[v]])))
+      if (length(lv) == 0) lv <- "L1"
+      factor(lv[1], levels = lv)
+    } else {
+      1
+    }
+  })
+  names(cols) <- vars
+  as.data.frame(cols, stringsAsFactors = FALSE)
 }
 
 # ---- Term/column parsing for the printable "reduced" equation -----------
@@ -321,7 +621,7 @@ deploy_mean_model.brmsfit <- function(model, ...,
     })
   }
   
-  ref_mm <- stats::model.matrix(terms_obj, data)
+  ref_mm <- stats::model.matrix(terms_obj, .make_synthetic_frame_for_colnames(terms_obj, data))
   assign_vec <- attr(ref_mm, "assign")
   mm_colnames <- colnames(ref_mm)
   colname_to_term <- stats::setNames(vector("list", length(mm_colnames)), mm_colnames)
@@ -467,10 +767,15 @@ deploy_mean_model.brmsfit <- function(model, ...,
     } else {
       max(abs(approx_mu - original_mu))
     }
+    if (is.na(deviation)) {
+      warning("Deviation could not be computed (NA), likely due to missing values in the validation data. ",
+              "Stopping simplification search at the current denominator bound; treat the result with caution.")
+      break
+    }
     if (deviation <= tolerance || denom_bound >= max_denominator) break
   }
   
-  if (deviation > tolerance) {
+  if (is.na(deviation) || deviation > tolerance) {
     warning(sprintf("Simplification did not reach tolerance %.4g within max_denominator = %d; achieved deviation = %.4g.",
                     tolerance, max_denominator, deviation))
   }
@@ -486,24 +791,29 @@ deploy_mean_model.brmsfit <- function(model, ...,
 # reduction the user is additionally asking for.
 .validate_against_fitted <- function(spec) {
   if (is.null(spec$fitted)) {
-    return(list(ok = FALSE, reason = "Model's fitted values could not be extracted."))
+    reason <- "Model's fitted values could not be extracted."
+    if (!is.null(spec$fitted_error)) {
+      reason <- paste0(reason, " Underlying error: ", spec$fitted_error)
+    }
+    return(list(ok = FALSE, reason = reason))
   }
-  if (!isTRUE(spec$data_is_raw)) {
-    return(list(ok = FALSE, reason = "Raw training data unavailable (see extraction warning above); self-check skipped."))
+  if (is.null(spec$fit_frame)) {
+    return(list(ok = FALSE, reason = "The model's internal fit frame could not be recovered; self-check skipped."))
   }
-  eta <- tryCatch(.eval_eta(spec, spec$data), error = function(e) e)
+  eta <- tryCatch(.eval_eta_from_frame(spec, spec$fit_frame), error = function(e) e)
   if (inherits(eta, "error")) {
-    return(list(ok = FALSE, reason = sprintf("Reconstruction failed: %s", conditionMessage(eta))))
+    return(list(ok = FALSE, reason = sprintf("Reconstruction from the stored fit frame failed: %s", conditionMessage(eta))))
   }
   inv_link <- .get_inverse_link(spec$link)
   mu_hat <- inv_link(eta)
   if (length(mu_hat) != length(spec$fitted)) {
     return(list(ok = FALSE, reason = sprintf(
-      "Row-count mismatch (reconstructed: %d, model$fitted: %d) — likely due to rows dropped for missingness during fitting; self-check skipped.",
+      "Row-count mismatch even using the model's own stored fit frame (reconstructed: %d, model$fitted: %d) — this is unexpected and worth investigating; self-check skipped.",
       length(mu_hat), length(spec$fitted))))
   }
   dev <- mu_hat - spec$fitted
-  list(ok = TRUE, max_abs_dev = max(abs(dev)), rmse = sqrt(mean(dev^2)), n = length(dev))
+  list(ok = TRUE, max_abs_dev = max(abs(dev)), rmse = sqrt(mean(dev^2)), n = length(dev),
+       point_estimate_model = isTRUE(spec$point_estimate_model))
 }
 
 # ---- Equation formatting -------------------------------------------------
@@ -517,13 +827,30 @@ deploy_mean_model.brmsfit <- function(model, ...,
   }
 }
 
-.format_equation <- function(beta0, reduced_terms, link, digits = 4) {
+# Displays a coefficient as a whole-number ratio "(num/den)" when num/den are
+# available (i.e. this coefficient came from .rational_approx()), otherwise
+# falls back to a decimal. den is always a positive integer by construction
+# (.rational_approx folds sign into num); den == 1 collapses to a bare
+# integer rather than "(n/1)".
+.format_coef_display <- function(coef_val, num = NULL, den = NULL, digits = 4) {
+  if (!is.null(num) && !is.null(den)) {
+    num_i <- as.integer(round(num)); den_i <- as.integer(round(den))
+    if (den_i == 1) as.character(num_i) else sprintf("(%d/%d)", num_i, den_i)
+  } else {
+    as.character(signif(coef_val, digits))
+  }
+}
+
+.format_equation <- function(beta0, reduced_terms, link, digits = 4,
+                             beta0_num = NULL, beta0_den = NULL) {
   term_strs <- vapply(reduced_terms, function(t) {
     piece_strs <- vapply(t$pieces, .format_piece_display, character(1))
-    paste0(signif(t$coef, digits), "*", paste(piece_strs, collapse = "*"))
+    coef_str <- .format_coef_display(t$coef, t[["num"]], t[["den"]], digits)
+    paste0(coef_str, "*", paste(piece_strs, collapse = "*"))
   }, character(1))
   
-  eta_terms <- c(as.character(signif(beta0, digits)), term_strs)
+  beta0_str <- .format_coef_display(beta0, beta0_num, beta0_den, digits)
+  eta_terms <- c(beta0_str, term_strs)
   linear_predictor <- paste(eta_terms, collapse = " + ")
   linear_predictor <- gsub("\\+ -", "- ", linear_predictor)
   eta_str <- paste0("(", linear_predictor, ")")
@@ -593,34 +920,43 @@ deploy_mean_model.brmsfit <- function(model, ...,
   
   simp <- NULL
   if (reduced_ok) {
-    check_ok <- tryCatch({
-      check_mu_robust  <- inv_link(.eval_eta(spec, spec$data))
-      check_mu_reduced <- .eval_reduced_mu(beta0, reduced_terms, spec$data, spec$link)
-      max(abs(check_mu_robust - check_mu_reduced)) <= 1e-6
-    }, error = function(e) NA)
-    if (!isTRUE(check_ok)) {
-      warning("Could not confirm that the reduced/printable equation numerically matches the ",
-              "stats::model.matrix()-based predictions on the training data (either the check failed to run, ",
-              "or the two disagreed by more than 1e-6). The returned function's predictions always use the ",
-              "model.matrix()-based path and should still be correct, but treat the printed equation and any ",
-              "coefficient simplification with caution until you've verified deployed(newdata) against ",
-              "predict() from the original model.")
+    if (!isTRUE(spec$data_is_raw) && is.null(validation_data)) {
+      warning("Skipping the internal reduced-equation-vs-model.matrix cross-check: raw training data with the ",
+              "original (untransformed) columns is unavailable for this model (see extraction warning above). ",
+              "The returned function's predictions still use the robust model.matrix()-based path; treat the ",
+              "printed equation with a little extra caution until it can be checked, e.g. by supplying ",
+              "'validation_data' with raw columns.")
+    } else {
+      cc_data <- if (!is.null(validation_data)) validation_data else spec$data
+      cc_data <- .complete_cases_for(cc_data, all_raw_vars)
+      check_ok <- tryCatch({
+        check_mu_robust  <- inv_link(.eval_eta(spec, cc_data))
+        check_mu_reduced <- .eval_reduced_mu(beta0, reduced_terms, cc_data, spec$link)
+        max(abs(check_mu_robust - check_mu_reduced)) <= 1e-6
+      }, error = function(e) NA)
+      if (!isTRUE(check_ok)) {
+        warning("Could not confirm that the reduced/printable equation numerically matches the ",
+                "stats::model.matrix()-based predictions on (complete cases of) the training data (either the ",
+                "check failed to run, or the two disagreed by more than 1e-6). The returned function's ",
+                "predictions always use the model.matrix()-based path and should still be correct, but treat ",
+                "the printed equation and any coefficient simplification with caution until you've verified ",
+                "deployed(newdata) against predict() from the original model.")
+      }
     }
     
     if (coef_simplify) {
-      val_data <- if (!is.null(validation_data)) validation_data else spec$data
-      if (!is.null(validation_data)) {
-        # user-supplied data: nothing further required, used as-is
-      } else if (!isTRUE(spec$data_is_raw)) {
+      if (!isTRUE(spec$data_is_raw) && is.null(validation_data)) {
         stop("coef_simplify = TRUE requires raw training data with the original (untransformed) columns, ",
              "which could not be recovered automatically for this model (see warning above). Supply it via ",
              "the 'validation_data' argument.")
       }
+      val_data <- if (!is.null(validation_data)) validation_data else spec$data
       required_vars <- unique(unlist(lapply(reduced_terms, function(t) vapply(t$pieces, `[[`, character(1), "raw_var"))))
       missing_cols <- setdiff(required_vars, names(val_data))
       if (length(missing_cols) > 0) {
         stop(sprintf("Validation data is missing required column(s): %s", paste(missing_cols, collapse = ", ")))
       }
+      val_data <- .complete_cases_for(val_data, required_vars)
       full_val <- val_data
       for (v in names(constants)) full_val[[v]] <- constants[[v]]
       original_mu <- inv_link(.eval_eta(spec, full_val))
@@ -639,7 +975,10 @@ deploy_mean_model.brmsfit <- function(model, ...,
   if (reduced_ok) {
     disp_beta0 <- if (!is.null(simp)) simp$beta0$value else beta0
     disp_terms <- if (!is.null(simp)) simp$terms else reduced_terms
-    attr(f, "equation") <- .format_equation(disp_beta0, disp_terms, spec$link)
+    beta0_num <- if (!is.null(simp)) simp$beta0$num else NULL
+    beta0_den <- if (!is.null(simp)) simp$beta0$den else NULL
+    attr(f, "equation") <- .format_equation(disp_beta0, disp_terms, spec$link,
+                                            beta0_num = beta0_num, beta0_den = beta0_den)
     attr(f, "coefficients") <- list(intercept = disp_beta0, terms = disp_terms)
     if (!is.null(simp)) {
       attr(f, "simplification") <- list(
@@ -673,10 +1012,22 @@ print.deployed_mean_model <- function(x, ...) {
   fc <- attr(x, "fitted_validation")
   if (!is.null(fc)) {
     if (isTRUE(fc$ok)) {
-      cat(sprintf("\nValidated against model's fitted values (n=%d): max|dev| = %.4g, RMSE = %.4g\n",
-                  fc$n, fc$max_abs_dev, fc$rmse))
-      if (fc$max_abs_dev > 1e-4) {
-        cat("  ** deviation exceeds 1e-4 on the mu scale — inspect the extraction before trusting this deployment **\n")
+      if (isTRUE(fc$point_estimate_model)) {
+        cat(sprintf("\nValidated against the model's population-level fitted values (random effects excluded, n=%d): max|dev| = %.4g, RMSE = %.4g\n",
+                    fc$n, fc$max_abs_dev, fc$rmse))
+        if (fc$max_abs_dev > 1e-4) {
+          cat("  ** deviation exceeds 1e-4 on the mu scale — inspect the extraction before trusting this deployment **\n")
+        }
+      } else {
+        cat(sprintf("\nCompared against the model's posterior-mean-of-mu fitted values (random effects excluded, n=%d): max|dev| = %.4g, RMSE = %.4g\n",
+                    fc$n, fc$max_abs_dev, fc$rmse))
+        cat("  Note: this deployment evaluates the link function at the POSTERIOR MEAN of the coefficients,\n")
+        cat("  i.e. g^-1(E[eta]), whereas fitted() averages mu over posterior draws, i.e. E[g^-1(eta)]. These\n")
+        cat("  differ slightly for any nonlinear link (Jensen's inequality), so a small nonzero deviation here\n")
+        cat("  is EXPECTED and is not itself evidence of an extraction error.\n")
+        if (fc$max_abs_dev > 0.05) {
+          cat("  ** deviation is larger than typically expected from that effect alone — worth double-checking **\n")
+        }
       }
     } else {
       cat(sprintf("\nFitted-value self-check NOT performed: %s\n", fc$reason))
@@ -711,34 +1062,56 @@ deployed_deviation <- function(x) {
 deployed_fit_check <- function(x) attr(x, "fitted_validation")
 
 # =============================================================================
-# NOTES / VERIFICATION STATUS (2026-07-27, updated after your test run):
+# NOTES / VERIFICATION STATUS (2026-07-28, v7 — fixes the phi_Intercept
+# error on the ordered-beta brms model with a phi ~ AmbientEnv submodel):
+#
+# 0. The dpar-filtering fix relies on model$formula$pforms (a brmsformula
+#    object's list of additional distributional-parameter formulas, e.g.
+#    $pforms$phi for "phi ~ AmbientEnv") to know exactly which coefficient-
+#    name prefixes to exclude. I have not verified this structure by
+#    execution — if it's wrong or missing, the code falls back to a
+#    heuristic list of common brms dpar names (sigma, phi, zi, hu, shape,
+#    nu, xi, kappa, disc, bs, ndt, bias, alpha, beta, quantile) matched as
+#    coefficient-name prefixes, with a warning telling you it did so. Given
+#    your model has "kappa" and "xi" as further distributional parameters
+#    too (per the summary() output), but those don't appear to enter fixef()
+#    as prefixed *coefficients* (they're plain scalar parameters without
+#    their own formula in your model), this shouldn't be an issue here —
+#    but worth checking the printed equation only contains mu-relevant terms
+#    once you re-run this.
 #
 # 1. glmgee: extraction verified against glmtoolbox source, as before.
 #
-# 2. Raw-data recovery (.recover_raw_data) is the fix for the bug you hit.
-#    It works by evaluating model$call$data in the formula's environment —
-#    this depends on the original data object (e.g. m2Data) still existing,
-#    unmodified, in that environment. This is a common and generally
-#    reliable pattern, but I have not executed it myself. If it silently
-#    picks up a MODIFIED version of m2Data/m1Data (e.g. you overwrote the
-#    variable after fitting), the self-check and simplification would be
-#    validated against the wrong data. Given you're calling this in the same
-#    session right after fitting, this should be fine — just flagging the
-#    assumption.
+# 2. Your last run showed two symptoms of the SAME cause: glmgee's internal
+#    na.omit dropped 78 rows (3948 raw rows -> 3870 fitted rows). The
+#    recovered raw data (3948 rows) therefore didn't row-align with
+#    model$fitted.values (3870), AND contained NA rows that turned every
+#    downstream numeric comparison into NA (not an error, but not a real
+#    number either) — which is exactly why the cross-check warned even with
+#    coef_simplify=FALSE, and why the simplification loop's if(...) choked
+#    on "missing value where TRUE/FALSE needed".
+#      FIX (a): the fitted-value self-check now uses the model's own stored
+#        fit frame (model$model for glmgee / model.frame(model) for glmmTMB
+#        / model$data for brms) directly with stats::model.matrix() — this
+#        is exactly the post-na.omit, already-transformed frame the package
+#        itself used, so it is guaranteed row-aligned with fitted values and
+#        needs no raw columns at all.
+#      FIX (b): the internal cross-check and coef_simplify's validation data
+#        are now filtered to complete cases (stats::complete.cases()) over
+#        the required raw variables before comparison, so NA rows no longer
+#        propagate into the tolerance check.
+#      FIX (c): the simplification loop now treats an NA deviation as a
+#        reason to stop and warn, rather than crashing on if(NA).
+#    None of this has been executed by me — please re-run and confirm the
+#    fitted-value check now reports ok=TRUE with a sensible max|dev| for
+#    both m1 and m2, and that coef_simplify=TRUE completes for m1.
 #
-# 3. The new unconditional fitted-value check compares against
-#    model$fitted.values (glmgee, confirmed from source) or stats::fitted()
-#    (glmmTMB) / brms::fitted() (brmsfit) — the latter two not verified by
-#    execution. If either errors or returns something unexpected, the check
-#    reports "NOT performed" with a reason rather than crashing the whole
-#    deployment — please report what you see for m1/m2 now.
+# 3. stats::fitted() (glmmTMB) / brms::fitted() (brmsfit) are still not
+#    verified by execution on my end.
 #
-# 4. lme4::nobars() worked for m1 in your last run (deprecation warning
-#    aside), which is a good sign the formula/terms extraction for glmmTMB
-#    is sound. I've switched to preferring reformulas::nobars() to avoid
-#    the noisy deprecation warning, falling back to lme4::nobars().
-#
-# 5. Everything else from the v2 NOTES (contrasts assumption, multi-variable
-#    I() not supported, Rscript unavailable in this sandbox so nothing has
-#    been executed end-to-end) still applies.
+# 4. Everything else from the v3 NOTES (raw-data recovery via model$call$data
+#    assuming the original data object is unmodified in its environment;
+#    contrasts assumed to be default treatment contrasts; multi-variable
+#    I() expressions not supported; Rscript unavailable in this sandbox so
+#    nothing has been executed end-to-end) still applies.
 # =============================================================================

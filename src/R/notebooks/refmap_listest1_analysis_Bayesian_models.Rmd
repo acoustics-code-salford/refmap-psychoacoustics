@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # load packages
 library(easystats)
 library(conflicted)
+library(here)
 library(brms)
 library(bayestestR)
 library(tidybayes)
