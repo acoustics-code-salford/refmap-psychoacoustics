@@ -54,7 +54,7 @@ set.seed(808)
 
 ```
 
-Set parameters
+## Set parameters
 
 ```{r}
 
@@ -93,8 +93,9 @@ if (savedata){
   outDataPath <- utils::choose.dir(caption="Select output folder to save data")
 }
 
-# set global number of draws for Bayesian model predictions 
-ndraws_pred <- 1000
+# set global number of draws and new subjects for Bayesian model predictions 
+ndraws_pred <- 500
+nnew_pred <- 150
 
 # set flag whether to reloo models with Pareto k > 0.7
 reloo_flag = FALSE
@@ -402,6 +403,20 @@ standardise_list <- function(df_list, vars, scale = TRUE, ...) {
 
     df
   })
+}
+
+```
+
+## estimate calculation grid memory size requirement
+
+```{r}
+
+estimate_size_gb <- function(newdata, ndraws, n_counterfactual_levels = 1) {
+  bytes <- as.numeric(nrow(newdata)) * ndraws * n_counterfactual_levels * 8
+  gb <- bytes / 1e9
+  cat(sprintf("Estimated matrix size: %.1f GB (%s rows x %d draws x %d levels)\n",
+              gb, format(nrow(newdata), big.mark = ","), ndraws, n_counterfactual_levels))
+  gb
 }
 
 ```
@@ -1627,7 +1642,7 @@ p4 <- ggplot(data=subset(m1predEvt, AmbientEnv=='Park' & UASOperation=='Overflig
               rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
                              stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
               
-              scale_y_continuous(breaks=seq(0, 10, by=1), limits=c(0, 10)) +
+              scale_y_continuous(breaks=seq(0, 10, by=1), limits=c(min(0, min(m1predEvt$conf.low)), 10)) +
               
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean annoyance rating")
 
@@ -2204,138 +2219,176 @@ if (saveplots){
 #### analyse population-averaged effects (not conditional effects) using marginaleffects
 
 ```{R}
-
+# create base datagrid
 m3bDataFit <- insight::get_data(m3b)
 
-m3bpredType <- marginaleffects::avg_predictions(m3b, newdata=subset(m3bDataFit,
+# get unique combinations of the predictors
+base_uniqueA <- m3bDataFit |>
+    dplyr::distinct(ID, UASType, UASEvents, AmbientEnv, UASOperation,
+                    NationGeo2, AAM_attitude2, Home_Area2,
+                    Age, Sex, NSSTotal, Area_soundscape2,
+                    .keep_all = TRUE) |>
+    dplyr::group_by(ID, UASType, UASEvents, AmbientEnv, UASOperation) |>
+    dplyr::ungroup()
+# include modal session and mean trial number
+base_uniqueA$SessionPart <- names(sort(table(m3bDataFit$SessionPart), decreasing = TRUE))[1]
+base_uniqueA$TrialNumberScl <- mean(m3bDataFit$TrialNumberScl)
+
+# expand grid over LAE
+lae_step <- seq(min(stimDataNoAmb$UASLAEMaxLRScl), max(stimDataNoAmb$UASLAEMaxLRScl), length.out = 11)
+base_expandedA <- marginaleffects::datagrid(
+  newdata = base_uniqueA,
+  UASLAEMaxLRScl = lae_step,
+  grid_type = "counterfactual"
+)
+
+lae_step2 <- c(6, 12)
+base_expandedB <- marginaleffects::datagrid(
+  newdata = base_uniqueA,
+  UASLAEMaxLRScl = lae_step2,
+  grid_type = "counterfactual"
+)
+
+# set up marginal grids with new subject and stimulus IDs
+grid_margA <- base_expandedA[rep(seq_len(nrow(base_expandedA)), each = nnew_pred), ]
+new_idx <- rep(seq_len(nnew_pred), times = nrow(base_expandedA))
+grid_margA$ID     <- paste0("new_id_", new_idx)
+grid_margA$StimID <- paste0("new_stim_", new_idx)
+
+grid_margB <- base_expandedB[rep(seq_len(nrow(base_expandedB)), each = nnew_pred), ]
+grid_margB$SessionPart <- "B"
+new_idx2 <- rep(seq_len(nnew_pred), times = nrow(base_expandedB))
+grid_margB$ID     <- paste0("new_id_", new_idx2)
+grid_margB$StimID <- paste0("new_stim_", new_idx2)
+
+set.seed(999)
+m3bpredType <- marginaleffects::avg_predictions(m3b, newdata=subset(grid_margA,
                                                              UASEvents==1),
-                                                  variables=list(UASLAEMaxLRScl=seq(
-                                                      min(stimDataNoAmb$UASLAEMaxLRScl),
-                                                      max(stimDataNoAmb$UASLAEMaxLRScl),
-                                                      length.out=25)),
                                                   by=c("UASLAEMaxLRScl",
                                                        "UASType",
                                                        "AmbientEnv",
                                                        "UASEvents"),
-                                               ndraws=ndraws_pred,
-                                               re_formula = NULL,
-                                               allow_new_levels = TRUE,
-                                               sample_new_levels = "gaussian",
+                                                re_formula = NULL,
+                                                allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
+                                                ndraws=ndraws_pred,
                                                 transform=\(x) betaTransform(x, -10, 10,
                                                                              direction='reverse',
                                                                              squeeze='none'))
 
-m3bpredOp <- marginaleffects::avg_predictions(m3b, newdata=subset(m3bDataFit,
+set.seed(999)
+m3bpredOp <- marginaleffects::avg_predictions(m3b, newdata=subset(grid_margA,
                                                         UASEvents==1),
-                                                variables=list(UASLAEMaxLRScl=seq(
-                                                    min(stimDataNoAmb$UASLAEMaxLRScl),
-                                                    max(stimDataNoAmb$UASLAEMaxLRScl),
-                                                    length.out=25)),
                                                 by=c("UASLAEMaxLRScl",
                                                      "UASOperation",
                                                      "AmbientEnv",
                                                      "UASEvents"),
+                                              re_formula = NULL,
+                                              allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
                                                ndraws=ndraws_pred,
                                               transform=\(x) betaTransform(x, -10, 10,
                                                                            direction='reverse',
                                                                            squeeze='none'))
 
-m3bpredEnv <- marginaleffects::avg_predictions(m3b, newdata=subset(m3bDataFit,
+set.seed(999)
+m3bpredEnv <- marginaleffects::avg_predictions(m3b, newdata=subset(grid_margA,
                                                         UASEvents==1),
-                                                variables=list(UASLAEMaxLRScl=seq(
-                                                    min(stimDataNoAmb$UASLAEMaxLRScl),
-                                                    max(stimDataNoAmb$UASLAEMaxLRScl),
-                                                    length.out=25)),
                                                 by=c("UASLAEMaxLRScl",
                                                      "AmbientEnv",
                                                      "UASEvents"),
+                                                re_formula = NULL,
+                                               allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
                                                ndraws=ndraws_pred,
                                               transform=\(x) betaTransform(x, -10, 10,
                                                                            direction='reverse',
                                                                            squeeze='none'))
 
-
-m3bpredEvt <- marginaleffects::avg_predictions(m3b, newdata=subset(m3bDataFit,
+set.seed(999)
+m3bpredEvt <- marginaleffects::avg_predictions(m3b, newdata=subset(grid_margA,
                                                                  AmbientEnv=="Park" &
                                                                  UASOperation=="Overflight"),
-                                            variables=list(UASLAEMaxLRScl=seq(
-                                                min(stimDataNoAmb$UASLAEMaxLRScl),
-                                                max(stimDataNoAmb$UASLAEMaxLRScl),
-                                                length.out=25)),
                                             by=c("UASLAEMaxLRScl",
                                                  "AmbientEnv",
                                                  "UASEvents",
                                                  "UASOperation"),
+                                            re_formula = NULL,
+                                            allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
                                                ndraws=ndraws_pred,
                                           transform=\(x) betaTransform(x, -10, 10,
                                                                        direction='reverse',
                                                                        squeeze='none'))
 
-m3bpredEvt2 <- marginaleffects::avg_predictions(m3b, newdata=subset(m3bDataFit,
+set.seed(999)
+m3bpredEvt2 <- marginaleffects::avg_predictions(m3b, newdata=subset(grid_margB,
                                                                   AmbientEnv=="Park" &
-                                                                  UASOperation=="Overflight"),
-                                              variables=list(UASLAEMaxLRScl=c(6, 12),
-                                                               UASType=c("H520", "T150")),
+                                                                  UASOperation=="Overflight" &
+                                                                  UASType %in% c("H520", "T150")),
                                               by=c("UASLAEMaxLRScl",
                                                    "AmbientEnv",
                                                    "UASEvents",
                                                    "UASOperation",
                                                    "SessionPart"),
+                                                re_formula = NULL,
+                                              allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
                                                ndraws=ndraws_pred,
                                             transform=\(x) betaTransform(x, -10, 10,
                                                                          direction='reverse',
                                                                          squeeze='none'))
 
-m3bpredAtt <- marginaleffects::avg_predictions(m3b, newdata=m3bDataFit,
-                                             variables=list(UASLAEMaxLRScl=seq(
-                                              min(stimDataNoAmb$UASLAEMaxLRScl),
-                                              max(stimDataNoAmb$UASLAEMaxLRScl),
-                                              length.out=25)),
+set.seed(999)
+m3bpredAtt <- marginaleffects::avg_predictions(m3b, newdata=grid_margA,
                                              by=c("UASLAEMaxLRScl", "AAM_attitude2"),
+                                                re_formula = NULL,
+                                                allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
                                                ndraws=ndraws_pred,
                                              transform=\(x) betaTransform(x, -10, 10,
                                                                          direction='reverse',
                                                                          squeeze='none'))
 
-m3bpredAoR <- marginaleffects::avg_predictions(m3b, newdata=m3bDataFit,
-                                             variables=list(UASLAEMaxLRScl=seq(
-                                              min(stimDataNoAmb$UASLAEMaxLRScl),
-                                              max(stimDataNoAmb$UASLAEMaxLRScl),
-                                              length.out=25)),
+set.seed(999)
+m3bpredAoR <- marginaleffects::avg_predictions(m3b, newdata=grid_margA,
                                              by=c("UASLAEMaxLRScl", "Home_Area2"),
+                                                re_formula = NULL,
+                                                allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
                                                ndraws=ndraws_pred,
                                              transform=\(x) betaTransform(x, -10, 10,
                                                                          direction='reverse',
                                                                          squeeze='none'))
 
-m3bpredScp <- marginaleffects::avg_predictions(m3b, newdata=m3bDataFit,
-                                             variables=list(UASLAEMaxLRScl=seq(
-                                              min(stimDataNoAmb$UASLAEMaxLRScl),
-                                              max(stimDataNoAmb$UASLAEMaxLRScl),
-                                              length.out=25)),
+set.seed(999)
+m3bpredScp <- marginaleffects::avg_predictions(m3b, newdata=grid_margA,
                                              by=c("UASLAEMaxLRScl", "Area_soundscape2"),
+                                                re_formula = NULL,
+                                                allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
                                                ndraws=ndraws_pred,
                                              transform=\(x) betaTransform(x, -10, 10,
                                                                          direction='reverse',
                                                                          squeeze='none'))
 
-m3bpredSex <- marginaleffects::avg_predictions(m3b, newdata=m3bDataFit,
-                                             variables=list(UASLAEMaxLRScl=seq(
-                                              min(stimDataNoAmb$UASLAEMaxLRScl),
-                                              max(stimDataNoAmb$UASLAEMaxLRScl),
-                                              length.out=25)),
+set.seed(999)
+m3bpredSex <- marginaleffects::avg_predictions(m3b, newdata=grid_margA,
                                              by=c("UASLAEMaxLRScl", "Sex"),
+                                                re_formula = NULL,
+                                                allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
                                                ndraws=ndraws_pred,
                                              transform=\(x) betaTransform(x, -10, 10,
                                                                          direction='reverse',
                                                                          squeeze='none'))
 
-m3bpredNat <- marginaleffects::avg_predictions(m3b, newdata=m3bDataFit,
-                                             variables=list(UASLAEMaxLRScl=seq(
-                                              min(stimDataNoAmb$UASLAEMaxLRScl),
-                                              max(stimDataNoAmb$UASLAEMaxLRScl),
-                                              length.out=25)),
+set.seed(999)
+m3bpredNat <- marginaleffects::avg_predictions(m3b, newdata=grid_margA,
                                              by=c("UASLAEMaxLRScl", "NationGeo2"),
+                                                re_formula = NULL,
+                                                allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
                                                ndraws=ndraws_pred,
                                              transform=\(x) betaTransform(x, -10, 10,
                                                                          direction='reverse',
@@ -2465,7 +2518,7 @@ p4 <- ggplot(data=subset(m3bpredEvt, AmbientEnv=='Park' & UASOperation=='Overfli
               rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
                              stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
               
-              scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
+              scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(min(2, min(m3bpredEvt$conf.low)), 8)) +
               
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
 
@@ -2745,6 +2798,26 @@ if (saveplots){
   ggsave(filename=paste(filename, ".pdf", sep=""), width=6, height=4, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 }
+
+```
+
+#### test relations
+
+```{r}
+
+contrast_grid_base <- marginaleffects::datagrid(
+  newdata = base_uniqueA,
+  UASLAEMaxLRScl = c(as.numeric(levels(subjDataNoAmb.med$UASLAeq)), 65) + 10*log10(25),
+  grid_type = "counterfactual"
+)
+
+grid_test <- contrast_grid_base[rep(seq_len(nrow(contrast_grid_base)), each = nnew_pred), ]
+new_idx <- rep(seq_len(nnew_pred), times = nrow(contrast_grid_base))
+grid_test$ID     <- paste0("new_id_", new_idx)
+grid_test$StimID <- paste0("new_stim_", new_idx)
+
+estimate_size_gb(grid_test, ndraws_pred, n_counterfactual_levels = 2)  # 2, since this is a comparison
+
 
 ```
 

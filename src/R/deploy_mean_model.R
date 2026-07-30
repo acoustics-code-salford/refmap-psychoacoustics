@@ -1,11 +1,42 @@
 # =============================================================================
-# deploy_mean_model.R  (v11)
+# deploy_mean_model.R  (v12)
 #
 # A model-type-agnostic "deployment" toolkit that extracts the FIXED-EFFECTS
 # MEAN STRUCTURE of a fitted model (glmtoolbox::glmgee, glmmTMB, or brms) and
 # turns it into a standalone R function of the predictor variables.
 #
-# CHANGE LOG vs v10 (this version):
+# CHANGE LOG vs v11 (this version):
+#   - Addressed a real robustness concern raised about v11: explaining away
+#     brms's small mu-scale deviation as an "expected Jensen's-inequality
+#     gap" was correct, but risked MASKING a genuine extraction bug behind
+#     that same explanation, since both look like "a small nonzero number".
+#     Fixed by removing the confound entirely rather than just explaining
+#     it: the self-check now compares on the LINEAR PREDICTOR (eta) scale
+#     for all three model types, not the response (mu) scale.
+#       - glmgee: model$linear.predictors (confirmed from glmtoolbox source
+#         to be exactly eta = X %*% beta_hat + offset) instead of
+#         model$fitted.values.
+#       - glmmTMB: stats::predict(..., type = "link") instead of
+#         type = "response".
+#       - brms: stats::fitted(..., scale = "linear") instead of the default
+#         scale = "response" — confirmed from brms's posterior_epred.R
+#         source (which we fetched and read) to return "results on the
+#         scale of the linear predictor term, that is without applying the
+#         inverse link function".
+#     Since eta = X %*% beta is LINEAR in beta, E[eta] over posterior draws
+#     is EXACTLY X %*% E[beta] for any model — no Jensen's-inequality gap is
+#     possible on this scale, for any link function. A deviation here can
+#     only mean the coefficient/design-matrix extraction itself is wrong
+#     (for brms, what small residual remains reflects only Monte Carlo
+#     sampling noise from a finite posterior draw count, not a structural
+#     approximation) — a genuinely harder-to-fool check than v11's, per the
+#     concern raised. The printed report now shows both max|dev| and a
+#     scale-invariant relative deviation, with thresholds tightened
+#     accordingly (0.1% for point-estimate models, 1% for brms, both much
+#     stricter than v11's mu-scale thresholds since there's no more
+#     legitimate gap to allow room for).
+#
+# CHANGE LOG vs v10:
 #   - m3b's fitted-value self-check now runs and reports max|dev| = 0.00251,
 #     RMSE = 0.00194 (a small but nonzero deviation). This is EXPECTED and
 #     not a bug: brms's fitted(re_formula=NA) averages mu = g^-1(eta) across
@@ -305,7 +336,13 @@ deploy_mean_model.brmsfit <- function(model, ...,
   
   xlevels <- model[["levels"]]
   contrasts_arg <- model[["contrasts"]]
-  fitted_vals <- tryCatch(as.numeric(model[["fitted.values"]]), error = function(e) NULL)
+  # Compare on the LINEAR PREDICTOR (eta) scale, not the response (mu) scale:
+  # eta = X %*% beta is linear in beta, so there is no link-function-related
+  # approximation gap to worry about here (unlike comparing on the mu scale
+  # for a Bayesian model — see the brms extraction below). model$linear.
+  # predictors is confirmed directly from glmtoolbox source (geeglm.R) to be
+  # exactly eta = X %*% beta_hat + offset.
+  fitted_vals <- tryCatch(as.numeric(model[["linear.predictors"]]), error = function(e) NULL)
   
   # The frame actually used in fitting (post-na.omit, with I(...) already
   # evaluated) — exactly row-aligned with fitted_vals, and usable directly
@@ -350,13 +387,15 @@ deploy_mean_model.brmsfit <- function(model, ...,
   # BLUPs). Our deployable function is deliberately fixed-effects-only, so
   # the correct comparison target is the POPULATION-level / marginal
   # prediction with random effects excluded, obtained via re.form = ~0
-  # (glmmTMB's documented convention, mirroring lme4). Comparing against
-  # plain fitted() would show a real discrepancy reflecting between-group
-  # variation, not an extraction error — NOT verified by execution here.
+  # (glmmTMB's documented convention, mirroring lme4). Compare on the
+  # LINEAR PREDICTOR (eta) scale via type = "link", not type = "response":
+  # eta = X %*% beta is linear in beta, so there's no link-function-related
+  # approximation gap possible here, giving a cleaner, harder-to-fool check
+  # than comparing on the mu scale — NOT verified by execution here.
   fitted_vals <- tryCatch(
-    as.numeric(stats::predict(model, re.form = ~0, type = "response")),
+    as.numeric(stats::predict(model, re.form = ~0, type = "link")),
     error = function(e) tryCatch(
-      as.numeric(stats::predict(model, re.form = NA, type = "response")),
+      as.numeric(stats::predict(model, re.form = NA, type = "link")),
       error = function(e2) NULL
     )
   )
@@ -478,14 +517,28 @@ deploy_mean_model.brmsfit <- function(model, ...,
   # stats::fitted(...). Confirmed by your v9 test run's captured error
   # message. fixef() worked directly via brms:: earlier because fixef is
   # NOT a base-R generic — brms has to define and export that one itself.
+  #
+  # scale = "linear" is critical here: per brms's own posterior_epred.R
+  # source (which we fetched and read directly), scale="linear" returns
+  # "results on the scale of the linear predictor term, that is without
+  # applying the inverse link function" — i.e. eta, not mu. Comparing on
+  # the mu scale confounds two different things (our reconstruction's
+  # g^-1(E[eta]) vs brms's E[g^-1(eta)] averaged over posterior draws),
+  # which differ by a real but harmless Jensen's-inequality gap for any
+  # nonlinear link. Comparing on the eta scale instead removes that
+  # confound entirely: eta = X %*% beta is LINEAR in beta, so E[eta] over
+  # posterior draws is EXACTLY X %*% E[beta] — no approximation gap, only
+  # ordinary Monte Carlo sampling noise from a finite number of draws. A
+  # deviation here can only mean the coefficient/design-matrix extraction
+  # itself is wrong, which is a much more trustworthy signal.
   fitted_error <- NULL
   fitted_vals <- tryCatch({
-    fv <- stats::fitted(model, re_formula = NA, robust = (point_estimate == "median"))
+    fv <- stats::fitted(model, re_formula = NA, scale = "linear", robust = (point_estimate == "median"))
     as.numeric(fv[, "Estimate"])
   }, error = function(e) {
     fitted_error <<- conditionMessage(e)
     tryCatch({
-      fv2 <- stats::fitted(model, re_formula = ~0, robust = (point_estimate == "median"))
+      fv2 <- stats::fitted(model, re_formula = ~0, scale = "linear", robust = (point_estimate == "median"))
       as.numeric(fv2[, "Estimate"])
     }, error = function(e2) {
       fitted_error <<- paste0(fitted_error, " | re_formula=~0 also failed: ", conditionMessage(e2))
@@ -783,15 +836,19 @@ deploy_mean_model.brmsfit <- function(model, ...,
 }
 
 # ---- Validation against the model's own fitted values ---------------------
-# Runs unconditionally (regardless of coef_simplify): reconstructs mu on the
-# raw training data using ONLY spec$coefficients/spec$terms/spec$link (i.e.
-# ignoring any constants requested in THIS deploy_mean_model() call) and
-# compares against the model's own in-sample fitted values. This checks that
-# coefficient/link/formula extraction is faithful, independent of whatever
-# reduction the user is additionally asking for.
+# Runs unconditionally (regardless of coef_simplify): reconstructs eta (the
+# LINEAR PREDICTOR, before any link function) on the raw training data using
+# ONLY spec$coefficients/spec$terms (i.e. ignoring any constants requested in
+# THIS deploy_mean_model() call) and compares against the model's own
+# in-sample linear predictor. Comparing on the eta scale rather than the mu
+# (response) scale is deliberate: eta = X %*% beta is LINEAR in beta, so
+# there is no link-function-related approximation gap possible for ANY
+# model type — a deviation here can only mean the coefficient/design-matrix
+# extraction itself is wrong, not an artifact of a nonlinear link or of
+# averaging over a posterior distribution. See the v12 changelog note.
 .validate_against_fitted <- function(spec) {
   if (is.null(spec$fitted)) {
-    reason <- "Model's fitted values could not be extracted."
+    reason <- "Model's linear predictor could not be extracted."
     if (!is.null(spec$fitted_error)) {
       reason <- paste0(reason, " Underlying error: ", spec$fitted_error)
     }
@@ -800,21 +857,23 @@ deploy_mean_model.brmsfit <- function(model, ...,
   if (is.null(spec$fit_frame)) {
     return(list(ok = FALSE, reason = "The model's internal fit frame could not be recovered; self-check skipped."))
   }
-  eta <- tryCatch(.eval_eta_from_frame(spec, spec$fit_frame), error = function(e) e)
-  if (inherits(eta, "error")) {
-    return(list(ok = FALSE, reason = sprintf("Reconstruction from the stored fit frame failed: %s", conditionMessage(eta))))
+  eta_hat <- tryCatch(.eval_eta_from_frame(spec, spec$fit_frame), error = function(e) e)
+  if (inherits(eta_hat, "error")) {
+    return(list(ok = FALSE, reason = sprintf("Reconstruction from the stored fit frame failed: %s", conditionMessage(eta_hat))))
   }
-  inv_link <- .get_inverse_link(spec$link)
-  mu_hat <- inv_link(eta)
-  if (length(mu_hat) != length(spec$fitted)) {
+  if (length(eta_hat) != length(spec$fitted)) {
     return(list(ok = FALSE, reason = sprintf(
-      "Row-count mismatch even using the model's own stored fit frame (reconstructed: %d, model$fitted: %d) — this is unexpected and worth investigating; self-check skipped.",
-      length(mu_hat), length(spec$fitted))))
+      "Row-count mismatch even using the model's own stored fit frame (reconstructed: %d, model's eta: %d) — this is unexpected and worth investigating; self-check skipped.",
+      length(eta_hat), length(spec$fitted))))
   }
-  dev <- mu_hat - spec$fitted
-  list(ok = TRUE, max_abs_dev = max(abs(dev)), rmse = sqrt(mean(dev^2)), n = length(dev),
+  dev <- eta_hat - spec$fitted
+  max_abs_dev <- max(abs(dev))
+  rel_dev <- max(abs(dev) / pmax(abs(spec$fitted), 1e-8))
+  list(ok = TRUE, max_abs_dev = max_abs_dev, rel_dev = rel_dev,
+       rmse = sqrt(mean(dev^2)), n = length(dev),
        point_estimate_model = isTRUE(spec$point_estimate_model))
 }
+
 
 # ---- Equation formatting -------------------------------------------------
 .format_piece_display <- function(p) {
@@ -1012,21 +1071,23 @@ print.deployed_mean_model <- function(x, ...) {
   fc <- attr(x, "fitted_validation")
   if (!is.null(fc)) {
     if (isTRUE(fc$ok)) {
+      cat(sprintf("\nValidated against the model's own linear predictor (eta scale, random effects excluded, n=%d):\n",
+                  fc$n))
+      cat(sprintf("  max|dev| = %.4g, max relative dev = %.4g, RMSE = %.4g\n",
+                  fc$max_abs_dev, fc$rel_dev, fc$rmse))
       if (isTRUE(fc$point_estimate_model)) {
-        cat(sprintf("\nValidated against the model's population-level fitted values (random effects excluded, n=%d): max|dev| = %.4g, RMSE = %.4g\n",
-                    fc$n, fc$max_abs_dev, fc$rmse))
-        if (fc$max_abs_dev > 1e-4) {
-          cat("  ** deviation exceeds 1e-4 on the mu scale — inspect the extraction before trusting this deployment **\n")
+        if (fc$rel_dev > 0.001) {
+          cat("  ** relative deviation exceeds 0.1% — this is a point-estimate model with no averaging\n")
+          cat("     involved, so this should match to floating-point precision; inspect the extraction **\n")
         }
       } else {
-        cat(sprintf("\nCompared against the model's posterior-mean-of-mu fitted values (random effects excluded, n=%d): max|dev| = %.4g, RMSE = %.4g\n",
-                    fc$n, fc$max_abs_dev, fc$rmse))
-        cat("  Note: this deployment evaluates the link function at the POSTERIOR MEAN of the coefficients,\n")
-        cat("  i.e. g^-1(E[eta]), whereas fitted() averages mu over posterior draws, i.e. E[g^-1(eta)]. These\n")
-        cat("  differ slightly for any nonlinear link (Jensen's inequality), so a small nonzero deviation here\n")
-        cat("  is EXPECTED and is not itself evidence of an extraction error.\n")
-        if (fc$max_abs_dev > 0.05) {
-          cat("  ** deviation is larger than typically expected from that effect alone — worth double-checking **\n")
+        cat("  Compared on the eta (linear predictor) scale specifically to avoid the Jensen's-inequality\n")
+        cat("  gap that would arise from comparing on the mu scale (since eta = X %*% beta is linear in\n")
+        cat("  beta, E[eta] over posterior draws equals X %*% E[beta] exactly). A small residual here\n")
+        cat("  reflects only Monte Carlo sampling noise from a finite number of posterior draws, not a\n")
+        cat("  structural approximation — so this check is NOT masked by that effect.\n")
+        if (fc$rel_dev > 0.01) {
+          cat("  ** relative deviation exceeds 1% — larger than typical MCMC noise; inspect the extraction **\n")
         }
       }
     } else {
