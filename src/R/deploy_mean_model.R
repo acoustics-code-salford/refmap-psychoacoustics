@@ -1,11 +1,30 @@
 # =============================================================================
-# deploy_mean_model.R  (v12)
+# deploy_mean_model.R  (v13)
 #
 # A model-type-agnostic "deployment" toolkit that extracts the FIXED-EFFECTS
 # MEAN STRUCTURE of a fitted model (glmtoolbox::glmgee, glmmTMB, or brms) and
 # turns it into a standalone R function of the predictor variables.
 #
-# CHANGE LOG vs v11 (this version):
+# CHANGE LOG vs v12 (this version):
+#   - Fixed a real bug (not a false alarm): the internal reduced-equation-
+#     vs-model.matrix cross-check compared .eval_eta(spec, cc_data) — the
+#     FULL model using the REAL values of every variable in the training
+#     data — against the reduced-terms evaluator, which already has any
+#     requested constants folded in. Whenever deploy_mean_model() was called
+#     with a constant (e.g. TrialNumberScl = 0), these were two genuinely
+#     different linear predictors for any row where the real value wasn't
+#     the constant, so the check spuriously "disagreed" every time —
+#     nothing to do with whether the deployed function's actual predictions
+#     were correct (they weren't affected; predict_fn already applied
+#     constants correctly). Fixed by substituting the same constants into
+#     the data used for the "robust" side of the comparison before
+#     evaluating it, so both sides now describe the same scenario.
+#   - Confirmed (per your test) that a constant of exactly 0 for a variable
+#     with no interactions correctly leaves the intercept unchanged, since
+#     its contribution is coefficient * 0 = 0 — this was working correctly
+#     already; the concern was understandable but not a bug.
+#
+# CHANGE LOG vs v11:
 #   - Addressed a real robustness concern raised about v11: explaining away
 #     brms's small mu-scale deviation as an "expected Jensen's-inequality
 #     gap" was correct, but risked MASKING a genuine extraction bug behind
@@ -988,8 +1007,16 @@ deploy_mean_model.brmsfit <- function(model, ...,
     } else {
       cc_data <- if (!is.null(validation_data)) validation_data else spec$data
       cc_data <- .complete_cases_for(cc_data, all_raw_vars)
+      # The reduced/printable equation (beta0, reduced_terms) already has
+      # any requested constants folded in. For a fair comparison, the
+      # "robust" side must evaluate the SAME (constants-substituted)
+      # scenario, not the raw training data's real values for those
+      # variables — otherwise this check compares two different models
+      # whenever constants are supplied, and will spuriously "disagree".
+      cc_data_with_constants <- cc_data
+      for (v in names(constants)) cc_data_with_constants[[v]] <- constants[[v]]
       check_ok <- tryCatch({
-        check_mu_robust  <- inv_link(.eval_eta(spec, cc_data))
+        check_mu_robust  <- inv_link(.eval_eta(spec, cc_data_with_constants))
         check_mu_reduced <- .eval_reduced_mu(beta0, reduced_terms, cc_data, spec$link)
         max(abs(check_mu_robust - check_mu_reduced)) <= 1e-6
       }, error = function(e) NA)
