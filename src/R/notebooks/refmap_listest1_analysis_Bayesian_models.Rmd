@@ -647,7 +647,7 @@ subjData.imp <- lapply(completed_list,
                            dplyr::left_join(df, by="ID")})
 
 subjDataNoAmb.imp <- lapply(subjData.imp,
-                            function(df) {subjData |>
+                            function(df) {df |>
                                 dplyr::filter(UASLAeq != "Baseline") |>
                                 droplevels()
                             } )
@@ -720,10 +720,16 @@ subjDataNoAmb.med <- rbind(subjDataNoAmb.med[subjDataNoAmb.med$SessionPart == "A
   droplevels()
 
 
+
+subjDataNoAmb.imp <- standardise_list(subjDataNoAmb.imp,
+                                    vars = centre_vars,
+                                    scale = FALSE)
+
 for (i in seq_along(subjDataNoAmb.imp)) {
+
   subjDataNoAmb.imp[[i]] <- subjDataNoAmb.imp[[i]] |>
     dplyr::mutate(TrialNumberScl = datawizard::standardise(TrialNumber, scale=TRUE))
-  
+
   subjDataNoAmb.imp[[i]] <- rbind(subjDataNoAmb.imp[[i]][subjDataNoAmb.imp[[i]]$SessionPart == "A", ] |>
                              dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)),
                     subjDataNoAmb.imp[[i]][subjDataNoAmb.imp[[i]]$SessionPart == "B", ] |>
@@ -952,24 +958,38 @@ m0cPostCheck
 
 ```
 
-#### visualise posterior draws for population level effects
+#### compare
+
+```{R}
+
+loo::loo(m0a)
+loo::loo(m0b)
+loo::loo(m0c)
+
+m0_loo <- loo::loo_compare(m0b, m0c, criterion='loo')
+m0_loo
+# m0b cannot be compared with m0a or m0c because it has a different number of observations (due to median imputation)
+
+```
+
+## visualise posterior draws for population level effects
 
 ```{R, fig.width=8, fig.height=6}
 
-m0c_bCI_range <- bayestestR::hdi(m0c, ci = c(0.5, 0.89, 0.95))
+m0b_bCI_range <- bayestestR::hdi(m0b, ci = c(0.5, 0.89, 0.95))
 
 # plot spi for within-subjects factors only
-m0c_bCI_wsf <- m0c_bCI_range |>
+m0b_bCI_wsf <- m0b_bCI_range |>
   dplyr::filter(Parameter %in% c("b_SessionPartB", "b_UASTypeM300", "b_UASTypeT150", 
                                  "b_UASOperationLanding", "b_UASOperationTakeoff",
                                  "b_AmbientEnvStreet"))
-p_m0c_bCI_wsf <- plot(m0c_bCI_wsf, show_intercept=F) +
+p_m0b_bCI_wsf <- plot(m0b_bCI_wsf, show_intercept=F) +
   theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
   scale_fill_manual(values=mycolours) +
   labs(title="Within-subjects factors",
        x="Coefficient posterior distribution",
        y=NULL)
-p_m0c_bCI_wsf
+p_m0b_bCI_wsf
 
 filename <- "PtsABAnnoyMnCatModbCI_brmsCo_wsf"
 
@@ -983,20 +1003,20 @@ if (saveplots){
 }
 
 # plot spi for within-subjects factor interactions only
-m0c_bCI_wsfi <- m0c_bCI_range |>
+m0b_bCI_wsfi <- m0b_bCI_range |>
   dplyr::filter(Parameter %in% c("b_AmbientEnvStreet:UASOperationLanding",
                                  "b_AmbientEnvStreet:UASOperationTakeoff",
                                  "b_AmbientEnvStreet:UASTypeM300",
                                  "b_AmbientEnvStreet:UASTypeT150",
                                  "b_UASOperationLanding:UASTypeM300",
                                  "b_UASOperationLanding:UASTypeT150"))
-p_m0c_bCI_wsfi <- plot(m0c_bCI_wsfi, show_intercept=F) +
+p_m0b_bCI_wsfi <- plot(m0b_bCI_wsfi, show_intercept=F) +
   theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
   scale_fill_manual(values=mycolours) +
   labs(title="Within-subjects factor interactions",
        x="Coefficient posterior distribution",
        y=NULL)
-p_m0c_bCI_wsfi
+p_m0b_bCI_wsfi
 
 filename <- "PtsABAnnoyMnCatModbCI_brmsCo_wsfi"
 
@@ -1010,15 +1030,15 @@ if (saveplots){
 }
 
 # plot spi for within-subjects covariates only
-m0c_bCI_wsc <- m0c_bCI_range |>
+m0b_bCI_wsc <- m0b_bCI_range |>
   dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_TrialNumberScl"))
-p_m0c_bCI_wsc <- plot(m0c_bCI_wsc, show_intercept=F) +
+p_m0b_bCI_wsc <- plot(m0b_bCI_wsc, show_intercept=F) +
     theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
   scale_fill_manual(values=mycolours) +
   labs(title="Within-subjects covariates",
        x="Coefficient posterior distribution",
        y=NULL)
-p_m0c_bCI_wsc
+p_m0b_bCI_wsc
 
 filename <- "PtsABAnnoyMnCatModbCI_brmsCo_wsc"
 
@@ -1032,7 +1052,7 @@ if (saveplots){
 }
 
 # plot spi for within-subjects covariate-factor interactions only
-m0c_bCI_wscfi <- m0c_bCI_range |>
+m0b_bCI_wscfi <- m0b_bCI_range |>
   dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl:AmbientEnvStreet",
                                  "b_UASLAEMaxLRScl:UASOperationLanding",
                                  "b_UASLAEMaxLRScl:UASOperationTakeoff",
@@ -1043,13 +1063,13 @@ m0c_bCI_wscfi <- m0c_bCI_range |>
                                  "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeM300",
                                  "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeT150",
                                  "b_UASLAEMaxLRScl:Ilog10UASEvents"))
-p_m0c_bCI_wscfi <- plot(m0c_bCI_wscfi, show_intercept=F) +
+p_m0b_bCI_wscfi <- plot(m0b_bCI_wscfi, show_intercept=F) +
   theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
   scale_fill_manual(values=mycolours) +
   labs(title="Within-subjects covariate-factor interactions",
        x="Coefficient posterior distribution",
        y=NULL)
-p_m0c_bCI_wscfi
+p_m0b_bCI_wscfi
 
 filename <- "PtsABAnnoyMnCatModbCI_brmsCo_wscfi"
 
@@ -1064,17 +1084,17 @@ if (saveplots){
 
 
 # plot spi for between-subjects factors only
-m0c_bCI_bsf <- m0c_bCI_range |>
+m0b_bCI_bsf <- m0b_bCI_range |>
   dplyr::filter(Parameter %in% c("b_NationGeo2UK", "b_AAM_attitude2Ambiv_Concern_Neutral",
                                  "b_Home_Area2Urban", "b_SexMale", 
                                  "b_Area_soundscape2Uneventful"))
-p_m0c_bCI_bsf <- plot(m0c_bCI_bsf, show_intercept=F) +
+p_m0b_bCI_bsf <- plot(m0b_bCI_bsf, show_intercept=F) +
   theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
   scale_fill_manual(values=mycolours) +
   labs(title="Between-subjects factors",
        x="Coefficient posterior distribution",
        y=NULL)
-p_m0c_bCI_bsf
+p_m0b_bCI_bsf
 
 filename <- "PtsABAnnoyMnCatModbCI_brmsCo_bsf"
 
@@ -1088,15 +1108,15 @@ if (saveplots){
 }
 
 # plot spi for between-subjects covariates only
-m0c_bCI_bsc <- m0c_bCI_range |>
+m0b_bCI_bsc <- m0b_bCI_range |>
   dplyr::filter(Parameter %in% c("b_Age", "b_NSSTotal"))
-p_m0c_bCI_bsc <- plot(m0c_bCI_bsc, show_intercept=F) +
+p_m0b_bCI_bsc <- plot(m0b_bCI_bsc, show_intercept=F) +
   theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
   scale_fill_manual(values=mycolours) +
   labs(title="Between-subjects covariates",
        x="Coefficient posterior distribution",
        y=NULL)
-p_m0c_bCI_bsc
+p_m0b_bCI_bsc
 
 filename <- "PtsABAnnoyMnCatModbCI_brmsCo_bsc"
 

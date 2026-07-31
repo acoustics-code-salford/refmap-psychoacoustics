@@ -153,14 +153,14 @@ glmmPCP <- function(...){
   model_objects <- list(...)
   
   # if (length(list(...)) == 1){
-  #   
+  # 
   #   model_objects <- insight::ellipsis_info(..., ..., only_models = TRUE)
   #   model_objects <- model_objects[1]
-  #   
+  # 
   # } else{
-  #   
+  # 
   #   model_objects <- insight::ellipsis_info(..., only_models = TRUE)
-  #   
+  # 
   # }
   
   # ensure proper object names
