@@ -1461,7 +1461,7 @@ base_unique <- m1bDataFit |>
     dplyr::group_by(ID, UASType, UASEvents, AmbientEnv, UASOperation) |>
     dplyr::ungroup()
 # include mean trial number
-base_unique$TrialNumberScl <- mean(m1bDataFit$TrialNumberScl)
+base_unique$PartTrialNumberScl <- mean(m1bDataFit$PartTrialNumberScl)
 
 # expand grid over LAE
 lae_step <- seq(min(stimDataNoAmb$UASLAEMaxLRScl), max(stimDataNoAmb$UASLAEMaxLRScl), length.out = 11)
@@ -1554,8 +1554,7 @@ m1bpredEvt2 <- marginaleffects::avg_predictions(m1b, newdata=subset(grid_marg2,
                                               by=c("UASLAEMaxLRScl",
                                                    "AmbientEnv",
                                                    "UASEvents",
-                                                   "UASOperation",
-                                                   "SessionPart"),
+                                                   "UASOperation"),
                                               re_formula = NULL,
                                               allow_new_levels = TRUE,
                                                 sample_new_levels = "gaussian",
@@ -1779,7 +1778,7 @@ if (saveplots){
   unlink(paste(filename, ".pdf", sep=""))
 }
 
-p5 <- ggplot(data=subset(m1bpredEvt2, UASOperation=="Overflight" & AmbientEnv=="Park" & SessionPart=="B")) +
+p5 <- ggplot(data=subset(m1bpredEvt2, UASOperation=="Overflight" & AmbientEnv=="Park")) +
               theme(panel.grid = element_blank(), aspect.ratio=0.8,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
@@ -2307,7 +2306,7 @@ base_unique <- m3bDataFit |>
     dplyr::group_by(ID, UASType, UASEvents, AmbientEnv, UASOperation) |>
     dplyr::ungroup()
 # include mean trial number
-base_unique$TrialNumberScl <- mean(m3bDataFit$TrialNumberScl)
+base_unique$PartTrialNumberScl <- mean(m3bDataFit$PartTrialNumberScl)
 
 # expand grid over LAE
 lae_step <- seq(min(stimDataNoAmb$UASLAEMaxLRScl), max(stimDataNoAmb$UASLAEMaxLRScl), length.out = 11)
@@ -2403,8 +2402,7 @@ m3bpredEvt2 <- marginaleffects::avg_predictions(m3b, newdata=subset(grid_marg2,
                                               by=c("UASLAEMaxLRScl",
                                                    "AmbientEnv",
                                                    "UASEvents",
-                                                   "UASOperation",
-                                                   "SessionPart"),
+                                                   "UASOperation"),
                                                 re_formula = NULL,
                                               allow_new_levels = TRUE,
                                                 sample_new_levels = "gaussian",
@@ -2652,7 +2650,7 @@ if (saveplots){
   unlink(paste(filename, ".pdf", sep=""))
 }
 
-p5 <- ggplot(data=subset(m3bpredEvt2, UASOperation=="Overflight" & AmbientEnv=="Park" & SessionPart=="B")) +
+p5 <- ggplot(data=subset(m3bpredEvt2, UASOperation=="Overflight" & AmbientEnv=="Park")) +
               theme(panel.grid = element_blank(), aspect.ratio=0.8,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
