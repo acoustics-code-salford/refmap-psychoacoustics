@@ -1028,7 +1028,7 @@ compare_cv_results(list(m1=m1_cv, m1b=m1b_cv, m1c=m1c_cv))
 
 ```{r}
 
-m1bpredMeans <- marginaleffects::avg_predictions(m1b, newdata=na.omit(m1bata),
+m1bpredMeans <- marginaleffects::avg_predictions(m1b, newdata=na.omit(m1Data),
                                                   by=c("StimID",
                                                        "UASLAEMaxLRScl",
                                                        "UASEvents", "UASType",
@@ -2136,7 +2136,7 @@ glmgee_vif(m4)
 
 ```{r}
 
-geeModelPerformance(m1b m1d, m2, m3, m4)
+geeModelPerformance(m1b, m1d, m2, m3, m4)
 
 m4_cv <- cv_glmgee(m4, id_col="ID", K=cv_folds, seed=cv_seed,
                                 data=na.omit(m4Data), agg_cols="StimID",
@@ -5326,11 +5326,11 @@ p1
 filename <- "PtsABdAnnoyGLMM_ObVsGEEGLM_Qb"
 
 if (saveplots){
-  ggsave(filename=paste(filename, ".svg", sep=""), width=4.5, height=4,
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4.9, height=4,
          path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
 
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=4.5, height=4,
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4.9, height=4,
          path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 }
@@ -5479,13 +5479,6 @@ m12c_ind_cv <- cv_glmgee(m12c_ind, id_col="ID", K=cv_folds, seed=cv_seed,
   cv_binary_metrics()
 
 m12d_cv <- cv_glmgee(m12d, id_col="ID", K=cv_folds, seed=cv_seed,
-                      data=nd, agg_cols="StimID",
-                      return_predictions=TRUE,
-                      workers=n_cores) |>
-          cv_aggregated_metrics() |>
-  cv_binary_metrics()
-
-m12e_cv <- cv_glmgee(m12e, id_col="ID", K=cv_folds, seed=cv_seed,
                       data=nd, agg_cols="StimID",
                       return_predictions=TRUE,
                       workers=n_cores) |>
@@ -9607,11 +9600,11 @@ p1
 filename <- "PtsABdHighAnnoyGLMMVsGEE_emp"
 
 if (saveplots){
-  ggsave(filename=paste(filename, ".svg", sep=""), width=4.5, height=4,
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4.7, height=4,
          path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=4.5, height=4,
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4.7, height=4,
          path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 }
