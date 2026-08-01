@@ -4108,6 +4108,10 @@ m10dpredEvt <- marginaleffects::avg_predictions(m10d, m10dDataFit,
                                                                                direction='reverse',
                                                                                squeeze='none'))
 
+low_q <- 0.3
+hi_q <- 0.9
+mid_q <- low_q + (hi_q - low_q)/2
+
 m10dpredDdS <- marginaleffects::avg_predictions(m10d, newdata=m10dDataFit,
                                               variables = list(Detect0p5dBIntMaxLRScl=seq(
                                                 min(stimDataNoAmb$Detect0p5dBIntMaxLRScl),
@@ -4115,9 +4119,9 @@ m10dpredDdS <- marginaleffects::avg_predictions(m10d, newdata=m10dDataFit,
                                                 length.out = 25),
                                                 dSharpAurISO3PowAvgMaxLRScl=seq(-0.3, 0.45, by=0.15),
                                                 dTonalSHMIntAvgMaxLRScl=c(quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, 
-                                                                                        0.3),
+                                                                                        low_q),
                                                                                 quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl,
-                                                                                         0.9))),
+                                                                                         hi_q))),
                                           by = c("Detect0p5dBIntMaxLRScl", "dSharpAurISO3PowAvgMaxLRScl",
                                                  "dTonalSHMIntAvgMaxLRScl"),
                                           vcov = vcov(m10d, type = "bias-corrected"),
@@ -4132,9 +4136,9 @@ m10dpredDdT <- marginaleffects::avg_predictions(m10d, newdata=m10dDataFit,
                                                 length.out = 25),
                                                 dTonalSHMIntAvgMaxLRScl=seq(-0.11, 0.18, by=0.05),
                                                 dSharpAurISO3PowAvgMaxLRScl=c(quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl,
-                                                                                         0.3),
+                                                                                         low_q),
                                                                                 quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl,
-                                                                                         0.9))),
+                                                                                         hi_q))),
                                           by = c("Detect0p5dBIntMaxLRScl", "dTonalSHMIntAvgMaxLRScl",
                                                  "dSharpAurISO3PowAvgMaxLRScl"),
                                           vcov = vcov(m10d, type = "bias-corrected"),
@@ -4148,9 +4152,9 @@ m10dpredDdT <- m10dpredDdT |> dplyr::mutate(dTonalSHMIntAvgMaxLRScl = factor(dTo
                                           dSharpAurISO3PowAvgMaxLRScl = factor(dSharpAurISO3PowAvgMaxLRScl))
 
 # Find the midpoint to split the raw data into Min/Max categories
-low_val <- quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, 0.3)
-hi_val <- quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, 0.9)
-midpoint <- quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, 0.5)
+low_val <- quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, low_q)
+hi_val <- quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, hi_q)
+midpoint <- quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, mid_q)
 
 # Apply the factor grouping to the raw data
 stimDataNoAmbTemp1 <- stimDataNoAmb |>
@@ -4160,9 +4164,9 @@ stimDataNoAmbTemp1 <- stimDataNoAmb |>
   ))
 
 # Find the midpoint to split the raw data into Min/Max categories
-low_val <- quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl, 0.3)
-hi_val <- quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl, 0.9)
-midpoint <- quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl, 0.5)
+low_val <- quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl, low_q)
+hi_val <- quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl, hi_q)
+midpoint <- quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl, mid_q)
 
 stimDataNoAmbTemp2 <- stimDataNoAmb |>
   mutate(dSharpAurISO3PowAvgMaxLRScl = factor(
@@ -4800,6 +4804,10 @@ m11dpredEvt <- marginaleffects::avg_predictions(m11d, m11dDataFit,
                                                                                direction='reverse',
                                                                                squeeze='none'))
 
+low_q <- 0.3
+hi_q <- 0.9
+mid_q <- low_q + (hi_q - low_q)/2
+
 m11dpreddLAEdS <- marginaleffects::avg_predictions(m11d, newdata=m11dDataFit,
                                               variables = list(LAELAF50diffScl=seq(
                                                 min(stimDataNoAmb$LAELAF50diffScl),
@@ -4807,9 +4815,9 @@ m11dpreddLAEdS <- marginaleffects::avg_predictions(m11d, newdata=m11dDataFit,
                                                 length.out = 25),
                                                 dSharpAurISO3PowAvgMaxLRScl=seq(-0.3, 0.45, by=0.15),
                                                 dTonalSHMIntAvgMaxLRScl=c(quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, 
-                                                                                        0.3),
+                                                                                        low_q),
                                                                                 quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl,
-                                                                                         0.9))),
+                                                                                         hi_q))),
                                           by = c("LAELAF50diffScl", "dSharpAurISO3PowAvgMaxLRScl",
                                                  "dTonalSHMIntAvgMaxLRScl"),
                                           vcov = vcov(m11d, type = "bias-corrected"),
@@ -4824,9 +4832,9 @@ m11dpreddLAEdT <- marginaleffects::avg_predictions(m11d, newdata=m11dDataFit,
                                                 length.out = 25),
                                                 dTonalSHMIntAvgMaxLRScl=seq(-0.11, 0.18, by=0.05),
                                                 dSharpAurISO3PowAvgMaxLRScl=c(quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl,
-                                                                                         0.3),
+                                                                                         low_q),
                                                                                 quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl,
-                                                                                         0.9))),
+                                                                                         hi_q))),
                                           by = c("LAELAF50diffScl", "dTonalSHMIntAvgMaxLRScl",
                                                  "dSharpAurISO3PowAvgMaxLRScl"),
                                           vcov = vcov(m11d, type = "bias-corrected"),
@@ -4840,9 +4848,9 @@ m11dpreddLAEdT <- m11dpreddLAEdT |> dplyr::mutate(dTonalSHMIntAvgMaxLRScl = fact
                                           dSharpAurISO3PowAvgMaxLRScl = factor(dSharpAurISO3PowAvgMaxLRScl))
 
 # Find the midpoint to split the raw data into Min/Max categories
-low_val <- quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, 0.3)
-hi_val <- quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, 0.9)
-midpoint <- quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, 0.5)
+low_val <- quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, low_q)
+hi_val <- quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, hi_q)
+midpoint <- quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, mid_q)
 
 # Apply the factor grouping to the raw data
 stimDataNoAmbTemp1 <- stimDataNoAmb |>
@@ -4852,9 +4860,9 @@ stimDataNoAmbTemp1 <- stimDataNoAmb |>
   ))
 
 # Find the midpoint to split the raw data into Min/Max categories
-low_val <- quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl, 0.3)
-hi_val <- quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl, 0.9)
-midpoint <- quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl, 0.5)
+low_val <- quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl, low_q)
+hi_val <- quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl, hi_q)
+midpoint <- quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl, mid_q)
 
 stimDataNoAmbTemp2 <- stimDataNoAmb |>
   mutate(dSharpAurISO3PowAvgMaxLRScl = factor(
@@ -7462,8 +7470,8 @@ if (saveplots){
 
 ```{r}
 
-m16DataFit <- insight::get_data(m16b)
-m16bpredEvt <- avg_predictions_hybrid(m16b, newdata=m16DataFit,
+m16bDataFit <- insight::get_data(m16b)
+m16bpredEvt <- avg_predictions_hybrid(m16b, newdata=m16bDataFit,
                                               variables = list(UASLoudECMAPowAvgBinScl=seq(
                                                 min(stimDataNoAmb$UASLoudECMAPowAvgBinScl),
                                                 max(stimDataNoAmb$UASLoudECMAPowAvgBinScl),
@@ -7471,30 +7479,35 @@ m16bpredEvt <- avg_predictions_hybrid(m16b, newdata=m16DataFit,
                                           by = c("UASLoudECMAPowAvgBinScl", "UASEvents"),
                                           vcov = vcov(m16b, type = "bias-corrected"))
 
-m16bpredNS <- avg_predictions_hybrid(m16b, newdata=m16DataFit,
+
+low_q <- 0.1
+hi_q <- 0.9
+mid_q <- low_q + (hi_q - low_q)/2
+
+m16bpredNS <- avg_predictions_hybrid(m16b, newdata=m16bDataFit,
                                               variables = list(UASLoudECMAPowAvgBinScl=seq(
                                                 min(stimDataNoAmb$UASLoudECMAPowAvgBinScl),
                                                 max(stimDataNoAmb$UASLoudECMAPowAvgBinScl),
                                                 length.out = 25),
                                                 UASSharpAurISO3PowAvgMaxLRScl=seq(-0.6, 0.4, by=0.2),
                                                 UASTonalAwSHMInt05ExMaxLRScl=c(quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, 
-                                                                                        0.1),
+                                                                                        low_q),
                                                                                 quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl,
-                                                                                         0.9))),
+                                                                                        hi_q))),
                                           by = c("UASLoudECMAPowAvgBinScl", "UASSharpAurISO3PowAvgMaxLRScl",
                                                  "UASTonalAwSHMInt05ExMaxLRScl"),
                                           vcov = vcov(m16b, type = "bias-corrected"))
 
-m16bpredNT <- avg_predictions_hybrid(m16b, newdata=m16DataFit,
+m16bpredNT <- avg_predictions_hybrid(m16b, newdata=m16bDataFit,
                                               variables = list(UASLoudECMAPowAvgBinScl=seq(
                                                 min(stimDataNoAmb$UASLoudECMAPowAvgBinScl),
                                                 max(stimDataNoAmb$UASLoudECMAPowAvgBinScl),
                                                 length.out = 25),
                                                 UASTonalAwSHMInt05ExMaxLRScl=seq(-0.35, 0.7, by=0.25),
                                                 UASSharpAurISO3PowAvgMaxLRScl=c(quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl,
-                                                                                         0.1),
+                                                                                         low_q),
                                                                                 quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl,
-                                                                                         0.9))),
+                                                                                         hi_q))),
                                           by = c("UASLoudECMAPowAvgBinScl", "UASTonalAwSHMInt05ExMaxLRScl",
                                                  "UASSharpAurISO3PowAvgMaxLRScl"),
                                           vcov = vcov(m16b, type = "bias-corrected"))
@@ -7506,9 +7519,9 @@ m16bpredNT <- m16bpredNT |> dplyr::mutate(UASTonalAwSHMInt05ExMaxLRScl = factor(
 
 
 # Find the midpoint to split the raw data into Min/Max categories
-low_val <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, 0.1)
-hi_val <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, 0.9)
-midpoint <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, 0.5)
+low_val <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, low_q)
+hi_val <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, hi_q)
+midpoint <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, mid_q)
 
 # Apply the factor grouping to the raw data
 stimDataNoAmbTemp1 <- stimDataNoAmb |>
@@ -7518,9 +7531,9 @@ stimDataNoAmbTemp1 <- stimDataNoAmb |>
   ))
 
 # Find the midpoint to split the raw data into Min/Max categories
-low_val <- quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl, 0.1)
-hi_val <- quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl, 0.9)
-midpoint <- quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl, 0.5)
+low_val <- quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl, low_q)
+hi_val <- quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl, hi_q)
+midpoint <- quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl, mid_q)
 
 stimDataNoAmbTemp2 <- stimDataNoAmb |>
   mutate(UASSharpAurISO3PowAvgMaxLRScl = factor(
@@ -8307,6 +8320,11 @@ m18cpredEvt <- avg_predictions_hybrid(m18c, newdata=m18cDataFit,
                                           by = c("UASImpulsLoudWZAvgMaxLR", "UASEvents"),
                                           vcov = vcov(m18c, type = "bias-corrected"))
 
+low_q <- 0.1
+hi_q <- 0.9 
+mid_q <- low_q + (hi_q - low_q)/2
+
+
 m18cpredIS <- avg_predictions_hybrid(m18c, newdata=m18cDataFit,
                                               variables = list(UASImpulsLoudWZAvgMaxLR=seq(
                                                 min(stimDataNoAmb$UASImpulsLoudWZAvgMaxLR),
@@ -8314,9 +8332,9 @@ m18cpredIS <- avg_predictions_hybrid(m18c, newdata=m18cDataFit,
                                                 length.out = 25),
                                                 UASSharpAurISO3PowAvgMaxLRScl=seq(-0.6, 0.4, by=0.2),
                                                 UASTonalAwSHMInt05ExMaxLRScl=c(quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, 
-                                                                                        0.1),
+                                                                                        low_q),
                                                                                 quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl,
-                                                                                         0.9))),
+                                                                                         hi_q))),
                                           by = c("UASImpulsLoudWZAvgMaxLR", "UASSharpAurISO3PowAvgMaxLRScl",
                                                  "UASTonalAwSHMInt05ExMaxLRScl"),
                                           vcov = vcov(m18c, type = "bias-corrected"))
@@ -8328,9 +8346,9 @@ m18cpredIT <- avg_predictions_hybrid(m18c, newdata=m18cDataFit,
                                                 length.out = 25),
                                                 UASTonalAwSHMInt05ExMaxLRScl=seq(-0.35, 0.7, by=0.25),
                                                 UASSharpAurISO3PowAvgMaxLRScl=c(quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl,
-                                                                                         0.1),
+                                                                                         low_q),
                                                                                 quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl,
-                                                                                         0.9))),
+                                                                                         hi_q))),
                                           by = c("UASImpulsLoudWZAvgMaxLR", "UASTonalAwSHMInt05ExMaxLRScl",
                                                  "UASSharpAurISO3PowAvgMaxLRScl"),
                                           vcov = vcov(m18c, type = "bias-corrected"))
@@ -8341,9 +8359,9 @@ m18cpredIT <- m18cpredIT |> dplyr::mutate(UASTonalAwSHMInt05ExMaxLRScl = factor(
                                           UASSharpAurISO3PowAvgMaxLRScl = factor(UASSharpAurISO3PowAvgMaxLRScl))
 
 # Find the midpoint to split the raw data into Min/Max categories
-low_val <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, 0.1)
-hi_val <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, 0.9)
-midpoint <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, 0.5)
+low_val <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, low_q)
+hi_val <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, hi_q)
+midpoint <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, mid_q)
 
 # Apply the factor grouping to the raw data
 stimDataNoAmbTemp1 <- stimDataNoAmb |>
@@ -8353,9 +8371,9 @@ stimDataNoAmbTemp1 <- stimDataNoAmb |>
   ))
 
 # Find the midpoint to split the raw data into Min/Max categories
-low_val <- quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl, 0.1)
-hi_val <- quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl, 0.9)
-midpoint <- quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl, 0.5)
+low_val <- quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl, low_q)
+hi_val <- quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl, hi_q)
+midpoint <- quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl, mid_q)
 
 stimDataNoAmbTemp2 <- stimDataNoAmb |>
   mutate(UASSharpAurISO3PowAvgMaxLRScl = factor(
@@ -8704,7 +8722,20 @@ glmgee_vif(m19)
 ```{r}
 
 m19DataFit <- insight::get_data(m19)
+
 m19predEvt <- avg_predictions_hybrid(m19, newdata=m19DataFit,
+                                              variables = list(UASLoudECMAPowAvgBinScl=seq(
+                                                min(stimDataNoAmb$UASLoudECMAPowAvgBinScl),
+                                                max(stimDataNoAmb$UASLoudECMAPowAvgBinScl),
+                                                length.out = 25)),
+                                          by = c("UASLoudECMAPowAvgBinScl", "UASEvents"),
+                                          vcov = vcov(m19, type = "bias-corrected"))
+
+low_q <- 0.35
+hi_q <- 0.95 
+mid_q <- low_q + (hi_q - low_q)/2
+
+m19predEvtdS <- avg_predictions_hybrid(m19, newdata=m19DataFit,
                                               variables = list(dSharpAurSHMPowAvgMaxLRScl=seq(
                                                 min(stimDataNoAmb$dSharpAurSHMPowAvgMaxLRScl),
                                                 max(stimDataNoAmb$dSharpAurSHMPowAvgMaxLRScl),
@@ -8719,9 +8750,9 @@ m19preddSI <- avg_predictions_hybrid(m19, newdata=m19DataFit,
                                                 length.out = 25),
                                                 UASImpulsLoudWZAvgMaxLR=seq(0.3, 1.3, by=0.2),
                                                 UASTonalAwSHMInt05ExMaxLRScl=c(quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, 
-                                                                                        0.3),
+                                                                                        low_q),
                                                                                 quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl,
-                                                                                         0.9))),
+                                                                                         hi_q))),
                                           by = c("UASImpulsLoudWZAvgMaxLR", "dSharpAurSHMPowAvgMaxLRScl",
                                                  "UASTonalAwSHMInt05ExMaxLRScl"),
                                           vcov = vcov(m19, type = "bias-corrected"))
@@ -8733,9 +8764,9 @@ m19preddST <- avg_predictions_hybrid(m19, newdata=m19DataFit,
                                                 length.out = 25),
                                                 UASTonalAwSHMInt05ExMaxLRScl=seq(-0.35, 0.7, by=0.25),
                                                 UASImpulsLoudWZAvgMaxLR=c(quantile(stimDataNoAmb$UASImpulsLoudWZAvgMaxLR,
-                                                                                         0.3),
+                                                                                         low_q),
                                                                                 quantile(stimDataNoAmb$UASImpulsLoudWZAvgMaxLR,
-                                                                                         0.9))),
+                                                                                         hi_q))),
                                           by = c("UASImpulsLoudWZAvgMaxLR", "UASTonalAwSHMInt05ExMaxLRScl",
                                                  "dSharpAurSHMPowAvgMaxLRScl"),
                                           vcov = vcov(m19, type = "bias-corrected"))
@@ -8746,9 +8777,9 @@ m19preddST <- m19preddST |> dplyr::mutate(UASTonalAwSHMInt05ExMaxLRScl = factor(
                                           UASImpulsLoudWZAvgMaxLR = factor(UASImpulsLoudWZAvgMaxLR))
 
 # Find the midpoint to split the raw data into Min/Max categories
-low_val <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, 0.3)
-hi_val <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, 0.9)
-midpoint <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, 0.5)
+low_val <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, low_q)
+hi_val <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, hi_q)
+midpoint <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, mid_q)
 
 # Apply the factor grouping to the raw data
 stimDataNoAmbTemp1 <- stimDataNoAmb |>
@@ -8758,9 +8789,9 @@ stimDataNoAmbTemp1 <- stimDataNoAmb |>
   ))
 
 # Find the midpoint to split the raw data into Min/Max categories
-low_val <- quantile(stimDataNoAmb$UASImpulsLoudWZAvgMaxLR, 0.3)
-hi_val <- quantile(stimDataNoAmb$UASImpulsLoudWZAvgMaxLR, 0.9)
-midpoint <- quantile(stimDataNoAmb$UASImpulsLoudWZAvgMaxLR, 0.5)
+low_val <- quantile(stimDataNoAmb$UASImpulsLoudWZAvgMaxLR, low_q)
+hi_val <- quantile(stimDataNoAmb$UASImpulsLoudWZAvgMaxLR, hi_q)
+midpoint <- quantile(stimDataNoAmb$UASImpulsLoudWZAvgMaxLR, mid_q)
 
 stimDataNoAmbTemp2 <- stimDataNoAmb |>
   mutate(UASImpulsLoudWZAvgMaxLR = factor(
@@ -8775,6 +8806,45 @@ stimDataNoAmbTemp2 <- stimDataNoAmb |>
 ```{r}
 
 ggplot(data=m19predEvt) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35,
+                    text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_point(data=stimDataNoAmb,
+                         aes(x=UASLoudECMAPowAvgBinScl, y=dHighAnnoyProp,
+                             colour=factor(UASEvents), shape=factor(UASEvents)),
+                         alpha=0.55, size=2) +
+              
+              geom_ribbon(aes(x=UASLoudECMAPowAvgBinScl, ymin=conf.low, ymax=conf.high, fill=factor(UASEvents)),
+                          alpha=0.15) +
+              
+              geom_line(aes(x=UASLoudECMAPowAvgBinScl, y=estimate, colour=factor(UASEvents)), linewidth=1) +
+              
+              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
+                                  guide=guide_legend(title="UAS events", reverse=TRUE)) +
+              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
+                                 guide=guide_legend(title="UAS events", reverse=TRUE)) +
+              scale_shape_manual(values=c(4, 5, 7, 8), guide=guide_legend(title="UAS events", reverse=TRUE)) +
+
+              rescaleTicks(stimDataNoAmb$UASLoudECMAPowAvgBin,
+                             stimDataNoAmb$UASLoudECMAPowAvgBinScl, sep=1) +
+  
+              scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
+              
+              labs(x=expression(paste(UAS~italic(N)^"*",",",~sone[SHM])),
+                   y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
+
+filename <- "PtsABdHiAnnoyAllSQModEvt_gee"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=5, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=5, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+ggplot(data=m19predEvtdS) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
@@ -8804,7 +8874,7 @@ ggplot(data=m19predEvt) +
               labs(x=expression(paste(UAS~italic(Delta*S)^"*",",",~acum[A~"|"~SHM])),
                    y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
-filename <- "PtsABdHiAnnoyAllSQModEvt_gee"
+filename <- "PtsABdHiAnnoyAllSQModEvtdS_gee"
 
 if (saveplots){
   ggsave(filename=paste(filename, ".svg", sep=""), width=5, height=4, path=file.path(outFigPath, "svg"))
@@ -9194,7 +9264,7 @@ m19cpreddSI <- avg_predictions_hybrid(m19c, newdata=m19cDataFit,
                                                 UASTonalAwSHMInt05ExMaxLRScl=c(quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, 
                                                                                         0.3),
                                                                                 quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl,
-                                                                                         0.9))),
+                                                                                         0.95))),
                                           by = c("UASImpulsLoudWZAvgMaxLR", "dSharpAurSHMPowAvgMaxLRScl",
                                                  "UASTonalAwSHMInt05ExMaxLRScl"),
                                           vcov = vcov(m19c, type = "bias-corrected"))
@@ -9208,7 +9278,7 @@ m19cpreddST <- avg_predictions_hybrid(m19c, newdata=m19cDataFit,
                                                 UASImpulsLoudWZAvgMaxLR=c(quantile(stimDataNoAmb$UASImpulsLoudWZAvgMaxLR,
                                                                                          0.3),
                                                                                 quantile(stimDataNoAmb$UASImpulsLoudWZAvgMaxLR,
-                                                                                         0.9))),
+                                                                                         0.95))),
                                           by = c("UASImpulsLoudWZAvgMaxLR", "UASTonalAwSHMInt05ExMaxLRScl",
                                                  "dSharpAurSHMPowAvgMaxLRScl"),
                                           vcov = vcov(m19c, type = "bias-corrected"))
@@ -9220,7 +9290,7 @@ m19cpreddST <- m19cpreddST |> dplyr::mutate(UASTonalAwSHMInt05ExMaxLRScl = facto
 
 # Find the midpoint to split the raw data into Min/Max categories
 low_val <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, 0.3)
-hi_val <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, 0.9)
+hi_val <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, 0.95)
 midpoint <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, 0.5)
 
 # Apply the factor grouping to the raw data
@@ -9232,7 +9302,7 @@ stimDataNoAmbTemp1 <- stimDataNoAmb |>
 
 # Find the midpoint to split the raw data into Min/Max categories
 low_val <- quantile(stimDataNoAmb$UASImpulsLoudWZAvgMaxLR, 0.3)
-hi_val <- quantile(stimDataNoAmb$UASImpulsLoudWZAvgMaxLR, 0.9)
+hi_val <- quantile(stimDataNoAmb$UASImpulsLoudWZAvgMaxLR, 0.95)
 midpoint <- quantile(stimDataNoAmb$UASImpulsLoudWZAvgMaxLR, 0.5)
 
 stimDataNoAmbTemp2 <- stimDataNoAmb |>
