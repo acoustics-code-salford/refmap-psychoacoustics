@@ -280,13 +280,24 @@ df_questionnaire.drop(columns=['Start time', 'Completion time', 'NoiseSensitive1
                                'NoiseSensitive5', 'Comments'], inplace=True)
 # make Participant ID column name ParticipantID
 df_questionnaire.rename(columns={"Participant ID": "ParticipantID"}, inplace=True)
-# fill na for AAMExperience (NA is "None"), for NativeLanguage (NA is "NotAnswered")
+# fill na for AAMExperience (NA is "None"), for NativeLanguage (NA is "Unanswered")
 df_questionnaire['AAMExperience'] = df_questionnaire['AAMExperience'].fillna("None")
-df_questionnaire['Nationality'] = df_questionnaire['Nationality'].fillna("NotAnswered")
-df_questionnaire['NativeLanguage'] = df_questionnaire['NativeLanguage'].fillna("NotAnswered")
+df_questionnaire['Nationality'] = df_questionnaire['Nationality'].fillna("Unanswered")
+df_questionnaire['NativeLanguage'] = df_questionnaire['NativeLanguage'].fillna("Unanswered")
 # remove substring following first space
 df_questionnaire['AAMAttitude'] = df_questionnaire['AAMAttitude'].str.split(' ').str[0]
-df_questionnaire['UKNational'] = df_questionnaire['UKNational'].str.replace("No answer", "NotAnswered")
+df_questionnaire['UKNational'] = df_questionnaire['UKNational'].str.replace("No answer", "Unanswered")
+
+# add NationGeo column and assign geographic area of nationality according to dict
+nationGeo = {"British": "UK", "English": "UK", "Scottish": "UK", "Nigerian": "Africa", "Ecuadorean": "SouthAmerica", "Peruvian": "SouthAmerica",
+             "Austrian" : "Europe", "Lithuanian": "Europe", "China" : "EastAsia", "Pakistani" : "SouthAsia", "Indian" : "SouthAsia",
+             "British / Dutch" : "UK", "Turkish" : "Europe", "Iranian": "MidEast", "Italian" : "Europe",
+             "Unanswered" : "Unanswered"}
+
+df_questionnaire['NationGeo'] = df_questionnaire['Nationality'].map(nationGeo)
+
+# move NationGeo to after Nationality column
+df_questionnaire.insert(df_questionnaire.columns.get_loc('Nationality') + 1, 'NationGeo', df_questionnaire.pop('NationGeo'))
 
 # check/open QApplication instance
 if not QApplication.instance():
@@ -294,7 +305,7 @@ if not QApplication.instance():
 else:
     app = QApplication.instance() 
 
-outFilePath = QFileDialog.getExistingDirectory(caption="Choose output folder to save processed files in  in '03 Experiment\Experiment 2\Test_files\Questionnaire'")
+outFilePath = QFileDialog.getExistingDirectory(caption="Choose output folder to save processed files in  in '03 Experiment\Experiment 2\Analysis\PostProcess'")
 
 # save cleaned questionnaire data to file
 questionOutFile = os.path.join(outFilePath, "refmap_listest2_questionnaireResponses.csv")
