@@ -38,6 +38,7 @@ Date last checked:
 """
 
 from math import copysign
+import numpy as np
 
 def round_trad(val, digits=3):
     """
@@ -59,7 +60,13 @@ def round_trad(val, digits=3):
           The rounded value.
 
     """
-    return round(val + 10**(-len(str(val)) - 1), digits)
+    # class check for numpy arrays
+    if hasattr(val, 'dtype'):
+        out = np.round(val + 10**(-len(str(val)) - 1), digits)
+    else:
+        out = round(val + 10**(-len(str(val)) - 1), digits)
+
+    return out
 
 
 def display_round(val, digits=3, floor=True):
