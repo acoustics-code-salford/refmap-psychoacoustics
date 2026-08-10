@@ -61,8 +61,11 @@ def round_trad(val, digits=3):
 
     """
     # class check for numpy arrays
-    if hasattr(val, 'dtype'):
-        out = np.round(val + 10**(-len(str(val)) - 1), digits)
+    if hasattr(val, 'dtype') or isinstance(val, (list, tuple)):
+        arr = np.asarray(val, dtype=float)
+        # compute a per-element epsilon
+        eps = np.vectorize(lambda v: 10**(-len(str(v)) - 1))(arr)
+        out = np.round(arr + eps, digits)
     else:
         out = round(val + 10**(-len(str(val)) - 1), digits)
 
@@ -92,6 +95,13 @@ def display_round(val, digits=3, floor=True):
                 The rounded value as a string.
         
     """
+
+    # check if array-like and apply function recursively
+    if isinstance(val, (list, tuple, np.ndarray)):
+        return np.array(
+            [display_round(v, digits=digits, floor=floor) for v in val],
+            dtype=object,
+        )
     
     crit = 1/10**digits
 
@@ -103,14 +113,6 @@ def display_round(val, digits=3, floor=True):
 
     else:
         valrnd = round_trad(val, digits)
-        if valrnd == 0:
-            val_string = "0." + digits*"0"
-        else:
-            val_string = f'{valrnd:f}'.rstrip("0")
-            dec = int(val_string.split('.')[-1])
-            zs = len(val_string.split('.')[-1]) - len(val_string.split('.')[-1].lstrip("0"))
-            nzeros = digits - len(str(dec)) - zs
-            if nzeros > 0:
-                val_string = val_string + nzeros*"0"
+        val_string = f'{valrnd:.{digits}f}'
 
     return(val_string)
