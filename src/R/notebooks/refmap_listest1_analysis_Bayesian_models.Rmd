@@ -75,7 +75,7 @@ saveplots = TRUE
 if (saveplots){
   # set output plot directory
   choose.files(caption="Just cancel this", filters=matrix(data=c(" ", " "), ncol=2))  # workaround for bug in RTerm choose.dir
-  outFigPath <- utils::choose.dir(caption="Select output folder to save plots")
+  outFigPath <- utils::choose.dir(caption=r"(Select output folder to save plots: 03 Experiment\Experiment 1\Analysis\Plots)")
   
   if (!dir.exists(file.path(outFigPath, "svg"))){dir.create(file.path(outFigPath, "svg"))}
   if (!dir.exists(file.path(outFigPath, "pdf"))){dir.create(file.path(outFigPath, "pdf"))}
@@ -90,7 +90,7 @@ if (savedata){
   if (saveplots==FALSE){
     choose.files(caption="Just cancel this", filters=matrix(data=c(" ", " "), ncol=2))  # workaround for bug in RTerm choose.dir
   }
-  outDataPath <- utils::choose.dir(caption="Select output folder to save data")
+  outDataPath <- utils::choose.dir(caption=r"(Select output folder to save data: 03 Experiment\Experiment 1\Analysis\R)")
 }
 
 # set global number of draws and new subjects for Bayesian model predictions 
@@ -2191,7 +2191,7 @@ if (saveplots){
 
 # plot spi for within-subjects covariates only
 m3b_bCI_wsc <- m3b_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_TrialNumberScl"))
+  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_PartTrialNumberScl"))
 p_m3b_bCI_wsc <- plot(m3b_bCI_wsc, show_intercept=F) +
     theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
   scale_fill_manual(values=mycolours) +

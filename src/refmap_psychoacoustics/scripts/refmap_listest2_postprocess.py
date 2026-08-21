@@ -2633,6 +2633,7 @@ dataByStimCombi = dataByStimCombi.merge(testDataCombi, how='outer', left_index=T
 # PROJECT NOTE: the response files are stored in
 # https://testlivesalfordac.sharepoint.com/:f:/r/sites/REFMAP/Shared%20Documents/General/03%20Experiment/Experiment%202/Test_files/Questionnaire?csf=1&web=1&e=W4YAdI
 # check/open QApplication instance
+
 if not QApplication.instance():
     app = QApplication(sys.argv)
 else:

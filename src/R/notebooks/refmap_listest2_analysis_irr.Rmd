@@ -1,0 +1,46 @@
+---
+title: "REFMAP listening test 1 analysis: Inter-rater reliability"
+output: html_document
+date: "2024-10-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup
+
+Load packages
+
+```{r}
+library(tidyverse)
+library(irr)
+library(irrNA)
+
+```
+
+## Import data and wrangle
+
+```{r}
+
+annoyDatapath <- utils::choose.files(caption=r"(Select refmap_listest2_AnnoyDataBySubjWide.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
+                                     filters=matrix(data=c("refmap_listest2_AnnoyDataBySubjWide.csv", "refmap_listest2_AnnoyDataBySubjWide.csv"), ncol=2))
+
+annoyData <- read.csv(annoyDatapath, header=TRUE)
+
+# transpose the data
+annoyData <- setNames(data.frame(t(annoyData[,-1])), annoyData[,1])
+# keep only the 110 stimuli rows
+annoyData <- annoyData[1:110,]
+# convert to numeric
+annoyData <- dplyr::mutate_all(annoyData, function(x) as.numeric(as.character(x)))
+
+```
+
+## Calculate ICC
+
+```{r}
+
+irrNA::iccNA(annoyData)
+
+```
