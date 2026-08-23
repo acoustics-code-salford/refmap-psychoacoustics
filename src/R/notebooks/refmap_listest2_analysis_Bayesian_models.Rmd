@@ -1421,8 +1421,9 @@ set.seed(999)
 m1fpredOp <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg,
                                                         UASEvents==1),
                                                 by=c("UASLAEMaxLRScl",
+                                                     "UASProximity",
                                                      "UASOperation",
-                                                     "AmbientEnv",
+                                                     "AmbientEnvCore",
                                                      "UASEvents"),
                                               re_formula = NULL,
                                               allow_new_levels = TRUE,
@@ -1436,7 +1437,7 @@ set.seed(999)
 m1fpredEnv <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg,
                                                         UASEvents==1),
                                                 by=c("UASLAEMaxLRScl",
-                                                     "AmbientEnv",
+                                                     "AmbientEnvCore",
                                                      "UASEvents"),
                                                 re_formula = NULL,
                                                allow_new_levels = TRUE,
@@ -1448,10 +1449,11 @@ m1fpredEnv <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg,
 
 set.seed(999)
 m1fpredEvt <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg,
-                                                                 AmbientEnv=="Park" &
-                                                                 UASOperation=="Overflight"),
+                                                                 UASProximity=="Far" &
+                                                                 UASOperation=="Overflight" &
+                                                                   AmbientVariant=="Standard"),
                                             by=c("UASLAEMaxLRScl",
-                                                 "AmbientEnv",
+                                                 "AmbientEnvCore",
                                                  "UASEvents",
                                                  "UASOperation"),
                                             re_formula = NULL,
@@ -1464,11 +1466,11 @@ m1fpredEvt <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg,
 
 set.seed(999)
 m1fpredEvt2 <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg2,
-                                                                  AmbientEnv=="Park" &
+                                                                  UASProximity=="Far" &
                                                                   UASOperation=="Overflight" &
-                                                                  UASType %in% c("H520", "T150")),
+                                                                    AmbientVariant=="Standard"),
                                               by=c("UASLAEMaxLRScl",
-                                                   "AmbientEnv",
+                                                   "AmbientEnvCore",
                                                    "UASEvents",
                                                    "UASOperation"),
                                                 re_formula = NULL,
