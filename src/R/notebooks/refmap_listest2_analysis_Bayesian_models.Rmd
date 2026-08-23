@@ -42,6 +42,9 @@ library(purrr)
 # set package parameters
 theme_set(theme_bw())
 
+# CAUTION: calculations in this notebook assume 12 cores available from total of 16
+# parallelised processing settings would need to be amended throughout the notebook if
+# a different number of cores are available
 n_cores <- max(1, parallelly::availableCores() - 4)
 future::plan(future::multisession, workers = n_cores)
 
@@ -388,7 +391,6 @@ source(here("src/R/avg_comparisons_slopes.R"))
 
 ```{r}
 
-# 1. Create the extraction function
 get_Br2_table <- function(...) {
   model_names <- match.call(expand.dots = FALSE)$... |> as.character()
   models <- list(...)
@@ -409,14 +411,26 @@ get_Br2_table <- function(...) {
     as_tibble(matrix(NA_real_, nrow = 1, ncol = length(col_names), dimnames = list(NULL, col_names)))
   }
   
-  # Loop through models and extract
+  # Loop through models, extract, flatten to one row, and sort
   map2_dfr(models, model_names, function(mod, name) {
     bind_rows(
       get_metric(mod, "bayes_R2_marginal")    |> add_column(Type = "Marginal", .before = 1),
       get_metric(mod, "bayes_R2_conditional") |> add_column(Type = "Conditional", .before = 1)
     ) |> 
     add_column(Model = name, .before = 1)
-  })
+  }) |> 
+    # Pivot columns wider so each model has exactly one row
+    pivot_wider(
+      names_from = Type, 
+      values_from = -c(Model, Type),
+      names_glue = "{Type}_{.value}"
+    ) |> 
+    
+    # Reorder columns so Marginal statistics block together, then Conditional block together
+    relocate(starts_with("Marginal"), .after = Model) |> 
+    
+    # Reorder rows by the marginal R2 Estimate descending
+    arrange(desc(Marginal_Estimate))
 }
 
 ```
@@ -608,7 +622,7 @@ subjDataNoAmb <- rbind(subjDataNoAmb |>
 
 m1formula <- dAnnoyanceOrdBetaScl ~ 1 + TrialNumberScl +
                     UASProximity +
-                    UASLAEMaxLRScl*UASEvents +
+                    UASLAEMaxLRScl*I(log10(UASEvents)) +
                    UASLAEMaxLRScl*AmbientEnvCore*UASOperation +
                    UASLAEMaxLRScl*AmbientEnvCore*UASType +
                    AmbientVariant*UASType +
@@ -616,7 +630,7 @@ m1formula <- dAnnoyanceOrdBetaScl ~ 1 + TrialNumberScl +
                    NationGeo2 + AAM_attitude2 + Home_Area2 +
                    Age + Sex + NoiseSensitivity + Area_soundscape2 +
                    (1 + UASProximity + UASLAEMaxLRScl + AmbientEnvCore +
-                      UASEvents + AmbientVariant +
+                      I(log10(UASEvents)) + AmbientVariant +
                       UASOperation + UASType | ID) +
                      (1 | StimID)
 
@@ -628,10 +642,14 @@ m1Data <- subjDataNoAmb[, all.vars(m1formula), drop=FALSE]
 
 ```{r}
 
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
 priors1 <- c(
   set_prior("normal(0, 2)", class='b'),
   brms::prior(normal(0.2, 1), class='b', coef='UASLAEMaxLRScl'),
-  brms::prior(normal(1.5, 1), class='b', coef='UASEvents'),
+  brms::prior(normal(1.5, 1), class='b', coef='Ilog10UASEvents'),
   brms::prior(normal(0.1, 1), class='b', coef='TrialNumberScl'),
   brms::prior(gamma(2, 0.1), class='phi')
 )
@@ -643,7 +661,7 @@ m1Priors <- brms::brm(m1formula,
                  future=TRUE, backend='cmdstanr', init=0,
                  prior=priors1, control=list(adapt_delta=0.95),
                  sample_prior='only', seed=808,
-                 chains=4, iter=2000, warmup=1000)
+                 chains=chains, iter=2000, warmup=1000)
 toc()
 
 m1PriorCheck <- brms::pp_check(m1Priors, ndraws = 100) +
@@ -656,14 +674,20 @@ m1 <- brms::brm(m1formula, data=m1Data,
                 family=ordbeta(link='logit'),
                future=TRUE, backend='cmdstanr', init=0,
                prior = priors1, control=list(adapt_delta=0.95),
-               threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
-               seed=808, chains=4, iter=2000, warmup=1000)
+               threads = threading(threads = 3, static = TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
 toc()
+
+future::plan(future::multisession, workers = 6)
 
 tic()
 m1 <- brms::add_criterion(m1, criterion=c('loo', 'loo_R2'),
                           cores=n_cores,
-                          reloo=reloo_flag)
+                          reloo=reloo_flag,
+                          overwrite=TRUE,
+                          chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                          backend='cmdstanr',
+                          future_args=list(future.seed=TRUE))
 toc()
 
 m1$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m1))
@@ -715,11 +739,15 @@ m1PostCheckProx
 
 ```{R}
 
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
 priors1b <- c(
   # mean model
   set_prior("normal(0, 2)", class='b', dpar='mu'),
   brms::prior(normal(0.2, 1), class='b', coef='UASLAEMaxLRScl', dpar='mu'),
-  brms::prior(normal(1.5, 1), class='b', coef='UASEvents', dpar='mu'),
+  brms::prior(normal(1.5, 1), class='b', coef='Ilog10UASEvents', dpar='mu'),
   brms::prior(normal(0.1, 1), class='b', coef='TrialNumberScl', dpar='mu'),
   # precision model
   brms::prior(normal(0, 1), class = 'Intercept', dpar = 'phi'),
@@ -732,13 +760,19 @@ m1b <- brms::brm(brms::bf(m1formula, phi ~ 1 + AmbientEnvCore),
                future=TRUE, backend='cmdstanr', init=0,
                prior = priors1b, control=list(adapt_delta=0.95),
                threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
-               seed=808, chains=4, iter=2000, warmup=1000)
+               seed=808, chains=chains, iter=2000, warmup=1000)
 toc()
+
+future::plan(future::multisession, workers = 6)
 
 tic()
 m1b <- brms::add_criterion(m1b, criterion=c('loo', 'loo_R2'),
                            cores=n_cores,
-                           reloo=reloo_flag)
+                           reloo=reloo_flag,
+                           overwrite=TRUE,
+                           chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                           backend='cmdstanr',
+                           future_args=list(future.seed=TRUE))
 toc()
 
 m1b$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m1b))
@@ -790,8 +824,7 @@ m1bPostCheckProx
 
 ```{R}
 
-loo::loo(m1)
-loo::loo(m1b)
+loo::pareto_k_table(loo::loo(m1b))
 
 # make a table of the bayes_R2 values and quantiles for each model
 get_Br2_table(m1, m1b)
@@ -805,19 +838,30 @@ m1b_loo
 
 ```{R}
 
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
 tic()
-m1c <- brms::brm(brms::bf(m1formula, phi ~ 1 + AmbientEnvCore + UASOperation + UASType),
+m1c <- brms::brm(brms::bf(m1formula, phi ~ 1 + AmbientEnvCore + UASOperation +
+                            UASType),
                 data=m1Data, family=ordbeta(link='logit'),
                future=TRUE, backend='cmdstanr', init=0,
                prior = priors1b, control=list(adapt_delta=0.95),
                threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
-               seed=808, chains=4, iter=2000, warmup=1000)
+               seed=808, chains=chains, iter=2000, warmup=1000)
 toc()
+
+future::plan(future::multisession, workers = 6)
 
 tic()
 m1c <- brms::add_criterion(m1c, criterion=c('loo', 'loo_R2'),
                            cores=n_cores,
-                           reloo=reloo_flag)
+                           reloo=reloo_flag,
+                           overwrite=TRUE,
+                           chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                           backend='cmdstanr',
+                           future_args=list(future.seed=TRUE))
 toc()
 
 m1c$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m1c))
@@ -869,8 +913,7 @@ m1cPostCheckProx
 
 ```{R}
 
-loo::loo(m1b)
-loo::loo(m1c)
+loo::pareto_k_table(loo::loo(m1c))
 
 get_Br2_table(m1, m1b, m1c)
 
@@ -883,19 +926,30 @@ m1c_loo
 
 ```{R}
 
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
 tic()
-m1d <- brms::brm(brms::bf(m1formula, phi ~ 1 + AmbientEnvCore + UASOperation + UASType + (1 | ID)),
+m1d <- brms::brm(brms::bf(m1formula, phi ~ 1 + AmbientEnvCore + UASOperation +
+                            UASType + (1 | ID)),
                 data=m1Data, family=ordbeta(link='logit'),
                future=TRUE, backend='cmdstanr', init=0,
                prior = priors1b, control=list(adapt_delta=0.95),
                threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
-               seed=808, chains=4, iter=2000, warmup=1000)
+               seed=808, chains=chains, iter=2000, warmup=1000)
 toc()
+
+future::plan(future::multisession, workers = 6)
 
 tic()
 m1d <- brms::add_criterion(m1d, criterion=c('loo', 'loo_R2'),
                            cores=n_cores,
-                           reloo=reloo_flag)
+                           reloo=reloo_flag,
+                           overwrite=TRUE,
+                           chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                           backend='cmdstanr',
+                           future_args=list(future.seed=TRUE))
 toc()
 
 m1d$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m1d))
@@ -947,6 +1001,9 @@ m1dPostCheckProx
 
 ```{R}
 
+
+loo::pareto_k_table(loo::loo(m1d))
+
 get_Br2_table(m1, m1b, m1c, m1d)
 
 m1d_loo <- loo::loo_compare(m1, m1b, m1c, m1d, criterion='loo')
@@ -954,28 +1011,209 @@ m1d_loo
 
 ```
 
-### analyse m3b results
+### run model 1e
+
+```{R}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+tic()
+m1e <- brms::brm(brms::bf(m1formula, phi ~ 1 + AmbientEnvCore + AmbientVariant +
+                            UASOperation + UASType + (1 | ID)),
+                data=m1Data, family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priors1b, control=list(adapt_delta=0.95),
+               threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+m1e <- brms::add_criterion(m1e, criterion=c('loo', 'loo_R2'),
+                           cores=n_cores,
+                           reloo=reloo_flag,
+                           overwrite=TRUE,
+                           chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                           backend='cmdstanr',
+                           future_args=list(future.seed=TRUE))
+toc()
+
+m1e$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m1e))
+m1e$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m1e, re_formula=NA))
+m1e$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m1e, re_formula=NULL))
+
+m1ePostCheck <- brms::pp_check(m1e, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m1ePostCheck
+
+```
+
+```{R, fig.width=16, fig.height=8}
+
+m1ePostCheckEnv <- brms::pp_check(m1e, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m1ePostCheckEnv
+
+m1ePostCheckEnv <- brms::pp_check(m1e, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m1ePostCheckEnv
+
+m1ePostCheckEvt <- brms::pp_check(m1e, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m1ePostCheckEvt
+
+m1ePostCheckType <- brms::pp_check(m1e, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m1ePostCheckType
+
+m1ePostCheckOp <- brms::pp_check(m1e, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m1ePostCheckOp
+
+m1ePostCheckProx <- brms::pp_check(m1e, type='dens_overlay_grouped', ndraws=100, group='UASProximity') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m1ePostCheckProx
+
+```
+
+#### compare
+
+```{R}
+
+loo::pareto_k_table(loo::loo(m1e))
+
+get_Br2_table(m1, m1b, m1c, m1d, m1e)
+
+m1e_loo <- loo::loo_compare(m1, m1b, m1c, m1d, m1e, criterion='loo')
+m1e_loo
+
+```
+
+### run model 1f
+
+```{R}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+tic()
+m1f <- brms::brm(brms::bf(m1formula, phi ~ 1 + AmbientEnvCore + UASOperation +
+                            UASType + I(log10(UASEvents)) + (1 | ID)),
+                data=m1Data, family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priors1b, control=list(adapt_delta=0.95),
+               threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+m1f <- brms::add_criterion(m1f, criterion=c('loo', 'loo_R2'),
+                           cores=n_cores,
+                           reloo=reloo_flag,
+                           overwrite=TRUE,
+                           chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                           backend='cmdstanr',
+                           future_args=list(future.seed=TRUE))
+toc()
+
+m1f$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m1f))
+m1f$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m1f, re_formula=NA))
+m1f$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m1f, re_formula=NULL))
+
+m1fPostCheck <- brms::pp_check(m1f, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m1fPostCheck
+
+```
+
+```{R, fig.width=16, fig.height=8}
+
+m1fPostCheckEnv <- brms::pp_check(m1f, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m1fPostCheckEnv
+
+m1fPostCheckEnv <- brms::pp_check(m1f, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m1fPostCheckEnv
+
+m1fPostCheckEvt <- brms::pp_check(m1f, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m1fPostCheckEvt
+
+m1fPostCheckType <- brms::pp_check(m1f, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m1fPostCheckType
+
+m1fPostCheckOp <- brms::pp_check(m1f, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m1fPostCheckOp
+
+m1fPostCheckProx <- brms::pp_check(m1f, type='dens_overlay_grouped', ndraws=100, group='UASProximity') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m1fPostCheckProx
+
+```
+
+#### compare
+
+```{R}
+
+loo::pareto_k_table(loo::loo(m1f))
+
+get_Br2_table(m1, m1b, m1c, m1d, m1e, m1f)
+
+m1f_loo <- loo::loo_compare(m1, m1b, m1c, m1d, m1e, m1f, criterion='loo')
+m1f_loo
+
+```
+
+### analyse m1f results
 
 #### visualise posterior draws for population level effects
 
 ```{R, fig.width=8, fig.height=6}
 
-m3b_bCI_range <- bayestestR::hdi(m3b, ci = c(0.5, 0.89, 0.95))
+m1f_bCI_range <- bayestestR::hdi(m1f, ci = c(0.5, 0.89, 0.95))
 
 # plot spi for within-subjects factors only
-m3b_bCI_wsf <- m3b_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASTypeM300", "b_UASTypeT150", 
-                                 "b_UASOperationLanding", "b_UASOperationTakeoff",
-                                 "b_AmbientEnvStreet"))
-p_m3b_bCI_wsf <- plot(m3b_bCI_wsf, show_intercept=F) +
+m1f_bCI_wsf <- m1f_bCI_range |>
+  dplyr::filter(Parameter %in% c("b_UASProximityNear", 
+                                 "b_UASTypeT150", 
+                                 "b_UASOperationDelivery",
+                                 "b_AmbientEnvCorePark",
+                                 "b_AmbientEnvCoreResidential",
+                                 "b_AmbientEnvCoreStreetsidesquare",
+                                 "b_AmbientVariantParkHigh",
+                                 "b_AmbientVariantHighwayLow"))
+p_m1f_bCI_wsf <- plot(m1f_bCI_wsf, show_intercept=F) +
   theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
   scale_fill_manual(values=mycolours) +
   labs(title="Within-subjects factors",
        x="Coefficient posterior distribution",
        y=NULL)
-p_m3b_bCI_wsf
+p_m1f_bCI_wsf
 
-filename <- "PtsABdAnnoyMnCatModbCI_brmsOb_wsf"
+filename <- "dAnnoyMnCatModbCI_brmsOb_wsf"
 
 if (saveplots){
   ggsave(filename=paste(filename, ".svg", sep=""), width=9, height=5,
@@ -987,22 +1225,25 @@ if (saveplots){
 }
 
 # plot spi for within-subjects factor interactions only
-m3b_bCI_wsfi <- m3b_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AmbientEnvStreet:UASOperationLanding",
-                                 "b_AmbientEnvStreet:UASOperationTakeoff",
-                                 "b_AmbientEnvStreet:UASTypeM300",
-                                 "b_AmbientEnvStreet:UASTypeT150",
-                                 "b_UASOperationLanding:UASTypeM300",
-                                 "b_UASOperationLanding:UASTypeT150"))
-p_m3b_bCI_wsfi <- plot(m3b_bCI_wsfi, show_intercept=F) +
+m1f_bCI_wsfi <- m1f_bCI_range |>
+  dplyr::filter(Parameter %in% c("b_AmbientEnvCorePark:UASOperationDelivery",
+                                 "b_AmbientEnvCoreResidential:UASOperationDelivery",
+                                 "b_AmbientEnvCoreStreetsidesquare:UASOperationDelivery",
+                                 "b_AmbientEnvCorePark:UASTypeT150",
+                                 "b_AmbientEnvCoreResidential:UASTypeT150",
+                                 "b_AmbientEnvCoreStreetsidesquare:UASTypeT150",
+                                 "b_UASTypeT150:AmbientVariantParkHigh",
+                                 "b_UASTypeT150:AmbientVariantHighwayLow",
+                                 "b_UASOperationDelivery:UASTypeT150"))
+p_m1f_bCI_wsfi <- plot(m1f_bCI_wsfi, show_intercept=F) +
   theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
   scale_fill_manual(values=mycolours) +
   labs(title="Within-subjects factor interactions",
        x="Coefficient posterior distribution",
        y=NULL)
-p_m3b_bCI_wsfi
+p_m1f_bCI_wsfi
 
-filename <- "PtsABdAnnoyMnCatModbCI_brmsOb_wsfi"
+filename <- "dAnnoyMnCatModbCI_brmsOb_wsfi"
 
 if (saveplots){
   ggsave(filename=paste(filename, ".svg", sep=""), width=9, height=5,
@@ -1014,17 +1255,17 @@ if (saveplots){
 }
 
 # plot spi for within-subjects covariates only
-m3b_bCI_wsc <- m3b_bCI_range |>
+m1f_bCI_wsc <- m1f_bCI_range |>
   dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_TrialNumberScl"))
-p_m3b_bCI_wsc <- plot(m3b_bCI_wsc, show_intercept=F) +
+p_m1f_bCI_wsc <- plot(m1f_bCI_wsc, show_intercept=F) +
     theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
   scale_fill_manual(values=mycolours) +
   labs(title="Within-subjects covariates",
        x="Coefficient posterior distribution",
        y=NULL)
-p_m3b_bCI_wsc
+p_m1f_bCI_wsc
 
-filename <- "PtsABdAnnoyMnCatModbCI_brmsOb_wsc"
+filename <- "dAnnoyMnCatModbCI_brmsOb_wsc"
 
 if (saveplots){
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4,
@@ -1036,26 +1277,28 @@ if (saveplots){
 }
 
 # plot spi for within-subjects covariate-factor interactions only
-m3b_bCI_wscfi <- m3b_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                 "b_UASLAEMaxLRScl:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:UASTypeM300",
+m1f_bCI_wscfi <- m1f_bCI_range |>
+  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl:AmbientEnvCorePark",
+                                 "b_UASLAEMaxLRScl:AmbientEnvCoreResidential",
+                                 "b_UASLAEMaxLRScl:AmbientEnvCoreStreetsidesquare",
+                                 "b_UASLAEMaxLRScl:UASOperationDelivery",
                                  "b_UASLAEMaxLRScl:UASTypeT150",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeM300",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeT150",
+                                 "b_UASLAEMaxLRScl:AmbientEnvCorePark:UASOperationDelivery",
+                                 "b_UASLAEMaxLRScl:AmbientEnvCoreResidential:UASOperationDelivery",
+                                 "b_UASLAEMaxLRScl:AmbientEnvCoreStreetsidesquare:UASOperationDelivery",
+                                 "b_UASLAEMaxLRScl:AmbientEnvCorePark:UASTypeT150",
+                                 "b_UASLAEMaxLRScl:AmbientEnvCoreResidential:UASTypeT150",
+                                 "b_UASLAEMaxLRScl:AmbientEnvCoreStreetsidesquare:UASTypeT150",
                                  "b_UASLAEMaxLRScl:Ilog10UASEvents"))
-p_m3b_bCI_wscfi <- plot(m3b_bCI_wscfi, show_intercept=F) +
+p_m1f_bCI_wscfi <- plot(m1f_bCI_wscfi, show_intercept=F) +
   theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
   scale_fill_manual(values=mycolours) +
   labs(title="Within-subjects covariate-factor interactions",
        x="Coefficient posterior distribution",
        y=NULL)
-p_m3b_bCI_wscfi
+p_m1f_bCI_wscfi
 
-filename <- "PtsABdAnnoyMnCatModbCI_brmsOb_wscfi"
+filename <- "dAnnoyMnCatModbCI_brmsOb_wscfi"
 
 if (saveplots){
   ggsave(filename=paste(filename, ".svg", sep=""), width=14, height=7,
@@ -1068,19 +1311,19 @@ if (saveplots){
 
 
 # plot spi for between-subjects factors only
-m3b_bCI_bsf <- m3b_bCI_range |>
+m1f_bCI_bsf <- m1f_bCI_range |>
   dplyr::filter(Parameter %in% c("b_NationGeo2UK", "b_AAM_attitude2Ambiv_Concern_Neutral",
                                  "b_Home_Area2Urban", "b_SexMale", 
-                                 "b_Area_soundscape2Uneventful"))
-p_m3b_bCI_bsf <- plot(m3b_bCI_bsf, show_intercept=F) +
+                                 "b_Area_soundscape2Unpleasant"))
+p_m1f_bCI_bsf <- plot(m1f_bCI_bsf, show_intercept=F) +
   theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
   scale_fill_manual(values=mycolours) +
   labs(title="Between-subjects factors",
        x="Coefficient posterior distribution",
        y=NULL)
-p_m3b_bCI_bsf
+p_m1f_bCI_bsf
 
-filename <- "PtsABdAnnoyMnCatModbCI_brmsOb_bsf"
+filename <- "dAnnoyMnCatModbCI_brmsOb_bsf"
 
 if (saveplots){
   ggsave(filename=paste(filename, ".svg", sep=""), width=9, height=5,
@@ -1092,17 +1335,17 @@ if (saveplots){
 }
 
 # plot spi for between-subjects covariates only
-m3b_bCI_bsc <- m3b_bCI_range |>
+m1f_bCI_bsc <- m1f_bCI_range |>
   dplyr::filter(Parameter %in% c("b_Age", "b_NoiseSensitivity"))
-p_m3b_bCI_bsc <- plot(m3b_bCI_bsc, show_intercept=F) +
+p_m1f_bCI_bsc <- plot(m1f_bCI_bsc, show_intercept=F) +
   theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
   scale_fill_manual(values=mycolours) +
   labs(title="Between-subjects covariates",
        x="Coefficient posterior distribution",
        y=NULL)
-p_m3b_bCI_bsc
+p_m1f_bCI_bsc
 
-filename <- "PtsABdAnnoyMnCatModbCI_brmsOb_bsc"
+filename <- "dAnnoyMnCatModbCI_brmsOb_bsc"
 
 if (saveplots){
   ggsave(filename=paste(filename, ".svg", sep=""), width=6, height=4,
@@ -1119,28 +1362,28 @@ if (saveplots){
 
 ```{R}
 # create base datagrid
-m3bDataFit <- insight::get_data(m3b)
+m1fDataFit <- insight::get_data(m1f)
 
 # get unique combinations of the predictors
-base_unique <- m3bDataFit |>
-    dplyr::distinct(ID, UASType, UASEvents, AmbientEnv, UASOperation,
+base_unique <- m1fDataFit |>
+    dplyr::distinct(ID, UASProximity, UASType, UASEvents, AmbientEnvCore, AmbientVariant, UASOperation,
                     NationGeo2, AAM_attitude2, Home_Area2,
                     Age, Sex, NoiseSensitivity, Area_soundscape2,
                     .keep_all = TRUE) |>
-    dplyr::group_by(ID, UASType, UASEvents, AmbientEnv, UASOperation) |>
+    dplyr::group_by(ID, UASProximity, UASType, UASEvents, AmbientEnvCore, AmbientVariant, UASOperation) |>
     dplyr::ungroup()
 # include mean trial number
-base_unique$PartTrialNumberScl <- mean(m3bDataFit$PartTrialNumberScl)
+base_unique$TrialNumberScl <- mean(m1fDataFit$TrialNumberScl)
 
 # expand grid over LAE
-lae_step <- seq(min(stimDataNoAmb$UASLAEMaxLRScl), max(stimDataNoAmb$UASLAEMaxLRScl), length.out = 11)
+lae_step <- seq(min(stimDataNoAmb$UASLAEMaxLRScl), max(stimDataNoAmb$UASLAEMaxLRScl), length.out = 13)
 base_expanded <- marginaleffects::datagrid(
   newdata = base_unique,
   UASLAEMaxLRScl = lae_step,
   grid_type = "counterfactual"
 )
 
-lae_step2 <- c(6, 12)
+lae_step2 <- c(-10, -8, -6, 4, 6, 8)
 base_expanded2 <- marginaleffects::datagrid(
   newdata = base_unique,
   UASLAEMaxLRScl = lae_step2,
@@ -1159,11 +1402,12 @@ grid_marg2$ID     <- paste0("new_id_", new_idx2)
 grid_marg2$StimID <- paste0("new_stim_", new_idx2)
 
 set.seed(999)
-m3bpredType <- marginaleffects::avg_predictions(m3b, newdata=subset(grid_marg,
+m1fpredType <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg,
                                                              UASEvents==1),
                                                   by=c("UASLAEMaxLRScl",
+                                                       "UASProximity",
                                                        "UASType",
-                                                       "AmbientEnv",
+                                                       "AmbientEnvCore",
                                                        "UASEvents"),
                                                 re_formula = NULL,
                                                 allow_new_levels = TRUE,
@@ -1174,7 +1418,7 @@ m3bpredType <- marginaleffects::avg_predictions(m3b, newdata=subset(grid_marg,
                                                                              squeeze='none'))
 
 set.seed(999)
-m3bpredOp <- marginaleffects::avg_predictions(m3b, newdata=subset(grid_marg,
+m1fpredOp <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg,
                                                         UASEvents==1),
                                                 by=c("UASLAEMaxLRScl",
                                                      "UASOperation",
@@ -1189,7 +1433,7 @@ m3bpredOp <- marginaleffects::avg_predictions(m3b, newdata=subset(grid_marg,
                                                                            squeeze='none'))
 
 set.seed(999)
-m3bpredEnv <- marginaleffects::avg_predictions(m3b, newdata=subset(grid_marg,
+m1fpredEnv <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg,
                                                         UASEvents==1),
                                                 by=c("UASLAEMaxLRScl",
                                                      "AmbientEnv",
@@ -1203,7 +1447,7 @@ m3bpredEnv <- marginaleffects::avg_predictions(m3b, newdata=subset(grid_marg,
                                                                            squeeze='none'))
 
 set.seed(999)
-m3bpredEvt <- marginaleffects::avg_predictions(m3b, newdata=subset(grid_marg,
+m1fpredEvt <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg,
                                                                  AmbientEnv=="Park" &
                                                                  UASOperation=="Overflight"),
                                             by=c("UASLAEMaxLRScl",
@@ -1219,7 +1463,7 @@ m3bpredEvt <- marginaleffects::avg_predictions(m3b, newdata=subset(grid_marg,
                                                                        squeeze='none'))
 
 set.seed(999)
-m3bpredEvt2 <- marginaleffects::avg_predictions(m3b, newdata=subset(grid_marg2,
+m1fpredEvt2 <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg2,
                                                                   AmbientEnv=="Park" &
                                                                   UASOperation=="Overflight" &
                                                                   UASType %in% c("H520", "T150")),
@@ -1236,7 +1480,7 @@ m3bpredEvt2 <- marginaleffects::avg_predictions(m3b, newdata=subset(grid_marg2,
                                                                          squeeze='none'))
 
 set.seed(999)
-m3bpredAtt <- marginaleffects::avg_predictions(m3b, newdata=grid_marg,
+m1fpredAtt <- marginaleffects::avg_predictions(m1f, newdata=grid_marg,
                                              by=c("UASLAEMaxLRScl", "AAM_attitude2"),
                                                 re_formula = NULL,
                                                 allow_new_levels = TRUE,
@@ -1247,7 +1491,7 @@ m3bpredAtt <- marginaleffects::avg_predictions(m3b, newdata=grid_marg,
                                                                          squeeze='none'))
 
 set.seed(999)
-m3bpredAoR <- marginaleffects::avg_predictions(m3b, newdata=grid_marg,
+m1fpredAoR <- marginaleffects::avg_predictions(m1f, newdata=grid_marg,
                                              by=c("UASLAEMaxLRScl", "Home_Area2"),
                                                 re_formula = NULL,
                                                 allow_new_levels = TRUE,
@@ -1258,7 +1502,7 @@ m3bpredAoR <- marginaleffects::avg_predictions(m3b, newdata=grid_marg,
                                                                          squeeze='none'))
 
 set.seed(999)
-m3bpredScp <- marginaleffects::avg_predictions(m3b, newdata=grid_marg,
+m1fpredScp <- marginaleffects::avg_predictions(m1f, newdata=grid_marg,
                                              by=c("UASLAEMaxLRScl", "Area_soundscape2"),
                                                 re_formula = NULL,
                                                 allow_new_levels = TRUE,
@@ -1269,7 +1513,7 @@ m3bpredScp <- marginaleffects::avg_predictions(m3b, newdata=grid_marg,
                                                                          squeeze='none'))
 
 set.seed(999)
-m3bpredSex <- marginaleffects::avg_predictions(m3b, newdata=grid_marg,
+m1fpredSex <- marginaleffects::avg_predictions(m1f, newdata=grid_marg,
                                              by=c("UASLAEMaxLRScl", "Sex"),
                                                 re_formula = NULL,
                                                 allow_new_levels = TRUE,
@@ -1280,7 +1524,7 @@ m3bpredSex <- marginaleffects::avg_predictions(m3b, newdata=grid_marg,
                                                                          squeeze='none'))
 
 set.seed(999)
-m3bpredNat <- marginaleffects::avg_predictions(m3b, newdata=grid_marg,
+m1fpredNat <- marginaleffects::avg_predictions(m1f, newdata=grid_marg,
                                              by=c("UASLAEMaxLRScl", "NationGeo2"),
                                                 re_formula = NULL,
                                                 allow_new_levels = TRUE,
@@ -1296,7 +1540,7 @@ m3bpredNat <- marginaleffects::avg_predictions(m3b, newdata=grid_marg,
 
 ```{R}
 
-p1 <- ggplot(data=subset(m3bpredType, UASEvents==1)) +
+p1 <- ggplot(data=subset(m1fpredType, UASEvents==1)) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
@@ -1326,7 +1570,7 @@ p1 <- ggplot(data=subset(m3bpredType, UASEvents==1)) +
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance") +
               facet_grid(rows = vars(AmbientEnv))
 
-p2 <- ggplot(data=subset(m3bpredOp, UASEvents==1)) +
+p2 <- ggplot(data=subset(m1fpredOp, UASEvents==1)) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
@@ -1356,7 +1600,7 @@ p2 <- ggplot(data=subset(m3bpredOp, UASEvents==1)) +
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance") +
               facet_grid(rows = vars(AmbientEnv))
 
-p3 <- ggplot(data=subset(m3bpredEnv, UASEvents==1)) +
+p3 <- ggplot(data=subset(m1fpredEnv, UASEvents==1)) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14),
@@ -1388,7 +1632,7 @@ p3 <- ggplot(data=subset(m3bpredEnv, UASEvents==1)) +
               
               labs(y="Mean change in annoyance")
 
-p4 <- ggplot(data=subset(m3bpredEvt, AmbientEnv=='Park' & UASOperation=='Overflight')) +
+p4 <- ggplot(data=subset(m1fpredEvt, AmbientEnv=='Park' & UASOperation=='Overflight')) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
@@ -1414,7 +1658,7 @@ p4 <- ggplot(data=subset(m3bpredEvt, AmbientEnv=='Park' & UASOperation=='Overfli
               rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
                              stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
               
-              scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(min(2, min(m3bpredEvt$conf.low)), 8)) +
+              scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(min(2, min(m1fpredEvt$conf.low)), 8)) +
               
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
 
@@ -1474,7 +1718,7 @@ if (saveplots){
   unlink(paste(filename, ".pdf", sep=""))
 }
 
-p5 <- ggplot(data=subset(m3bpredEvt2, UASOperation=="Overflight" & AmbientEnv=="Park")) +
+p5 <- ggplot(data=subset(m1fpredEvt2, UASOperation=="Overflight" & AmbientEnv=="Park")) +
               theme(panel.grid = element_blank(), aspect.ratio=0.8,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
@@ -1532,7 +1776,7 @@ if (saveplots){
   unlink(paste(filename, ".pdf", sep=""))
 }
 
-p6 <- ggplot(data=m3bpredAtt) +
+p6 <- ggplot(data=m1fpredAtt) +
               theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
                     panel.grid.minor = element_blank(),
                     aspect.ratio=1.35, text = element_text(family = "serif", size=16),
@@ -1554,7 +1798,7 @@ p6 <- ggplot(data=m3bpredAtt) +
               
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
 
-p7 <- ggplot(data=m3bpredAoR) +
+p7 <- ggplot(data=m1fpredAoR) +
               theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
                     panel.grid.minor = element_blank(),
                     aspect.ratio=1.35, text = element_text(family = "serif", size=16),
@@ -1576,7 +1820,7 @@ p7 <- ggplot(data=m3bpredAoR) +
               
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
 
-p8 <- ggplot(data=m3bpredScp) +
+p8 <- ggplot(data=m1fpredScp) +
               theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
                     panel.grid.minor = element_blank(),
                     aspect.ratio=1.35, text = element_text(family = "serif", size=16),
@@ -1598,7 +1842,7 @@ p8 <- ggplot(data=m3bpredScp) +
               
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
 
-p9 <- ggplot(data=m3bpredSex) +
+p9 <- ggplot(data=m1fpredSex) +
               theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
                     panel.grid.minor = element_blank(),
                     aspect.ratio=1.35, text = element_text(family = "serif", size=16),
@@ -1620,7 +1864,7 @@ p9 <- ggplot(data=m3bpredSex) +
               
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
 
-p10 <- ggplot(data=m3bpredNat) +
+p10 <- ggplot(data=m1fpredNat) +
               theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
                     panel.grid.minor = element_blank(),
                     aspect.ratio=1.35, text = element_text(family = "serif", size=16),
@@ -1662,13 +1906,13 @@ if (saveplots){
 
 ```{r}
 
-m3b_sd_draws <- as.data.frame(m3b) %>%
+m1f_sd_draws <- as.data.frame(m1f) %>%
     dplyr::select(starts_with("sd_")) %>%
     tidyr::pivot_longer(cols = everything(), names_to = "Parameter", values_to = "Value") %>%
     dplyr::mutate(Parameter = gsub("sd_", "", Parameter)) # Clean up label names
 
 # 2. Plot using ridges with a shared x-axis and normalized curve heights
-ggplot(m3b_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
+ggplot(m1f_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
      theme(legend.position = "none",
             panel.grid.major.y = element_blank(),
             text = element_text(family = "serif", size=16)) +
@@ -1725,7 +1969,7 @@ estimate_size_gb(grid_test, ndraws_pred, n_counterfactual_levels = 2)  # 2, sinc
 
 set.seed(999)
 sex_contrast <- marginaleffects::avg_comparisons(
-  m3b, variables = "Sex", newdata = grid_test,
+  m1f, variables = "Sex", newdata = grid_test,
   re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
   ndraws = ndraws_pred,
   transform = \(x) betaTransform(x, -10, 10, direction = 'reverse', squeeze = 'none')
