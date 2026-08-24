@@ -468,6 +468,16 @@ subjData$AmbientVariant <- factor(dplyr::case_when(
     TRUE                                  ~ "Standard"
 ), levels = c("Standard", "ParkHigh", "HighwayLow"))
 
+stimData$AmbientEnvCore <- dplyr::recode(subjData$AmbientEnv,
+                                       "Park (high)"    = "Park",
+                                       "Highway (low)"  = "Highway")
+
+stimData$AmbientVariant <- factor(dplyr::case_when(
+    subjData$AmbientEnv == "Park (high)"   ~ "ParkHigh",
+   subjData$AmbientEnv == "Highway (low)" ~ "HighwayLow",
+    TRUE                                  ~ "Standard"
+), levels = c("Standard", "ParkHigh", "HighwayLow"))
+
 # definition of ordinal variable levels
 UASOpCats <- c("Baseline", "Overflight", "Delivery")
 UASTypeCats <- c("Baseline", "H520", "T150")
@@ -613,6 +623,232 @@ subjDataNoAmb <- rbind(subjDataNoAmb |>
 ```
 
 # dAnnoyance
+
+## m0: minimal ordbeta model
+
+### Formula
+
+```{R}
+
+m0formula <- dAnnoyanceOrdBetaScl ~ 1 + TrialNumberScl +
+                    UASProximity +
+                    UASLAEMaxLRScl + I(log10(UASEvents)) +
+                   AmbientEnvCore + UASOperation +
+                   AmbientVariant + UASType +
+                   NationGeo2 + AAM_attitude2 + Home_Area2 +
+                   Age + Sex + NoiseSensitivity + Area_soundscape2 +
+                   (1 + UASProximity + UASLAEMaxLRScl + AmbientEnvCore +
+                      I(log10(UASEvents)) + AmbientVariant +
+                      UASOperation + UASType | ID) +
+                     (1 | StimID)
+
+m0Data <- subjDataNoAmb[, all.vars(m0formula), drop=FALSE]
+
+```
+
+### run model 0
+
+```{R}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priors0 <- c(
+  # mean model
+  set_prior("normal(0, 2)", class='b', dpar='mu'),
+  brms::prior(normal(0.2, 1), class='b', coef='UASLAEMaxLRScl', dpar='mu'),
+  brms::prior(normal(1.5, 1), class='b', coef='Ilog10UASEvents', dpar='mu'),
+  brms::prior(normal(0.1, 1), class='b', coef='TrialNumberScl', dpar='mu'),
+
+  # precision model
+  brms::prior(normal(0, 1), class = 'Intercept', dpar = 'phi'),
+  brms::prior(normal(0, 0.5), class = 'b', dpar = 'phi')
+)
+
+tic()
+m0 <- brms::brm(brms::bf(m0formula, phi ~ 1 + AmbientEnvCore + UASOperation +
+                            UASType + I(log10(UASEvents)) + (1 | ID)),
+                data=m0Data, family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priors0, control=list(adapt_delta=0.95),
+               threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+m0 <- brms::add_criterion(m0, criterion=c('loo', 'loo_R2'),
+                           cores=n_cores,
+                           reloo=reloo_flag,
+                           overwrite=TRUE,
+                           chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                           backend='cmdstanr',
+                           future_args=list(future.seed=TRUE))
+toc()
+
+m0$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m0))
+m0$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m0, re_formula=NA))
+m0$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m0, re_formula=NULL))
+
+m0PostCheck <- brms::pp_check(m0, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0PostCheck
+
+m0PostCheckEnv <- brms::pp_check(m0, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0PostCheckEnv
+
+m0PostCheckEnv <- brms::pp_check(m0, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0PostCheckEnv
+
+m0PostCheckEvt <- brms::pp_check(m0, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0PostCheckEvt
+
+m0PostCheckType <- brms::pp_check(m0, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0PostCheckType
+
+m0PostCheckOp <- brms::pp_check(m0, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0PostCheckOp
+
+m0PostCheckProx <- brms::pp_check(m0, type='dens_overlay_grouped', ndraws=100, group='UASProximity') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0PostCheckProx
+
+```
+
+#### performance
+
+```{R}
+
+loo::pareto_k_table(loo::loo(m0))
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(m0)
+
+```
+
+## m0b: medial ordbeta model
+
+### Formula
+
+```{R}
+
+m0bformula <- dAnnoyanceOrdBetaScl ~ 1 + TrialNumberScl +
+                    UASProximity +
+                    UASLAEMaxLRScl + I(log10(UASEvents)) +
+                   AmbientEnvCore + UASOperation +
+                   UASType +
+                   AmbientVariant + UASType +
+                   AmbientEnvCore*UASType + 
+                   UASOperation*UASType +
+                  AmbientEnvCore*UASOperation +
+                  UASLAEMaxLRScl*I(log10(UASEvents)) +
+                   NationGeo2 + AAM_attitude2 + Home_Area2 +
+                   Age + Sex + NoiseSensitivity + Area_soundscape2 +
+                   (1 + UASProximity + UASLAEMaxLRScl + AmbientEnvCore +
+                      I(log10(UASEvents)) + AmbientVariant +
+                      UASOperation + UASType | ID) +
+                     (1 | StimID)
+
+```
+
+### run model 0b
+
+```{R}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+tic()
+m0b <- brms::brm(brms::bf(m0bformula, phi ~ 1 + AmbientEnvCore + UASOperation +
+                            UASType + I(log10(UASEvents)) + (1 | ID)),
+                data=m0Data, family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priors0, control=list(adapt_delta=0.95),
+               threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+m0b <- brms::add_criterion(m0b, criterion=c('loo', 'loo_R2'),
+                           cores=n_cores,
+                           reloo=reloo_flag,
+                           overwrite=TRUE,
+                           chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                           backend='cmdstanr',
+                           future_args=list(future.seed=TRUE))
+toc()
+
+m0b$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m0b))
+m0b$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m0b, re_formula=NA))
+m0b$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m0b, re_formula=NULL))
+
+m0bPostCheck <- brms::pp_check(m0b, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0bPostCheck
+
+m0bPostCheckEnv <- brms::pp_check(m0b, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0bPostCheckEnv
+
+m0bPostCheckEnv <- brms::pp_check(m0b, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0bPostCheckEnv
+
+m0bPostCheckEvt <- brms::pp_check(m0b, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0bPostCheckEvt
+
+m0bPostCheckType <- brms::pp_check(m0b, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0bPostCheckType
+
+m0bPostCheckOp <- brms::pp_check(m0b, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0bPostCheckOp
+
+m0bPostCheckProx <- brms::pp_check(m0b, type='dens_overlay_grouped', ndraws=100, group='UASProximity') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0bPostCheckProx
+
+```
+
+#### compare
+
+```{R}
+
+loo::pareto_k_table(loo::loo(m0b))
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(m0, m0b)
+
+m0b_loo <- loo::loo_compare(m0, m0b, criterion='loo')
+m0b_loo
+
+```
 
 ## m1: maximal ordbeta model
 
@@ -1402,10 +1638,28 @@ grid_marg2$ID     <- paste0("new_id_", new_idx2)
 grid_marg2$StimID <- paste0("new_stim_", new_idx2)
 
 set.seed(999)
+m1fpredProx <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg,
+                                                             UASEvents==1, 
+                                                             AmbientVariant=="Standard"),
+                                                  by=c("UASLAEMaxLRScl",
+                                                       "UASProximity",
+                                                       "UASType",
+                                                       "UASOperation",
+                                                       "AmbientEnvCore"),
+                                                re_formula = NULL,
+                                                allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
+                                                ndraws=ndraws_pred,
+                                                transform=\(x) betaTransform(x, -10, 10,
+                                                                             direction='reverse',
+                                                                             squeeze='none'))
+
+gc()  # garbage collect
+
+set.seed(999)
 m1fpredType <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg,
                                                              UASEvents==1),
                                                   by=c("UASLAEMaxLRScl",
-                                                       "UASProximity",
                                                        "UASType",
                                                        "AmbientEnvCore",
                                                        "UASEvents"),
@@ -1417,11 +1671,29 @@ m1fpredType <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg,
                                                                              direction='reverse',
                                                                              squeeze='none'))
 
+gc()  # garbage collect
+
+# force it to match brms's internal string representation
+newdata_test <- m1fDataFit
+newdata_test$ID <- as.character(newdata_test$ID)
+newdata_test$StimID <- as.character(newdata_test$StimID)   # same risk applies here
+
+m1fpredTypeTest <- marginaleffects::avg_predictions(m1f, newdata=subset(newdata_test, UASEvents == 1),
+                                                  by=c("UASLAEMaxLRScl",
+                                                       "UASType",
+                                                       "AmbientEnvCore",
+                                                       "UASEvents"),
+                                                re_formula = NULL,
+                                                transform=\(x) betaTransform(x, -10, 10,
+                                                                             direction='reverse',
+                                                                             squeeze='none'))
+
+gc()  # garbage collect
+
 set.seed(999)
 m1fpredOp <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg,
                                                         UASEvents==1),
                                                 by=c("UASLAEMaxLRScl",
-                                                     "UASProximity",
                                                      "UASOperation",
                                                      "AmbientEnvCore",
                                                      "UASEvents"),
@@ -1432,6 +1704,8 @@ m1fpredOp <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg,
                                               transform=\(x) betaTransform(x, -10, 10,
                                                                            direction='reverse',
                                                                            squeeze='none'))
+
+gc()  # garbage collect
 
 set.seed(999)
 m1fpredEnv <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg,
@@ -1446,6 +1720,8 @@ m1fpredEnv <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg,
                                               transform=\(x) betaTransform(x, -10, 10,
                                                                            direction='reverse',
                                                                            squeeze='none'))
+
+gc()  # garbage collect
 
 set.seed(999)
 m1fpredEvt <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg,
@@ -1464,6 +1740,8 @@ m1fpredEvt <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg,
                                                                        direction='reverse',
                                                                        squeeze='none'))
 
+gc()  # garbage collect
+
 set.seed(999)
 m1fpredEvt2 <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg2,
                                                                   UASProximity=="Far" &
@@ -1481,6 +1759,8 @@ m1fpredEvt2 <- marginaleffects::avg_predictions(m1f, newdata=subset(grid_marg2,
                                                                          direction='reverse',
                                                                          squeeze='none'))
 
+gc()  # garbage collect
+
 set.seed(999)
 m1fpredAtt <- marginaleffects::avg_predictions(m1f, newdata=grid_marg,
                                              by=c("UASLAEMaxLRScl", "AAM_attitude2"),
@@ -1491,6 +1771,8 @@ m1fpredAtt <- marginaleffects::avg_predictions(m1f, newdata=grid_marg,
                                              transform=\(x) betaTransform(x, -10, 10,
                                                                          direction='reverse',
                                                                          squeeze='none'))
+
+gc()  # garbage collect
 
 set.seed(999)
 m1fpredAoR <- marginaleffects::avg_predictions(m1f, newdata=grid_marg,
@@ -1503,6 +1785,8 @@ m1fpredAoR <- marginaleffects::avg_predictions(m1f, newdata=grid_marg,
                                                                          direction='reverse',
                                                                          squeeze='none'))
 
+gc()  # garbage collect
+
 set.seed(999)
 m1fpredScp <- marginaleffects::avg_predictions(m1f, newdata=grid_marg,
                                              by=c("UASLAEMaxLRScl", "Area_soundscape2"),
@@ -1513,6 +1797,8 @@ m1fpredScp <- marginaleffects::avg_predictions(m1f, newdata=grid_marg,
                                              transform=\(x) betaTransform(x, -10, 10,
                                                                          direction='reverse',
                                                                          squeeze='none'))
+
+gc()  # garbage collect
 
 set.seed(999)
 m1fpredSex <- marginaleffects::avg_predictions(m1f, newdata=grid_marg,
@@ -1525,6 +1811,8 @@ m1fpredSex <- marginaleffects::avg_predictions(m1f, newdata=grid_marg,
                                                                          direction='reverse',
                                                                          squeeze='none'))
 
+gc()  # garbage collect
+
 set.seed(999)
 m1fpredNat <- marginaleffects::avg_predictions(m1f, newdata=grid_marg,
                                              by=c("UASLAEMaxLRScl", "NationGeo2"),
@@ -1536,6 +1824,8 @@ m1fpredNat <- marginaleffects::avg_predictions(m1f, newdata=grid_marg,
                                                                          direction='reverse',
                                                                          squeeze='none'))
 
+gc()  # garbage collect
+
 ```
 
 #### visualise plots of PA effects
@@ -1543,34 +1833,34 @@ m1fpredNat <- marginaleffects::avg_predictions(m1f, newdata=grid_marg,
 ```{R}
 
 p1 <- ggplot(data=subset(m1fpredType, UASEvents==1)) +
-              theme(panel.grid = element_blank(), aspect.ratio=1.35,
-                    text = element_text(family = "serif", size=16),
-                    axis.text=element_text(family = "serif", size=14)) +
-              
-              geom_point(data=subset(stimDataNoAmb, UASEvents==1), aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
-                                                 colour=UASType, shape=UASType),
-                         alpha=0.35, size=2) +
-              
-              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=UASType),
-                          alpha=0.15) +
-              
-              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=UASType), linewidth=1) +
-              
-              scale_color_viridis(option='plasma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.8) +
-              scale_fill_viridis(option='plasma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.8) +
-              scale_shape_manual(values=c(10, 11, 12)) +
-              
-              guides(colour=guide_legend(title="UAS type", reverse=FALSE),
-                     fill=guide_legend(title="UAS type", reverse=FALSE),
-                     shape=guide_legend(title="UAS type", reverse=FALSE)) +
-            
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
-              
-              scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
-              
-              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance") +
-              facet_grid(rows = vars(AmbientEnv))
+               theme(panel.grid = element_blank(), aspect.ratio=1.35,
+                     text = element_text(family = "serif", size=16),
+                     axis.text=element_text(family = "serif", size=14)) +
+               
+               geom_point(data=subset(stimDataNoAmb, UASEvents==1), aes(x=UASLAEMaxLRScl, y=dAnnoyanceMean,
+                                                  colour=UASType, shape=UASType),
+                          alpha=0.35, size=2) +
+               
+               geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=UASType),
+                           alpha=0.15) +
+               
+               geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=UASType), linewidth=1) +
+               
+               scale_color_viridis(option='plasma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.8) +
+               scale_fill_viridis(option='plasma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.8) +
+               scale_shape_manual(values=c(10, 11, 12)) +
+               
+               guides(colour=guide_legend(title="UAS type", reverse=FALSE),
+                      fill=guide_legend(title="UAS type", reverse=FALSE),
+                      shape=guide_legend(title="UAS type", reverse=FALSE)) +
+             
+               rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                              stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+               
+               scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-6, 8)) +
+               
+               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance") +
+               facet_wrap(vars(AmbientEnvCore))
 
 p2 <- ggplot(data=subset(m1fpredOp, UASEvents==1)) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35,
@@ -1610,18 +1900,18 @@ p3 <- ggplot(data=subset(m1fpredEnv, UASEvents==1)) +
                     axis.text.x=element_blank(),
                     axis.ticks.x=element_blank()) +
               
-              geom_point(data=subset(stimDataNoAmb, UASEvents==1), aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
-                                                 colour=AmbientEnv, shape=AmbientEnv),
+              geom_point(data=subset(stimDataNoAmb, UASEvents==1), aes(x=UASLAEMaxLRScl, y=dAnnoyanceMean,
+                                                 colour=AmbientEnvCore, shape=AmbientEnvCore),
                          alpha=0.35, size=2) +
               
-              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=AmbientEnv),
+              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=AmbientEnvCore),
                           alpha=0.15) +
               
-              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=AmbientEnv), linewidth=1) +
+              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=AmbientEnvCore), linewidth=1) +
               
-              scale_color_viridis(option='magma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.7) +
-              scale_fill_viridis(option='magma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.7) +
-              scale_shape_manual(values=c(1, 3)) +
+              scale_color_viridis(option='magma', direction=-1, discrete=TRUE, begin=0.2, end=0.8) +
+              scale_fill_viridis(option='magma', direction=-1, discrete=TRUE, begin=0.2, end=0.8) +
+              scale_shape_manual(values=c(1, 3, 5, 7)) +
               
               guides(colour=guide_legend(title="Amb. env.", reverse=FALSE),
                      fill=guide_legend(title="Amb. env.", reverse=FALSE),
