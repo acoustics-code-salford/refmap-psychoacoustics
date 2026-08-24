@@ -439,7 +439,7 @@ get_Br2_table <- function(...) {
 
 ```{r}
 
-subjDataPath <- utils::choose.files(caption=r"(Select refmap_listest2_testdata_BySubj.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
+subjDataPath <- utils::choose.files(caption=r"(Select refmap_listest2_testdata_BySubj.csv from 03 Experiment\Experiment 2\Analysis\PostProcess)",
                                      filters=matrix(data=c("refmap_listest2_testdata_BySubj.csv", "refmap_listest2_testdata_BySubj.csv"), ncol=2))
 
 subjData <- read.csv(subjDataPath, header=TRUE)
@@ -458,25 +458,27 @@ stimData <- read.csv(stimDataPath, header=TRUE, row.names=1)
 # rename variables for ease
 subjData <- subjData |> dplyr::rename(TrialNumber = Trial)
 
-subjData$AmbientEnvCore <- dplyr::recode(subjData$AmbientEnv,
-                                       "Park (high)"    = "Park",
-                                       "Highway (low)"  = "Highway")
+subjData$AmbientEnvCore <- subjData$AmbientEnv |>
+  dplyr::recode("Park (high)" = "Park",
+                "Highway (low)" = "Highway") |>
+  factor(levels=c("Park", "Residential", "Streetside square", "Highway"))
 
 subjData$AmbientVariant <- factor(dplyr::case_when(
-    subjData$AmbientEnv == "Park (high)"   ~ "ParkHigh",
-   subjData$AmbientEnv == "Highway (low)" ~ "HighwayLow",
-    TRUE                                  ~ "Standard"
-), levels = c("Standard", "ParkHigh", "HighwayLow"))
+  subjData$AmbientEnv == "Park (high)" ~ "ParkHigh",
+  subjData$AmbientEnv == "Highway (low)" ~ "HighwayLow",
+  TRUE ~ "Standard"
+  ), levels = c("Standard", "ParkHigh", "HighwayLow"))
 
-stimData$AmbientEnvCore <- dplyr::recode(subjData$AmbientEnv,
-                                       "Park (high)"    = "Park",
-                                       "Highway (low)"  = "Highway")
+stimData$AmbientEnvCore <- stimData$AmbientEnv |>
+  dplyr::recode("Park (high)" = "Park",
+                "Highway (low)" = "Highway") |>
+  factor(levels=c("Park", "Residential", "Streetside square", "Highway"))
 
 stimData$AmbientVariant <- factor(dplyr::case_when(
-    subjData$AmbientEnv == "Park (high)"   ~ "ParkHigh",
-   subjData$AmbientEnv == "Highway (low)" ~ "HighwayLow",
-    TRUE                                  ~ "Standard"
-), levels = c("Standard", "ParkHigh", "HighwayLow"))
+  stimData$AmbientEnv == "Park (high)" ~ "ParkHigh",
+  stimData$AmbientEnv == "Highway (low)" ~ "HighwayLow",
+  TRUE ~ "Standard"
+  ), levels = c("Standard", "ParkHigh", "HighwayLow"))
 
 # definition of ordinal variable levels
 UASOpCats <- c("Baseline", "Overflight", "Delivery")
@@ -692,6 +694,12 @@ m0$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m0))
 m0$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m0, re_formula=NA))
 m0$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m0, re_formula=NULL))
 
+```
+
+#### check posterior predictive distribution
+
+```{r}
+
 m0PostCheck <- brms::pp_check(m0, ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Mean change in annoyance")
@@ -729,6 +737,25 @@ m0PostCheckProx
 
 ```
 
+
+#### diagnostics
+
+```{R}
+
+# collinearity check
+performance::check_collinearity(m0)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(m0), pars = c("b_UASLAEMaxLRScl",
+                                                           "b_UASOperationDelivery",
+                                                           "b_UASTypeT150", "b_UASProximityNear",
+                                                           "b_AmbientEnvCorePark",
+                                                           "b_AmbientEnvCoreResidential",
+                                                           "b_AmbientEnvCoreStreetsidesquare"))
+
+
+
+```
+
 #### performance
 
 ```{R}
@@ -746,22 +773,17 @@ get_Br2_table(m0)
 
 ```{R}
 
-m0bformula <- dAnnoyanceOrdBetaScl ~ 1 + TrialNumberScl +
-                    UASProximity +
-                    UASLAEMaxLRScl + I(log10(UASEvents)) +
-                   AmbientEnvCore + UASOperation +
-                   UASType +
-                   AmbientVariant + UASType +
-                   AmbientEnvCore*UASType + 
-                   UASOperation*UASType +
-                  AmbientEnvCore*UASOperation +
-                  UASLAEMaxLRScl*I(log10(UASEvents)) +
-                   NationGeo2 + AAM_attitude2 + Home_Area2 +
-                   Age + Sex + NoiseSensitivity + Area_soundscape2 +
-                   (1 + UASProximity + UASLAEMaxLRScl + AmbientEnvCore +
-                      I(log10(UASEvents)) + AmbientVariant +
-                      UASOperation + UASType | ID) +
-                     (1 | StimID)
+m0bformula <- dAnnoyanceOrdBetaScl ~
+  # within-subjects fixed
+  1 + TrialNumberScl + UASProximity +
+  AmbientEnvCore*UASType + AmbientEnvCore*UASOperation + AmbientVariant +
+  UASLAEMaxLRScl*I(log10(UASEvents)) +
+  # between subjects fixed
+  NationGeo2 + AAM_attitude2 + Home_Area2 +
+  Age + Sex + NoiseSensitivity + Area_soundscape2 +
+  # random effects
+  (1 + UASProximity + UASLAEMaxLRScl + AmbientEnvCore + I(log10(UASEvents)) +
+     AmbientVariant + UASOperation + UASType | ID) + (1 | StimID)
 
 ```
 
@@ -798,6 +820,12 @@ toc()
 m0b$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m0b))
 m0b$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m0b, re_formula=NA))
 m0b$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m0b, re_formula=NULL))
+
+```
+
+#### check posterior predictive distribution
+
+```{r}
 
 m0bPostCheck <- brms::pp_check(m0b, ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
@@ -836,7 +864,25 @@ m0bPostCheckProx
 
 ```
 
-#### compare
+#### diagnostics
+
+```{R}
+
+# collinearity check
+performance::check_collinearity(m0b)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(m0b), pars = c("b_UASLAEMaxLRScl",
+                                                           "b_UASOperationDelivery",
+                                                           "b_UASTypeT150", "b_UASProximityNear",
+                                                           "b_AmbientEnvCorePark",
+                                                           "b_AmbientEnvCoreResidential",
+                                                           "b_AmbientEnvCoreStreetsidesquare"))
+
+
+
+```
+
+#### compare performance
 
 ```{R}
 
@@ -847,6 +893,137 @@ get_Br2_table(m0, m0b)
 
 m0b_loo <- loo::loo_compare(m0, m0b, criterion='loo')
 m0b_loo
+
+```
+
+## m0c: medial ordbeta model with decorrelated UASProximity
+
+### Formula
+
+```{R}
+
+m0cformula <- dAnnoyanceOrdBetaScl ~
+  # within-subjects fixed
+  1 + TrialNumberScl + UASProximity +
+  AmbientEnvCore*UASType + AmbientEnvCore*UASOperation + AmbientVariant +
+  UASLAEMaxLRScl*I(log10(UASEvents)) +
+  # between subjects fixed
+  NationGeo2 + AAM_attitude2 + Home_Area2 +
+  Age + Sex + NoiseSensitivity + Area_soundscape2 +
+  # random effects
+  (1 + UASLAEMaxLRScl + AmbientEnvCore + I(log10(UASEvents)) +
+     AmbientVariant + UASOperation + UASType | ID) +
+  (0 + UASProximity | ID) +
+  (1 | StimID)
+
+```
+
+### run model 0c
+
+```{R}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+tic()
+m0c <- brms::brm(brms::bf(m0cformula, phi ~ 1 + AmbientEnvCore + UASOperation +
+                            UASType + I(log10(UASEvents)) + (1 | ID)),
+                data=m0Data, family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priors0, control=list(adapt_delta=0.95),
+               threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+m0c <- brms::add_criterion(m0c, criterion=c('loo', 'loo_R2'),
+                           cores=n_cores,
+                           reloo=reloo_flag,
+                           overwrite=TRUE,
+                           chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                           backend='cmdstanr',
+                           future_args=list(future.seed=TRUE))
+toc()
+
+m0c$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m0c))
+m0c$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m0c, re_formula=NA))
+m0c$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m0c, re_formula=NULL))
+
+```
+
+#### check posterior predictive distribution
+
+```{r}
+
+m0cPostCheck <- brms::pp_check(m0c, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0cPostCheck
+
+m0cPostCheckEnv <- brms::pp_check(m0c, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0cPostCheckEnv
+
+m0cPostCheckEnv <- brms::pp_check(m0c, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0cPostCheckEnv
+
+m0cPostCheckEvt <- brms::pp_check(m0c, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0cPostCheckEvt
+
+m0cPostCheckType <- brms::pp_check(m0c, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0cPostCheckType
+
+m0cPostCheckOp <- brms::pp_check(m0c, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0cPostCheckOp
+
+m0cPostCheckProx <- brms::pp_check(m0c, type='dens_overlay_grouped', ndraws=100, group='UASProximity') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0cPostCheckProx
+
+```
+
+#### diagnostics
+
+```{R}
+
+# collinearity check
+performance::check_collinearity(m0c)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(m0c), pars = c("b_UASLAEMaxLRScl",
+                                                           "b_UASOperationDelivery",
+                                                           "b_UASTypeT150", "b_UASProximityNear",
+                                                           "b_AmbientEnvCorePark",
+                                                           "b_AmbientEnvCoreResidential",
+                                                           "b_AmbientEnvCoreStreetsidesquare"))
+
+
+
+```
+
+#### compare performance
+
+```{R}
+
+loo::pareto_k_table(loo::loo(m0c))
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(m0, m0b, m0c)
+
+m0c_loo <- loo::loo_compare(m0, m0b, m0c, criterion='loo')
+m0c_loo
 
 ```
 
@@ -930,14 +1107,16 @@ m1$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m1))
 m1$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m1, re_formula=NA))
 m1$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m1, re_formula=NULL))
 
+```
+
+#### check posterior predictive distribution
+
+```{r}
+
 m1PostCheck <- brms::pp_check(m1, ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Mean change in annoyance")
 m1PostCheck
-
-```
-
-```{R, fig.width=16, fig.height=8}
 
 m1PostCheckEnv <- brms::pp_check(m1, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
@@ -968,6 +1147,24 @@ m1PostCheckProx <- brms::pp_check(m1, type='dens_overlay_grouped', ndraws=100, g
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Mean change in annoyance")
 m1PostCheckProx
+
+```
+
+#### diagnostics
+
+```{R}
+
+# collinearity check
+performance::check_collinearity(m1)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(m1), pars = c("b_UASLAEMaxLRScl",
+                                                           "b_UASOperationDelivery",
+                                                           "b_UASTypeT150", "b_UASProximityNear",
+                                                           "b_AmbientEnvCorePark",
+                                                           "b_AmbientEnvCoreResidential",
+                                                           "b_AmbientEnvCoreStreetsidesquare"))
+
+
 
 ```
 
@@ -1015,14 +1212,16 @@ m1b$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m1b))
 m1b$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m1b, re_formula=NA))
 m1b$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m1b, re_formula=NULL))
 
+```
+
+#### check posterior predictive distribution
+
+```{r}
+
 m1bPostCheck <- brms::pp_check(m1b, ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Mean change in annoyance")
 m1bPostCheck
-
-```
-
-```{R, fig.width=16, fig.height=8}
 
 m1bPostCheckEnv <- brms::pp_check(m1b, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
@@ -1104,14 +1303,16 @@ m1c$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m1c))
 m1c$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m1c, re_formula=NA))
 m1c$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m1c, re_formula=NULL))
 
+```
+
+#### check posterior predictive distribution
+
+```{r}
+
 m1cPostCheck <- brms::pp_check(m1c, ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Mean change in annoyance")
 m1cPostCheck
-
-```
-
-```{R, fig.width=16, fig.height=8}
 
 m1cPostCheckEnv <- brms::pp_check(m1c, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
@@ -1192,14 +1393,16 @@ m1d$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m1d))
 m1d$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m1d, re_formula=NA))
 m1d$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m1d, re_formula=NULL))
 
+```
+
+#### check posterior predictive distribution
+
+```{r}
+
 m1dPostCheck <- brms::pp_check(m1d, ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Mean change in annoyance")
 m1dPostCheck
-
-```
-
-```{R, fig.width=16, fig.height=8}
 
 m1dPostCheckEnv <- brms::pp_check(m1d, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
@@ -1281,14 +1484,16 @@ m1e$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m1e))
 m1e$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m1e, re_formula=NA))
 m1e$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m1e, re_formula=NULL))
 
+```
+
+#### check posterior predictive distribution
+
+```{r}
+
 m1ePostCheck <- brms::pp_check(m1e, ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Mean change in annoyance")
 m1ePostCheck
-
-```
-
-```{R, fig.width=16, fig.height=8}
 
 m1ePostCheckEnv <- brms::pp_check(m1e, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
@@ -1369,14 +1574,16 @@ m1f$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m1f))
 m1f$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m1f, re_formula=NA))
 m1f$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m1f, re_formula=NULL))
 
+```
+
+#### check posterior predictive distribution
+
+```{r}
+
 m1fPostCheck <- brms::pp_check(m1f, ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Mean change in annoyance")
 m1fPostCheck
-
-```
-
-```{R, fig.width=16, fig.height=8}
 
 m1fPostCheckEnv <- brms::pp_check(m1f, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
