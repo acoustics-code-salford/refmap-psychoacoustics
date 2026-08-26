@@ -106,7 +106,7 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford
 %
 % Date created: 22/09/2023
-% Date last modified: 16/01/2026
+% Date last modified: 26/08/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -172,12 +172,10 @@ end
 %% Define constants
 
 sampleRate48k = 48e3;  % Signal sample rate prescribed to be 48kHz (to be used for resampling), Section 5.1.1 ECMA-418-2:2025 [r_s]
-deltaFreq0 = 81.9289;  % defined in Section 5.1.4.1 ECMA-418-2:2025 [deltaf(f=0)]
-c = 0.1618;  % Half-overlapping Bark band centre-frequency demoninator constant defined in Section 5.1.4.1 ECMA-418-2:2025
 
 dz = 0.5;  % critical band overlap [deltaz]
 halfBark = 0.5:dz:26.5;  % half-overlapping critical band rate scale [z]
-bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2025 [F(z)]
+bandCentreFreqs = shmBark2Hz(halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2025 [F(z)]
 
 % Section 8.1.1 ECMA-418-2:2025
 weight_n = 0.5331;  % Equations 113 & 114 ECMA-418-2:2025 [w_n]

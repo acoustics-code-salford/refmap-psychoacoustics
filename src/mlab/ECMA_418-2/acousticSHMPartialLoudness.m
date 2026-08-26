@@ -113,7 +113,7 @@ function partLoudnessSHM = acousticSHMPartialLoudness(pTarget, pMasker, sampleRa
 % Institution: University of Salford
 %
 % Date created: 09/12/2023
-% Date last modified: 16/01/2026
+% Date last modified: 26/08/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -191,7 +191,7 @@ c = 0.1618;  % Half-overlapping Bark band centre-frequency denominator constant 
 
 dz = 0.5;  % critical band overlap [deltaz]
 halfBark = 0.5:dz:26.5;  % half-overlapping critical band rate scale [z]
-bandCentreFreqs = (deltaFreq0/c)*sinh(c*halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2025 [F(z)]
+bandCentreFreqs = shmBark2Hz(halfBark);  % Section 5.1.4.1 Equation 9 ECMA-418-2:2025 [F(z)]
 dfz = sqrt(deltaFreq0^2 + (c*bandCentreFreqs).^2);  % Section 5.1.4.1 Equation 10 ECMA-418-2:2025 [deltaf(z)]
 
 % Block and hop sizes Section 6.2.2 Table 4 ECMA-418-2:2025
