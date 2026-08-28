@@ -105,322 +105,29 @@ reloo_flag = FALSE
 
 # Functions
 
-## Prior predictive distribution ppd_ridgeplot
-Adapted from: https://bruno.nicenboim.me/posts/posts/2026-01-09-ordinal-models/index.html
+## modelling helpers
 
 ```{r}
 
-ppd_ridgeplot <- function(fit, title = "Prior Predictive Distribution", 
-                          subtitle = NULL, ndraws = 500) {
-  
-  yrep <- brms::posterior_predict(fit, ndraws = ndraws)
-
-  # extract observed response categories from model
-  response_name <- all.vars(fit$formula$formula)[1]
-  
-  observed_y <- fit$data[[response_name]]
-
-  # preserve ordinal ordering
-  response_levels <- sort(unique(observed_y))
-
-  proportions_per_draw <- lapply(seq_len(nrow(yrep)), function(i) {
-    props <- table(factor(yrep[i, ], levels = response_levels)) / ncol(yrep)
-    data.frame(
-      draw = i,
-      response = factor(response_levels,
-                        levels = response_levels,
-                        ordered = TRUE),
-      proportion = as.numeric(props)
-    )
-  })
-  
-  ppd_data <- do.call(rbind, proportions_per_draw)
-  
-  # reference line for equal occupancy
-  equal_prob <- 1 / length(response_levels)
-  
-  ggplot(ppd_data, aes(x = proportion, y = response)) +
-    ggridges::geom_density_ridges(fill = "steelblue", alpha = 0.7, scale = 0.9, stat = "binline") +
-    scale_x_continuous(breaks = seq(0, 1, by = 0.2), limits = c(0, 1)) +
-    geom_vline(xintercept = equal_prob, linetype = "dashed") +
-    labs(title = title,
-         subtitle = subtitle,
-         x = "Predicted category proportion",
-         y = "Response category") +
-    theme_minimal(base_size = 12) +
-    coord_flip()
-
-}
+source(here("src/R/modelling_helpers.R"))
 
 ```
 
-## Beta distribution transform from arbitrary scale to (0, 1) or back again
+## plotting helpers
 
 ```{r}
 
-betaTransform <- function(x, scaleMin, scaleMax,
-                          direction=c('forward', 'reverse')[1],
-                          squeeze=c('none', 'basic', 'smithson')[1],
-                          basic_val=1e-6){
-  "Squeeze algorithm 'smithson' is from:
-  Smithson, M & Verkuilen, J, 2006. A better lemon squeezer? Maximum-likelihood
-  regression with beta-distributed dependent variables. Psychological Methods,
-  11(1), 54-71."
-  
-  if (direction == 'forward') {
-    # transform from original scale to (0,1)
-    x_scale <- (x - scaleMin) / (scaleMax - scaleMin)
-    
-    if (squeeze == 'smithson') {
-      
-      N = length(x_scale)
-      x_out <- (x_scale*(N - 1) + 0.5) / N
-      
-    } else if (squeeze == 'basic') {
-      
-      x_out <- x_scale*(1 - 2*basic_val) + basic_val
-      
-    } else {
-      
-      x_out <- x_scale
-      
-    }
-
-  } else if (direction == 'reverse') {
-    # transform from (0, 1) back to original scale
-    x_scale <- x * (scaleMax - scaleMin) + scaleMin
-    
-    if (squeeze == 'smithson') {
-      
-      N = length(x_scale)
-      x_out <- (x_scale*N - 0.5)/(N - 1)
-      
-    } else if (squeeze == 'basic') {
-      
-      x_out <- (x_scale - basic_val)/(1 - 2*basic_val)
-      
-    } else {
-      
-      x_out <- x_scale
-      
-    }
-
-  } else {
-    
-    stop("Invalid direction argument: must be 'forward' or 'reverse'")
-    
-  }
-  
-  return(x_out)
-  
-}
-
+source(here("src/R/plotting_helpers.R"))
 
 ```
 
-## Bayesian version of McKelvey and Zavoina's pseudo-R2
-
-From https://discourse.mc-stan.org/t/r-2-calculation-for-brm-model-with-cumulative-family-type/14752/2
-
-```{R}
-# Bayesian McKelvey-Zavoina R2 ------------------------------------------------
-# Bayesian version of McKelvey and Zavoina's pseudo-R2 for binary and ordinal
-# brms models (McKelvey and Zavoina, 1975). See also Gelman et al. (2018). This
-# pseudo-R2 closely approximates the R2 that would have been obtained if a
-# linear model had have been run on observations of the continuous latent
-# variable underlying the discrete responses (Veall and Zimmermann, 1992; Hagle
-# and Mitchell, 1992; Veall and Zimmermann, 1994).
-Bayes_R2_MZ <- function(fit, ...) {
-  y_pred <- fitted(fit, scale = "linear", summary = FALSE, ...)
-  var_fit <- apply(y_pred, 1, stats::var)
-  if (fit$formula$family$family == "cumulative" ||
-      fit$formula$family$family == "bernoulli") {
-    if (fit$formula$family$link == "probit" || 
-        fit$formula$family$link == "probit_approx") {
-      var_res <- 1
-    }
-    else if (fit$formula$family$link == "logit") {
-      var_res <- pi^2 / 3 
-    }
-  } 
-  else {
-    sum_fit <- summary(fit)
-    sig_res <- sum_fit$spec_pars["sigma", "Estimate"]
-    var_res <- sig_res^2
-  } 
-  R2_MZ <- var_fit / (var_fit + var_res)
-  print(
-    data.frame(
-      Estimate = mean(R2_MZ), 
-      Est.Error = stats::sd(R2_MZ), 
-      "l-95% CI" = quantile(R2_MZ, 0.025),
-      "u-95% CI" = quantile(R2_MZ, 0.975),
-      row.names = "Bayes_R2_MZ", 
-      check.names = FALSE), 
-    digits = 3)
-}
-
-```
-
-## Rescale ggplot tick marks for variables
+## brms utilities
 
 ```{r}
 
-rescaleTicks <- function(dataVar, dataVarScl, sep=3, ax='x'){
-  
-  if (ax == 'x'){
-    outAx <- scale_x_continuous(breaks=seq(floor(min(dataVar)),
-                                           ceiling(max(dataVar)),
-                                           by=sep) -
-                                  (max(dataVar) - max(dataVarScl)),
-                                labels=seq(floor(min(dataVar)),
-                                           ceiling(max(dataVar)),
-                                           by=sep))
-
-  } else if (ax == 'y'){
-    outAx <- scale_y_continuous(breaks=seq(floor(min(dataVar)),
-                                           ceiling(max(dataVar)),
-                                           by=sep) -
-                                  (max(dataVar) - max(dataVarScl)),
-                                labels=seq(floor(min(dataVar)),
-                                           ceiling(max(dataVar)),
-                                           by=sep))
-  } else {
-    stop("Invalid axis argument")
-  }
- 
-  return(outAx) 
-}
-
+source(here("src/R/brms_utilities.R"))
 
 ```
-
-## Scaling multiple dataframes
-
-```{r}
-
-#' Standardise selected columns across a list of data frames
-#'
-#' Applies \code{datawizard::standardise()} to user-specified columns in each
-#' data frame of a list, adding the result as new columns with "Scl"
-#' appended to the original column name. Standardisation can be switched on
-#' or off per variable via the \code{scale} argument.
-#'
-#' @param df_list A list of data frames.
-#' @param vars    Character vector of column names to (optionally) standardise.
-#' @param scale   Controls which variables get full standardisation vs.
-#'                centering only:
-#'                \itemize{
-#'                  \item A single logical (default \code{TRUE}) applied to all \code{vars}.
-#'                  \item An unnamed logical vector the same length as \code{vars},
-#'                        matched by position.
-#'                  \item A named logical vector, e.g. \code{c(height = TRUE, weight = FALSE)}.
-#'                        Any variable in \code{vars} not named here defaults to \code{TRUE}.
-#'                }
-#'                Variables with \code{scale = TRUE} are run through
-#'                \code{datawizard::standardise()} (centered AND scaled to SD = 1).
-#'                Variables with \code{scale = FALSE} are run through
-#'                \code{datawizard::center()} instead, so they are still
-#'                mean-centered but left on their original scale (SD unchanged).
-#'                Either way the new "Scl" column is always created.
-#' @param ...     Additional arguments passed on to \code{datawizard::standardise()}
-#'                and \code{datawizard::center()} (e.g. \code{robust}).
-#'                Note: only arguments valid for both functions can safely be
-#'                passed this way (see Details).
-#'
-#' @return A list of data frames (same length/order as \code{df_list}), each
-#'         with new "<var>Scl" columns added.
-#'
-#' @examples
-#' \dontrun{
-#' library(datawizard)
-#'
-#' df1 <- data.frame(height = rnorm(10, 170, 10), weight = rnorm(10, 70, 15))
-#' df2 <- data.frame(height = rnorm(10, 165, 8),  weight = rnorm(10, 65, 12))
-#'
-#' dfs <- list(df1, df2)
-#'
-#' # Standardise both variables in every data frame
-#' out <- standardise_list(dfs, vars = c("height", "weight"))
-#'
-#' # Fully standardise height, but only center weight (weightScl keeps its
-#' # original SD, just shifted to a mean of 0)
-#' out2 <- standardise_list(dfs, vars = c("height", "weight"),
-#'                           scale = c(height = TRUE, weight = FALSE))
-#' }
-#'
-#' @export
-standardise_list <- function(df_list, vars, scale = TRUE, ...) {
-
-  # --- Input checks --------------------------------------------------------
-  if (!is.list(df_list) || !all(vapply(df_list, is.data.frame, logical(1)))) {
-    stop("`df_list` must be a list of data frames.")
-  }
-  if (!is.character(vars) || length(vars) == 0) {
-    stop("`vars` must be a non-empty character vector of column names.")
-  }
-  if (!is.logical(scale)) {
-    stop("`scale` must be logical (TRUE/FALSE), optionally named.")
-  }
-
-  # --- Expand `scale` into a named logical vector aligned with `vars` -----
-  if (length(scale) == 1) {
-    scale <- stats::setNames(rep(scale, length(vars)), vars)
-  } else {
-    if (is.null(names(scale))) {
-      if (length(scale) != length(vars)) {
-        stop("`scale` must be length 1, named, or the same length as `vars`.")
-      }
-      names(scale) <- vars
-    }
-    # Any vars not explicitly named in `scale` default to TRUE
-    missing_vars <- setdiff(vars, names(scale))
-    if (length(missing_vars) > 0) {
-      scale <- c(scale, stats::setNames(rep(TRUE, length(missing_vars)), missing_vars))
-    }
-    scale <- scale[vars]  # align order, drop any extras not in `vars`
-  }
-
-  # --- Apply to each data frame --------------------------------------------
-  lapply(df_list, function(df) {
-
-    present_vars <- intersect(vars, names(df))
-    absent_vars  <- setdiff(vars, names(df))
-
-    if (length(absent_vars) > 0) {
-      warning("Columns not found and skipped: ", paste(absent_vars, collapse = ", "))
-    }
-
-    for (v in present_vars) {
-      new_name <- paste0(v, "Scl")
-
-      if (isTRUE(scale[[v]])) {
-        df[[new_name]] <- datawizard::standardise(df[[v]], ...)
-      } else {
-        df[[new_name]] <- datawizard::center(df[[v]], ...)
-      }
-    }
-
-    df
-  })
-}
-
-```
-
-## estimate calculation grid memory size requirement
-
-```{r}
-
-estimate_size_gb <- function(newdata, ndraws, n_counterfactual_levels = 1) {
-  bytes <- as.numeric(nrow(newdata)) * ndraws * n_counterfactual_levels * 8
-  gb <- bytes / 1e9
-  cat(sprintf("Estimated matrix size: %.1f GB (%s rows x %d draws x %d levels)\n",
-              gb, format(nrow(newdata), big.mark = ","), ndraws, n_counterfactual_levels))
-  gb
-}
-
-```
-
 
 ## avg_comparisons_slopes
 
@@ -429,6 +136,14 @@ Generated by Claude AI (Sonnet 5): https://claude.ai/chat/febecbdd-ea0b-491b-b73
 ```{r}
 
 source(here("src/R/avg_comparisons_slopes.R"))
+
+```
+
+## model performance metrics
+
+```{r}
+
+source(here("src/R/performance_metrics.R"))
 
 ```
 
