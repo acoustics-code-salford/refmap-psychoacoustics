@@ -1,7 +1,6 @@
 require(glmtoolbox)
 require(broom)
-require(dplyr)
-require(ggplot2)
+require(tidyverse)
 
 ## Compare GEE correlation structures by model performance
 geeCorStr <- function(formula, data, family, id,

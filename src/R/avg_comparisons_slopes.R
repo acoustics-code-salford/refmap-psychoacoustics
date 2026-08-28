@@ -46,8 +46,20 @@
 #     which already implement parametric-bootstrap prediction intervals
 #     for lme4 objects - untested against this pipeline, but the right
 #     starting point rather than re-deriving a third variant by hand.
-#   - Cross-contrasts (simultaneously varying 2+ variables) are not
-#     implemented; only one focal `variable` at a time.
+#   - Cross-contrasts (difference-in-differences across two variables) are
+#     supported via avg_comparisons_cross_manual() (v0.11, generalized in
+#     v0.12): variable1 can have any number of levels, compared in
+#     "reference" (default, matching the model's own dummy coding - one
+#     row per surviving interaction coefficient) or "pairwise" style;
+#     variable2 stays fixed at exactly the 2 levels defining the contrast
+#     being tracked. Both variables having more than 2 levels simultaneously
+#     is not supported - see that function's docstring for why this is a
+#     deliberate scope decision, not just an unfinished feature.
+#   - Simple effects (a 2-level contrast computed independently within each
+#     level of another factor - the natural quantity for a plot of "how
+#     does this contrast vary across that factor's levels", DISTINCT from
+#     the interaction contrasts above, which are differences BETWEEN
+#     simple effects) are supported via avg_simple_effects_manual() (v0.13).
 #
 # MEMORY SIZE CHECK / THRESHOLD CONFIGURATION
 #   Every public function below FIRST runs a small real dry run of itself
@@ -59,9 +71,19 @@
 #   memory internally. If the resulting estimate exceeds the configured
 #   threshold, you are shown the estimate and prompted with a numbered
 #   Yes/No confirmation (utils::menu()) before the real, full-size call
-#   runs. In non-interactive sessions (Rscript, knitr, etc.) this raises
-#   an error instead of prompting, since there is no user available to
-#   confirm.
+#   runs.
+#
+#   In non-interactive sessions (Rscript, knitr, a scheduled/CI job, etc.)
+#   there is no user available to answer that prompt, so the behaviour is
+#   controlled separately via options(mfx_manual.noninteractive_action)
+#   or the noninteractive_action argument:
+#     "error" (default) - stop with an informative message. Safe default:
+#       an unattended run silently proceeding past a size threshold is
+#       exactly the scenario that caused system instability earlier in
+#       this project.
+#     "warn" - emit an immediate, visible warning and proceed anyway.
+#       Appropriate once you've reviewed the sizes involved for a given
+#       scheduled pipeline and are comfortable letting it run unattended.
 #
 #   The threshold has a script-level default but is fully configurable via
 #   a single global option, WITHOUT needing to touch every function call:
@@ -160,6 +182,252 @@
 #         separating the two components instead of assuming one is zero.
 #         dry_run_sample_size (singular) is now dry_run_sample_sizes
 #         (plural, length >= 2) on all three public functions.
+#   v0.8  Two real usability problems with v0.7's fix, both raised
+#         directly: (1) a FIXED dry-run size (100, 2000 rows) pays real
+#         computation cost on every single call, even when calling the
+#         same model with the same settings many times in a row (the
+#         actual typical usage pattern - many avg_comparisons_manual()
+#         calls against one model, testing different factors); (2) a fixed
+#         absolute dry-run size can exceed the size of the real grid for
+#         small calls, which is nonsensical. Fixed both: dry-run sample
+#         sizes are now chosen as a small percentage of nrow(newdata)
+#         (capped), never a meaningful fraction of the real computation;
+#         and the fitted (fixed_overhead_mb, per_row_mb) calibration is now
+#         CACHED per model class/family + memory-relevant settings
+#         (re_formula, allow_new_levels, sample_new_levels, ndraws/nsim) in
+#         .mfx_size_cache, so the dry run only actually runs once per
+#         session per unique model/settings combination - every subsequent
+#         call is pure arithmetic against the cached line. dry_run_sample_sizes
+#         argument removed (sizing is now automatic); force_recalibrate
+#         argument and reset_size_cache() added for when you want to
+#         bypass or clear the cache. Extrapolating the cached line far
+#         beyond the grid size it was calibrated on is still a real
+#         limitation - not eliminated, just no longer the common case.
+#   v0.9  BUG: avg_predictions_manual() crashed with a data.table
+#         `[.data.table` error when `newdata` was a data.table rather than
+#         a plain data.frame (e.g. inherited from
+#         marginaleffects::datagrid(), which returns one) - data.table
+#         overrides base-R single-bracket semantics, so `newdata[by]`
+#         (meant as column selection) and `newdata[i, by, drop=FALSE]`
+#         were being reinterpreted as join/filter operations instead.
+#         Fixed by coercing newdata to a plain data.frame with
+#         as.data.frame() at the top of every public function
+#         (avg_predictions_manual, avg_comparisons_manual,
+#         avg_slopes_manual) and inside .estimate_true_size_gb(), so
+#         behaviour no longer depends on what class of object upstream
+#         code happens to hand this file.
+#   v0.10 Non-interactive size-threshold handling was previously fixed
+#         (always stop with an error) regardless of context, which is a
+#         safe default but too rigid for a scheduled/CI pipeline where
+#         you've already reviewed the sizes involved. Added a
+#         noninteractive_action argument on all three public functions
+#         and options(mfx_manual.noninteractive_action) as its global
+#         default, choosing between "error" (default, unchanged behaviour)
+#         and "warn" (emit an immediate, visible warning and proceed
+#         automatically instead of stopping). Interactive-session behaviour
+#         (the numbered Yes/No menu prompt) is unchanged either way.
+#   v0.11 Added avg_comparisons_cross_manual() for 2x2 difference-in-
+#         differences (interaction) contrasts - e.g. "does the UASType gap
+#         differ between AmbientEnvCore levels" - directly on the response
+#         scale with a proper credible interval, rather than reading an
+#         interaction coefficient off a logit-scale summary table. Reuses
+#         the same .dispatch_draws_multi/.estimate_true_size_gb/
+#         .confirm_large_computation machinery as avg_comparisons_manual();
+#         a new, separate function rather than a modification to it, so
+#         the existing tested single-variable path is untouched. Restricted
+#         to exactly 2 levels per variable by design (see docstring); does
+#         not attempt general NxM cross-contrasts.
+#   v0.12 The strict 2x2 restriction in v0.11, on reflection, was more
+#         restrictive than necessary for the common case: a k-level
+#         factor's interaction with another factor is already
+#         parameterized by the model itself as k-1 coefficients relative
+#         to a reference level, not C(k,2) pairwise combinations - so
+#         examining "the interaction across every level" of a >2-level
+#         variable1 IS a well-defined request once framed that way, it
+#         just wasn't what v0.11 supported. Generalized: variable1 can now
+#         take any number of levels (default: all observed), compared via
+#         the new comparison_type1 argument in "reference" (default - one
+#         row per level vs. levels1[1], directly matching the model's own
+#         dummy-coded interaction coefficients one-to-one) or "pairwise"
+#         style. variable2 remains fixed at exactly 2 levels - the
+#         contrast being tracked across variable1 - since letting BOTH
+#         vary reintroduces the original ambiguity this function exists to
+#         avoid. Also documented explicitly (not changed - already true
+#         since .dispatch_draws()'s seed=1 default was first written) that
+#         every leg of every multi-prediction function in this file
+#         already shares one seed automatically via how ... is forwarded,
+#         so correct new-level-noise cancellation does not require the
+#         caller to specify a seed manually.
+#   v0.13 avg_comparisons_cross_manual()'s interaction contrasts (v0.11/
+#         v0.12) answer "how does the gap CHANGE relative to a reference
+#         level" but were mistaken for, and cannot substitute for, "what
+#         IS the gap at each level" - a plot of a 2-level contrast varying
+#         across another factor's levels needs the latter (simple effects),
+#         not the former (interaction contrasts). Added
+#         avg_simple_effects_manual() to compute exactly that: the 2-level
+#         contrast independently within each level of a second factor, as
+#         its own set of rows, none expressed relative to a reference.
+#         Related to the interaction contrasts by simple subtraction
+#         (interaction_contrast(level) = simple_effect(level) -
+#         simple_effect(reference)) but genuinely a different output shape
+#         serving a different purpose - a new function, not a mode switch
+#         on avg_comparisons_cross_manual(), to keep each function's output
+#         unambiguous about which of the two quantities it returns.
+#   v0.14 Three issues reported from real use of avg_simple_effects_manual()
+#         on an 8-leg call (4 within_levels x 2 levels):
+#         (1) BUG: the memory estimate (48.3 GB) was far above the actual
+#         peak. Cause: .estimate_true_size_gb() multiplied the WHOLE
+#         per-leg estimate (which includes large transient, family-specific
+#         computation overhead - see v0.6/v0.7) by n_conditions, as if
+#         every leg's worst-case transient moment occurred simultaneously.
+#         In reality only one leg computes at a time; finished legs just
+#         hold their much smaller final matrices. Fixed: total is now one
+#         leg's full (transient-inclusive) peak PLUS (n_conditions-1) times
+#         the plain, un-inflated size of one retained matrix - see
+#         .total_from_leg_peak_mb() inside .estimate_true_size_gb().
+#         (2) Total system memory stayed elevated after a large call
+#         completed, requiring a manual gc() to reclaim it (expected R/OS
+#         behaviour - see prior discussion - but avoidable). Added
+#         on.exit(gc(full=TRUE), add=TRUE) to all five public functions so
+#         this happens automatically before control returns to the caller.
+#         (3) p.value showing exactly 0 when every posterior/draw agreed on
+#         sign (pd = 1.0 exactly) - a real Monte Carlo floor artifact, not
+#         a calculation error, but "p = 0" overstates precision a finite
+#         draws sample can support. Added .pd_to_pvalue(), which floors the
+#         reported p-value at 2/ndraws_used (the smallest non-zero value
+#         that sample size could have resolved) and is now used everywhere
+#         p.value is computed (avg_comparisons_manual, avg_comparisons_cross_manual,
+#         avg_simple_effects_manual, avg_slopes_manual). A floored value
+#         should be read/reported as "p < floor", not "p = floor".
+#   v0.15 Upgraded on.exit() memory cleanup on all five public functions
+#         from a single gc(full=TRUE) call to a double pass - single-pass
+#         was observed to leave Task Manager showing elevated usage on at
+#         least one system even with it already active (v0.14), until a
+#         manually-triggered second call visibly dropped it - plausibly a
+#         Windows virtual-memory-manager timing quirk rather than R itself
+#         failing to mark the memory as free. Also added plain `level1`/
+#         `reference1` columns to avg_comparisons_cross_manual()'s output
+#         (renamed to the actual variable1 name, e.g. "AmbientEnvCore"),
+#         alongside the existing formatted `contrast` string, so results
+#         can be mapped directly to a plot axis without string parsing.
+#   v0.16 A hand-typed level ("Streetsidesquare") that didn't exactly
+#         match the model's actual factor level ("Streetside square", with
+#         a space) only surfaced deep inside brms's own validate_newdata(),
+#         AFTER the size-check prompt had already been shown, confirmed,
+#         and real computation had started - wasting the confirmation step
+#         and whatever compute ran before brms's internal check fired.
+#         Added .validate_levels(), called immediately after levels/
+#         levels1/levels2/within_levels are determined (whether defaulted
+#         or user-supplied) in avg_comparisons_manual(),
+#         avg_comparisons_cross_manual(), and avg_simple_effects_manual() -
+#         before any size check or dispatch - so a typo/spacing mismatch
+#         now fails instantly and for free, with a message listing the
+#         actual observed levels.
+#   v0.17 The hand-rolled grid-construction code (base_unique/design_cells/
+#         demog_profiles/crossing pattern, refined over several turns to
+#         fix a labeling inconsistency where a single "new_id_k" label was
+#         being crossed against many different real demographic profiles)
+#         had grown complex enough to warrant its own function rather than
+#         copy-pasted, slightly-different versions per script. Added
+#         build_marginal_grid(), generalizing that pattern: separates
+#         within-subject design cells from between-subject demographic
+#         profiles explicitly, supports independent simulate_id/
+#         simulate_stim toggles (covering both the marginal-estimation use
+#         case and the conditional/calibration-plot use case from the same
+#         function), counterfactual variable expansion (e.g. an LAE sweep),
+#         fixed_at_mean/fixed_at_mode nuisance covariates, and validates
+#         that every predictor the model actually requires is accounted
+#         for via insight::find_predictors() before returning anything.
+#         Deliberately not a wrapper around marginaleffects::datagrid() or
+#         emmeans' reference grid - see the function's docstring for the
+#         three specific reasons neither tool can do this.
+#   v0.18 BUG (design regression): build_marginal_grid()'s demographic
+#         profile assignment used sample(replace=TRUE) to stretch the real
+#         profiles up to n_new synthetic ones - copied from working code a
+#         few turns earlier without questioning whether resampling was
+#         actually necessary. It wasn't: the original base_unique approach
+#         was fully deterministic (every real subject's own profile,
+#         always included), and introducing random resampling here added
+#         an unnecessary second source of Monte Carlo noise on top of the
+#         one that IS required (sample_new_levels="gaussian"), with no
+#         benefit - and a real downside: sample(replace=TRUE) can, by
+#         chance (coupon-collector problem), omit a real profile entirely,
+#         and gives an unevenly-weighted allocation rather than an exactly
+#         even one. Fixed: demog_assignment now uses
+#         rep_len(seq_len(nrow(demog_profiles)), n_new) - deterministic
+#         cycling through all real profiles, guaranteeing every one
+#         appears, with as-even-as-possible representation, and no seed
+#         needed. The now-unused `seed` argument was removed (not left as
+#         a silently-ignored parameter); passing it triggers an explicit
+#         warning via `...` instead.
+#   v0.19 The v0.18 fix's own docstring flagged, but didn't act on, a real
+#         edge case: if n_new < nrow(demog_profiles), deterministic cycling
+#         degrades to silently taking the first n_new real profiles in
+#         whatever order they appear in the data - an arbitrary row-order
+#         dependency, not a meaningful subsample. Added an explicit warning
+#         for this case rather than leaving it as a documented-but-silent
+#         caveat, since n_new is under direct user control and this
+#         condition is trivial to detect at call time.
+#   v0.20 Only one input-combination hazard (within_vars/between_vars
+#         overlap) was checked; asked to audit systematically for others.
+#         Added .validate_grid_inputs(), covering: id_var == stim_var;
+#         id_var/stim_var also listed in within_vars/between_vars (breaks
+#         the design-cell/demographic-profile separation); a
+#         counterfactual_vars name also appearing anywhere else (the sweep
+#         assumes the column doesn't already exist, or the cross-join
+#         collides with it); an empty counterfactual_vars entry (silently
+#         produces a 0-row grid, the same failure mode as the datagrid()
+#         bug from earlier in this project); fixed_at_mean and
+#         fixed_at_mode both listing the same variable (contradictory);
+#         id_var/stim_var listed in fixed_at_mean/fixed_at_mode (mean() on
+#         a character ID column returns NA); fixed_at_mean applied to a
+#         non-numeric column (same NA problem); n_new < 1. All of the
+#         above STOP. Separately, fixed_at_mean/fixed_at_mode also
+#         appearing in within_vars/between_vars WARNS rather than stopping
+#         (per explicit direction) - it's recoverable, just means the
+#         fixed step overwrites the naturally-varying values with a
+#         constant, which the warning states explicitly.
+#   v0.21 BUG: the counterfactual_vars expansion loop passed
+#         setNames(list(values), v) - a bare named list - as a positional
+#         argument to tidyr::crossing(), which does not reliably give
+#         crossing() an unambiguous column name+values pair. In practice
+#         this produced a grid that was silently NOT expanded at all
+#         (confirmed: a 52-design-cell x 150-profile grid with a 13-value
+#         counterfactual sweep returned 7,800 rows = 52*150, i.e. exactly
+#         the un-expanded count) while the separate verbose-message text
+#         incorrectly reported "x 13 counterfactual level(s)" regardless,
+#         since it computed that number independently of what actually
+#         happened to the grid. Fixed by constructing a proper one-column
+#         data.frame for each counterfactual variable before crossing.
+#         Also added a self-check immediately after the expansion loop:
+#         if nrow(grid) doesn't exactly equal n_before x (product of
+#         counterfactual level counts), the function now STOPS with a
+#         clear message rather than silently returning a wrong-sized grid
+#         - this exact bug would have been caught immediately by that
+#         check had it existed, rather than requiring the user to notice
+#         the arithmetic didn't add up after the fact.
+#   v0.22 Asked for a full audit rather than just confirming v0.21's fix.
+#         Found two more real issues: (1) fixed_at_mode built its
+#         replacement value via names(table(...)), which is ALWAYS
+#         character - applying fixed_at_mode to a genuinely numeric
+#         (but discrete) variable would silently turn that grid column
+#         into character (e.g. "3" instead of 3), which brms::posterior_epred()
+#         would not treat as the numeric predictor it needs. Fixed by
+#         coercing the modal value back to the original column's type
+#         (numeric/logical/factor). (2) The v0.21 self-check and the
+#         verbose message each independently recomputed the expected
+#         counterfactual row-count multiplier via raw length() -
+#         exactly the same class of bug as v0.21 itself (a displayed/
+#         checked number computed separately from what actually happens),
+#         just not yet triggered: tidyr::crossing() deduplicates each
+#         input's values before crossing, so a counterfactual vector with
+#         any duplicate values would make the v0.21 self-check itself
+#         throw a false-positive stop. Fixed by computing cf_unique_counts
+#         (via length(unique(...)), matching crossing()'s real behaviour)
+#         ONCE, and having both the self-check and the verbose message
+#         read from that single value - making the "message disagrees
+#         with reality" bug class structurally impossible here, not just
+#         patched for this one instance of it.
 # =============================================================================
 
 
@@ -233,6 +501,390 @@ make_prediction_cluster <- function(model, n_workers = parallel::detectCores() -
 
 
 # -----------------------------------------------------------------------------
+# build_marginal_grid()
+# -----------------------------------------------------------------------------
+
+#' Validate build_marginal_grid()'s inputs before any grid construction runs
+#'
+#' Hard stops for combinations that would structurally break the grid
+#' (wrong-typed columns, colliding cross-joins, or a silent empty result -
+#' the same failure mode as the datagrid() 0-row bug from earlier in this
+#' project, reachable a different way via an empty counterfactual_vars
+#' entry). Warnings for combinations that are recoverable but almost
+#' certainly not what was intended (a fixed_at_mean/fixed_at_mode variable
+#' also listed as varying in within_vars/between_vars - the fixed step
+#' runs AFTER crossing and silently overwrites the naturally-varying
+#' values with a constant).
+.validate_grid_inputs <- function(model_data, within_vars, between_vars, id_var, stim_var,
+                                  counterfactual_vars, fixed_at_mean, fixed_at_mode,
+                                  n_new, simulate_id) {
+  cf_vars <- names(counterfactual_vars)
+  
+  if (identical(id_var, stim_var)) {
+    stop("id_var and stim_var cannot be the same column ('", id_var, "').", call. = FALSE)
+  }
+  
+  overlap_wb <- intersect(within_vars, between_vars)
+  if (length(overlap_wb) > 0) {
+    stop("Variable(s) listed in both within_vars and between_vars: ",
+         paste(sQuote(overlap_wb), collapse = ", "), call. = FALSE)
+  }
+  
+  id_stim_in_wb <- intersect(c(id_var, stim_var), c(within_vars, between_vars))
+  if (length(id_stim_in_wb) > 0) {
+    stop(
+      "id_var/stim_var ('", id_var, "'/'", stim_var, "') must not also appear in within_vars or ",
+      "between_vars - found: ", paste(sQuote(id_stim_in_wb), collapse = ", "),
+      ". These are handled separately by the id_var/stim_var/simulate_id/simulate_stim ",
+      "machinery; including them elsewhere breaks the design-cell/demographic-profile ",
+      "separation this function relies on.",
+      call. = FALSE
+    )
+  }
+  
+  cf_overlap <- intersect(cf_vars, c(within_vars, between_vars, id_var, stim_var,
+                                     fixed_at_mean, fixed_at_mode))
+  if (length(cf_overlap) > 0) {
+    stop(
+      "counterfactual_vars name(s) also appear elsewhere (within_vars/between_vars/id_var/",
+      "stim_var/fixed_at_mean/fixed_at_mode): ", paste(sQuote(cf_overlap), collapse = ", "),
+      ". A counterfactual sweep variable must not already exist as a column by the time the ",
+      "sweep runs, or the resulting cross-join collides with (or silently duplicates) the ",
+      "existing column. Remove it from wherever else it's listed.",
+      call. = FALSE
+    )
+  }
+  
+  empty_cf <- cf_vars[lengths(counterfactual_vars) == 0]
+  if (length(empty_cf) > 0) {
+    stop(
+      "counterfactual_vars entry has zero values, which would silently produce an empty ",
+      "(0-row) grid - the same failure mode as the datagrid() 0-row bug from earlier in this ",
+      "project: ", paste(sQuote(empty_cf), collapse = ", "), call. = FALSE
+    )
+  }
+  
+  mean_mode_overlap <- intersect(fixed_at_mean, fixed_at_mode)
+  if (length(mean_mode_overlap) > 0) {
+    stop(
+      "Variable(s) listed in both fixed_at_mean and fixed_at_mode (contradictory - pick one): ",
+      paste(sQuote(mean_mode_overlap), collapse = ", "), call. = FALSE
+    )
+  }
+  
+  id_stim_in_fixed <- intersect(c(id_var, stim_var), c(fixed_at_mean, fixed_at_mode))
+  if (length(id_stim_in_fixed) > 0) {
+    stop(
+      "id_var/stim_var must not appear in fixed_at_mean/fixed_at_mode - found: ",
+      paste(sQuote(id_stim_in_fixed), collapse = ", "),
+      ". These columns are managed by simulate_id/simulate_stim; averaging or mode-ing a ",
+      "character/factor ID column is not meaningful and would corrupt it (mean() on a ",
+      "non-numeric column returns NA in base R without necessarily stopping).",
+      call. = FALSE
+    )
+  }
+  
+  fixed_at_mean_in_data <- intersect(fixed_at_mean, names(model_data))
+  non_numeric_means <- fixed_at_mean_in_data[
+    !vapply(fixed_at_mean_in_data, function(v) is.numeric(model_data[[v]]), logical(1))
+  ]
+  if (length(non_numeric_means) > 0) {
+    stop(
+      "fixed_at_mean variable(s) are not numeric in the data, so mean() is not meaningful: ",
+      paste(sQuote(non_numeric_means), collapse = ", "),
+      ". Did you mean to list these under fixed_at_mode instead?",
+      call. = FALSE
+    )
+  }
+  
+  if (simulate_id && n_new < 1) {
+    stop("n_new must be at least 1 when simulate_id = TRUE (got ", n_new, ").", call. = FALSE)
+  }
+  
+  # ---- Soft warnings: likely-unintended but recoverable overlaps ---------
+  mean_wb_overlap <- intersect(fixed_at_mean, c(within_vars, between_vars))
+  if (length(mean_wb_overlap) > 0) {
+    warning(
+      "fixed_at_mean variable(s) also appear in within_vars/between_vars: ",
+      paste(sQuote(mean_wb_overlap), collapse = ", "),
+      ". fixed_at_mean is applied AFTER the within/between crossing and will OVERWRITE these ",
+      "columns' naturally-varying values with a single constant mean - if that's not what you ",
+      "intended, remove the variable from fixed_at_mean.",
+      call. = FALSE
+    )
+  }
+  
+  mode_wb_overlap <- intersect(fixed_at_mode, c(within_vars, between_vars))
+  if (length(mode_wb_overlap) > 0) {
+    warning(
+      "fixed_at_mode variable(s) also appear in within_vars/between_vars: ",
+      paste(sQuote(mode_wb_overlap), collapse = ", "),
+      ". fixed_at_mode is applied AFTER the within/between crossing and will OVERWRITE these ",
+      "columns' naturally-varying values with a single constant mode - if that's not what you ",
+      "intended, remove the variable from fixed_at_mode.",
+      call. = FALSE
+    )
+  }
+  
+  invisible(TRUE)
+}
+
+
+#' Build a marginalization grid for hierarchical models with crossed random
+#' effects, separating within-subject (design-cell) and between-subject
+#' (demographic) variation explicitly
+#'
+#' Genuinely different from marginaleffects::datagrid() and emmeans'
+#' reference grid, not a reimplementation of either - see conversation
+#' notes for the three specific reasons: (1) datagrid()'s factor-level
+#' validation rejects synthetic ID/StimID labels outright, so it cannot
+#' build a grid compatible with allow_new_levels/sample_new_levels at all;
+#' (2) emmeans defaults to a balanced reference grid at means/modes (the
+#' "average case" approach), not the "observed value" approach (Hanmer &
+#' Kalkan 2013) this project has used throughout, which requires crossing
+#' against the actual empirical distribution of demographic profiles;
+#' (3) neither has a notion of "within-subject design cell" vs
+#' "between-subject profile" as independently-crossed entities, which is
+#' what a repeated-measures factorial design with crossed random effects
+#' actually needs.
+#'
+#' DESIGN CELLS (within_vars) are deduplicated deterministically - one row
+#' per unique combination, keeping whichever real stim_var/covariate value
+#' first co-occurred with it (a representative, not arbitrary, choice - see
+#' the .keep_all= pattern this generalizes). DEMOGRAPHIC PROFILES
+#' (between_vars) are, if simulate_id=TRUE, RESAMPLED WITH REPLACEMENT to
+#' n_new - preserving the observed distribution rather than enumerating
+#' every unique profile once (which would not achieve genuine Monte Carlo
+#' integration over repeated new-subject draws the way resampling does).
+#' The two are then crossed, so every simulated demographic profile is
+#' paired with every design cell - matching the structure validated by the
+#' convergence-sweep pilots earlier in this project.
+#'
+#' @param model brmsfit or glmgee object.
+#' @param within_vars Character vector of within-subject/design-cell
+#'   variable names (e.g. UASType, UASOperation, AmbientEnvCore).
+#' @param between_vars Character vector of between-subject/demographic
+#'   variable names (e.g. Sex, Age, NationGeo2).
+#' @param id_var,stim_var Names of the subject and stimulus grouping
+#'   columns. Default "ID"/"StimID".
+#' @param simulate_id,simulate_stim Whether to replace id_var/stim_var
+#'   with fresh synthetic labels (for use with allow_new_levels=TRUE,
+#'   sample_new_levels="gaussian" downstream) or keep the real, existing
+#'   values (for a conditional/existing-levels grid - e.g. the calibration
+#'   plot use case from earlier, where simulate_stim = FALSE is correct).
+#' @param n_new Number of synthetic profiles to generate when
+#'   simulate_id = TRUE. Ignored (all real IDs kept) when FALSE. Intended
+#'   to comfortably exceed the number of real profiles; if it doesn't, a
+#'   warning is issued (see below).
+#' @param counterfactual_vars Optional named list of variable -> vector of
+#'   values to additionally cross the grid against (e.g.
+#'   list(UASLAEMaxLRScl = seq(-11, 12, length.out = 11)) for an LAE
+#'   sweep). Each entry multiplies the grid size by length(values) - a
+#'   message is printed if the resulting expansion exceeds 5x, as an early
+#'   warning before this feeds into the separate, automatic memory size
+#'   check in avg_predictions_manual() etc.
+#' @param fixed_at_mean Character vector of numeric covariate names to
+#'   hold at their sample mean (e.g. "TrialNumberScl").
+#' @param fixed_at_mode Character vector of categorical covariate names to
+#'   hold at their sample mode (most frequent observed level).
+#' @param newdata Optional data.frame to use instead of
+#'   insight::get_data(model) - e.g. a pre-filtered subset.
+#' @param verbose If TRUE (default), prints a short summary of what was
+#'   built (row count, unique design cells, unique profiles, whether
+#'   ID/StimID were simulated).
+#' @param ... Not otherwise used. Present so that a leftover `seed=`
+#'   argument from before v0.18 (when demographic profile assignment was
+#'   randomly resampled, not deterministic) triggers an explicit warning
+#'   rather than silently being accepted and ignored.
+#' @return A data.frame ready to pass as `newdata` to
+#'   avg_predictions_manual(), avg_comparisons_manual(),
+#'   avg_comparisons_cross_manual(), avg_simple_effects_manual(), or
+#'   avg_slopes_manual().
+build_marginal_grid <- function(model, within_vars, between_vars,
+                                id_var = "ID", stim_var = "StimID",
+                                simulate_id = TRUE, simulate_stim = TRUE,
+                                n_new = 150, counterfactual_vars = NULL,
+                                fixed_at_mean = NULL, fixed_at_mode = NULL,
+                                newdata = NULL, verbose = TRUE, ...) {
+  dots <- list(...)
+  if ("seed" %in% names(dots)) {
+    warning(
+      "build_marginal_grid()'s `seed` argument was removed in v0.18: demographic profile ",
+      "assignment is now deterministic (cycles through all real profiles) rather than randomly ",
+      "resampled, so no seed is needed or used here. This argument is being ignored.",
+      call. = FALSE
+    )
+  }
+  model_data <- if (!is.null(newdata)) as.data.frame(newdata) else as.data.frame(insight::get_data(model))
+  
+  # ---- Input validation --------------------------------------------------
+  .validate_grid_inputs(model_data, within_vars, between_vars, id_var, stim_var,
+                        counterfactual_vars, fixed_at_mean, fixed_at_mode, n_new, simulate_id)
+  
+  all_named <- unique(c(within_vars, between_vars, id_var, stim_var,
+                        names(counterfactual_vars), fixed_at_mean, fixed_at_mode))
+  missing_from_data <- setdiff(all_named, names(model_data))
+  if (length(missing_from_data) > 0) {
+    stop("The following variables are not present in the model's data: ",
+         paste(sQuote(missing_from_data), collapse = ", "), call. = FALSE)
+  }
+  
+  required_predictors <- tryCatch(
+    insight::find_predictors(model, effects = "all", flatten = TRUE),
+    error = function(e) NULL
+  )
+  if (!is.null(required_predictors)) {
+    still_missing <- setdiff(required_predictors, all_named)
+    if (length(still_missing) > 0) {
+      stop(
+        "The model requires the following predictor(s), not accounted for by any of ",
+        "within_vars/between_vars/id_var/stim_var/counterfactual_vars/fixed_at_mean/fixed_at_mode: ",
+        paste(sQuote(still_missing), collapse = ", "),
+        ".\nEvery variable the model actually uses must be covered by one of these arguments, ",
+        "or prediction will fail (or silently fall back to some default you didn't intend).",
+        call. = FALSE
+      )
+    }
+  } else {
+    warning(
+      "Could not determine the model's required predictors via insight::find_predictors() ",
+      "- proceeding without this check. This can happen for custom/forked families; verify ",
+      "manually that every predictor in the model formula is covered by one of the arguments above.",
+      call. = FALSE
+    )
+  }
+  
+  # ---- Design cells (within-subject / stimulus-level variables) ---------
+  design_cells <- model_data[!duplicated(model_data[within_vars]),
+                             c(within_vars, stim_var), drop = FALSE]
+  if (simulate_stim) {
+    design_cells[[stim_var]] <- paste0("new_stim_", seq_len(nrow(design_cells)))
+  }
+  
+  # ---- Demographic profiles (between-subject variables) ------------------
+  demog_profiles <- model_data[!duplicated(model_data[[id_var]]),
+                               c(id_var, between_vars), drop = FALSE]
+  if (simulate_id) {
+    # Deterministic cycling, not random resampling: with n_new typically
+    # >> number of real profiles, this guarantees every real profile
+    # appears (unlike sample(replace=TRUE), which can by chance omit one),
+    # gives an exactly even allocation rather than one with sampling
+    # noise, and needs no seed - one fewer source of randomness in a
+    # pipeline that already has to carefully manage the randomness that
+    # IS required (sample_new_levels="gaussian"). Only introduces an
+    # arbitrary row-order dependency if n_new < nrow(demog_profiles),
+    # which is not the intended use case (n_new is meant to comfortably
+    # exceed the real subject count) - warn explicitly rather than let
+    # that degrade silently.
+    if (n_new < nrow(demog_profiles)) {
+      warning(
+        "n_new (", n_new, ") is smaller than the number of real profiles in '", id_var, "' (",
+        nrow(demog_profiles), "). Deterministic cycling will select only the FIRST ", n_new,
+        " profiles in whatever order they happen to appear in the data - an arbitrary ",
+        "dependency on row order, not a meaningful or representative subsample. If you want a ",
+        "representative subset instead, pre-select or pre-shuffle the demographic profiles ",
+        "yourself and pass the result via `newdata`, or use n_new >= ", nrow(demog_profiles),
+        " to include every real profile.",
+        call. = FALSE
+      )
+    }
+    idx <- rep_len(seq_len(nrow(demog_profiles)), n_new)
+    demog_assignment <- demog_profiles[idx, , drop = FALSE]
+    demog_assignment[[id_var]] <- paste0("new_id_", seq_len(n_new))
+  } else {
+    demog_assignment <- demog_profiles
+  }
+  
+  # ---- Cross design cells x demographic assignment ------------------------
+  grid <- as.data.frame(tidyr::crossing(design_cells, demog_assignment))
+  
+  # ---- Fixed-at-mean / fixed-at-mode nuisance covariates ------------------
+  for (v in fixed_at_mean) grid[[v]] <- mean(model_data[[v]], na.rm = TRUE)
+  for (v in fixed_at_mode) {
+    tbl <- table(model_data[[v]])
+    mode_val <- names(tbl)[which.max(tbl)]
+    # names(tbl) is always character - coerce back to the original column's
+    # type, or a numeric fixed_at_mode variable would silently become
+    # character in the returned grid (e.g. "3" instead of 3), which
+    # brms::posterior_epred() would not treat the same as a numeric predictor.
+    if (is.numeric(model_data[[v]])) {
+      mode_val <- as.numeric(mode_val)
+    } else if (is.logical(model_data[[v]])) {
+      mode_val <- as.logical(mode_val)
+    } else if (is.factor(model_data[[v]])) {
+      mode_val <- factor(mode_val, levels = levels(model_data[[v]]))
+    }
+    grid[[v]] <- mode_val
+  }
+  
+  # ---- Counterfactual expansion (e.g. an LAE sweep) ------------------------
+  # cf_unique_counts is computed ONCE here and reused below (both in the
+  # self-check and in the verbose message) - the earlier bug (v0.21) was
+  # exactly a case of the message computing its own row-count independently
+  # of what the grid actually did, and them silently disagreeing. A single
+  # shared computation makes that whole class of bug structurally
+  # impossible rather than just fixing the one instance of it. Uses
+  # length(unique(...)) rather than raw length(...), since
+  # tidyr::crossing() deduplicates each input's values before crossing -
+  # using the raw length would falsely flag a mismatch if a counterfactual
+  # vector ever contained duplicate values.
+  cf_unique_counts <- if (!is.null(counterfactual_vars)) {
+    vapply(counterfactual_vars, function(v) length(unique(v)), integer(1))
+  } else {
+    integer(0)
+  }
+  
+  if (!is.null(counterfactual_vars)) {
+    n_before <- nrow(grid)
+    for (v in names(counterfactual_vars)) {
+      # A proper one-column data.frame, not a bare list - tidyr::crossing()
+      # needs an unambiguous name+values pair per argument; a raw
+      # list(name = values) object passed positionally does not reliably
+      # give it that, and previously produced a grid that silently wasn't
+      # expanded at all (see v0.21).
+      cf_df <- data.frame(x = counterfactual_vars[[v]])
+      names(cf_df) <- v
+      grid <- as.data.frame(tidyr::crossing(grid, cf_df))
+    }
+    n_after <- nrow(grid)
+    expected_n_after <- n_before * prod(cf_unique_counts)
+    if (n_after != expected_n_after) {
+      stop(sprintf(
+        "build_marginal_grid(): counterfactual expansion produced %s rows, expected %s ",
+        "(%s rows before x %s counterfactual combinations). This indicates the crossing ",
+        "step is not behaving as expected - stopping rather than silently returning an ",
+        "incorrectly-sized grid.",
+        format(n_after, big.mark = ","), format(expected_n_after, big.mark = ","),
+        format(n_before, big.mark = ","), format(prod(cf_unique_counts), big.mark = ",")
+      ), call. = FALSE)
+    }
+    if (n_after > 5 * n_before) {
+      message(sprintf(
+        "build_marginal_grid(): counterfactual expansion increased the grid from %s to %s rows (%.1fx).",
+        format(n_before, big.mark = ","), format(n_after, big.mark = ","), n_after / n_before
+      ))
+    }
+  }
+  
+  if (verbose) {
+    message(sprintf(
+      "build_marginal_grid(): %s rows (%s design cells x %s profile%s%s). ID %s, StimID %s.",
+      format(nrow(grid), big.mark = ","),
+      format(nrow(design_cells), big.mark = ","),
+      format(nrow(demog_assignment), big.mark = ","),
+      if (nrow(demog_assignment) == 1) "" else "s",
+      if (!is.null(counterfactual_vars)) sprintf(", x %s counterfactual level(s)",
+                                                 format(prod(cf_unique_counts), big.mark = ",")) else "",
+      if (simulate_id) "simulated (new levels)" else "real (existing levels)",
+      if (simulate_stim) "simulated (new levels)" else "real (existing levels)"
+    ))
+  }
+  
+  grid
+}
+
+
+# -----------------------------------------------------------------------------
 # Memory size check - AUTOMATIC, empirically measured (no user-supplied
 # multiplier, no family detection/guessing required)
 # -----------------------------------------------------------------------------
@@ -271,6 +923,25 @@ make_prediction_cluster <- function(model, n_workers = parallel::detectCores() -
   }
   if (inherits(model, "glmgee")) return(nsim)
   stop("Cannot resolve an effective draw count for this model class.")
+}
+
+#' Convert probability of direction to a two-sided p-value, floored at the
+#' Monte Carlo resolution limit of the draws actually used
+#'
+#' bayestestR::p_direction() computes pd as a proportion of a FINITE set of
+#' draws. When every single draw falls on the same side of zero, pd = 1.0
+#' exactly and p = 2(1-pd) = 0 exactly - not because the true probability
+#' of a sign flip is literally zero, but because the finite Monte Carlo
+#' sample didn't happen to contain a single crossing. The smallest
+#' non-zero p this specific sample of draws could ever have resolved is
+#' 2/ndraws_used (one single draw on the other side instead of zero), so
+#' reporting a floored value there - and treating it as "p < floor", not
+#' "p = 0" - is the honest way to report it. Values that aren't at the
+#' floor are returned unchanged.
+.pd_to_pvalue <- function(pd, ndraws_used) {
+  p <- 2 * (1 - pd)
+  floor_p <- 2 / ndraws_used
+  ifelse(p < floor_p, floor_p, p)
 }
 
 #' Empirically estimate the true peak memory (GB) of a full-size call by
@@ -335,6 +1006,35 @@ reset_size_cache <- function() {
   invisible(NULL)
 }
 
+#' Fail fast, for free, on a level typo/mismatch - before the (potentially
+#' expensive) size check or any prediction call runs
+#'
+#' Catches exactly the class of error demonstrated in practice: a
+#' hand-typed level (e.g. "Streetsidesquare") that doesn't exactly match
+#' what the model's factor actually contains (e.g. "Streetside square",
+#' with a space) only surfaces otherwise deep inside brms's own
+#' validate_newdata(), AFTER the size-check prompt has already been shown
+#' and confirmed and real computation has begun - wasting both the user's
+#' time answering the prompt and whatever compute ran before brms's
+#' internal check fired. Checking directly against newdata's own observed
+#' levels first makes this instant and free instead.
+.validate_levels <- function(newdata, colname, requested_levels) {
+  observed <- unique(as.character(newdata[[colname]]))
+  missing <- setdiff(requested_levels, observed)
+  if (length(missing) > 0) {
+    stop(
+      "Requested level(s) not found in newdata$", colname, ": ",
+      paste(sQuote(missing), collapse = ", "), ".\n",
+      "Observed levels are: ", paste(sQuote(observed), collapse = ", "), ".\n",
+      "Check for typos or spacing differences - factor levels must match exactly. ",
+      "Consider leaving this argument NULL to pull levels directly from the data ",
+      "instead of typing them by hand.",
+      call. = FALSE
+    )
+  }
+  invisible(TRUE)
+}
+
 .calibration_key <- function(model, ...) {
   dots <- list(...)
   fam <- if (inherits(model, "brmsfit")) {
@@ -360,13 +1060,41 @@ reset_size_cache <- function() {
 
 .estimate_true_size_gb <- function(model, newdata, n_conditions = 1,
                                    force_recalibrate = FALSE, ...) {
+  # Defensive coercion: data.table's `[.data.table` overrides base-R bracket
+  # semantics (character/logical i is treated as a join/filter key, not
+  # column selection), which silently breaks the row/column indexing below
+  # if newdata was ever built or passed through as a data.table (e.g. by
+  # some upstream marginaleffects::datagrid() pipelines). Coercing once
+  # here means every function in this file behaves identically regardless
+  # of what class of object the caller happened to hand it.
+  newdata <- as.data.frame(newdata)
   n_full <- nrow(newdata)
   key <- .calibration_key(model, ...)
   
+  # For n_conditions > 1: only ONE leg is being actively computed at a
+  # time (lapply/parLapply is sequential per worker), so only one leg's
+  # transient peak (which may be dominated by large family-specific
+  # scratch space - see v0.6/v0.7 notes on the ordbeta case) applies at
+  # once. Previously-finished legs only contribute their much smaller,
+  # un-inflated RETAINED final matrix size, since their transient scratch
+  # space has already been freed by the time the next leg runs. Naively
+  # multiplying the whole transient-inclusive per-leg estimate by
+  # n_conditions - as done through v0.13 - overcounts substantially for
+  # multi-leg calls (confirmed in practice: 48.3 GB estimated for an
+  # 8-leg avg_simple_effects_manual() call whose actual peak, per gc(),
+  # was nowhere near that).
+  dots <- list(...)
+  ndraws_eff <- .effective_draws(model, ndraws = dots$ndraws, nsim = dots$nsim %||% 1000)
+  naive_leg_mb <- (as.numeric(n_full) * ndraws_eff * 8) / 1e6  # one RETAINED matrix, un-inflated
+  
+  .total_from_leg_peak_mb <- function(leg_peak_mb) {
+    (leg_peak_mb + (n_conditions - 1) * naive_leg_mb) / 1024
+  }
+  
   if (!force_recalibrate && exists(key, envir = .mfx_size_cache, inherits = FALSE)) {
     cached <- get(key, envir = .mfx_size_cache, inherits = FALSE)
-    predicted_mb <- cached$fixed_overhead_mb + cached$per_row_mb * n_full
-    return((predicted_mb / 1024) * n_conditions)
+    leg_peak_mb <- cached$fixed_overhead_mb + cached$per_row_mb * n_full
+    return(.total_from_leg_peak_mb(leg_peak_mb))
   }
   
   .measure_at <- function(n) {
@@ -389,7 +1117,7 @@ reset_size_cache <- function() {
     incremental_mb <- .measure_at(n_full)
     assign(key, list(fixed_overhead_mb = 0, per_row_mb = incremental_mb / n_full),
            envir = .mfx_size_cache)
-    return((incremental_mb / 1024) * n_conditions)
+    return(.total_from_leg_peak_mb(incremental_mb))
   }
   
   measured_mb <- vapply(sizes, .measure_at, numeric(1))
@@ -400,8 +1128,8 @@ reset_size_cache <- function() {
   assign(key, list(fixed_overhead_mb = fixed_overhead_mb, per_row_mb = per_row_mb),
          envir = .mfx_size_cache)
   
-  predicted_mb <- fixed_overhead_mb + per_row_mb * n_full
-  (predicted_mb / 1024) * n_conditions
+  leg_peak_mb <- fixed_overhead_mb + per_row_mb * n_full
+  .total_from_leg_peak_mb(leg_peak_mb)
 }
 
 #' Pre-flight check: warn and require confirmation above a size threshold
@@ -411,7 +1139,25 @@ reset_size_cache <- function() {
 #'   getOption("mfx_manual.size_warn_gb", default = 4).
 #' @param context Short string describing which call this is, shown in the
 #'   prompt/error (e.g. "avg_comparisons_manual(variable = 'Sex')").
-.confirm_large_computation <- function(estimated_gb, size_warn_gb = NULL, context = "") {
+#' Pre-flight check: warn and require confirmation above a size threshold
+#'
+#' @param estimated_gb Output of .estimate_true_size_gb().
+#' @param size_warn_gb Threshold in GB. If NULL, falls back to
+#'   getOption("mfx_manual.size_warn_gb", default = 4).
+#' @param context Short string describing which call this is, shown in the
+#'   prompt/error (e.g. "avg_comparisons_manual(variable = 'Sex')").
+#' @param noninteractive_action What to do when interactive() is FALSE (an
+#'   Rscript/knitr/scheduled batch run - utils::menu() has no user to
+#'   answer it) and the threshold is exceeded. One of "error" (default -
+#'   stop, since silently running an oversized computation unattended can
+#'   still cause the system instability this check exists to prevent) or
+#'   "warn" (emit an immediate, visible warning to the log and proceed
+#'   automatically - appropriate for a scheduled job where you've already
+#'   reviewed the sizes involved, or where recovering from a crash is
+#'   cheaper than a blocked pipeline). If NULL (default), falls back to
+#'   getOption("mfx_manual.noninteractive_action", default = "error").
+.confirm_large_computation <- function(estimated_gb, size_warn_gb = NULL, context = "",
+                                       noninteractive_action = NULL) {
   threshold <- if (is.null(size_warn_gb)) {
     getOption("mfx_manual.size_warn_gb", default = 4)
   } else {
@@ -433,13 +1179,32 @@ reset_size_cache <- function() {
   )
   
   if (!interactive()) {
-    stop(
-      msg,
-      "\nRunning in a non-interactive session - refusing to proceed automatically.",
-      "\nRaise the threshold first if you are sure this is safe:",
-      "\n  options(mfx_manual.size_warn_gb = <value>)  # or pass size_warn_gb= to this call",
-      call. = FALSE
-    )
+    action <- if (is.null(noninteractive_action)) {
+      getOption("mfx_manual.noninteractive_action", default = "error")
+    } else {
+      noninteractive_action
+    }
+    action <- match.arg(action, c("error", "warn"))
+    
+    if (action == "error") {
+      stop(
+        msg,
+        "\nRunning in a non-interactive session - refusing to proceed automatically.",
+        "\nRaise the threshold first if you are sure this is safe:",
+        "\n  options(mfx_manual.size_warn_gb = <value>)  # or pass size_warn_gb= to this call",
+        "\nOr allow non-interactive runs to proceed with just a warning:",
+        "\n  options(mfx_manual.noninteractive_action = 'warn')  # or noninteractive_action='warn' to this call",
+        call. = FALSE
+      )
+    } else {
+      warning(
+        msg,
+        "\nRunning in a non-interactive session with ",
+        "options(mfx_manual.noninteractive_action = 'warn') set - proceeding automatically.",
+        call. = FALSE, immediate. = TRUE
+      )
+      return(invisible(TRUE))
+    }
   }
   
   choice <- utils::menu(c("Yes - proceed anyway", "No - abort"), title = msg)
@@ -463,6 +1228,15 @@ reset_size_cache <- function() {
                             re_formula = NULL, allow_new_levels = FALSE,
                             sample_new_levels = "uncertainty",
                             ndraws = NULL, nsim = 1000, seed = 1) {
+  # seed defaults to 1 deliberately, not arbitrarily: every multi-leg
+  # function in this file (avg_comparisons_manual, avg_comparisons_cross_manual,
+  # avg_slopes_manual) forwards the same ... to every leg via
+  # .dispatch_draws_multi()'s lapply/parLapply, so all legs of one call
+  # always share whichever seed is in effect - explicit or this default -
+  # which is REQUIRED for simulated new-ID/StimID noise to cancel correctly
+  # across differences/double-differences. There is no argument anywhere in
+  # this file that lets different legs of the same comparison use different
+  # seeds; if you ever extend this file, preserve that property.
   
   if (inherits(model, "brmsfit")) {
     set.seed(seed)
@@ -528,15 +1302,28 @@ reset_size_cache <- function() {
 #' @param force_recalibrate If TRUE, ignores any cached memory calibration
 #'   for this model/settings combination and re-measures from scratch.
 #'   Usually not needed - see reset_size_cache() to clear the whole cache.
+#' @param noninteractive_action What to do if the size threshold is
+#'   exceeded while running non-interactively (see .confirm_large_computation()).
+#'   NULL (default) uses getOption("mfx_manual.noninteractive_action", "error").
 #' @param ... Passed to .dispatch_draws() (re_formula, allow_new_levels,
 #'   sample_new_levels, ndraws, nsim, seed).
 avg_predictions_manual <- function(model, newdata, by = NULL,
                                    transform = identity, conf_level = 0.95,
                                    size_warn_gb = NULL,
-                                   force_recalibrate = FALSE, ...) {
+                                   force_recalibrate = FALSE,
+                                   noninteractive_action = NULL, ...) {
+  newdata <- as.data.frame(newdata)  # see .estimate_true_size_gb() note on data.table
+  on.exit({ gc(full = TRUE); gc(full = TRUE) }, add = TRUE)  # double pass: a single
+  # gc() call was observed to leave Task
+  # Manager showing elevated usage until a
+  # second, manually-triggered call actually
+  # dropped it - plausibly a Windows virtual-
+  # memory-manager timing quirk rather than R
+  # itself failing to mark the memory free
   est_gb <- .estimate_true_size_gb(model, newdata, n_conditions = 1,
                                    force_recalibrate = force_recalibrate, ...)
-  .confirm_large_computation(est_gb, size_warn_gb, context = "avg_predictions_manual()")
+  .confirm_large_computation(est_gb, size_warn_gb, context = "avg_predictions_manual()",
+                             noninteractive_action = noninteractive_action)
   
   draws <- .dispatch_draws(model, newdata, ...)
   resp <- transform(draws)
@@ -597,6 +1384,9 @@ avg_predictions_manual <- function(model, newdata, by = NULL,
 #'   applied to the TOTAL across all levels being predicted (they may be
 #'   computed sequentially, but the check is conservative and sizes for the
 #'   full set). NULL (default) uses getOption("mfx_manual.size_warn_gb", 4).
+#' @param noninteractive_action What to do if the size threshold is
+#'   exceeded while running non-interactively (see .confirm_large_computation()).
+#'   NULL (default) uses getOption("mfx_manual.noninteractive_action", "error").
 #' @param ... Passed to .dispatch_draws() (re_formula, allow_new_levels,
 #'   sample_new_levels, ndraws, nsim, seed).
 avg_comparisons_manual <- function(model, newdata, variable,
@@ -605,15 +1395,20 @@ avg_comparisons_manual <- function(model, newdata, variable,
                                    conf_level = 0.95, p_adjust = "none",
                                    rope = NULL, cl = NULL,
                                    size_warn_gb = NULL,
-                                   dry_run_sample_sizes = c(100, 2000), ...) {
+                                   force_recalibrate = FALSE,
+                                   noninteractive_action = NULL, ...) {
+  newdata <- as.data.frame(newdata)  # see .estimate_true_size_gb() note on data.table
+  on.exit({ gc(full = TRUE); gc(full = TRUE) }, add = TRUE)  # double pass, see avg_predictions_manual() note
   comparison_type <- match.arg(comparison_type)
   if (is.null(levels)) levels <- sort(unique(as.character(newdata[[variable]])))
+  .validate_levels(newdata, variable, levels)
   
   est_gb <- .estimate_true_size_gb(model, newdata, n_conditions = length(levels),
-                                   sample_sizes = dry_run_sample_sizes, ...)
+                                   force_recalibrate = force_recalibrate, ...)
   .confirm_large_computation(
     est_gb, size_warn_gb,
-    context = sprintf("avg_comparisons_manual(variable = '%s', %d levels)", variable, length(levels))
+    context = sprintf("avg_comparisons_manual(variable = '%s', %d levels)", variable, length(levels)),
+    noninteractive_action = noninteractive_action
   )
   
   pairs <- switch(comparison_type,
@@ -641,7 +1436,7 @@ avg_comparisons_manual <- function(model, newdata, variable,
       conf.low = unname(stats::quantile(d, alpha / 2)),
       conf.high = unname(stats::quantile(d, 1 - alpha / 2)),
       pd = pd,
-      p.value = 2 * (1 - pd)
+      p.value = .pd_to_pvalue(pd, length(d))  # floored at this call's own MC resolution - see .pd_to_pvalue()
     )
     if (!is.null(rope)) {
       row$rope_decision <- if (row$conf.low > rope[2] || row$conf.high < rope[1]) {
@@ -654,6 +1449,305 @@ avg_comparisons_manual <- function(model, newdata, variable,
     }
     row
   }))
+  results$p.value.adj <- stats::p.adjust(results$p.value, method = p_adjust)
+  results
+}
+
+
+# -----------------------------------------------------------------------------
+# avg_comparisons_cross_manual()
+# -----------------------------------------------------------------------------
+
+#' Difference-in-differences (interaction) contrast across two variables
+#'
+#' Computes, for one or more levels of `variable1`, how the `variable2`
+#' contrast (hi2 - lo2) differs from that same contrast at a reference (or
+#' every other) level of `variable1` - directly on the response/annoyance
+#' scale, with a proper credible interval. This is the natural way to
+#' formally test and report an interaction term's effect size (e.g. does
+#' the UASType gap differ between AmbientEnvCore levels) in the same
+#' interpretable units as avg_comparisons_manual(), rather than reading an
+#' interaction coefficient off the logit-scale summary table.
+#'
+#' WHY variable1 CAN HAVE MANY LEVELS BUT variable2 CANNOT: a k-level
+#' factor's interaction with another factor is parameterized by the model
+#' as k-1 coefficients relative to a reference level (exactly what your own
+#' brms coefficient table shows, e.g. AmbientEnvCorePark:UASTypeT150,
+#' AmbientEnvCoreResidential:UASTypeT150, AmbientEnvCoreStreetsidesquare:UASTypeT150
+#' - three terms for a 4-level AmbientEnvCore, not six pairwise
+#' combinations). comparison_type1 = "reference" (the default) reproduces
+#' exactly that parameterization: it holds variable2's contrast fixed at
+#' the two levels you specify, and asks how that contrast differs at each
+#' non-reference level of variable1 relative to variable1's reference
+#' level - one row per surviving model coefficient, directly comparable to
+#' it. Extending variable2 to more than 2 levels as well would reintroduce
+#' genuine ambiguity (now BOTH sides would have multiple possible
+#' reference/pairwise choices simultaneously), so that is intentionally
+#' not supported - run this function once per variable2 contrast you want
+#' to report, each time examining it across every level of variable1.
+#'
+#' CORRECTNESS NOTE: every (variable1 level x variable2 level) combination
+#' MUST use the same seed (passed via ... exactly as for
+#' avg_comparisons_manual() - and shares .dispatch_draws()'s seed=1
+#' default automatically if you don't specify one, see that function's
+#' comment) so that the shared simulated new-ID/StimID noise from
+#' sample_new_levels="gaussian" cancels identically across every leg
+#' before the differences are taken. This matters more here than for a
+#' simple pairwise contrast: with only partial cancellation, uncancelled
+#' new-level noise doesn't just add a little extra width, it can dominate
+#' a difference-of-differences whose true magnitude is often small
+#' relative to either single difference.
+#'
+#' @param model brmsfit or glmgee object.
+#' @param newdata Grid of predictor values, at variable1/variable2's
+#'   current (baseline) values - overwritten per combination internally.
+#' @param variable1 Name of the focal categorical column examined across
+#'   (potentially) many levels.
+#' @param variable2 Name of the focal categorical column whose 2-level
+#'   contrast is being tracked across variable1's levels.
+#' @param levels1 Optional character vector of variable1 levels to include.
+#'   Defaults to ALL unique observed levels. The first element is treated
+#'   as the reference level under comparison_type1 = "reference" - order
+#'   matters, so pass this explicitly if the alphabetical default isn't
+#'   the reference level your model actually used.
+#' @param levels2 Optional length-2 character vector selecting which two
+#'   levels of variable2 define the contrast. Defaults to the first two
+#'   unique observed levels - specify explicitly if variable2 has more
+#'   than two levels or if the default ordering isn't what you want.
+#' @param comparison_type1 "reference" (default - each non-reference
+#'   variable1 level vs. levels1[1], matching the model's own dummy
+#'   coding) or "pairwise" (every pair of variable1 levels - only sensible
+#'   for a small number of levels, since it grows combinatorially).
+#' @param transform Function applied to each combination's raw draws matrix.
+#' @param conf_level Credible/confidence interval coverage (default 0.95).
+#' @param rope Optional numeric length-2 vector for a Kruschke (2018)-style
+#'   practical-equivalence judgement on each interaction contrast (see
+#'   avg_comparisons_manual() for the same argument's full rationale).
+#' @param p_adjust Method passed to stats::p.adjust() across the returned
+#'   rows (see avg_comparisons_manual() for the same caveat on treating
+#'   this as a hybrid rather than a purely Bayesian procedure).
+#' @param cl Optional cluster from make_prediction_cluster().
+#' @param size_warn_gb,force_recalibrate,noninteractive_action See
+#'   avg_comparisons_manual() - identical semantics, sized for
+#'   length(levels1) * 2 combinations.
+#' @param ... Passed to .dispatch_draws() (re_formula, allow_new_levels,
+#'   sample_new_levels, ndraws, nsim, seed).
+avg_comparisons_cross_manual <- function(model, newdata, variable1, variable2,
+                                         levels1 = NULL, levels2 = NULL,
+                                         comparison_type1 = c("reference", "pairwise"),
+                                         transform = identity, conf_level = 0.95,
+                                         rope = NULL, p_adjust = "none", cl = NULL,
+                                         size_warn_gb = NULL,
+                                         force_recalibrate = FALSE,
+                                         noninteractive_action = NULL, ...) {
+  comparison_type1 <- match.arg(comparison_type1)
+  newdata <- as.data.frame(newdata)
+  on.exit({ gc(full = TRUE); gc(full = TRUE) }, add = TRUE)  # double pass, see avg_predictions_manual() note
+  if (is.null(levels1)) levels1 <- sort(unique(as.character(newdata[[variable1]])))
+  if (is.null(levels2)) levels2 <- sort(unique(as.character(newdata[[variable2]])))[1:2]
+  .validate_levels(newdata, variable1, levels1)
+  .validate_levels(newdata, variable2, levels2)
+  if (length(levels2) != 2) {
+    stop(
+      "levels2 must specify exactly 2 levels of '", variable2, "' - the contrast being ",
+      "tracked across levels of '", variable1, "'. Pass levels2 explicitly if '", variable2,
+      "' has more than 2 observed levels."
+    )
+  }
+  
+  n_conditions <- length(levels1) * 2
+  est_gb <- .estimate_true_size_gb(model, newdata, n_conditions = n_conditions,
+                                   force_recalibrate = force_recalibrate, ...)
+  .confirm_large_computation(
+    est_gb, size_warn_gb,
+    context = sprintf("avg_comparisons_cross_manual('%s' [%d levels] x '%s')",
+                      variable1, length(levels1), variable2),
+    noninteractive_action = noninteractive_action
+  )
+  
+  combos <- expand.grid(l1 = levels1, l2 = levels2, stringsAsFactors = FALSE)
+  key <- function(l1, l2) paste(l1, l2, sep = "___")
+  
+  newdata_list <- lapply(seq_len(nrow(combos)), function(i) {
+    nd <- newdata
+    nd[[variable1]] <- combos$l1[i]
+    nd[[variable2]] <- combos$l2[i]
+    nd
+  })
+  names(newdata_list) <- key(combos$l1, combos$l2)
+  
+  # Every leg shares one seed via ... (explicit, or .dispatch_draws()'s
+  # own seed=1 default) - required for correct cancellation of shared
+  # simulated new-level noise across all differences (see docstring note).
+  draws_list <- .dispatch_draws_multi(model, newdata_list, cl = cl, ...)
+  mean_draws <- lapply(draws_list, function(d) rowMeans(transform(d)))
+  
+  hi2 <- levels2[1]; lo2 <- levels2[2]
+  diff_by_level1 <- lapply(levels1, function(l1) mean_draws[[key(l1, hi2)]] - mean_draws[[key(l1, lo2)]])
+  names(diff_by_level1) <- levels1
+  
+  pairs1 <- switch(comparison_type1,
+                   reference = if (length(levels1) < 2) {
+                     stop("comparison_type1 = 'reference' needs at least 2 levels1.")
+                   } else {
+                     cbind(levels1[-1], levels1[1])
+                   },
+                   pairwise = t(utils::combn(levels1, 2))
+  )
+  
+  alpha <- 1 - conf_level
+  results <- do.call(rbind, lapply(seq_len(nrow(pairs1)), function(i) {
+    a <- pairs1[i, 1]; b <- pairs1[i, 2]
+    dd <- diff_by_level1[[a]] - diff_by_level1[[b]]
+    pd <- as.numeric(bayestestR::p_direction(dd))
+    row <- data.frame(
+      level1 = a, reference1 = b,  # plain columns for plotting - no string parsing needed
+      contrast = sprintf("(%s=%s: %s-%s) vs (%s=%s: %s-%s)",
+                         variable1, a, hi2, lo2, variable1, b, hi2, lo2),
+      estimate = mean(dd),
+      conf.low = unname(quantile(dd, alpha / 2)),
+      conf.high = unname(quantile(dd, 1 - alpha / 2)),
+      pd = pd, p.value = .pd_to_pvalue(pd, length(dd))
+    )
+    if (!is.null(rope)) {
+      row$rope_decision <- if (row$conf.low > rope[2] || row$conf.high < rope[1]) {
+        "outside ROPE (credible non-negligible interaction)"
+      } else if (row$conf.low > rope[1] && row$conf.high < rope[2]) {
+        "inside ROPE (practically equivalent interaction sizes)"
+      } else {
+        "overlaps ROPE (undecided)"
+      }
+    }
+    row
+  }))
+  names(results)[1] <- variable1  # e.g. "AmbientEnvCore" rather than the generic "level1"
+  results$p.value.adj <- stats::p.adjust(results$p.value, method = p_adjust)
+  results
+}
+
+
+# -----------------------------------------------------------------------------
+# avg_simple_effects_manual()
+# -----------------------------------------------------------------------------
+
+#' Simple effects: a 2-level contrast, computed independently within each
+#' level of another factor
+#'
+#' Distinct from avg_comparisons_cross_manual()'s INTERACTION contrasts,
+#' which are the DIFFERENCES between simple effects relative to a reference
+#' level. This function returns the simple effects themselves - e.g. the
+#' T150-H520 gap computed separately within each of Highway/Park/
+#' Residential/Streetsidesquare, four independent numbers, none expressed
+#' "relative to" anything else. This is the natural quantity for a plot
+#' showing how one factor's effect varies across another factor's levels
+#' (e.g. "H520-T150 across all four environments"); avg_comparisons_cross_manual()
+#' is the natural quantity for FORMALLY TESTING whether that variation is
+#' credibly non-zero relative to a chosen reference. The two are related by
+#' simple subtraction: interaction_contrast(level) = simple_effect(level) -
+#' simple_effect(reference) - so running both on the same data should give
+#' internally consistent numbers, worth spot-checking if you use both.
+#'
+#' @param model brmsfit or glmgee object.
+#' @param newdata Grid of predictor values, at variable/within_variable's
+#'   current (baseline) values - overwritten per combination internally.
+#' @param variable Name of the focal categorical column whose 2-level
+#'   contrast is computed.
+#' @param within_variable Name of the categorical column whose levels the
+#'   contrast is computed separately within.
+#' @param levels Optional length-2 character vector selecting which two
+#'   levels of `variable` define the contrast. Defaults to the first two
+#'   unique observed levels - specify explicitly if `variable` has more
+#'   than two levels or the default ordering isn't what you want.
+#' @param within_levels Optional character vector of within_variable
+#'   levels to compute the simple effect within. Defaults to ALL unique
+#'   observed levels.
+#' @param transform Function applied to each combination's raw draws matrix.
+#' @param conf_level Credible/confidence interval coverage (default 0.95).
+#' @param rope Optional numeric length-2 vector for a Kruschke (2018)-style
+#'   practical-equivalence judgement on each simple effect (see
+#'   avg_comparisons_manual() for the same argument's full rationale).
+#' @param p_adjust Method passed to stats::p.adjust() across the returned
+#'   rows (see avg_comparisons_manual() for the same caveat on treating
+#'   this as a hybrid rather than a purely Bayesian procedure).
+#' @param cl Optional cluster from make_prediction_cluster().
+#' @param size_warn_gb,force_recalibrate,noninteractive_action See
+#'   avg_comparisons_manual() - identical semantics, sized for
+#'   length(within_levels) * 2 combinations.
+#' @param ... Passed to .dispatch_draws() (re_formula, allow_new_levels,
+#'   sample_new_levels, ndraws, nsim, seed - all legs automatically share
+#'   one seed, see .dispatch_draws()'s comment; correct for this function
+#'   too even though there's no double-difference to protect here, since
+#'   it keeps every leg's new-level draws comparable to each other).
+avg_simple_effects_manual <- function(model, newdata, variable, within_variable,
+                                      levels = NULL, within_levels = NULL,
+                                      transform = identity, conf_level = 0.95,
+                                      rope = NULL, p_adjust = "none", cl = NULL,
+                                      size_warn_gb = NULL,
+                                      force_recalibrate = FALSE,
+                                      noninteractive_action = NULL, ...) {
+  newdata <- as.data.frame(newdata)
+  on.exit({ gc(full = TRUE); gc(full = TRUE) }, add = TRUE)  # double pass, see avg_predictions_manual() note
+  if (is.null(levels)) levels <- sort(unique(as.character(newdata[[variable]])))[1:2]
+  if (is.null(within_levels)) within_levels <- sort(unique(as.character(newdata[[within_variable]])))
+  .validate_levels(newdata, variable, levels)
+  .validate_levels(newdata, within_variable, within_levels)
+  if (length(levels) != 2) {
+    stop(
+      "levels must specify exactly 2 levels of '", variable, "' - the contrast being ",
+      "computed within each level of '", within_variable, "'. Pass levels explicitly if '",
+      variable, "' has more than 2 observed levels."
+    )
+  }
+  
+  n_conditions <- length(within_levels) * 2
+  est_gb <- .estimate_true_size_gb(model, newdata, n_conditions = n_conditions,
+                                   force_recalibrate = force_recalibrate, ...)
+  .confirm_large_computation(
+    est_gb, size_warn_gb,
+    context = sprintf("avg_simple_effects_manual('%s' within '%s' [%d levels])",
+                      variable, within_variable, length(within_levels)),
+    noninteractive_action = noninteractive_action
+  )
+  
+  combos <- expand.grid(w = within_levels, l = levels, stringsAsFactors = FALSE)
+  key <- function(w, l) paste(w, l, sep = "___")
+  
+  newdata_list <- lapply(seq_len(nrow(combos)), function(i) {
+    nd <- newdata
+    nd[[within_variable]] <- combos$w[i]
+    nd[[variable]] <- combos$l[i]
+    nd
+  })
+  names(newdata_list) <- key(combos$w, combos$l)
+  
+  draws_list <- .dispatch_draws_multi(model, newdata_list, cl = cl, ...)
+  mean_draws <- lapply(draws_list, function(d) rowMeans(transform(d)))
+  
+  hi <- levels[1]; lo <- levels[2]
+  alpha <- 1 - conf_level
+  results <- do.call(rbind, lapply(within_levels, function(w) {
+    d <- mean_draws[[key(w, hi)]] - mean_draws[[key(w, lo)]]
+    pd <- as.numeric(bayestestR::p_direction(d))
+    row <- data.frame(
+      within_level = w,
+      contrast = paste(hi, "-", lo),
+      estimate = mean(d),
+      conf.low = unname(quantile(d, alpha / 2)),
+      conf.high = unname(quantile(d, 1 - alpha / 2)),
+      pd = pd, p.value = .pd_to_pvalue(pd, length(d))
+    )
+    if (!is.null(rope)) {
+      row$rope_decision <- if (row$conf.low > rope[2] || row$conf.high < rope[1]) {
+        "outside ROPE (credible non-negligible effect)"
+      } else if (row$conf.low > rope[1] && row$conf.high < rope[2]) {
+        "inside ROPE (practically equivalent to zero)"
+      } else {
+        "overlaps ROPE (undecided)"
+      }
+    }
+    row
+  }))
+  names(results)[1] <- within_variable
   results$p.value.adj <- stats::p.adjust(results$p.value, method = p_adjust)
   results
 }
@@ -680,19 +1774,28 @@ avg_comparisons_manual <- function(model, newdata, variable,
 #' @param size_warn_gb Memory size threshold (GB) for the pre-flight check
 #'   (sized for the hi/lo pair, i.e. n_conditions = 2). NULL (default) uses
 #'   getOption("mfx_manual.size_warn_gb", 4).
+#' @param force_recalibrate If TRUE, ignores any cached memory calibration
+#'   for this model/settings combination and re-measures from scratch.
+#' @param noninteractive_action What to do if the size threshold is
+#'   exceeded while running non-interactively (see .confirm_large_computation()).
+#'   NULL (default) uses getOption("mfx_manual.noninteractive_action", "error").
 #' @param ... Passed to .dispatch_draws().
 avg_slopes_manual <- function(model, newdata, variable, eps = NULL,
                               transform = identity, conf_level = 0.95,
                               cl = NULL, size_warn_gb = NULL,
-                              dry_run_sample_sizes = c(100, 2000), ...) {
+                              force_recalibrate = FALSE,
+                              noninteractive_action = NULL, ...) {
+  newdata <- as.data.frame(newdata)  # see .estimate_true_size_gb() note on data.table
+  on.exit({ gc(full = TRUE); gc(full = TRUE) }, add = TRUE)  # double pass, see avg_predictions_manual() note
   x <- newdata[[variable]]
   if (is.null(eps)) eps <- 0.0001 * diff(range(x))
   
   est_gb <- .estimate_true_size_gb(model, newdata, n_conditions = 2,
-                                   sample_sizes = dry_run_sample_sizes, ...)
+                                   force_recalibrate = force_recalibrate, ...)
   .confirm_large_computation(
     est_gb, size_warn_gb,
-    context = sprintf("avg_slopes_manual(variable = '%s')", variable)
+    context = sprintf("avg_slopes_manual(variable = '%s')", variable),
+    noninteractive_action = noninteractive_action
   )
   
   nd_hi <- newdata; nd_hi[[variable]] <- x + eps / 2
@@ -709,7 +1812,7 @@ avg_slopes_manual <- function(model, newdata, variable, eps = NULL,
     conf.low = unname(stats::quantile(slope_draws, alpha / 2)),
     conf.high = unname(stats::quantile(slope_draws, 1 - alpha / 2)),
     pd = pd,
-    p.value = 2 * (1 - pd)
+    p.value = .pd_to_pvalue(pd, length(slope_draws))
   )
 }
 
@@ -723,11 +1826,14 @@ if (FALSE) {
   source("avg_comparisons_slopes.R")
   
   # --- Example 0: the size check runs automatically inside every call below
-  #     - there's nothing extra to run first. It performs a small real dry
-  #     run of the exact call (default 300 rows), measures actual memory
-  #     use, and only prompts if the scaled-up estimate exceeds threshold.
-  #     If your grid is very large and even the dry run itself feels slow,
-  #     reduce it: dry_run_sample_sizes = c(50, 500)
+  #     - there's nothing extra to run first. The FIRST call against a given
+  #     model/settings combination in your session pays a small dry-run
+  #     cost (proportionally sized, never larger than a few percent of your
+  #     grid); every SUBSEQUENT call with the same model/settings (e.g.
+  #     testing several different factors one after another - your typical
+  #     usage pattern) reuses the cached calibration and costs essentially
+  #     nothing extra. Call reset_size_cache() if you ever want to force
+  #     recalibration (e.g. after updating brms or refitting the model).
   
   # Set the threshold once for a whole session (roughly a third to a half
   # of your machine's TOTAL RAM, not free RAM). Skip this and every call
@@ -750,6 +1856,57 @@ if (FALSE) {
   # In a non-interactive session (Rscript / knitr), the same situation
   # raises an error instead of prompting, so batch jobs never hang waiting
   # for input they can't receive.
+  
+  # If you've refit the model or updated brms and don't trust the cached
+  # calibration anymore, clear it (affects all models/settings) or force
+  # a single call to recalibrate itself:
+  # reset_size_cache()
+  # avg_comparisons_manual(..., force_recalibrate = TRUE)
+  
+  # --- Example 0c: running as part of a scheduled/Rscript pipeline, where
+  #     you've already reviewed the sizes involved and want oversized
+  #     calls to proceed with a loud log warning rather than block the job
+  options(mfx_manual.noninteractive_action = "warn")
+  # or per-call, without changing the session-wide default:
+  # avg_predictions_manual(..., noninteractive_action = "warn")
+  # Default ("error") is unchanged for any call that doesn't set this -
+  # an unattended run silently proceeding past a size threshold is exactly
+  # the scenario this whole check exists to prevent, so opt in deliberately.
+  
+  # --- Example -1a: build the fully marginal grid (new ID and StimID) used
+  #     for population-level estimates (LAE dose-response, demographic and
+  #     interaction contrasts) - replaces the hand-rolled base_unique/
+  #     design_cells/demog_profiles/crossing pattern from earlier in this
+  #     project with one validated call. No seed needed - profile
+  #     assignment is deterministic (see v0.18); the only randomness left
+  #     is sample_new_levels="gaussian" itself, controlled downstream via
+  #     the seed= argument to avg_predictions_manual() etc.
+  grid_marg <- build_marginal_grid(
+    m0d,
+    within_vars = c("UASProximity", "UASType", "UASEvents", "AmbientEnvCore",
+                    "AmbientVariant", "UASOperation"),
+    between_vars = c("NationGeo2", "AAM_attitude2", "Home_Area2", "Age", "Sex",
+                     "NoiseSensitivity", "Area_soundscape2"),
+    simulate_id = TRUE, simulate_stim = TRUE, n_new = nnew_pred,
+    counterfactual_vars = list(UASLAEMaxLRScl = seq(-11, 12, length.out = 11)),
+    fixed_at_mean = "TrialNumberScl"
+  )
+  
+  # --- Example -1b: build the CONDITIONAL grid (real, existing StimID) used
+  #     for the calibration-against-observed-stimuli plot - same function,
+  #     simulate_stim = FALSE is the only difference, making the estimand
+  #     choice explicit in the call rather than implicit in a different,
+  #     hand-copied block of code.
+  grid_calib <- build_marginal_grid(
+    m0d,
+    within_vars = c("UASProximity", "UASType", "UASEvents", "AmbientEnvCore",
+                    "AmbientVariant", "UASOperation"),
+    between_vars = c("NationGeo2", "AAM_attitude2", "Home_Area2", "Age", "Sex",
+                     "NoiseSensitivity", "Area_soundscape2"),
+    simulate_id = TRUE, simulate_stim = FALSE,  # <- real StimID kept, for matching against dAnnoyanceMean
+    n_new = nnew_pred,
+    fixed_at_mean = "TrialNumberScl"
+  )
   
   # --- Example 1: average predictions (Bayesian, brms) -----------------------
   m3bpredType <- avg_predictions_manual(
@@ -786,6 +1943,55 @@ if (FALSE) {
     }
   ))
   all_demo_contrasts$p.value.adj <- stats::p.adjust(all_demo_contrasts$p.value, method = "holm")
+  
+  # --- Example 3b: interaction contrast - does the UASType gap (T150 vs
+  #     H520) differ across ALL levels of AmbientEnvCore, relative to a
+  #     reference level, in annoyance-scale units? Returns one row per
+  #     non-reference AmbientEnvCore level - directly comparable one-to-one
+  #     against the model's own AmbientEnvCore<level>:UASTypeT150
+  #     coefficients, just expressed as an interpretable effect size with
+  #     a credible interval instead of a logit-scale coefficient.
+  type_by_env <- avg_comparisons_cross_manual(
+    m0d, newdata = demo_grid, variable1 = "AmbientEnvCore", variable2 = "UASType",
+    levels1 = c("Highway", "Park", "Residential", "Streetsidesquare"),  # Highway = reference,
+    comparison_type1 = "reference",                                     # matching the model's own coding
+    levels2 = c("T150", "H520"),
+    re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+    ndraws = ndraws_pred, seed = 999,
+    rope = c(-0.2, 0.2),
+    transform = \(x) betaTransform(x, -10, 10, direction = "reverse", squeeze = "none")
+  )
+  # type_by_env now has 3 rows: Park vs Highway, Residential vs Highway,
+  # Streetsidesquare vs Highway - each answering "how much bigger/smaller
+  # is the T150-H520 gap here than at the Highway reference"
+  
+  # --- Example 3c: simple effects - the actual H520-T150 gap, computed
+  #     independently within EACH of the four AmbientEnvCore levels. This
+  #     - not the interaction contrasts above - is the quantity for a plot
+  #     of "H520-T150 variation across all four environments".
+  type_within_env <- avg_simple_effects_manual(
+    m0d, newdata = demo_grid, variable = "UASType", within_variable = "AmbientEnvCore",
+    levels = c("T150", "H520"),
+    re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+    ndraws = ndraws_pred, seed = 999,
+    rope = c(-0.2, 0.2),
+    transform = \(x) betaTransform(x, -10, 10, direction = "reverse", squeeze = "none")
+  )
+  # type_within_env has 4 rows, one per AmbientEnvCore level - exactly the
+  # shape for the plot you're after:
+  ggplot(type_within_env, aes(x = AmbientEnvCore, y = estimate)) +
+    geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+    geom_pointrange(aes(ymin = conf.low, ymax = conf.high)) +
+    labs(x = NULL, y = "Predicted T150 - H520 difference in mean annoyance")
+  
+  # Sanity check: interaction contrasts should equal differences of simple
+  # effects at the same two AmbientEnvCore levels (small numerical
+  # differences expected, since each was computed from an independent set
+  # of posterior/new-level draws - not a discrepancy to worry about unless
+  # it's large)
+  # type_within_env$estimate[type_within_env$AmbientEnvCore == "Park"] -
+  #   type_within_env$estimate[type_within_env$AmbientEnvCore == "Highway"]
+  # vs. type_by_env$estimate[1]  # the Park-vs-Highway interaction contrast row
   
   # --- Example 4: slope of the continuous focal predictor -------------------
   lae_slope <- avg_slopes_manual(

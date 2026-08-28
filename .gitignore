@@ -211,6 +211,7 @@ cython_debug/
 refmap_listest1_analysis_Bayesian_models.RData
 refmap_listest1_gee_glmm_models_rev3.RData
 refmap_listest2_analysis_Bayesian_models.RData
+refmap_listest2_analysis_cforest.RData
 
 # User-specific files
 .Ruserdata

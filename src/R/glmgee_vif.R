@@ -127,10 +127,10 @@ print.glmgee_vif <- function(x, ...) {
 # =============================================================================
 # Example usage:
 #
-#   m12 <- glmtoolbox::glmgee(formula = m12formula, data = m12Data, id = ID,
+#   m <- glmtoolbox::glmgee(formula = mformula, data = mData, id = ID,
 #                              family = binomial(link = "logit"),
 #                              corstr = "exchangeable")
 #
-#   glmgee_vif(m12)
+#   glmgee_vif(m)
 #
 # =============================================================================

@@ -2641,7 +2641,7 @@ else:
 
 fileExts = "*.csv"
 filepath = QFileDialog.getOpenFileName(filter=fileExts,
-                                       caption=r"Select test questionnaire response data file in '03 Experiment\Experiment 2\Test_files\Questionnaire'")[0]
+                                       caption=r"Select test questionnaire response data file in '03 Experiment\Experiment 2\Analysis\PostProcess'")[0]
 
 questResponses = pd.read_csv(filepath, header=0)
 # convert questResponses Exp1ID column to int64 type
