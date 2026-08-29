@@ -1696,11 +1696,11 @@ m1PostCheckProx
 performance::check_collinearity(m1)
 
 bayesplot::mcmc_pairs(brms::as_draws_matrix(m1), pars = c("b_UASLAEMaxLRScl",
-                                                           "b_UASOperationDelivery",
-                                                           "b_UASTypeT150", "b_UASProximityNear",
-                                                           "b_AmbientEnvCorePark",
-                                                           "b_AmbientEnvCoreResidential",
-                                                           "b_AmbientEnvCoreStreetsidesquare"))
+                                                          "b_UASOperationDelivery",
+                                                          "b_UASTypeT150", "b_UASProximityNear",
+                                                          "b_AmbientEnvCoreResidential",
+                                                          "b_AmbientEnvCoreStreetsidesquare",
+                                                          "b_AmbientEnvCoreHighway"))
 
 
 
@@ -1818,9 +1818,9 @@ performance::check_collinearity(m1b)
 bayesplot::mcmc_pairs(brms::as_draws_matrix(m1b), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationDelivery",
                                                            "b_UASTypeT150", "b_UASProximityNear",
-                                                           "b_AmbientEnvCorePark",
                                                            "b_AmbientEnvCoreResidential",
-                                                           "b_AmbientEnvCoreStreetsidesquare"))
+                                                           "b_AmbientEnvCoreStreetsidesquare",
+                                                           "b_AmbientEnvCoreHighway"))
 
 ```
 
