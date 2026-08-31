@@ -591,8 +591,6 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(m0_2), pars = c("b_UASLAEMaxLRScl",
                                                            "b_AmbientEnvCoreHighway"),
                                off_diag_args=list(alpha=0.3, size=0.5))
 
-
-
 ```
 
 #### performance
@@ -602,10 +600,10 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(m0_2), pars = c("b_UASLAEMaxLRScl",
 loo::pareto_k_table(loo::loo(m0_2))
 
 # make a table of the bayes_R2 values and quantiles for each model
-get_Br2_table(m0_2)
+get_Br2_table(m0, m0_2)
 
-m0_2 <- loo::loo_compare(m0, m0_2, criterion='loo')
-m0_2
+m0_2_loo <- loo::loo_compare(m0, m0_2, criterion='loo')
+m0_2_loo
 
 ```
 
@@ -1060,6 +1058,46 @@ ggplot(data=cbind(m0dpredMeans,
 
 ```{R}
 
+within_vars_all  <- c("UASProximity", "AmbientEnvCore", "UASType", "UASOperation",
+                       "AmbientVariant", "UASLAEMaxLRScl", "UASEvents")
+between_vars_all <- c("NationGeo2", "AAM_attitude2", "Home_Area2", "Age", "Sex",
+                       "NoiseSensitivity", "Area_soundscape2")
+
+# grid_marg: LAE varies naturally with each real design cell - use for
+# descriptive/visual plots and any question not sensitive to the LAE confound
+grid_marg <- build_marginal_grid(
+  m0d, within_vars = within_vars_all, between_vars = between_vars_all,
+  id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
+  n_new = nnew_pred, fixed_at_mean = "TrialNumberScl"
+)
+
+# grid_fixed_lae: LAE held at its mean - use for any comparison across
+# UASType/UASOperation/UASProximity/UASEvents where the LAE confound matters
+grid_fixed_lae <- build_marginal_grid(
+  m0d,
+  within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"),
+  between_vars = between_vars_all,
+  id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
+  n_new = nnew_pred, fixed_at_mean = c("TrialNumberScl", "UASLAEMaxLRScl")
+)
+
+transform_dAnnoy <- \(x) betaTransform(x, -10, 10, direction = 'reverse', squeeze = 'none')
+
+
+set.seed(999)
+env_means <- marginaleffects::avg_predictions(
+  m0d, newdata=subset(grid_marg, select=-c(StimID, ID)), by="AmbientEnvCore",
+  re_formula=NA, allow_new_levels=TRUE, sample_new_levels="gaussian",
+  ndraws=ndraws_pred, transform=transform_dAnnoy
+)
+
+env_contrasts <- avg_comparisons_manual(
+  m0d, newdata=grid_marg, variable="AmbientEnvCore", comparison_type="pairwise",
+  re_formula=NULL, allow_new_levels=TRUE, sample_new_levels="gaussian",
+  ndraws=ndraws_pred, seed=999, rope=c(-0.2, 0.2), transform=transform_dAnnoy
+)
+
+
 # counterfactual LAE
 lae_step <- seq(min(stimDataNoAmb$UASLAEMaxLRScl), max(stimDataNoAmb$UASLAEMaxLRScl), length.out = 13)
 lae_step2 <- c(-10, -8, -6, 4, 6, 8)
@@ -1067,7 +1105,14 @@ lae_step2 <- c(-10, -8, -6, 4, 6, 8)
 shared_rows <- subset(m0DataFit, UASLAEMaxLRScl >= -3 & UASLAEMaxLRScl <= 5)
 overlap_lae_scl <- seq(min(shared_rows$UASLAEMaxLRScl), max(shared_rows$UASLAEMaxLRScl), length.out = 5)
 
-
+grid_env <- build_marginal_grid(m0d, within_vars=c("AmbientEnvCore"),
+                                between_vars=NULL,
+                                id_var="ID", stim_var="StimID",
+                                 simulate_id=T, simulate_stim=T,
+                                 n_new=nnew_pred,
+                                 fixed_at_mean=c("TrialNumberScl"))
+                                
+                                
 grid_marg <- build_marginal_grid(m0d,
                                  within_vars=c("UASProximity",
                                                "UASType", "UASOperation",
@@ -2084,6 +2129,65 @@ get_Br2_table(m0, m0b, m0c, m0d, m0e, m0f)
 
 m0f_loo <- loo::loo_compare(m0d, m0f, criterion='loo')
 m0f_loo
+
+```
+
+```{r}
+
+m0f_prox_within_type <- avg_simple_effects_manual(m0f, newdata=grid_fixed_lae, variable="UASProximity",
+                                                  within_variable="UASType", levels=c("Near", "Far"),
+                                    re_formula=NULL,
+                                   allow_new_levels=TRUE, sample_new_levels="gaussian",
+                                   ndraws=ndraws_pred, seed=999, rope = c(-0.2, 0.2),
+                                   p_adjust='holm',
+                                   transform=\(x) betaTransform(x, -10, 10,
+                                                                direction='reverse',
+                                                                squeeze='none'))
+
+
+m0f_prox_within_op <- avg_simple_effects_manual(m0f, newdata=grid_fixed_lae, variable="UASProximity",
+                                                  within_variable="UASOperation",
+                                    re_formula=NULL,
+                                   allow_new_levels=TRUE, sample_new_levels="gaussian",
+                                   ndraws=ndraws_pred, seed=999, rope = c(-0.2, 0.2),
+                                   p_adjust='holm',
+                                   transform=\(x) betaTransform(x, -10, 10,
+                                                                direction='reverse',
+                                                                squeeze='none'))
+
+p_prox_type <- ggplot(m0f_prox_within_type, aes(x = UASType, y = estimate, colour = UASType)) +
+    theme(panel.grid = element_blank(),
+          text = element_text(family = "serif", size = 16),
+          axis.text = element_text(family = "serif", size = 12),
+          legend.position = "none") +
+    
+    geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+    geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
+    
+    scale_color_viridis(option = "plasma", direction = 1, discrete = TRUE,
+                        begin = 0.2, end = 0.8) +
+  
+    scale_y_continuous(breaks = seq(-10, 10, by = 0.5), limits = c(-0.5, 1)) +
+    labs(x = NULL, y = expression("Difference in"~bar(Delta*A)))
+
+p_prox_type
+
+p_prox_op <- ggplot(m0f_prox_within_op, aes(x = UASOperation, y = estimate, colour = UASOperation)) +
+    theme(panel.grid = element_blank(),
+          text = element_text(family = "serif", size = 16),
+          axis.text = element_text(family = "serif", size = 12),
+          legend.position = "none") +
+    
+    geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+    geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
+    
+    scale_color_viridis(option = "plasma", direction = 1, discrete = TRUE,
+                        begin = 0.2, end = 0.8) +
+  
+    scale_y_continuous(breaks = seq(-10, 10, by = 0.5), limits = c(-0.5, 1)) +
+    labs(x = NULL, y = expression("Difference in"~bar(Delta*A)))
+
+p_prox_op
 
 ```
 
