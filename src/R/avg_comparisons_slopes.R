@@ -428,6 +428,40 @@
 #         read from that single value - making the "message disagrees
 #         with reality" bug class structurally impossible here, not just
 #         patched for this one instance of it.
+#   v0.23 avg_comparisons_manual(comparison_type="reference") and
+#         avg_simple_effects_manual() disagreed on which level their
+#         shared default (levels=NULL, sort()-based) ordering treats as
+#         the reference: the former follows the standard dummy-coding
+#         convention (alphabetically-first level = reference, subtracted;
+#         matching how the model's own coefficients are parameterized),
+#         the latter computed levels[1] - levels[2] literally, giving the
+#         alphabetically-first level the OPPOSITE role. Same data, same
+#         default sort() ordering, opposite-signed results (confirmed:
+#         "Near - Far" vs "Far - Near" for the same UASProximity contrast).
+#         Fixed avg_simple_effects_manual() and avg_comparisons_cross_manual()'s
+#         levels2 default to match avg_comparisons_manual()'s convention -
+#         ONLY when levels/levels2 is not explicitly supplied, so existing
+#         calls using explicit level order (e.g. levels = c("T150", "H520"))
+#         are completely unaffected and their prior results still hold.
+#         Also added an explicit console message stating the computed
+#         direction whenever levels default rather than being supplied,
+#         as a permanent safety net against this class of directionality
+#         confusion recurring.
+#   v0.24 Asked whether build_marginal_grid() has an analogous bug to
+#         v0.23's. It doesn't structurally - grid construction only
+#         enumerates/crosses levels, it never computes a hi-lo difference,
+#         so there's no "which level is silently the reference" question
+#         to get wrong. But the same FLAVOR of issue (a silent, sort()-
+#         order-driven default) does exist in fixed_at_mode: which.max()
+#         on a tied table() silently returns the alphabetically-first
+#         level with no indication of the tie. Added an explicit warning
+#         when fixed_at_mode's modal value is tied, naming the tied
+#         levels and which one was picked. design_cells' "first real value
+#         encountered" and demog_profiles' cycling order both also depend
+#         on raw row order, but are a lower-severity category than v0.23:
+#         they pick which equally-valid representative value fills a slot,
+#         not which quantity gets computed/reported - not fixed, since
+#         there's no direction to get backwards there.
 # =============================================================================
 
 
@@ -802,6 +836,22 @@ build_marginal_grid <- function(model, within_vars, between_vars,
   for (v in fixed_at_mean) grid[[v]] <- mean(model_data[[v]], na.rm = TRUE)
   for (v in fixed_at_mode) {
     tbl <- table(model_data[[v]])
+    # which.max() silently returns the FIRST index on a tie, and table()
+    # orders levels alphabetically for character/factor input - so a tied
+    # mode picks the alphabetically-first level with no indication anything
+    # was ambiguous. Same flavor of silent sort()-driven default as the
+    # reference-direction inconsistency fixed in the comparison functions
+    # (v0.23); warn explicitly here for the same reason.
+    n_tied <- sum(tbl == max(tbl))
+    if (n_tied > 1) {
+      warning(
+        "fixed_at_mode: '", v, "' has ", n_tied, " levels tied for most frequent (",
+        paste(sQuote(names(tbl)[tbl == max(tbl)]), collapse = ", "), "). Picking '",
+        names(tbl)[which.max(tbl)], "' (alphabetically first among the tied levels) - ",
+        "if this matters, set this variable's value explicitly instead of relying on fixed_at_mode.",
+        call. = FALSE
+      )
+    }
     mode_val <- names(tbl)[which.max(tbl)]
     # names(tbl) is always character - coerce back to the original column's
     # type, or a numeric fixed_at_mode variable would silently become
@@ -1544,7 +1594,16 @@ avg_comparisons_cross_manual <- function(model, newdata, variable1, variable2,
   newdata <- as.data.frame(newdata)
   on.exit({ gc(full = TRUE); gc(full = TRUE) }, add = TRUE)  # double pass, see avg_predictions_manual() note
   if (is.null(levels1)) levels1 <- sort(unique(as.character(newdata[[variable1]])))
-  if (is.null(levels2)) levels2 <- sort(unique(as.character(newdata[[variable2]])))[1:2]
+  levels2_explicit <- !is.null(levels2)
+  if (!levels2_explicit) {
+    # Same fix and rationale as avg_simple_effects_manual(): alphabetically-
+    # first level becomes the reference (subtracted) by default, matching
+    # avg_comparisons_manual()'s "reference" convention. Only applies when
+    # levels2 is NOT explicitly supplied - explicit levels2 (e.g.
+    # c("T150", "H520")) are used in the exact order given, unaffected.
+    sorted_levels2 <- sort(unique(as.character(newdata[[variable2]])))[1:2]
+    levels2 <- rev(sorted_levels2)
+  }
   .validate_levels(newdata, variable1, levels1)
   .validate_levels(newdata, variable2, levels2)
   if (length(levels2) != 2) {
@@ -1553,6 +1612,10 @@ avg_comparisons_cross_manual <- function(model, newdata, variable1, variable2,
       "tracked across levels of '", variable1, "'. Pass levels2 explicitly if '", variable2,
       "' has more than 2 observed levels."
     )
+  }
+  if (!levels2_explicit) {
+    message(sprintf("avg_comparisons_cross_manual(): levels2 not supplied - tracking '%s' - '%s' across levels of '%s'.",
+                    levels2[1], levels2[2], variable1))
   }
   
   n_conditions <- length(levels1) * 2
@@ -1687,7 +1750,23 @@ avg_simple_effects_manual <- function(model, newdata, variable, within_variable,
                                       noninteractive_action = NULL, ...) {
   newdata <- as.data.frame(newdata)
   on.exit({ gc(full = TRUE); gc(full = TRUE) }, add = TRUE)  # double pass, see avg_predictions_manual() note
-  if (is.null(levels)) levels <- sort(unique(as.character(newdata[[variable]])))[1:2]
+  levels_explicit <- !is.null(levels)
+  if (!levels_explicit) {
+    # Match avg_comparisons_manual()'s "reference" convention: the
+    # alphabetically-first level is the REFERENCE (subtracted), everything
+    # else is reported as itself minus the reference - standard dummy-
+    # coding direction, matching how the model's own coefficients work
+    # (e.g. AmbientEnvCorePark:UASTypeT150 means Park relative to Highway).
+    # Without this, the two functions' DEFAULT direction disagreed (this
+    # one previously did levels[1] - levels[2] literally, giving the
+    # opposite sign to avg_comparisons_manual() for the same data under
+    # the same default sort() ordering). Only applies when levels is NOT
+    # explicitly supplied - explicit levels are still used in the exact
+    # order given, so existing calls with explicit levels (e.g.
+    # levels = c("T150", "H520")) are completely unaffected by this change.
+    sorted_levels <- sort(unique(as.character(newdata[[variable]])))[1:2]
+    levels <- rev(sorted_levels)
+  }
   if (is.null(within_levels)) within_levels <- sort(unique(as.character(newdata[[within_variable]])))
   .validate_levels(newdata, variable, levels)
   .validate_levels(newdata, within_variable, within_levels)
@@ -1697,6 +1776,10 @@ avg_simple_effects_manual <- function(model, newdata, variable, within_variable,
       "computed within each level of '", within_variable, "'. Pass levels explicitly if '",
       variable, "' has more than 2 observed levels."
     )
+  }
+  if (!levels_explicit) {
+    message(sprintf("avg_simple_effects_manual(): levels not supplied - computing '%s' - '%s' (per level of '%s').",
+                    levels[1], levels[2], within_variable))
   }
   
   n_conditions <- length(within_levels) * 2

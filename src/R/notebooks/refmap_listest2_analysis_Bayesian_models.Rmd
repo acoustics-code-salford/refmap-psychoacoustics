@@ -53,6 +53,9 @@ options(marginaleffects_parallel_packages = c("marginaleffects", "brms"))
 options(marginaleffects_posterior_interval = "eti")
 options(marginaleffects_posterior_center = mean)
 
+bayesplot::bayesplot_theme_set(bayesplot::theme_default(base_family = "serif", base_size = 16))
+bayesplot::bayesplot_theme_update(axis.text = ggplot2::element_text(family = "serif", size = 14))
+
 set.seed(808)
 
 ```
@@ -82,6 +85,7 @@ if (saveplots){
   
   if (!dir.exists(file.path(outFigPath, "svg"))){dir.create(file.path(outFigPath, "svg"))}
   if (!dir.exists(file.path(outFigPath, "pdf"))){dir.create(file.path(outFigPath, "pdf"))}
+  if (!dir.exists(file.path(outFigPath, "png"))){dir.create(file.path(outFigPath, "png"))}
   
 }
 
@@ -198,13 +202,15 @@ stimData$AmbientVariant <- factor(dplyr::case_when(
 # definition of ordinal variable levels
 UASOpCats <- c("Baseline", "Overflight", "Delivery")
 UASTypeCats <- c("Baseline", "H520", "T150")
-UASStart <- c("Baseline", "Left", "Right")
+UASStartCats <- c("Baseline", "Left", "Right")
+UASProximityCats <- c("Baseline", "Far", "Near")
 
 # encode factors
 subjData$ID <- factor(subjData$ID)
 subjData$UASOperation <- factor(subjData$UASOperation, levels=UASOpCats)
 subjData$UASType <- factor(subjData$UASType, levels=UASTypeCats)
-subjData$UASStart <- factor(subjData$UASStart, levels=UASStart)
+subjData$UASStart <- factor(subjData$UASStart, levels=UASStartCats)
+subjData$UASProximity <- factor(subjData$UASProximity, levels=UASProximityCats)
 subjData$AmbientEnv <- factor(subjData$AmbientEnv, levels=c("Park", "Residential", "Park (high)",
                                                             "Highway (low)", "Streetside square", "Highway"))
 subjData$AAMAttitude <- factor(subjData$AAMAttitude)
@@ -212,6 +218,7 @@ subjData$HomeArea <- factor(subjData$HomeArea)
 subjData$SoundscapeArea <- factor(subjData$SoundscapeArea)
 subjData$Nationality <- factor(subjData$Nationality)
 subjData$UKNational <- factor(subjData$UKNational)
+subjData$Sex <- factor(subjData$Sex, levels=c("Female", "Male"))
 
 
 # recode AAM_attitude to 2 groups
@@ -466,7 +473,8 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(m0), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASTypeT150", "b_UASProximityNear",
                                                            "b_AmbientEnvCoreResidential",
                                                            "b_AmbientEnvCoreStreetsidesquare",
-                                                           "b_AmbientEnvCoreHighway"))
+                                                           "b_AmbientEnvCoreHighway"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
 
 
 
@@ -480,6 +488,124 @@ loo::pareto_k_table(loo::loo(m0))
 
 # make a table of the bayes_R2 values and quantiles for each model
 get_Br2_table(m0)
+
+```
+
+### run model 0_2
+
+```{R}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priors0_2 <- c(
+  # mean model
+  set_prior("normal(0, 2)", class='b', dpar='mu'),
+  brms::prior(normal(0.2, 1), class='b', coef='UASLAEMaxLRScl', dpar='mu'),
+  brms::prior(normal(1.5, 1), class='b', coef='Ilog10UASEvents', dpar='mu'),
+  brms::prior(normal(0.1, 1), class='b', coef='TrialNumberScl', dpar='mu')
+)
+
+tic()
+m0_2 <- brms::brm(m0formula,
+                data=m0Data, family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priors0_2, control=list(adapt_delta=0.95),
+               threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+m0_2 <- brms::add_criterion(m0_2, criterion=c('loo', 'loo_R2'),
+                           cores=n_cores,
+                           reloo=reloo_flag,
+                           overwrite=TRUE,
+                           chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                           backend='cmdstanr',
+                           future_args=list(future.seed=TRUE))
+toc()
+
+m0_2$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m0_2))
+m0_2$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m0_2, re_formula=NA))
+m0_2$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m0_2, re_formula=NULL))
+
+```
+
+#### check posterior predictive distribution
+
+```{r}
+
+m0_2PostCheck <- brms::pp_check(m0_2, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0_2PostCheck
+
+m0_2PostCheckEnv <- brms::pp_check(m0_2, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0_2PostCheckEnv
+
+m0_2PostCheckEnv <- brms::pp_check(m0_2, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0_2PostCheckEnv
+
+m0_2PostCheckEvt <- brms::pp_check(m0_2, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0_2PostCheckEvt
+
+m0_2PostCheckType <- brms::pp_check(m0_2, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0_2PostCheckType
+
+m0_2PostCheckOp <- brms::pp_check(m0_2, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0_2PostCheckOp
+
+m0_2PostCheckProx <- brms::pp_check(m0_2, type='dens_overlay_grouped', ndraws=100, group='UASProximity') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0_2PostCheckProx
+
+```
+
+
+#### diagnostics
+
+```{R}
+
+# collinearity check
+performance::check_collinearity(m0_2)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(m0_2), pars = c("b_UASLAEMaxLRScl",
+                                                           "b_UASOperationDelivery",
+                                                           "b_UASTypeT150", "b_UASProximityNear",
+                                                           "b_AmbientEnvCoreResidential",
+                                                           "b_AmbientEnvCoreStreetsidesquare",
+                                                           "b_AmbientEnvCoreHighway"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
+
+
+
+```
+
+#### performance
+
+```{R}
+
+loo::pareto_k_table(loo::loo(m0_2))
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(m0_2)
+
+m0_2 <- loo::loo_compare(m0, m0_2, criterion='loo')
+m0_2
 
 ```
 
@@ -592,7 +718,8 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(m0b), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASTypeT150", "b_UASProximityNear",
                                                            "b_AmbientEnvCoreResidential",
                                                            "b_AmbientEnvCoreStreetsidesquare",
-                                                           "b_AmbientEnvCoreHighway"))
+                                                           "b_AmbientEnvCoreHighway"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
 
 
 
@@ -723,7 +850,8 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(m0c), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASTypeT150", "b_UASProximityNear",
                                                            "b_AmbientEnvCoreResidential",
                                                            "b_AmbientEnvCoreStreetsidesquare",
-                                                           "b_AmbientEnvCoreHighway"))
+                                                           "b_AmbientEnvCoreHighway"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
 
 
 
@@ -853,7 +981,8 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(m0d), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASTypeT150", "b_UASProximityNear",
                                                            "b_AmbientEnvCoreResidential",
                                                            "b_AmbientEnvCoreStreetsidesquare",
-                                                           "b_AmbientEnvCoreHighway"))
+                                                           "b_AmbientEnvCoreHighway"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
 
 
 
@@ -1179,6 +1308,20 @@ grid_marg <- build_marginal_grid(m0d,
                                  simulate_id=T, simulate_stim=T,
                                  n_new=nnew_pred, fixed_at_mean=c("TrialNumberScl"))
 
+grid_fixed_lae <- build_marginal_grid(m0d,
+                                 within_vars=c("UASProximity",
+                                               "UASType", "UASOperation",
+                                               "AmbientEnvCore", "AmbientVariant",
+                                               "UASEvents"),
+                                 between_vars=c("NationGeo2", "AAM_attitude2",
+                                                "Home_Area2", "Age", "Sex",
+                                                "NoiseSensitivity",
+                                                "Area_soundscape2"),
+                                 id_var="ID", stim_var="StimID",
+                                 simulate_id=T, simulate_stim=T,
+                                 n_new=nnew_pred,
+                                 fixed_at_mean=c("TrialNumberScl", "UASLAEMaxLRScl"))
+
 m0d_type_within_env <- avg_simple_effects_manual(
     m0d, newdata = grid_marg, variable = "UASType", within_variable = "AmbientEnvCore",
     levels = levels(grid_marg$UASType),
@@ -1253,6 +1396,16 @@ m0d_op_within_type <- avg_simple_effects_manual(
     UASType = factor(UASType, levels = levels(grid_marg$UASType))
   )
 gc()
+
+m0d_prox_within_type <- avg_simple_effects_manual(m0d, newdata=grid_fixed_lae, variable="UASProximity",
+                                                  within_variable="UASType", levels=c("Near", "Far"),
+                                    re_formula=NULL,
+                                   allow_new_levels=TRUE, sample_new_levels="gaussian",
+                                   ndraws=ndraws_pred, seed=999, rope = c(-0.2, 0.2),
+                                   p_adjust='holm',
+                                   transform=\(x) betaTransform(x, -10, 10,
+                                                                direction='reverse',
+                                                                squeeze='none'))
 
 ```
 
@@ -1383,6 +1536,23 @@ p_simple <- ggplot(m0d_op_within_type, aes(x = UASType, y = estimate,
 
 p_simple
 
+p_prox_type <- ggplot(m0d_prox_within_type, aes(x = UASType, y = estimate, colour = UASType)) +
+    theme(panel.grid = element_blank(),
+          text = element_text(family = "serif", size = 16),
+          axis.text = element_text(family = "serif", size = 12),
+          legend.position = "none") +
+    
+    geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+    geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
+    
+    scale_color_viridis(option = "plasma", direction = 1, discrete = TRUE,
+                        begin = 0.2, end = 0.8) +
+  
+    scale_y_continuous(breaks = seq(-10, 10, by = 0.5), limits = c(-0.5, 1)) +
+    labs(x = NULL, y = expression("Difference in"~bar(Delta*A)))
+
+p_prox_type
+
 ```
 
 ## m0e: medial ordbeta model with no UASProximity population-level
@@ -1491,7 +1661,8 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(m0e), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASTypeT150",
                                                            "b_AmbientEnvCoreResidential",
                                                            "b_AmbientEnvCoreStreetsidesquare",
-                                                           "b_AmbientEnvCoreHighway"))
+                                                           "b_AmbientEnvCoreHighway"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
 
 
 
@@ -1562,6 +1733,357 @@ ggplot(data=cbind(m0epredMeans,
   ggplot2::annotate("text", x = 0.1, y = 5.25, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
   family = "serif", size = 4, hjust = 0, parse = TRUE)
 
+
+```
+
+#### analyse population-averaged effects (not conditional effects) using marginaleffects
+
+```{R}
+
+# counterfactual LAE
+lae_step <- seq(min(stimDataNoAmb$UASLAEMaxLRScl), max(stimDataNoAmb$UASLAEMaxLRScl), length.out = 13)
+lae_step2 <- c(-10, -8, -6, 4, 6, 8)
+
+shared_rows <- subset(m0eataFit, UASLAEMaxLRScl >= -3 & UASLAEMaxLRScl <= 5)
+overlap_lae_scl <- seq(min(shared_rows$UASLAEMaxLRScl), max(shared_rows$UASLAEMaxLRScl), length.out = 5)
+
+
+grid_marg <- build_marginal_grid(m0e,
+                                 within_vars=c("UASProximity",
+                                               "UASType", "UASOperation",
+                                               "AmbientEnvCore", "AmbientVariant",
+                                               "UASEvents"),
+                                 between_vars=c("NationGeo2", "AAM_attitude2",
+                                                "Home_Area2", "Age", "Sex",
+                                                "NoiseSensitivity",
+                                                "Area_soundscape2"),
+                                 id_var="ID", stim_var="StimID",
+                                 simulate_id=T, simulate_stim=T,
+                                 n_new=nnew_pred, counterfactual_vars=list(UASLAEMaxLRScl=lae_step),
+                                 fixed_at_mean=c("TrialNumberScl"))
+
+grid_marg2 <- build_marginal_grid(m0e,
+                                 within_vars=c("UASProximity",
+                                               "UASType", "UASOperation",
+                                               "AmbientEnvCore", "AmbientVariant",
+                                               "UASEvents"),
+                                 between_vars=c("NationGeo2", "AAM_attitude2",
+                                                "Home_Area2", "Age", "Sex",
+                                                "NoiseSensitivity",
+                                                "Area_soundscape2"),
+                                 id_var="ID", stim_var="StimID",
+                                 simulate_id=T, simulate_stim=T,
+                                 n_new=nnew_pred, counterfactual_vars=list(UASLAEMaxLRScl=lae_step2),
+                                 fixed_at_mean=c("TrialNumberScl"))
+
+
+set.seed(999)
+m0epredProx <- marginaleffects::avg_predictions(m0e, newdata=subset(grid_marg,
+                                                             UASEvents==1, 
+                                                             AmbientVariant=="Standard"),
+                                                  by=c("UASLAEMaxLRScl",
+                                                       "UASProximity",
+                                                       "UASType",
+                                                       "UASOperation",
+                                                       "AmbientEnvCore"),
+                                                re_formula = NULL,
+                                                allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
+                                                ndraws=ndraws_pred,
+                                                transform=\(x) betaTransform(x, -10, 10,
+                                                                             direction='reverse',
+                                                                             squeeze='none'))
+
+gc()  # garbage collect
+
+set.seed(999)
+m0epredType <- marginaleffects::avg_predictions(m0e, newdata=subset(grid_marg,
+                                                             UASEvents==1),
+                                                  by=c("UASLAEMaxLRScl",
+                                                       "UASType",
+                                                       "AmbientEnvCore",
+                                                       "UASEvents"),
+                                                re_formula = NULL,
+                                                allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
+                                                ndraws=ndraws_pred,
+                                                transform=\(x) betaTransform(x, -10, 10,
+                                                                             direction='reverse',
+                                                                             squeeze='none'))
+
+gc()  # garbage collect
+
+# force it to match brms's internal string representation
+newdata_test <- m0eDataFit
+newdata_test$ID <- as.character(newdata_test$ID)
+newdata_test$StimID <- as.character(newdata_test$StimID)   # same risk applies here
+
+m0epredTypeTest <- marginaleffects::avg_predictions(m0e, newdata=subset(newdata_test, UASEvents == 1),
+                                                  by=c("UASLAEMaxLRScl",
+                                                       "UASType",
+                                                       "AmbientEnvCore",
+                                                       "UASEvents"),
+                                                re_formula = NULL,
+                                                transform=\(x) betaTransform(x, -10, 10,
+                                                                             direction='reverse',
+                                                                             squeeze='none'))
+
+gc()  # garbage collect
+
+set.seed(999)
+m0epredOp <- marginaleffects::avg_predictions(m0e, newdata=subset(grid_marg,
+                                                        UASEvents==1),
+                                                by=c("UASLAEMaxLRScl",
+                                                     "UASOperation",
+                                                     "AmbientEnvCore",
+                                                     "UASEvents"),
+                                              re_formula = NULL,
+                                              allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
+                                               ndraws=ndraws_pred,
+                                              transform=\(x) betaTransform(x, -10, 10,
+                                                                           direction='reverse',
+                                                                           squeeze='none'))
+
+gc()  # garbage collect
+
+set.seed(999)
+m0epredEnv <- marginaleffects::avg_predictions(m0e, newdata=subset(grid_marg,
+                                                        UASEvents==1),
+                                                by=c("UASLAEMaxLRScl",
+                                                     "AmbientEnvCore",
+                                                     "UASEvents"),
+                                                re_formula = NULL,
+                                               allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
+                                               ndraws=ndraws_pred,
+                                              transform=\(x) betaTransform(x, -10, 10,
+                                                                           direction='reverse',
+                                                                           squeeze='none'))
+
+gc()  # garbage collect
+
+set.seed(999)
+m0epredEvt <- marginaleffects::avg_predictions(m0e, newdata=subset(grid_marg,
+                                                                 UASProximity=="Far" &
+                                                                 UASOperation=="Overflight" &
+                                                                   AmbientVariant=="Standard"),
+                                            by=c("UASLAEMaxLRScl",
+                                                 "AmbientEnvCore",
+                                                 "UASEvents",
+                                                 "UASOperation"),
+                                            re_formula = NULL,
+                                            allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
+                                               ndraws=ndraws_pred,
+                                          transform=\(x) betaTransform(x, -10, 10,
+                                                                       direction='reverse',
+                                                                       squeeze='none'))
+
+gc()  # garbage collect
+
+set.seed(999)
+m0epredEvt2 <- marginaleffects::avg_predictions(m0e, newdata=subset(grid_marg2,
+                                                                  UASProximity=="Far" &
+                                                                  UASOperation=="Overflight" &
+                                                                    AmbientVariant=="Standard"),
+                                              by=c("UASLAEMaxLRScl",
+                                                   "AmbientEnvCore",
+                                                   "UASEvents",
+                                                   "UASOperation"),
+                                                re_formula = NULL,
+                                              allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
+                                               ndraws=ndraws_pred,
+                                            transform=\(x) betaTransform(x, -10, 10,
+                                                                         direction='reverse',
+                                                                         squeeze='none'))
+
+gc()  # garbage collect
+
+set.seed(999)
+m0epredAtt <- marginaleffects::avg_predictions(m0e, newdata=grid_marg,
+                                             by=c("UASLAEMaxLRScl", "AAM_attitude2"),
+                                                re_formula = NULL,
+                                                allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
+                                               ndraws=ndraws_pred,
+                                             transform=\(x) betaTransform(x, -10, 10,
+                                                                         direction='reverse',
+                                                                         squeeze='none'))
+
+gc()  # garbage collect
+
+set.seed(999)
+m0epredAoR <- marginaleffects::avg_predictions(m0e, newdata=grid_marg,
+                                             by=c("UASLAEMaxLRScl", "Home_Area2"),
+                                                re_formula = NULL,
+                                                allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
+                                               ndraws=ndraws_pred,
+                                             transform=\(x) betaTransform(x, -10, 10,
+                                                                         direction='reverse',
+                                                                         squeeze='none'))
+
+gc()  # garbage collect
+
+set.seed(999)
+m0epredScp <- marginaleffects::avg_predictions(m0e, newdata=grid_marg,
+                                             by=c("UASLAEMaxLRScl", "Area_soundscape2"),
+                                                re_formula = NULL,
+                                                allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
+                                               ndraws=ndraws_pred,
+                                             transform=\(x) betaTransform(x, -10, 10,
+                                                                         direction='reverse',
+                                                                         squeeze='none'))
+
+gc()  # garbage collect
+
+set.seed(999)
+m0epredSex <- marginaleffects::avg_predictions(m0e, newdata=grid_marg,
+                                             by=c("UASLAEMaxLRScl", "Sex"),
+                                                re_formula = NULL,
+                                                allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
+                                               ndraws=ndraws_pred,
+                                             transform=\(x) betaTransform(x, -10, 10,
+                                                                         direction='reverse',
+                                                                         squeeze='none'))
+
+gc()  # garbage collect
+
+set.seed(999)
+m0epredNat <- marginaleffects::avg_predictions(m0e, newdata=grid_marg,
+                                             by=c("UASLAEMaxLRScl", "NationGeo2"),
+                                                re_formula = NULL,
+                                                allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
+                                               ndraws=ndraws_pred,
+                                             transform=\(x) betaTransform(x, -10, 10,
+                                                                         direction='reverse',
+                                                                         squeeze='none'))
+
+gc()  # garbage collect
+
+```
+
+## m0f: medial ordbeta model with UASProximity interactions
+
+### Formula
+
+```{R}
+
+m0f_formula <- update(m0dformula, . ~ . + UASProximity*UASType + UASProximity*UASOperation)
+
+```
+
+### run model 0f
+
+```{R}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+tic()
+m0f <- brms::brm(brms::bf(m0f_formula, phi ~ 1 + AmbientEnvCore + UASOperation +
+                            UASType + I(log10(UASEvents)) + (1 | ID)),
+                data=m0Data, family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priors0, control=list(adapt_delta=0.95),
+               threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+m0f <- brms::add_criterion(m0f, criterion=c('loo', 'loo_R2'),
+                           cores=n_cores,
+                           reloo=reloo_flag,
+                           overwrite=TRUE,
+                           chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                           backend='cmdstanr',
+                           future_args=list(future.seed=TRUE))
+toc()
+
+m0f$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(m0f))
+m0f$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(m0f, re_formula=NA))
+m0f$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(m0f, re_formula=NULL))
+
+```
+
+#### check posterior predictive distribution
+
+```{r}
+
+m0fPostCheck <- brms::pp_check(m0f, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0fPostCheck
+
+m0fPostCheckEnv <- brms::pp_check(m0f, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0fPostCheckEnv
+
+m0fPostCheckEnv <- brms::pp_check(m0f, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0fPostCheckEnv
+
+m0fPostCheckEvt <- brms::pp_check(m0f, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0fPostCheckEvt
+
+m0fPostCheckType <- brms::pp_check(m0f, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0fPostCheckType
+
+m0fPostCheckOp <- brms::pp_check(m0f, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0fPostCheckOp
+
+m0fPostCheckProx <- brms::pp_check(m0f, type='dens_overlay_grouped', ndraws=100, group='UASProximity') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+m0fPostCheckProx
+
+```
+
+#### diagnostics
+
+```{R}
+
+# collinearity check
+performance::check_collinearity(m0f)
+
+pplot <- bayesplot::mcmc_pairs(brms::as_draws_matrix(m0f), pars = c("b_UASLAEMaxLRScl",
+                                                           "b_UASOperationDelivery",
+                                                           "b_UASTypeT150", "b_UASProximityNear",
+                                                           "b_AmbientEnvCoreResidential",
+                                                           "b_AmbientEnvCoreStreetsidesquare",
+                                                           "b_AmbientEnvCoreHighway"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
+pplot
+
+```
+
+#### compare performance
+
+```{R}
+
+loo::pareto_k_table(loo::loo(m0f))
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(m0, m0b, m0c, m0d, m0e, m0f)
+
+m0f_loo <- loo::loo_compare(m0d, m0f, criterion='loo')
+m0f_loo
 
 ```
 
@@ -1700,7 +2222,8 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(m1), pars = c("b_UASLAEMaxLRScl",
                                                           "b_UASTypeT150", "b_UASProximityNear",
                                                           "b_AmbientEnvCoreResidential",
                                                           "b_AmbientEnvCoreStreetsidesquare",
-                                                          "b_AmbientEnvCoreHighway"))
+                                                          "b_AmbientEnvCoreHighway"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
 
 
 
@@ -1820,7 +2343,8 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(m1b), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASTypeT150", "b_UASProximityNear",
                                                            "b_AmbientEnvCoreResidential",
                                                            "b_AmbientEnvCoreStreetsidesquare",
-                                                           "b_AmbientEnvCoreHighway"))
+                                                           "b_AmbientEnvCoreHighway"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
 
 ```
 
