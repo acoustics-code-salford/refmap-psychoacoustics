@@ -554,6 +554,25 @@
 #         original fix (numeric columns like UASEvents still get correctly
 #         typed values written into newdata) without the collateral damage
 #         to factor-typed variables.
+#   v0.29 A raw pd (e.g. "0.84") has no pre-existing social calibration and
+#         reads as fairly high to most audiences even though it corresponds
+#         to p~.33 - weak evidence conventionally. Added ndraws_used as a
+#         returned column on every avg_comparisons_manual()/
+#         avg_comparisons_cross_manual()/avg_simple_effects_manual()/
+#         avg_slopes_manual() row, and format_pd_p_label() to build a
+#         combined "pd = .., p = .." (or "p <= .." when the raw p-value is
+#         at its Monte Carlo resolution floor) label from it - shows both
+#         scales together so a reader can cross-check one against the
+#         other, and reads ndraws_used directly from the data rather than
+#         requiring a separately-remembered ndraws value (correct even if
+#         a table combines rows from calls with different ndraws). Handles
+#         an optional multiplicity-adjusted p-value column too; the
+#         floor("<=") determination is still driven by the RAW p-value's
+#         floor status even when the adjusted number is what's displayed,
+#         which is a valid (via Holm's monotonicity) if not maximally
+#         tight bound - documented as a deliberate simplification, not a
+#         full symbolic re-derivation of adjustment applied to an
+#         interval-valued input.
 # =============================================================================
 
 
@@ -1084,6 +1103,56 @@ build_marginal_grid <- function(model, within_vars, between_vars,
   p <- 2 * (1 - pd)
   floor_p <- 2 / ndraws_used
   ifelse(p < floor_p, floor_p, p)
+}
+
+#' Format a combined "pd, p" label for plot annotation, correctly handling
+#' the Monte Carlo resolution floor and, optionally, a multiplicity
+#' adjustment
+#'
+#' Motivation: a bare pd (e.g. "0.84") has no pre-existing social
+#' calibration and reads as "fairly high" to most audiences even though
+#' 2*(1-0.84)=0.32 is weak evidence by conventional standards - showing
+#' both numbers together lets a reader cross-check one against the other
+#' rather than anchoring on whichever scale their intuition misreads.
+#'
+#' FLOOR HANDLING: if the RAW (pre-adjustment) p-value for a row is at its
+#' Monte Carlo resolution floor (2/ndraws_used - see .pd_to_pvalue()), the
+#' true p-value could be smaller than what that many draws can resolve.
+#' The displayed number is switched from "p = ..." to "p <= ..." in that
+#' case. When p_value_adj is supplied, that adjusted number is what's
+#' displayed either way - but the "<=" flag is still driven by the RAW
+#' value's floor status, not reapplied to the floor itself. This is
+#' deliberately a practical, slightly conservative convention for a
+#' display label, not a full symbolic re-derivation of what a
+#' multiplicity adjustment does to an interval-valued input (Holm's
+#' cummax step means "<= raw floor" does not simply carry through to "<=
+#' floor x multiplier" in every case) - it relies only on the fact that
+#' Holm's adjustment is monotonic non-decreasing in each input, so
+#' "<= [the adjusted value actually computed]" remains a valid, if not
+#' maximally tight, bound whenever the raw input was floored.
+#'
+#' @param pd Probability of direction (vectorized).
+#' @param p_value Raw (unadjusted) p-value column, e.g. from
+#'   avg_comparisons_manual()'s output - used only to determine floor
+#'   status, not necessarily what's displayed.
+#' @param ndraws_used Number of draws backing each row - pass the column
+#'   of the same name now returned by every avg_*_manual() comparison
+#'   function, rather than a remembered/hardcoded number, so this stays
+#'   correct even if a table combines rows from calls with different
+#'   ndraws.
+#' @param p_value_adj Optional adjusted p-value column (e.g.
+#'   p.value.adj). If supplied, this is what gets displayed instead of
+#'   p_value - pass NULL (default) to display the raw p_value.
+#' @param digits Decimal places for the displayed p (default 3).
+#' @return Character vector of labels, e.g. "pd = 1.00, p <= .004" or
+#'   "pd = 0.84, p = .328".
+format_pd_p_label <- function(pd, p_value, ndraws_used, p_value_adj = NULL, digits = 3) {
+  floor_p <- 2 / ndraws_used
+  is_floored <- p_value <= floor_p * (1 + 1e-8)
+  p_display <- if (is.null(p_value_adj)) p_value else p_value_adj
+  p_fmt <- formatC(p_display, digits = digits, format = "f")
+  p_str <- ifelse(is_floored, paste0("p \u2264 ", p_fmt), paste0("p = ", p_fmt))
+  sprintf("pd = %.2f, %s", pd, p_str)
 }
 
 #' Empirically estimate the true peak memory (GB) of a full-size call by
@@ -1668,7 +1737,8 @@ avg_comparisons_manual <- function(model, newdata, variable,
       conf.low = unname(stats::quantile(d, alpha / 2)),
       conf.high = unname(stats::quantile(d, 1 - alpha / 2)),
       pd = pd,
-      p.value = .pd_to_pvalue(pd, length(d))  # floored at this call's own MC resolution - see .pd_to_pvalue()
+      p.value = .pd_to_pvalue(pd, length(d)),  # floored at this call's own MC resolution - see .pd_to_pvalue()
+      ndraws_used = length(d)  # lets format_pd_p_label() recompute the exact floor per row, no need to pass ndraws separately
     )
     if (!is.null(rope)) {
       row$rope_decision <- if (row$conf.low > rope[2] || row$conf.high < rope[1]) {
@@ -1863,7 +1933,7 @@ avg_comparisons_cross_manual <- function(model, newdata, variable1, variable2,
       estimate = mean(dd),
       conf.low = unname(quantile(dd, alpha / 2)),
       conf.high = unname(quantile(dd, 1 - alpha / 2)),
-      pd = pd, p.value = .pd_to_pvalue(pd, length(dd))
+      pd = pd, p.value = .pd_to_pvalue(pd, length(dd)), ndraws_used = length(dd)
     )
     if (!is.null(rope)) {
       row$rope_decision <- if (row$conf.low > rope[2] || row$conf.high < rope[1]) {
@@ -2013,7 +2083,7 @@ avg_simple_effects_manual <- function(model, newdata, variable, within_variable,
       estimate = mean(d),
       conf.low = unname(quantile(d, alpha / 2)),
       conf.high = unname(quantile(d, 1 - alpha / 2)),
-      pd = pd, p.value = .pd_to_pvalue(pd, length(d))
+      pd = pd, p.value = .pd_to_pvalue(pd, length(d)), ndraws_used = length(d)
     )
     if (!is.null(rope)) {
       row$rope_decision <- if (row$conf.low > rope[2] || row$conf.high < rope[1]) {
@@ -2091,7 +2161,8 @@ avg_slopes_manual <- function(model, newdata, variable, eps = NULL,
     conf.low = unname(stats::quantile(slope_draws, alpha / 2)),
     conf.high = unname(stats::quantile(slope_draws, 1 - alpha / 2)),
     pd = pd,
-    p.value = .pd_to_pvalue(pd, length(slope_draws))
+    p.value = .pd_to_pvalue(pd, length(slope_draws)),
+    ndraws_used = length(slope_draws)
   )
 }
 

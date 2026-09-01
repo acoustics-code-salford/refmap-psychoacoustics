@@ -37,6 +37,7 @@ library(patchwork)
 library(ggpmisc)
 library(gginnards)
 library(ggridges)
+library(ggpubr)
 
 # set package parameters
 theme_set(theme_bw())
@@ -1129,7 +1130,7 @@ m0d_env_contrasts <- avg_comparisons_manual(
   m0d, newdata=grid_group1, variable = "AmbientEnvCore", comparison_type = "pairwise",
   auto_orient = TRUE,
   re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), transform = transform_dAnnoy
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
 )
 
 # ---- does environment moderate the Type and Operation effects? -------
@@ -1138,29 +1139,29 @@ m0d_type_within_env <- avg_simple_effects_manual(
   m0d, newdata=grid_group1, variable = "UASType", within_variable = "AmbientEnvCore",
   levels = c("T150", "H520"),
   re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), transform = transform_dAnnoy
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
 )
+
+m0d_type_by_env <- avg_comparisons_cross_manual(
+  m0d, newdata=grid_group1, variable1 = "AmbientEnvCore", variable2 = "UASType",
+  levels1 = env_order, comparison_type1 = "pairwise", levels2 = c("T150", "H520"),
+  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
+)
+m0d_type_by_env
  
 m0d_op_within_env <- avg_simple_effects_manual(
   m0d, newdata=grid_group1, variable = "UASOperation", within_variable = "AmbientEnvCore",
   levels = c("Delivery", "Overflight"),
   re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), transform = transform_dAnnoy
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
 )
 
-m0d_type_by_env <- avg_comparisons_cross_manual(
-  m0d, newdata=grid_group1, variable1 = "AmbientEnvCore", variable2 = "UASType",
-  levels1 = env_order, comparison_type1 = "reference", levels2 = c("T150", "H520"),
-  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), transform = transform_dAnnoy
-)
-m0d_type_by_env
- 
 m0d_op_by_env <- avg_comparisons_cross_manual(
   m0d, newdata=grid_group1, variable1 = "AmbientEnvCore", variable2 = "UASOperation",
-  levels1 = env_order, comparison_type1 = "reference", levels2 = c("Delivery", "Overflight"),
+  levels1 = env_order, comparison_type1 = "pairwise", levels2 = c("Delivery", "Overflight"),
   re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), transform = transform_dAnnoy
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
 )
 m0d_op_by_env
 
@@ -1169,7 +1170,7 @@ m0d_op_by_env
 m0d_op_contrast <- avg_comparisons_manual(
   m0d, newdata=grid_group1, variable = "UASOperation", levels = c("Delivery", "Overflight"),
   re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), transform = transform_dAnnoy
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
 )
 
 # ---- Type and Proximity "at equivalent exposure levels" -------------
@@ -1187,14 +1188,14 @@ m0d_type_fixed_lae <- avg_comparisons_manual(
   m0d, grid_fixed_lae, variable = "UASType",
   levels = c("H520", "T150"), comparison_type = "reference",
   re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), transform = transform_dAnnoy
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
 )
  
 m0d_prox_fixed_lae <- avg_comparisons_manual(
   m0d, grid_group1_fixed_lae, variable = "UASProximity", levels = c("Near", "Far"),
   auto_orient = TRUE,
   re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), transform = transform_dAnnoy
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
 )
 
 
@@ -1213,7 +1214,7 @@ m0d_events_contrasts <- avg_comparisons_manual(
   m0d, newdata=grid_events_fixed_lae, variable = "UASEvents", levels = c(1, 2, 3),
   comparison_type = "pairwise", auto_orient = TRUE,
   re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), transform = transform_dAnnoy
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
 )
 
 
@@ -1501,51 +1502,7 @@ p_env_contrasts <- ggplot(m0d_env_contrasts, aes(x = contrast, y = estimate, col
   labs(x = "Contrast", y = expression("Difference in"~bar(Delta*A)))
 p_env_means | p_env_contrasts
 
-# ---- environment x Type / Operation ----------------------------------
- 
-p_type_within_env <- ggplot(m0d_type_within_env, aes(x = AmbientEnvCore, y = estimate, colour=AmbientEnvCore)) +
-  theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
-        axis.text = element_text(family = "serif", size = 12)) +
-  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
-  scale_x_discrete(limits = env_order) +
-  scale_colour_manual(values = mycolours) +
-  guides(colour = "none") +
-  labs(x = "Ambient environment", y = expression("T150 - H520 difference in "~bar(Delta*A)))
-
-p_type_by_env <- ggplot(m0d_type_by_env, aes(x = AmbientEnvCore, y = estimate, colour=AmbientEnvCore)) +
-  theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
-        axis.text = element_text(family = "serif", size = 12)) +
-  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
-  scale_colour_manual(values = mycolours) +
-  guides(colour = "none") +
-  labs(x = paste("Relative to ", unique(m0d_type_by_env$reference1), "(reference)"),
-       y = expression("Change in T150 - H520 difference in "~bar(Delta*A)))
-p_type_within_env | p_type_by_env
-
-p_op_within_env <- ggplot(m0d_op_within_env, aes(x = AmbientEnvCore, y = estimate, colour=AmbientEnvCore)) +
-  theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
-        axis.text = element_text(family = "serif", size = 12)) +
-  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
-  scale_x_discrete(limits = env_order) +
-  scale_colour_manual(values = mycolours) +
-  guides(colour = "none") +
-  labs(x = NULL, y = expression("Delivery - Overflight difference in"~bar(Delta*A)))
-
-p_op_by_env <- ggplot(m0d_op_by_env, aes(x = AmbientEnvCore, y = estimate, colour=AmbientEnvCore)) +
-  theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
-        axis.text = element_text(family = "serif", size = 12)) +
-  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
-  scale_colour_manual(values = mycolours) +
-  guides(colour = "none") +
-  labs(x = paste(unique(m0d_op_by_env$reference1), "(reference)"),
-       y = "Change in Delivery - Overflight gap, relative to reference")
-p_op_within_env | p_op_by_env
-
-# ---- Type and Proximity at equivalent exposure -----------------------
+# ---- Operation, Type and Proximity contrasts -----------------------
  
 p_op_type_prox <- ggplot(rbind(m0d_op_contrast,
                                m0d_prox_fixed_lae,
@@ -1559,6 +1516,73 @@ p_op_type_prox <- ggplot(rbind(m0d_op_contrast,
   guides(colour = "none") +
   labs(x = NULL, y = expression("Difference in"~bar(Delta*A)))
 p_op_type_prox
+
+# ---- environment x Type / Operation ----------------------------------
+ 
+p_type_within_env <- ggplot(m0d_type_within_env, aes(x = AmbientEnvCore, y = estimate, colour=AmbientEnvCore)) +
+  theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
+        axis.text = element_text(family = "serif", size = 12)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
+  scale_x_discrete(limits = env_order) +
+  scale_colour_manual(values = mycolours) +
+  guides(colour = "none") +
+  # coord_flip() +
+  labs(x = "Ambient environment", y = expression("T150 - H520 contrast in "~bar(Delta*A)))
+
+m0d_type_by_env$group1 <- m0d_type_by_env$AmbientEnvCore
+m0d_type_by_env$group2 <- m0d_type_by_env$reference1
+m0d_type_by_env$ci_label <- sprintf("%.2f [%.2f, %.2f]",
+                                    m0d_type_by_env$estimate,
+                                    m0d_type_by_env$conf.low,
+                                    m0d_type_by_env$conf.high)
+
+env_pos <- setNames(seq_along(env_order), env_order)
+span <- abs(env_pos[m0d_type_by_env$group1] - env_pos[m0d_type_by_env$group2])
+m0d_type_by_env <- m0d_type_by_env[order(span), ]
+
+p_type_within_env_brackets <- p_type_within_env +
+    stat_pvalue_manual(
+        m0d_type_by_env,
+        label = "ci_label",
+        y.position = max(m0d_type_within_env$conf.high) + 0.3,
+        step.increase = 0.14,
+        coord.flip = FALSE,
+        family = "serif", size = 5
+    )
+p_type_within_env_brackets
+
+p_op_within_env <- ggplot(m0d_op_within_env, aes(x = AmbientEnvCore, y = estimate, colour=AmbientEnvCore)) +
+  theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
+        axis.text = element_text(family = "serif", size = 12)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
+  scale_x_discrete(limits = env_order) +
+  scale_colour_manual(values = mycolours) +
+  guides(colour = "none") +
+  labs(x = "Ambient environment", y = expression("Delivery - Overflight contrast in "~bar(Delta*A)))
+
+m0d_op_by_env$group1 <- m0d_op_by_env$AmbientEnvCore
+m0d_op_by_env$group2 <- m0d_op_by_env$reference1
+m0d_op_by_env$ci_label <- sprintf("%.2f [%.2f, %.2f]",
+                                    m0d_op_by_env$estimate,
+                                    m0d_op_by_env$conf.low,
+                                    m0d_op_by_env$conf.high)
+
+env_pos <- setNames(seq_along(env_order), env_order)
+span <- abs(env_pos[m0d_op_by_env$group1] - env_pos[m0d_op_by_env$group2])
+m0d_op_by_env <- m0d_op_by_env[order(span), ]
+
+p_op_within_env_brackets <- p_op_within_env +
+    stat_pvalue_manual(
+        m0d_op_by_env,
+        label = "ci_label",
+        y.position = max(m0d_op_within_env$conf.high) + 0.3,
+        step.increase = 0.14,
+        coord.flip = FALSE,
+        family = "serif", size = 5
+    )
+p_op_within_env_brackets
 
 # ---- events ---------------------------------------------------------
  
