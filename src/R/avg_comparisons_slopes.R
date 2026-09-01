@@ -462,6 +462,98 @@
 #         they pick which equally-valid representative value fills a slot,
 #         not which quantity gets computed/reported - not fixed, since
 #         there's no direction to get backwards there.
+#   v0.25 avg_comparisons_manual(), avg_comparisons_cross_manual(), and
+#         avg_simple_effects_manual() default their level arguments via
+#         sort(unique(as.character(newdata[[variable]]))) - always
+#         character, even for a genuinely numeric variable like UASEvents
+#         (which feeds I(log10(UASEvents)) in the model formula). Writing
+#         a character level value into an existing numeric data.frame
+#         column (nd[[variable]] <- lv) replaces the WHOLE column with a
+#         coerced character vector, not just that one value - silently
+#         corrupting every row of the grid, not just the ones intended to
+#         differ. This was worked around manually for a UASEvents contrast
+#         (direct posterior_epred() calls, bypassing these functions
+#         entirely) rather than left as a standing hazard. Fixed properly:
+#         added .coerce_levels_to_type(), applied to levels/levels1/
+#         levels2/within_levels in all three functions immediately after
+#         they're determined (whether defaulted or user-supplied),
+#         coercing back to the target column's actual type (numeric/
+#         logical/factor/character) before anything is written into
+#         newdata. Same fix family as fixed_at_mode's type-preservation
+#         fix in build_marginal_grid() (v0.22). Confirmed the internal
+#         key() lookup functions (paste()-based) remain self-consistent
+#         regardless of level type, since both grid construction and key
+#         construction draw from the same, already-coerced level vectors.
+#   v0.26 Recurring source of confusion (second occurrence, after v0.23's
+#         Near/Far mixup): avg_comparisons_manual()'s default
+#         comparison_type = "pairwise" computes levels[1] - levels[2]
+#         LITERALLY, regardless of which level the model treats as its
+#         reference - opposite of regression convention, where the
+#         reference (however it's positioned in levels()) is always the
+#         SUBTRACTED term. comparison_type = "reference" already does
+#         match regression convention (nonreference - levels[1], treating
+#         levels[1] as reference) - but achieving a regression-matching
+#         sign requires listing the reference LAST under "pairwise" and
+#         FIRST under "reference": two modes, opposite required level
+#         ordering, same resulting sign. Not changing "pairwise"'s literal
+#         behavior (would silently flip the sign of every existing
+#         validated result using explicit levels, e.g. the T150-H520
+#         examples throughout this project) - instead made the
+#         confirmation message introduced in v0.23 UNCONDITIONAL in all
+#         three comparison functions (previously only fired when levels
+#         were defaulted, not when explicitly supplied - exactly the case
+#         that caused this confusion). Every call now prints exactly which
+#         subtraction(s) it computed before returning, regardless of how
+#         comparison_type/levels were determined.
+#   v0.27 Attempted to solve a 3-level sign-ordering request (all pairwise
+#         UASEvents contrasts positive) by choosing a clever levels= input
+#         order exploiting combn()'s enumeration pattern - got the specific
+#         ordering wrong AND, on further analysis, found the whole approach
+#         is structurally incapable of the general case: combn(levels, 2)
+#         always makes the first input element lead 2 of 3 pairs and the
+#         second lead the remaining 1, so no input reordering can give two
+#         DIFFERENT levels each a turn leading multiple pairs - some
+#         "make every row positive" requests are simply unreachable by
+#         permuting input order, not just hard to find by hand. Added
+#         auto_orient (default FALSE, non-breaking) to avg_comparisons_manual():
+#         when TRUE, each row's sign/label is chosen from the ACTUAL
+#         computed estimate (flip to positive, swap the label's two level
+#         names together) rather than guessed from input order - correct
+#         by construction regardless of how many levels or pairs are
+#         involved. pd/p.value/ROPE are computed from the already-oriented
+#         draws, so they remain internally consistent with the reported
+#         sign. Scope note: NOT added to avg_simple_effects_manual() or
+#         avg_comparisons_cross_manual() - their rows represent the SAME
+#         named contrast (e.g. "T150-H520") repeated across different
+#         strata, where per-row auto-orientation would let the label
+#         silently flip identity row-to-row and undermine the point of
+#         having one consistent column to compare across strata.
+#   v0.28 BUG (serious, introduced by v0.25's own fix): v0.25 coerced the
+#         WHOLE `levels`/`levels1`/`levels2`/`within_levels` vector to the
+#         target column's real type immediately after determining it - for
+#         a genuinely numeric column (UASEvents) this was correct and
+#         necessary, but for a FACTOR column (e.g. AmbientEnvCore) it
+#         turned `levels` into an actual factor object, which then got fed
+#         into generic list/matrix-building code (combn(), cbind(),
+#         lapply()) that does not reliably preserve factor labels through
+#         those operations. Confirmed two distinct failure modes from this:
+#         (1) avg_comparisons_cross_manual()'s "reference" mode
+#         (cbind(levels1[-1], levels1[1])) silently dropped to underlying
+#         integer codes, producing output like AmbientEnvCore="2" instead
+#         of "Residential"; (2) avg_comparisons_manual()'s "pairwise" mode
+#         (combn()) produced internally MISMATCHED pairs/labels/values -
+#         confirmed by hand-checking m0d_env_contrasts against
+#         m0d_env_means and finding estimates did not correspond to their
+#         own printed labels. Fixed properly: `levels`/`levels1`/`levels2`/
+#         `within_levels` are now kept as plain CHARACTER throughout all
+#         pairing/labeling/naming logic in all three functions (as before
+#         v0.25) - .coerce_levels_to_type() is now called only at the one
+#         narrow point in each function where an individual SCALAR value
+#         is written into newdata for prediction, which is the only place
+#         type-safety was ever actually required. This preserves v0.25's
+#         original fix (numeric columns like UASEvents still get correctly
+#         typed values written into newdata) without the collateral damage
+#         to factor-typed variables.
 # =============================================================================
 
 
@@ -1085,6 +1177,33 @@ reset_size_cache <- function() {
   invisible(TRUE)
 }
 
+#' Coerce a vector of level values back to the type of the column they'll
+#' be written into
+#'
+#' avg_comparisons_manual()/avg_comparisons_cross_manual()/
+#' avg_simple_effects_manual() default their `levels` arguments via
+#' sort(unique(as.character(newdata[[variable]]))) - always producing
+#' character, even for a genuinely numeric column like UASEvents (which
+#' feeds I(log10(UASEvents)) in the model formula). Writing a character
+#' value into an existing numeric data.frame column (nd[[variable]] <- lv)
+#' replaces the WHOLE column with a coerced character vector, not just
+#' that one value - silently corrupting every row, not just the ones
+#' being compared. Called immediately after `levels`/`levels1`/`levels2`/
+#' `within_levels` are determined (whether defaulted or user-supplied) so
+#' every downstream newdata write uses a correctly-typed value.
+.coerce_levels_to_type <- function(levels_val, original_column) {
+  levels_chr <- as.character(levels_val)
+  if (is.numeric(original_column)) {
+    as.numeric(levels_chr)
+  } else if (is.logical(original_column)) {
+    as.logical(levels_chr)
+  } else if (is.factor(original_column)) {
+    factor(levels_chr, levels = levels(original_column))
+  } else {
+    levels_chr
+  }
+}
+
 .calibration_key <- function(model, ...) {
   dots <- list(...)
   fam <- if (inherits(model, "brmsfit")) {
@@ -1434,6 +1553,23 @@ avg_predictions_manual <- function(model, newdata, by = NULL,
 #'   applied to the TOTAL across all levels being predicted (they may be
 #'   computed sequentially, but the check is conservative and sizes for the
 #'   full set). NULL (default) uses getOption("mfx_manual.size_warn_gb", 4).
+#' @param auto_orient If TRUE, each row's sign and 'contrast' label are
+#'   chosen from the ACTUAL estimated difference (positive result reported
+#'   as-is; negative result has its sign negated and its two level names
+#'   swapped in the label) rather than from levels/comparison_type's input
+#'   order. Default FALSE preserves the literal, order-determined behaviour
+#'   documented above and used by every existing call in this project - so
+#'   turning this on cannot silently change results you have already
+#'   validated with the default. Useful when you want every row of a
+#'   multi-pair table (e.g. all pairwise AmbientEnvCore comparisons) to
+#'   read as a positive number for readability, which is NOT achievable in
+#'   general by choosing a clever levels= order: with 3+ levels,
+#'   comparison_type = "pairwise"'s combn(levels, 2) structurally forces
+#'   the first input element to lead 2 of 3 pairs and the second to lead
+#'   the remaining 1, so no reordering can give two DIFFERENT elements
+#'   each a turn leading multiple pairs (e.g. wanting both "3-1" and "3-2"
+#'   positive simultaneously is not reachable this way - confirmed in
+#'   practice, not just in principle).
 #' @param noninteractive_action What to do if the size threshold is
 #'   exceeded while running non-interactively (see .confirm_large_computation()).
 #'   NULL (default) uses getOption("mfx_manual.noninteractive_action", "error").
@@ -1446,6 +1582,7 @@ avg_comparisons_manual <- function(model, newdata, variable,
                                    rope = NULL, cl = NULL,
                                    size_warn_gb = NULL,
                                    force_recalibrate = FALSE,
+                                   auto_orient = FALSE,
                                    noninteractive_action = NULL, ...) {
   newdata <- as.data.frame(newdata)  # see .estimate_true_size_gb() note on data.table
   on.exit({ gc(full = TRUE); gc(full = TRUE) }, add = TRUE)  # double pass, see avg_predictions_manual() note
@@ -1467,9 +1604,41 @@ avg_comparisons_manual <- function(model, newdata, variable,
                   sequential = cbind(levels[-1], levels[-length(levels)])
   )
   
+  # Unconditional confirmation of exactly what's being computed - not just
+  # when levels default (v0.23). "pairwise" computes levels[1]-levels[2]
+  # LITERALLY regardless of which level the model treats as its reference;
+  # "reference" computes (nonreference - levels[1], treating levels[1] AS
+  # the reference). These give OPPOSITE required level orderings to match
+  # a regression coefficient's sign convention (reference listed first
+  # under "reference" mode, but listed SECOND under "pairwise" mode) -
+  # confirmed as a recurring, genuine point of confusion, not something to
+  # leave implicit in the output's contrast label alone.
+  if (auto_orient) {
+    message(sprintf(
+      "avg_comparisons_manual(comparison_type = '%s', auto_orient = TRUE): initial pairing %s - final sign/label of each row is DATA-DRIVEN (flipped to positive where the estimated difference came out negative), not fixed by this initial order. Check each row's own 'contrast' label, not this message, for its actual reported direction.",
+      comparison_type,
+      paste(sprintf("'%s' - '%s'", pairs[, 1], pairs[, 2]), collapse = ", ")
+    ))
+  } else {
+    message(sprintf(
+      "avg_comparisons_manual(comparison_type = '%s'): computing %s",
+      comparison_type,
+      paste(sprintf("'%s' - '%s'", pairs[, 1], pairs[, 2]), collapse = ", ")
+    ))
+  }
+  
   # Predict once per level (not once per pair) and reuse - avoids redundant
   # prediction of shared levels across multiple pairwise comparisons.
-  newdata_list <- lapply(levels, function(lv) { nd <- newdata; nd[[variable]] <- lv; nd })
+  # Coercion to the variable's real type happens HERE ONLY, per scalar
+  # value, not on the whole `levels` vector (see v0.28) - keeps `levels`
+  # plain character everywhere else (pairs, labels, names), since
+  # combn()/cbind()/lapply() do not reliably preserve factor labels
+  # through generic list/matrix construction.
+  newdata_list <- lapply(levels, function(lv) {
+    nd <- newdata
+    nd[[variable]] <- .coerce_levels_to_type(lv, newdata[[variable]])
+    nd
+  })
   names(newdata_list) <- levels
   draws_list <- .dispatch_draws_multi(model, newdata_list, cl = cl, ...)
   mean_draws_by_level <- lapply(draws_list, function(d) rowMeans(transform(d)))
@@ -1479,6 +1648,19 @@ avg_comparisons_manual <- function(model, newdata, variable,
   results <- do.call(rbind, lapply(seq_len(nrow(pairs)), function(i) {
     hi <- pairs[i, 1]; lo <- pairs[i, 2]
     d <- mean_draws_by_level[[hi]] - mean_draws_by_level[[lo]]
+    if (auto_orient && mean(d) < 0) {
+      # Sign is DATA-DRIVEN, not guessed from input order - reordering
+      # `levels` alone cannot achieve arbitrary independent signs across
+      # 3+ pairwise comparisons (combn() structurally forces the first
+      # input element to lead 2 of 3 pairs and the second to lead the
+      # remaining 1 - no permutation makes two different elements each
+      # lead multiple pairs). Flip AFTER seeing the real result instead:
+      # negate the draws and swap the label together, so `contrast` and
+      # `estimate` always agree, and every other quantity below (pd,
+      # p.value, ROPE) is computed from the already-oriented `d`.
+      d <- -d
+      tmp <- hi; hi <- lo; lo <- tmp
+    }
     pd <- as.numeric(bayestestR::p_direction(d))
     row <- data.frame(
       contrast = paste(hi, "-", lo),
@@ -1631,10 +1813,12 @@ avg_comparisons_cross_manual <- function(model, newdata, variable1, variable2,
   combos <- expand.grid(l1 = levels1, l2 = levels2, stringsAsFactors = FALSE)
   key <- function(l1, l2) paste(l1, l2, sep = "___")
   
+  # Coercion happens HERE ONLY, per scalar value - see v0.28 rationale in
+  # avg_comparisons_manual().
   newdata_list <- lapply(seq_len(nrow(combos)), function(i) {
     nd <- newdata
-    nd[[variable1]] <- combos$l1[i]
-    nd[[variable2]] <- combos$l2[i]
+    nd[[variable1]] <- .coerce_levels_to_type(combos$l1[i], newdata[[variable1]])
+    nd[[variable2]] <- .coerce_levels_to_type(combos$l2[i], newdata[[variable2]])
     nd
   })
   names(newdata_list) <- key(combos$l1, combos$l2)
@@ -1657,6 +1841,15 @@ avg_comparisons_cross_manual <- function(model, newdata, variable1, variable2,
                    },
                    pairwise = t(utils::combn(levels1, 2))
   )
+  
+  # Same rationale as avg_comparisons_manual()'s confirmation message: state
+  # exactly which (variable1 level A vs B, tracking the variable2 hi-lo gap)
+  # comparisons are about to be computed, unconditionally.
+  message(sprintf(
+    "avg_comparisons_cross_manual(comparison_type1 = '%s'): tracking '%s' - '%s' across %s",
+    comparison_type1, hi2, lo2,
+    paste(sprintf("'%s' vs '%s'", pairs1[, 1], pairs1[, 2]), collapse = ", ")
+  ))
   
   alpha <- 1 - conf_level
   results <- do.call(rbind, lapply(seq_len(nrow(pairs1)), function(i) {
@@ -1777,10 +1970,11 @@ avg_simple_effects_manual <- function(model, newdata, variable, within_variable,
       variable, "' has more than 2 observed levels."
     )
   }
-  if (!levels_explicit) {
-    message(sprintf("avg_simple_effects_manual(): levels not supplied - computing '%s' - '%s' (per level of '%s').",
-                    levels[1], levels[2], within_variable))
-  }
+  message(sprintf(
+    "avg_simple_effects_manual(): computing '%s' - '%s' (per level of '%s')%s.",
+    levels[1], levels[2], within_variable,
+    if (levels_explicit) "" else " [levels defaulted]"
+  ))
   
   n_conditions <- length(within_levels) * 2
   est_gb <- .estimate_true_size_gb(model, newdata, n_conditions = n_conditions,
@@ -1795,10 +1989,12 @@ avg_simple_effects_manual <- function(model, newdata, variable, within_variable,
   combos <- expand.grid(w = within_levels, l = levels, stringsAsFactors = FALSE)
   key <- function(w, l) paste(w, l, sep = "___")
   
+  # Coercion happens HERE ONLY, per scalar value - see v0.28 rationale in
+  # avg_comparisons_manual().
   newdata_list <- lapply(seq_len(nrow(combos)), function(i) {
     nd <- newdata
-    nd[[within_variable]] <- combos$w[i]
-    nd[[variable]] <- combos$l[i]
+    nd[[within_variable]] <- .coerce_levels_to_type(combos$w[i], newdata[[within_variable]])
+    nd[[variable]] <- .coerce_levels_to_type(combos$l[i], newdata[[variable]])
     nd
   })
   names(newdata_list) <- key(combos$w, combos$l)
