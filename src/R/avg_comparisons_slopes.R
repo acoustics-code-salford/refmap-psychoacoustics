@@ -573,6 +573,60 @@
 #         tight bound - documented as a deliberate simplification, not a
 #         full symbolic re-derivation of adjustment applied to an
 #         interval-valued input.
+#   v0.30 Two additions arising from building the figures in practice:
+#         (1) add_pairwise_brackets(), a plotting helper wrapping
+#         ggpubr::stat_pvalue_manual() to annotate a means/estimates plot
+#         with each pairwise contrast's own credible interval (not pd/p -
+#         see v0.29's rationale for why). Accepts either
+#         avg_comparisons_cross_manual()'s output directly, or
+#         avg_comparisons_manual()'s (parsing its "contrast" string, since
+#         that function has no separate group1/group2-style columns).
+#         Deliberately requires a NON-coord_flip()'d base plot -
+#         stat_pvalue_manual() has a confirmed, hard-to-work-around
+#         interaction problem with coord_flip() (correct bracket position
+#         with illegible sideways text, or legible text with misaligned
+#         brackets - never both correct at once). (2) Documented, in
+#         avg_comparisons_manual()'s own docstring, that "reference" and
+#         "pairwise" comparison_type are MIRROR IMAGES of each other for
+#         the common case of exactly 2 levels - confirmed directly:
+#         levels=c("H520","T150") gives "T150-H520" under "reference" but
+#         "H520-T150" under "pairwise", for the same input. Not a bug -
+#         each mode is organized around a different principle (reference:
+#         levels[1] is always the baseline/subtrahend; pairwise: levels[1]
+#         is always the minuend) that necessarily oppose in sign once
+#         there's only one comparison for both modes to produce.
+#   v0.31 BUG: make_prediction_cluster()'s parallel workers failed with
+#         "could not find function '.dispatch_draws'" on first real use
+#         with cl= - clusterExport() only exported "model" plus whatever
+#         the caller listed in extra_exports, never the internal
+#         .dispatch_draws() function that every worker actually calls
+#         (via .dispatch_draws_multi()'s parLapply() path). Worker
+#         processes are fresh R sessions with nothing from the sourced
+#         script loaded except what's explicitly exported - this was a
+#         structural gap in the function itself, not something callers
+#         could fix by remembering to list it in extra_exports each time.
+#         Confirmed .dispatch_draws() has no further chained dependencies
+#         on other internal helpers (only calls brms::posterior_epred()/
+#         MASS::mvrnorm()/stats:: functions directly), so exporting just
+#         this one name resolves it completely. Fixed: ".dispatch_draws"
+#         is now added to the base export list unconditionally, not left
+#         for the caller to supply via extra_exports.
+#   v0.32 add_pairwise_brackets() failed with a "discrete value supplied
+#         to continuous scale" error on a numeric x-axis (UASEvents) -
+#         group1/group2 (character, from string-splitting a "contrast"
+#         label) were always routed through an x_order-based integer
+#         position lookup built for discrete axes, which conflicts with
+#         stat_pvalue_manual() when the base plot's x-scale is actually
+#         continuous. Fixed: now checks whether means_df[[x_var]] is
+#         numeric - if so, group1/group2 are coerced directly to that
+#         same numeric scale (no position-index translation needed, since
+#         a numeric value already is its own x-position) and x_order is
+#         ignored (with a message) if supplied. x_order is also now
+#         optional for the discrete case: defaults to
+#         levels(means_df[[x_var]]) if already a factor, otherwise
+#         sort(unique(as.character(...))) - matching the default-level
+#         convention used elsewhere in this file, rather than requiring
+#         it as a mandatory argument every time.
 # =============================================================================
 
 
@@ -633,14 +687,20 @@ profile_call_memory <- function(expr) {
 #' @param model A brmsfit or glmgee object to export to all workers.
 #' @param n_workers Number of cluster workers.
 #' @param extra_exports Character vector of additional object names (from the
-#'   calling environment) to export to workers, e.g. custom transform helpers.
+#'   calling environment) to export to workers, e.g. custom transform helpers
+#'   you reference in a `transform=` argument. Note: `.dispatch_draws` (the
+#'   internal function every worker actually calls) is exported automatically
+#'   below - you do NOT need to add it here. Worker processes are fresh R
+#'   sessions with nothing from your script loaded except what's explicitly
+#'   exported; omitting an internal helper this file depends on produces
+#'   "could not find function" errors on the workers, confirmed in practice.
 #' @return A cluster object for use as the `cl` argument below. Remember to
 #'   `parallel::stopCluster(cl)` when done.
 make_prediction_cluster <- function(model, n_workers = parallel::detectCores() - 1,
                                     extra_exports = character(0)) {
   cl <- parallel::makeCluster(max(1, n_workers))
   parallel::clusterEvalQ(cl, { library(brms); library(MASS) })
-  parallel::clusterExport(cl, c("model", extra_exports), envir = environment())
+  parallel::clusterExport(cl, c("model", ".dispatch_draws", extra_exports), envir = environment())
   cl
 }
 
@@ -1607,6 +1667,20 @@ avg_predictions_manual <- function(model, newdata, by = NULL,
 #'   (baseline) values - these get overwritten per level internally.
 #' @param variable Name of the focal categorical column in `newdata`.
 #' @param comparison_type One of "pairwise", "reference", "sequential".
+#'   IMPORTANT for the common case of exactly 2 levels: these two modes
+#'   are MIRROR IMAGES of each other for identical `levels` input, not
+#'   equivalent - "pairwise" always computes levels[1]-levels[2] (literal
+#'   first-minus-second); "reference" always subtracts levels[1] (treating
+#'   it as the baseline), giving levels[2]-levels[1]. With >2 levels these
+#'   modes produce genuinely different SETS of comparisons and the
+#'   distinction feels obvious; with exactly 2 they're forced to produce
+#'   the same single comparison, just organized around two different
+#'   principles (first-listed-is-the-minuend vs first-listed-is-the-
+#'   baseline) that oppose in sign. Confirmed directly: levels=c("H520",
+#'   "T150") with comparison_type="reference" gives "T150 - H520", but
+#'   the SAME levels with comparison_type="pairwise" gives "H520 - T150".
+#'   Rule of thumb for 2 levels: "reference" always subtracts levels[1];
+#'   "pairwise" always subtracts levels[2].
 #' @param levels Optional character vector restricting/ordering which
 #'   levels of `variable` to compare. Defaults to all unique observed levels.
 #' @param transform Function applied to each level's raw draws matrix.
@@ -2164,6 +2238,123 @@ avg_slopes_manual <- function(model, newdata, variable, eps = NULL,
     p.value = .pd_to_pvalue(pd, length(slope_draws)),
     ndraws_used = length(slope_draws)
   )
+}
+
+
+# -----------------------------------------------------------------------------
+# add_pairwise_brackets()
+# -----------------------------------------------------------------------------
+
+#' Annotate a means/estimates plot with pairwise-contrast credible intervals
+#' as brackets, using each contrast's own CI rather than pd/p (see
+#' conversation notes on why: pd and Holm-adjusted p both showed real
+#' artifacts here - miscalibrated raw pd, and floored p-values distorting
+#' Holm's ranking - while a contrast's own credible interval has neither
+#' problem and answers "distinguishable from zero" directly).
+#'
+#' Accepts output from EITHER avg_comparisons_cross_manual() (which has
+#' `x_var`/"reference1" columns already) or avg_comparisons_manual() (which
+#' only has a formatted "contrast" string, e.g. "Park - Highway", parsed
+#' apart here via strsplit on " - " - safe as long as no level name
+#' contains that exact substring itself).
+#'
+#' Deliberately built on plain ggpubr::stat_pvalue_manual() rather than a
+#' hand-rolled geom_segment()/geom_text() version: stat_pvalue_manual()
+#' works fine here specifically BECAUSE the base plot is NOT coord_flip()'d
+#' (coord.flip = FALSE is hardcoded below) - it has a confirmed, hard-to-
+#' work-around interaction problem with coord_flip() specifically (matching
+#' its own coord.flip argument to the base plot's actual flipped state
+#' gives correctly-positioned brackets but illegible sideways text;
+#' mismatching it gives legible text but misaligned bracket positions).
+#' If you need this on a coord_flip()'d plot, use the manual geom_segment/
+#' geom_text approach from the conversation instead of this function.
+#'
+#' Also requires stat_pvalue_manual() to see columns literally named
+#' group1/group2 (an internal assertion, not something an xmin/xmax
+#' argument overrides) - handled internally, no action needed from the
+#' caller.
+#'
+#' Bracket rows are ordered by SPAN (how far apart the two x-positions
+#' are, via x_order), narrowest first - stacks nested/overlapping brackets
+#' outward in the standard convention and guarantees pairs sharing a
+#' starting category (e.g. two comparisons both involving "Park") don't
+#' land on the same visual row and overlap.
+#'
+#' @param base_plot A ggplot object (built from `means_df`, x-axis =
+#'   `x_var`, NOT coord_flip()'d) to add brackets to.
+#' @param means_df The data.frame the base plot's points/error bars were
+#'   built from (e.g. output of avg_predictions_manual() or
+#'   avg_simple_effects_manual()) - used only for its own conf.high range,
+#'   to position brackets above the actual plotted points. Do NOT pass
+#'   contrast_df here by mistake - they are on different scales (this
+#'   exact mix-up produced brackets that cut through the data points in
+#'   practice).
+#' @param contrast_df The pairwise-contrast results to annotate with -
+#'   output of avg_comparisons_manual(), avg_comparisons_cross_manual(),
+#'   or avg_simple_effects_manual() applied across x_var's levels.
+#' @param x_var Name of the column on the base plot's x-axis (e.g.
+#'   "AmbientEnvCore" or "UASEvents") - works for either a discrete
+#'   (character/factor) or continuous (numeric) x-axis; handled
+#'   automatically based on the type of `means_df[[x_var]]` (see
+#'   x_order below).
+#' @param x_order Only used when `means_df[[x_var]]` is NOT numeric.
+#'   Character vector giving the x-axis category order as displayed (e.g.
+#'   env_order) - used to compute each bracket's span for the narrowest-
+#'   first stacking. Optional: defaults to `levels(means_df[[x_var]])` if
+#'   it's already a factor, otherwise `sort(unique(as.character(...)))`.
+#'   Ignored (with a message) if supplied alongside a numeric x_var, since
+#'   a numeric value already is its own x-position - no lookup needed.
+#' @param label_size,step_increase,y_margin Passed through to control
+#'   label text size, vertical spacing between stacked brackets, and
+#'   headroom above the highest data point before the first bracket.
+#' @return `base_plot` with a stat_pvalue_manual() bracket layer added.
+add_pairwise_brackets <- function(base_plot, means_df, contrast_df, x_var, x_order = NULL,
+                                  label_size = 4, step_increase = 0.14, y_margin = 0.3) {
+  if (all(c(x_var, "reference1") %in% names(contrast_df))) {
+    contrast_df$group1 <- contrast_df[[x_var]]
+    contrast_df$group2 <- contrast_df$reference1
+  } else if ("contrast" %in% names(contrast_df)) {
+    parts <- strsplit(contrast_df$contrast, " - ", fixed = TRUE)
+    contrast_df$group1 <- sapply(parts, `[`, 1)
+    contrast_df$group2 <- sapply(parts, `[`, 2)
+  } else {
+    stop("contrast_df needs either ('", x_var, "', 'reference1') or a 'contrast' column to parse.")
+  }
+  
+  contrast_df$ci_label <- sprintf("%.2f [%.2f, %.2f]", contrast_df$estimate, contrast_df$conf.low, contrast_df$conf.high)
+  
+  x_col <- means_df[[x_var]]
+  if (is.numeric(x_col)) {
+    # Continuous x-axis: group1/group2 are currently character (from
+    # string-splitting or a factor/character column) - coerce directly to
+    # the SAME numeric scale the plot already uses, rather than routing
+    # through an artificial integer position index (which is what caused
+    # the "discrete value supplied to continuous scale" error: character
+    # xmin/xmax values on a plot whose x-scale is actually continuous).
+    if (!is.null(x_order)) {
+      message("add_pairwise_brackets(): x_order is ignored for a numeric x_var - ",
+              "the values themselves already define their position.")
+    }
+    contrast_df$group1 <- as.numeric(contrast_df$group1)
+    contrast_df$group2 <- as.numeric(contrast_df$group2)
+    span <- abs(contrast_df$group1 - contrast_df$group2)
+  } else {
+    if (is.null(x_order)) {
+      x_order <- if (is.factor(x_col)) levels(x_col) else sort(unique(as.character(x_col)))
+    }
+    x_pos <- setNames(seq_along(x_order), x_order)
+    span <- abs(x_pos[contrast_df$group1] - x_pos[contrast_df$group2])
+  }
+  
+  contrast_df <- contrast_df[order(span), ]
+  
+  base_plot +
+    ggpubr::stat_pvalue_manual(
+      contrast_df, label = "ci_label",
+      y.position = max(means_df$conf.high) + y_margin,  # always the MEANS data's own range, hard-coded once here
+      step.increase = step_increase, coord.flip = FALSE,
+      family = "serif", size = label_size
+    )
 }
 
 
