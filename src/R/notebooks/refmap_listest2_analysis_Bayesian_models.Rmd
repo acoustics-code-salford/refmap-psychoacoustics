@@ -694,175 +694,6 @@ ggplot(data=cbind(m1bpredMeans,
 
 ### analyse m1b results
 
-#### visualise posterior draws for population level effects
-
-```{R, fig.width=8, fig.height=6}
-
-m1b_bCI_range <- bayestestR::hdi(m1b, ci = c(0.5, 0.89, 0.95))
-
-# plot spi for within-subjects factors only
-m1b_bCI_wsf <- m1b_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASProximityNear", 
-                                 "b_UASTypeT150", 
-                                 "b_UASOperationDelivery",
-                                 "b_AmbientEnvCoreResidential",
-                                 "b_AmbientEnvCoreStreetsidesquare",
-                                 "b_AmbientEnvCoreHighway",
-                                 "b_AmbientVariantParkHigh",
-                                 "b_AmbientVariantHighwayLow"))
-p_m1b_bCI_wsf <- plot(m1b_bCI_wsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_m1b_bCI_wsf
-
-filename <- "dAnnoyMnCatModbCI_brmsOb_wsf"
-
-if (saveplots){
-  ggsave(filename=paste(filename, ".svg", sep=""), width=9, height=5,
-         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
-  unlink(paste(filename, ".svg", sep=""))
-
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=9, height=5, path=file.path(outFigPath, "pdf"))
-  unlink(paste(filename, ".pdf", sep=""))
-}
-
-# plot spi for within-subjects factor interactions only
-m1b_bCI_wsfi <- m1b_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AmbientEnvCoreResidential:UASOperationDelivery",
-                                 "b_AmbientEnvCoreStreetsidesquare:UASOperationDelivery",
-                                 "b_AmbientEnvCoreHighway:UASOperationDelivery",
-                                 "b_AmbientEnvCoreResidential:UASTypeT150",
-                                 "b_AmbientEnvCoreStreetsidesquare:UASTypeT150",
-                                 "b_AmbientEnvCoreHighway:UASTypeT150",
-                                 "b_UASTypeT150:AmbientVariantParkHigh",
-                                 "b_UASTypeT150:AmbientVariantHighwayLow",
-                                 "b_UASOperationDelivery:UASTypeT150"))
-p_m1b_bCI_wsfi <- plot(m1b_bCI_wsfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_m1b_bCI_wsfi
-
-filename <- "dAnnoyMnCatModbCI_brmsOb_wsfi"
-
-if (saveplots){
-  ggsave(filename=paste(filename, ".svg", sep=""), width=9, height=5,
-         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
-  unlink(paste(filename, ".svg", sep=""))
-
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=9, height=5, path=file.path(outFigPath, "pdf"))
-  unlink(paste(filename, ".pdf", sep=""))
-}
-
-# plot spi for within-subjects covariates only
-m1b_bCI_wsc <- m1b_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_TrialNumberScl"))
-p_m1b_bCI_wsc <- plot(m1b_bCI_wsc, show_intercept=F) +
-    theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_m1b_bCI_wsc
-
-filename <- "dAnnoyMnCatModbCI_brmsOb_wsc"
-
-if (saveplots){
-  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4,
-         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
-  unlink(paste(filename, ".svg", sep=""))
-
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4, path=file.path(outFigPath, "pdf"))
-  unlink(paste(filename, ".pdf", sep=""))
-}
-
-# plot spi for within-subjects covariate-factor interactions only
-m1b_bCI_wscfi <- m1b_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl:AmbientEnvCoreResidential",
-                                 "b_UASLAEMaxLRScl:AmbientEnvCoreStreetsidesquare",
-                                 "b_UASLAEMaxLRScl:AmbientEnvCoreHighway",
-                                 "b_UASLAEMaxLRScl:UASOperationDelivery",
-                                 "b_UASLAEMaxLRScl:UASTypeT150",
-                                 "b_UASLAEMaxLRScl:AmbientEnvCoreResidential:UASOperationDelivery",
-                                 "b_UASLAEMaxLRScl:AmbientEnvCoreStreetsidesquare:UASOperationDelivery",
-                                 "b_UASLAEMaxLRScl:AmbientEnvCoreHighway:UASOperationDelivery",
-                                 "b_UASLAEMaxLRScl:AmbientEnvCoreResidential:UASTypeT150",
-                                 "b_UASLAEMaxLRScl:AmbientEnvCoreStreetsidesquare:UASTypeT150",
-                                 "b_UASLAEMaxLRScl:AmbientEnvCoreHighway:UASTypeT150",
-                                 "b_UASLAEMaxLRScl:Ilog10UASEvents"))
-p_m1b_bCI_wscfi <- plot(m1b_bCI_wscfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariate-factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_m1b_bCI_wscfi
-
-filename <- "dAnnoyMnCatModbCI_brmsOb_wscfi"
-
-if (saveplots){
-  ggsave(filename=paste(filename, ".svg", sep=""), width=14, height=7,
-         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
-  unlink(paste(filename, ".svg", sep=""))
-
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=14, height=7, path=file.path(outFigPath, "pdf"))
-  unlink(paste(filename, ".pdf", sep=""))
-}
-
-
-# plot spi for between-subjects factors only
-m1b_bCI_bsf <- m1b_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_NationGeo2UK", "b_AAM_attitude2Ambiv_Concern_Neutral",
-                                 "b_Home_Area2Urban", "b_SexMale", 
-                                 "b_Area_soundscape2Unpleasant"))
-p_m1b_bCI_bsf <- plot(m1b_bCI_bsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_m1b_bCI_bsf
-
-filename <- "dAnnoyMnCatModbCI_brmsOb_bsf"
-
-if (saveplots){
-  ggsave(filename=paste(filename, ".svg", sep=""), width=9, height=5,
-         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
-  unlink(paste(filename, ".svg", sep=""))
-
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=9, height=5, path=file.path(outFigPath, "pdf"))
-  unlink(paste(filename, ".pdf", sep=""))
-}
-
-# plot spi for between-subjects covariates only
-m1b_bCI_bsc <- m1b_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_Age", "b_NoiseSensitivity"))
-p_m1b_bCI_bsc <- plot(m1b_bCI_bsc, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_m1b_bCI_bsc
-
-filename <- "dAnnoyMnCatModbCI_brmsOb_bsc"
-
-if (saveplots){
-  ggsave(filename=paste(filename, ".svg", sep=""), width=6, height=4,
-         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
-  unlink(paste(filename, ".svg", sep=""))
-
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=6, height=4, path=file.path(outFigPath, "pdf"))
-  unlink(paste(filename, ".pdf", sep=""))
-}
-
-```
-
 #### analyse population-averaged effects (not conditional effects) using marginaleffects
 
 ```{R}
@@ -2263,357 +2094,6 @@ ggplot(data=cbind(m0dpredMeans,
 
 ```
 
-#### analyse within-subjects effects using marginaleffects
-
-```{R}
-
-# ---- Setup ------------------------------------------------------------------
-
-within_vars_all  <- c("UASProximity", "AmbientEnvCore", "UASType", "UASOperation",
-                       "AmbientVariant", "UASLAEMaxLRScl", "UASEvents")
-between_vars_all <- c("NationGeo2", "AAM_attitude2", "Home_Area2", "Age", "Sex",
-                       "NoiseSensitivity", "Area_soundscape2")
- 
-transform_dAnnoy <- \(x) betaTransform(x, -10, 10, direction = 'reverse', squeeze = 'none')
- 
-env_order <- c("Park", "Residential", "Streetside square", "Highway")
-
-# cl <- make_prediction_cluster(
-#   m0d, n_workers = n_cores,
-#   extra_exports = c("transform_dAnnoy", "betaTransform", "env_order")
-# )
-# 
-
-# ---- Canonical grids (built once) -------------------------------------------
- 
-# grid_marg: LAE varies naturally with each real design cell
-grid_marg <- build_marginal_grid(
-  m0d, within_vars = within_vars_all, between_vars = between_vars_all,
-  id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
-  n_new = nnew_pred, fixed_at_mean = "TrialNumberScl"
-)
- 
-# grid_fixed_lae: LAE held at its mean
-grid_fixed_lae <- build_marginal_grid(
-  m0d,
-  within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"),
-  between_vars = between_vars_all,
-  id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
-  n_new = nnew_pred, fixed_at_mean = c("TrialNumberScl", "UASLAEMaxLRScl")
-)
- 
-# ---- Restricted subsets, one per coverage rule above ------------------------
- 
-# Group 1 only: the single fully-crossed subset. Used for ANY analysis of
-# AmbientEnvCore, UASOperation, or UASProximity.
-grid_group1 <- subset(grid_marg, UASEvents == 1 & AmbientVariant == "Standard")
-grid_group1_fixed_lae <- subset(grid_fixed_lae, UASEvents == 1 &
-                                  AmbientVariant == "Standard")
-
-# Far + Overflight + Standard variant, spanning UASEvents 1/2/3: the only
-# subset where event count varies while everything else stays within
-# combinations that were actually tested.
-grid_evts <- subset(grid_marg,
-                      UASProximity == "Far" &
-                        UASOperation == "Overflight" &
-                        AmbientVariant == "Standard")
-
-grid_evts_fixed_lae <- subset(grid_fixed_lae, UASProximity == "Far" &
-                                  UASOperation == "Overflight" &
-                                  AmbientVariant == "Standard")
-
-# ----environment means and pairwise contrasts -------------------------
- 
-
-m0d_env_means <- avg_predictions_manual(
-  m0d, newdata=grid_group1, by="AmbientEnvCore",
-  re_formula=NULL, allow_new_levels=TRUE, sample_new_levels="gaussian",
-  ndraws=ndraws_pred, seed=999, transform=transform_dAnnoy
-)
-
-m0d_env_contrasts <- avg_comparisons_manual(
-  m0d, newdata=grid_group1, variable = "AmbientEnvCore", comparison_type = "pairwise",
-  auto_orient = TRUE,
-  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm',
-  transform = transform_dAnnoy
-)
-
-# ---- does environment moderate the Type and Operation effects? -------
- 
-m0d_type_within_env <- avg_simple_effects_manual(
-  m0d, newdata=grid_group1, variable = "UASType", within_variable = "AmbientEnvCore",
-  levels = c("T150", "H520"),
-  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
-)
-
-m0d_type_by_env <- avg_comparisons_cross_manual(
-  m0d, newdata=grid_group1, variable1 = "AmbientEnvCore", variable2 = "UASType",
-  levels1 = env_order, comparison_type1 = "pairwise", levels2 = c("T150", "H520"),
-  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
-)
-
-m0d_op_within_env <- avg_simple_effects_manual(
-  m0d, newdata=grid_group1, variable = "UASOperation", within_variable = "AmbientEnvCore",
-  levels = c("Delivery", "Overflight"),
-  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
-)
-
-m0d_op_by_env <- avg_comparisons_cross_manual(
-  m0d, newdata=grid_group1, variable1 = "AmbientEnvCore", variable2 = "UASOperation",
-  levels1 = env_order, comparison_type1 = "pairwise", levels2 = c("Delivery", "Overflight"),
-  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
-)
-
-# ---- Delivery vs Overflight (overall, within the fully-crossed subset)
- 
-m0d_op_contrast <- avg_comparisons_manual(
-  m0d, newdata=grid_group1, variable = "UASOperation",
-  levels = c("Delivery", "Overflight"), auto_orient=TRUE,
-  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
-)
-
-# ---- Type and Proximity "at equivalent exposure levels" -------------
-# m0d_type_fixed_lae uses the FULL grid_fixed_lae (whole design, natural
-# weighting - Overflight/Far conditions contribute more since they're the
-# only ones tested across all three stimulus groups) rather than the
-# Group-1-restricted subset - explicit choice: Type is fully crossed in
-# every group, so no fabrication risk either way, and the whole-design
-# answer is the one wanted here. m0d_prox_fixed_lae MUST stay restricted
-# to grid_group1_fixed_lae - UASProximity="Near" does not exist outside
-# Group 1, so the unrestricted grid would fabricate "Near + multiple
-# events" combinations that were never tested.
-
-m0d_op_fixed_lae <- avg_comparisons_manual(
-  m0d, grid_fixed_lae, variable = "UASOperation",
-  levels = c("Delivery", "Overflight"), auto_orient=TRUE,
-  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
-)
-
-m0d_type_fixed_lae <- avg_comparisons_manual(
-  m0d, grid_fixed_lae, variable = "UASType",
-  levels = c("T150", "H520"), auto_orient=TRUE,
-  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
-)
- 
-m0d_prox_fixed_lae <- avg_comparisons_manual(
-  m0d, grid_group1_fixed_lae, variable = "UASProximity", levels = c("Near", "Far"),
-  auto_orient = TRUE,
-  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
-)
-
-
-# ---- events curve --------------------------------------
-
-m0d_evts_curve <- avg_predictions_manual(
-  m0d, newdata=grid_evts_fixed_lae, by="UASEvents",
-  re_formula=NULL, allow_new_levels=TRUE, sample_new_levels="gaussian",
-  ndraws=ndraws_pred, seed=999, transform=transform_dAnnoy
-)
-
-# ---- events contrasts (2v1, 3v1, 3v2), LAE held at mean ----
-
-m0d_evts_contrasts <- avg_comparisons_manual(
-  m0d, newdata=grid_evts_fixed_lae, variable = "UASEvents", levels = c(1, 2, 3),
-  comparison_type = "pairwise", auto_orient = TRUE,
-  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
-)
-# 
-# m0d_evts_curve_by_env <- avg_predictions_manual(
-#   m0d, newdata=grid_evts_fixed_lae, by=c("UASEvents", "AmbientEnvCore"),
-#   re_formula=NULL, allow_new_levels=TRUE, sample_new_levels="gaussian",
-#   ndraws=ndraws_pred, seed=999, transform=transform_dAnnoy
-# )
-# 
-# m0d_evts_contrasts_by_env <- do.call(rbind, lapply(env_order, function(env) {
-#   res <- avg_comparisons_manual(
-#     m0d, newdata=subset(grid_evts_fixed_lae, AmbientEnvCore == env),
-#     variable="UASEvents", levels=c(1, 2, 3),
-#     comparison_type="pairwise", auto_orient=TRUE,
-#     re_formula=NULL, allow_new_levels=TRUE, sample_new_levels="gaussian",
-#     ndraws=ndraws_pred, seed=999, rope=c(-0.2, 0.2), p_adjust='holm', transform=transform_dAnnoy
-#   )
-#   cbind(AmbientEnvCore = env, res)
-# }))
-# m0d_evts_contrasts_by_env$p.value.adj <- p.adjust(m0d_evts_contrasts_by_env$p.value, method='holm')
-
-```
-
-#### analyse between-subjects contrasts
-
-##### between subjects
-
-```{r}
-# contrast analysis for between-subjects variables
-
-contrast_vars <- c("Sex", "NationGeo2", "AAM_attitude2", "Home_Area2",
-                    "Area_soundscape2")
-
-m0d_between_contrasts <- purrr::map_dfr(contrast_vars, function(v) {
-  res <- avg_comparisons_manual(
-    m0d, newdata = grid_marg, variable = v, comparison_type = "pairwise",
-    re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-    ndraws = ndraws_pred,
-    transform = \(x) betaTransform(x, -10, 10, direction = 'reverse', squeeze = 'none')
-  )
-  res$variable <- v
-  gc()
-  return(res)
-}) |>
-  as.data.frame() |>
-  mutate(
-    variable = factor(variable, levels = rev(contrast_vars)),
-    # Create the text label string
-    y_label = paste(variable, contrast, sep = ": "),
-    
-    # Reorder the y-axis labels using the underlying numeric levels of 'variable'
-    y_label = fct_reorder(y_label, as.numeric(variable))
-  )
-  
-
-```
-
-#### plot predictions
-
-```{r}
-
-# ---- environment means and contrasts ---------------------------------
-
-p_env_means <- ggplot(m0d_env_means, aes(x = AmbientEnvCore, y = estimate, colour = AmbientEnvCore)) +
-  theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
-        axis.text = element_text(family = "serif", size = 12), legend.position = "none") +
-  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
-  scale_x_discrete(limits = env_order) +
-  # coord_flip() +
-  scale_colour_manual(values = mycolours) +
-  labs(x = "Ambient environment", y = expression(bar(Delta*A)))
-
-p_env_means_brackets <- add_pairwise_brackets(base_plot=p_env_means,
-                                              means_df=m0d_env_means,
-                                              contrast_df=m0d_env_contrasts,
-                                              x_var="AmbientEnvCore",
-                                              x_order=env_order)
-
-# ---- Operation, Type and Proximity contrasts -----------------------
- 
-p_op_type_prox <- ggplot(data=rbind(m0d_op_fixed_lae,
-                               m0d_prox_fixed_lae,
-                               m0d_type_fixed_lae),
-                           aes(x = contrast, y = estimate, colour=contrast)) +
-  theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
-        axis.text = element_text(family = "serif", size = 12)) +
-  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
-  scale_colour_manual(values = mycolours) +
-  guides(colour = "none") +
-  labs(x = NULL, y = expression("Difference in"~bar(Delta*A)))
-p_op_type_prox
-
-# ---- environment x Type / Operation ----------------------------------
-
-p_type_within_env <- ggplot(m0d_type_within_env, aes(x = AmbientEnvCore, y = estimate, colour=AmbientEnvCore)) +
-  theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
-        axis.text = element_text(family = "serif", size = 12)) +
-  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
-  scale_x_discrete(limits = env_order) +
-  scale_colour_manual(values = mycolours) +
-  guides(colour = "none") +
-  scale_y_continuous(limits=c(0, 4.75)) +
-  labs(x = "Ambient environment", y = expression("T150 - H520 difference in "~bar(Delta*A)))
-
-p_type_within_env_brackets <- add_pairwise_brackets(base_plot=p_type_within_env,
-                                                    means_df=m0d_type_within_env,
-                                                    contrast_df=m0d_type_by_env,
-                                                    x_var="AmbientEnvCore",
-                                                    x_order=env_order)
-
-p_op_within_env <- ggplot(m0d_op_within_env, aes(x = AmbientEnvCore, y = estimate, colour=AmbientEnvCore)) +
-  theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
-        axis.text = element_text(family = "serif", size = 12)) +
-  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
-  scale_x_discrete(limits = env_order) +
-  scale_colour_manual(values = mycolours) +
-  guides(colour = "none") +
-  scale_y_continuous(limits=c(0, 4.75)) +
-  labs(x = "Ambient environment", y = expression("Delivery - Overflight difference in "~bar(Delta*A)))
-
-
-p_op_within_env_brackets <- add_pairwise_brackets(base_plot=p_op_within_env,
-                                                  means_df=m0d_op_within_env,
-                                                  contrast_df=m0d_op_by_env,
-                                                  x_var="AmbientEnvCore",
-                                                  x_order=env_order,
-                                                  step_increase = 0.3)
-
-p_type_within_env_brackets | p_op_within_env_brackets
-
-# ---- events ---------------------------------------------------------
-
-p_evts_curve <- ggplot(m0d_evts_curve, aes(x = UASEvents, y = estimate)) +
-  theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
-        axis.text = element_text(family = "serif", size = 12)) +
-  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
-  geom_line(aes(x = UASEvents, y = estimate)) +
-  scale_x_continuous(breaks = c(1, 2, 3)) +
-  guides(colour = "none") +
-  labs(x = "Number of UAS events", y = expression(bar(Delta*A)))
-
-p_evts_curve_brackets <- add_pairwise_brackets(base_plot=p_evts_curve,
-                                               means_df=m0d_evts_curve,
-                                               contrast_df=m0d_evts_contrasts,
-                                               x_var="UASEvents",
-                                               step_increase=0.1,
-                                               y_margin=0.05)
-p_evts_curve_brackets
-# 
-# p_evts_curve_by_env <- ggplot(m0d_evts_curve_by_env, aes(x = UASEvents, y = estimate)) +
-#   theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
-#         axis.text = element_text(family = "serif", size = 12)) +
-#   geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
-#   geom_line(aes(x = UASEvents, y = estimate)) +
-#   scale_x_continuous(breaks = c(1, 2, 3)) +
-#   scale_colour_manual(values = mycolours) +
-#   guides(colour = "none") +
-#   facet_wrap(vars(AmbientEnvCore)) +
-#   labs(x = "Number of UAS events", y = expression(bar(Delta*A)))
-# 
-# p_evts_curve_by_env_brackets <- add_pairwise_brackets(
-#   base_plot = p_evts_curve_by_env, means_df = m0d_evts_curve_by_env,
-#   contrast_df = m0d_evts_contrasts_by_env, x_var = "UASEvents",
-#   step_increase = 0.06, y_margin = 0.05) +
-#   scale_y_continuous(limits = c(0, 8))
-# p_evts_curve_by_env_brackets
-
-# Forest plot: one row per contrast, point = estimate, whiskers = 95% CI,
-# dashed reference line at zero
-p_between <- ggplot(m0d_between_contrasts, aes(x = estimate,
-                            y = y_label,
-                            colour=variable)) +
-  theme(panel.grid = element_blank(),
-        text = element_text(family = "serif", size = 16),
-        axis.text = element_text(family = "serif", size = 14),
-        legend.position = "none") +
-  scale_colour_manual(values = mycolours) +
-  guides(colour = "none") +
-  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
-  geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
-  labs(x = expression("Difference in"~bar(Delta*A)), y = NULL)
-p_between
-
-```
-
 ## m0e: medial ordbeta model with no UASProximity population-level
 
 ### Formula
@@ -3533,11 +3013,37 @@ m0hPostCheck <- brms::pp_check(m0h, ndraws=100) +
   labs(x="Mean change in annoyance")
 m0hPostCheck
 
+if (saveplots){
+  
+  filename <- "dAnnoyMnExpMod_PPC_brmsOb"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=5, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=5, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+
+}
+
 m0hPostCheckEnv <- brms::pp_check(m0h, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
   labs(x="Mean change in annoyance")
 m0hPostCheckEnv
+
+if (saveplots){
+  
+  filename <- "dAnnoyMnExpMod_PPCEnv_brmsOb"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=6,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=6, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+
+}
 
 m0hPostCheckEnv <- brms::pp_check(m0h, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
@@ -3545,11 +3051,37 @@ m0hPostCheckEnv <- brms::pp_check(m0h, type='dens_overlay_grouped', ndraws=100, 
   labs(x="Mean change in annoyance")
 m0hPostCheckEnv
 
+if (saveplots){
+  
+  filename <- "dAnnoyMnExpMod_PPCEnvVar_brmsOb"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+
+}
+
 m0hPostCheckEvt <- brms::pp_check(m0h, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
   labs(x="Mean change in annoyance")
 m0hPostCheckEvt
+
+if (saveplots){
+  
+  filename <- "dAnnoyMnExpMod_PPCEvts_brmsOb"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+
+}
 
 m0hPostCheckType <- brms::pp_check(m0h, type='dens_overlay_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
@@ -3557,12 +3089,37 @@ m0hPostCheckType <- brms::pp_check(m0h, type='dens_overlay_grouped', ndraws=100,
   labs(x="Mean change in annoyance")
 m0hPostCheckType
 
+if (saveplots){
+  
+  filename <- "dAnnoyMnExpMod_PPCType_brmsOb"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=6, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=6, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+
+}
+
 m0hPostCheckOp <- brms::pp_check(m0h, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
   labs(x="Mean change in annoyance")
 m0hPostCheckOp
 
+if (saveplots){
+  
+  filename <- "dAnnoyMnExpMod_PPCOp_brmsOb"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=6, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=6, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+
+}
 
 ```
 
@@ -3651,10 +3208,242 @@ ggplot(data=cbind(m0hpredMeans,
   ggplot2::annotate("text", x = 0.1, y = 5.25, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
   family = "serif", size = 4, hjust = 0, parse = TRUE)
 
+if (saveplots){
+  
+  filename <- "dAnnoyMnExpMod_Calibration_brmsOb"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4.5, height=4.5,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4.5, height=4.5,
+         path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+
+}
+
 
 ```
 
-#### analyse within-subjects effects using marginaleffects
+#### visualise posterior draws for population level effects
+
+```{R, fig.width=8, fig.height=6}
+
+m0h_bCI_range <- bayestestR::hdi(m0h, ci = c(0.5, 0.89, 0.95))
+
+# plot spi for within-subjects factors only
+m0h_bCI_wsf <- m0h_bCI_range |>
+  dplyr::filter(Parameter %in% c("b_UASProximityNear", 
+                                 "b_UASTypeT150", 
+                                 "b_UASOperationDelivery",
+                                 "b_AmbientEnvCoreResidential",
+                                 "b_AmbientEnvCoreStreetsidesquare",
+                                 "b_AmbientEnvCoreHighway",
+                                 "b_AmbientVariantParkHigh",
+                                 "b_AmbientVariantHighwayLow"))
+p_m0h_bCI_wsf <- plot(m0h_bCI_wsf, show_intercept=F) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
+  scale_fill_manual(values=mycolours) +
+  labs(title="Within-subjects factors",
+       x="Coefficient posterior distribution",
+       y=NULL)
+p_m0h_bCI_wsf
+
+filename <- "dAnnoyMnExpMod_wsfCI_brmsOb"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=9, height=5,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=9, height=5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+# plot spi for within-subjects factor interactions only
+m0h_bCI_wsfi <- m0h_bCI_range |>
+  dplyr::filter(Parameter %in% c("b_AmbientEnvCoreResidential:UASOperationDelivery",
+                                 "b_AmbientEnvCoreStreetsidesquare:UASOperationDelivery",
+                                 "b_AmbientEnvCoreHighway:UASOperationDelivery",
+                                 "b_AmbientEnvCoreResidential:UASTypeT150",
+                                 "b_AmbientEnvCoreStreetsidesquare:UASTypeT150",
+                                 "b_AmbientEnvCoreHighway:UASTypeT150"))
+
+p_m0h_bCI_wsfi <- plot(m0h_bCI_wsfi, show_intercept=F) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
+  scale_fill_manual(values=mycolours) +
+  labs(title="Within-subjects factor interactions",
+       x="Coefficient posterior distribution",
+       y=NULL)
+p_m0h_bCI_wsfi
+
+filename <- "dAnnoyMnExpMod_wsfiCI_brmsOb_wsfi"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=9, height=5,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=9, height=5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+# plot spi for within-subjects covariates only
+m0h_bCI_wsc <- m0h_bCI_range |>
+  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_TrialNumberScl"))
+p_m0h_bCI_wsc <- plot(m0h_bCI_wsc, show_intercept=F) +
+    theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
+  scale_fill_manual(values=mycolours) +
+  labs(title="Within-subjects covariates",
+       x="Coefficient posterior distribution",
+       y=NULL)
+p_m0h_bCI_wsc
+
+filename <- "dAnnoyMnExpMod_wscCI_brmsOb"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+# plot spi for within-subjects covariate-factor interactions only
+m0h_bCI_wscfi <- m0h_bCI_range |>
+  dplyr::filter(Parameter %in% c("b_AmbientEnvCoreResidential:Ilog10UASEvents",
+                                 "b_AmbientEnvCoreStreetsidesquare:Ilog10UASEvents",
+                                 "b_AmbientEnvCoreHighway:Ilog10UASEvents"))
+
+p_m0h_bCI_wscfi <- plot(m0h_bCI_wscfi, show_intercept=F) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
+  scale_fill_manual(values=mycolours) +
+  labs(title="Within-subjects covariate-factor interactions",
+       x="Coefficient posterior distribution",
+       y=NULL)
+p_m0h_bCI_wscfi
+
+filename <- "dAnnoyMnExpMod_wscfiCI_brmsOb"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=14, height=7,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=14, height=7, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+
+# plot spi for between-subjects factors only
+m0h_bCI_bsf <- m0h_bCI_range |>
+  dplyr::filter(Parameter %in% c("b_NationGeo2UK", "b_AAM_attitude2Ambiv_Concern_Neutral",
+                                 "b_Home_Area2Urban", "b_SexMale", 
+                                 "b_Area_soundscape2Unpleasant"))
+p_m0h_bCI_bsf <- plot(m0h_bCI_bsf, show_intercept=F) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
+  scale_fill_manual(values=mycolours) +
+  labs(title="Between-subjects factors",
+       x="Coefficient posterior distribution",
+       y=NULL)
+p_m0h_bCI_bsf
+
+filename <- "dAnnoyMnExpMod_bsfCI_brmsOb"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=9, height=5,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=9, height=5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+# plot spi for between-subjects covariates only
+m0h_bCI_bsc <- m0h_bCI_range |>
+  dplyr::filter(Parameter %in% c("b_Age", "b_NoiseSensitivity"))
+p_m0h_bCI_bsc <- plot(m0h_bCI_bsc, show_intercept=F) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
+  scale_fill_manual(values=mycolours) +
+  labs(title="Between-subjects covariates",
+       x="Coefficient posterior distribution",
+       y=NULL)
+p_m0h_bCI_bsc
+
+filename <- "dAnnoyMnExpMod_bscCI_brmsOb"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=6, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=6, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
+#### visualise posterior distributions of group level effects
+
+```{r}
+
+m0h_sd_draws <- as.data.frame(m0h) |>
+    dplyr::select(starts_with("sd_")) |>
+    tidyr::pivot_longer(cols = everything(), names_to = "Parameter", values_to = "Value") |>
+    dplyr::mutate(Parameter = gsub("sd_", "", Parameter)) |>  # Clean up label names
+    dplyr::group_by(Parameter) |>
+    dplyr::mutate(RelValue = Value / mean(Value)) |>
+    dplyr::ungroup()
+
+# 2. Plot using ridges with a shared x-axis and normalized curve heights
+p_sd <- ggplot(m0h_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
+     theme(legend.position = "none",
+            panel.grid.major.y = element_blank(),
+            text = element_text(family = "serif", size=16)) +
+    # stat_density_ridges normalizes the peak height of each curve individually
+    ggridges::stat_density_ridges(aes(height = after_stat(density)), 
+                        geom = "density_ridges", 
+                        alpha = 1, 
+                        scale = 1.1) + # Controls how much curves can overlap vertically
+    # Adds the 50%, 89% and 95% credible intervals right beneath each curve
+    tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1), 
+                       .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+    # scale_fill_manual(values = mycolours) +
+    labs(x = "Estimated variation (sd scale)",
+         y = "Group parameter")
+
+p_sd_rel <- ggplot(m0h_sd_draws, aes(x = RelValue, y = Parameter, fill = Parameter)) +
+  theme(legend.position = "none", panel.grid.major.y = element_blank(),
+        text = element_text(family = "serif", size = 16)) +
+  geom_vline(xintercept = 1, linetype = "dashed", colour = "grey50") +
+  ggridges::stat_density_ridges(aes(height = after_stat(density)),
+                                 geom = "density_ridges",
+                                alpha = 1, scale = 0.9) +
+  tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1),
+                                 .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+  # scale_fill_manual(values = mycolours) +
+  labs(x = "Mean-normalised\n(relative estimation uncertainty)",
+       y = "Group parameter")
+
+p_sd | (p_sd_rel + theme(axis.title.y = element_blank(), axis.text.y = element_blank()))
+
+filename <- "dAnnoyMnExpModSD_brmsOb"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=6,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=12, height=6, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
+#### analyse within-subjects effects
 
 ```{R}
 
@@ -3669,8 +3458,7 @@ transform_dAnnoy <- \(x) betaTransform(x, -10, 10, direction = 'reverse', squeez
  
 env_order <- c("Park", "Residential", "Streetside square", "Highway")
 
-
-# ---- Canonical grids (built once) -------------------------------------------
+# ---- full grids -------------------------------------------
  
 # grid_marg: LAE varies naturally with each real design cell
 grid_marg <- build_marginal_grid(
@@ -3687,7 +3475,18 @@ grid_fixed_lae <- build_marginal_grid(
   id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
   n_new = nnew_pred, fixed_at_mean = c("TrialNumberScl", "UASLAEMaxLRScl")
 )
- 
+
+m0hDataFit <- insight::get_data(m0h)
+trial_step <- seq(min(m0hDataFit$TrialNumberScl), max(m0hDataFit$TrialNumberScl),
+                  length.out=max(subjDataNoAmb$TrialNumber,
+                                 na.rm=T))
+
+grid_trial_smooth <- build_marginal_grid(
+  m0h, within_vars = within_vars_all, between_vars = between_vars_all,
+  id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
+  n_new = nnew_pred, counterfactual_vars = list(TrialNumberScl = trial_step)
+)
+
 # ---- Restricted subsets, one per coverage rule above ------------------------
  
 # Group 1 only: the single fully-crossed subset. Used for ANY analysis of
@@ -3708,7 +3507,113 @@ grid_evts_fixed_lae <- subset(grid_fixed_lae, UASProximity == "Far" &
                                   UASOperation == "Overflight" &
                                   AmbientVariant == "Standard")
 
+# ----environment means and pairwise contrasts -------------------------
+ 
 
+m0h_env_means <- avg_predictions_manual(
+  m0h, newdata=grid_group1, by="AmbientEnvCore",
+  re_formula=NULL, allow_new_levels=TRUE, sample_new_levels="gaussian",
+  ndraws=ndraws_pred, seed=999, transform=transform_dAnnoy
+)
+
+m0h_env_contrasts <- avg_comparisons_manual(
+  m0h, newdata=grid_group1, variable = "AmbientEnvCore", comparison_type = "pairwise",
+  auto_orient = TRUE,
+  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm',
+  transform = transform_dAnnoy
+)
+
+# ---- does environment moderate the Type and Operation effects? -------
+ 
+m0h_type_within_env <- avg_simple_effects_manual(
+  m0h, newdata=grid_group1, variable = "UASType", within_variable = "AmbientEnvCore",
+  levels = c("T150", "H520"),
+  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
+)
+
+m0h_type_by_env <- avg_comparisons_cross_manual(
+  m0h, newdata=grid_group1, variable1 = "AmbientEnvCore", variable2 = "UASType",
+  levels1 = env_order, comparison_type1 = "pairwise", levels2 = c("T150", "H520"),
+  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
+)
+
+m0h_op_within_env <- avg_simple_effects_manual(
+  m0h, newdata=grid_group1, variable = "UASOperation", within_variable = "AmbientEnvCore",
+  levels = c("Delivery", "Overflight"),
+  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
+)
+
+m0h_op_by_env <- avg_comparisons_cross_manual(
+  m0h, newdata=grid_group1, variable1 = "AmbientEnvCore", variable2 = "UASOperation",
+  levels1 = env_order, comparison_type1 = "pairwise", levels2 = c("Delivery", "Overflight"),
+  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
+)
+
+# ---- Delivery vs Overflight (overall, within the fully-crossed subset)
+ 
+m0h_op_contrast <- avg_comparisons_manual(
+  m0h, newdata=grid_group1, variable = "UASOperation",
+  levels = c("Delivery", "Overflight"), auto_orient=TRUE,
+  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
+)
+
+# ---- Type and Proximity "at equivalent exposure levels" -------------
+# m0h_type_fixed_lae uses the FULL grid_fixed_lae (whole design, natural
+# weighting - Overflight/Far conditions contribute more since they're the
+# only ones tested across all three stimulus groups) rather than the
+# Group-1-restricted subset - explicit choice: Type is fully crossed in
+# every group, so no fabrication risk either way, and the whole-design
+# answer is the one wanted here. m0h_prox_fixed_lae MUST stay restricted
+# to grid_group1_fixed_lae - UASProximity="Near" does not exist outside
+# Group 1, so the unrestricted grid would fabricate "Near + multiple
+# events" combinations that were never tested.
+
+m0h_op_fixed_lae <- avg_comparisons_manual(
+  m0h, grid_fixed_lae, variable = "UASOperation",
+  levels = c("Delivery", "Overflight"), auto_orient=TRUE,
+  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
+)
+
+m0h_type_fixed_lae <- avg_comparisons_manual(
+  m0h, grid_fixed_lae, variable = "UASType",
+  levels = c("T150", "H520"), auto_orient=TRUE,
+  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
+)
+ 
+m0h_prox_fixed_lae <- avg_comparisons_manual(
+  m0h, grid_group1_fixed_lae, variable = "UASProximity", levels = c("Near", "Far"),
+  auto_orient = TRUE,
+  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
+)
+
+
+# ---- events curve --------------------------------------
+
+m0h_evts_curve <- avg_predictions_manual(
+  m0h, newdata=grid_evts_fixed_lae, by="UASEvents",
+  re_formula=NULL, allow_new_levels=TRUE, sample_new_levels="gaussian",
+  ndraws=ndraws_pred, seed=999, transform=transform_dAnnoy
+)
+
+# ---- events contrasts (2v1, 3v1, 3v2), LAE held at mean ----
+
+m0h_evts_contrasts <- avg_comparisons_manual(
+  m0h, newdata=grid_evts_fixed_lae, variable = "UASEvents", levels = c(1, 2, 3),
+  comparison_type = "pairwise", auto_orient = TRUE,
+  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
+)
+
+# events contrasts by environment
 m0h_evts_curve_by_env <- avg_predictions_manual(
   m0h, newdata=grid_evts_fixed_lae, by=c("UASEvents", "AmbientEnvCore"),
   re_formula=NULL, allow_new_levels=TRUE, sample_new_levels="gaussian",
@@ -3727,9 +3632,214 @@ m0h_evts_contrasts_by_env <- do.call(rbind, lapply(env_order, function(env) {
 }))
 m0h_evts_contrasts_by_env$p.value.adj <- p.adjust(m0h_evts_contrasts_by_env$p.value, method='holm')
 
+m0h_trial_curve_smooth <- avg_predictions_manual(
+  m0h, newdata = grid_trial_smooth, by = "TrialNumberScl",
+  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+  ndraws = ndraws_pred, seed = 999,
+  transform = \(x) betaTransform(x, -10, 10, direction = 'reverse', squeeze = 'none')
+)
+
 ```
 
+#### analyse between-subjects contrasts
+
 ```{r}
+# contrast analysis for between-subjects variables
+
+contrast_vars <- c("Sex", "NationGeo2", "AAM_attitude2", "Home_Area2",
+                    "Area_soundscape2")
+
+m0h_between_contrasts <- purrr::map_dfr(contrast_vars, function(v) {
+  res <- avg_comparisons_manual(
+    m0h, newdata = grid_marg, variable = v, comparison_type = "pairwise",
+    re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+    ndraws = ndraws_pred,
+    transform = \(x) betaTransform(x, -10, 10, direction = 'reverse', squeeze = 'none')
+  )
+  res$variable <- v
+  gc()
+  return(res)
+}) |>
+  as.data.frame() |>
+  mutate(
+    variable = factor(variable, levels = rev(contrast_vars)),
+    # Create the text label string
+    y_label = paste(variable, contrast, sep = ": "),
+    
+    # Reorder the y-axis labels using the underlying numeric levels of 'variable'
+    y_label = fct_reorder(y_label, as.numeric(variable))
+  )
+  
+slope_vars <- c("Age", "NoiseSensitivity")
+
+m0h_covariate_slopes <- purrr::map_dfr(slope_vars, function(v) {
+  res <- avg_slopes_manual(
+    m0h, newdata = grid_marg, variable = v,
+    re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+    ndraws = ndraws_pred,
+    transform = \(x) betaTransform(x, -10, 10, direction = 'reverse', squeeze = 'none')
+  )
+  gc()
+  return(res)
+}) |>
+  as.data.frame() |>
+  mutate(
+    variable = factor(variable, levels = rev(slope_vars))
+  )
+
+```
+
+#### plot predictions
+
+```{r}
+
+# ---- environment means and contrasts ---------------------------------
+
+p_env_means <- ggplot(m0h_env_means, aes(x = AmbientEnvCore, y = estimate, colour = AmbientEnvCore)) +
+  theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
+        axis.text = element_text(family = "serif", size = 12), legend.position = "none") +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
+  scale_x_discrete(limits = env_order) +
+  # coord_flip() +
+  scale_colour_manual(values = mycolours) +
+  labs(x = "Ambient environment", y = "Mean change in annoyance")
+
+p_env_means_brackets <- add_pairwise_brackets(base_plot=p_env_means,
+                                              means_df=m0h_env_means,
+                                              contrast_df=m0h_env_contrasts,
+                                              x_var="AmbientEnvCore",
+                                              x_order=env_order)
+p_env_means_brackets
+
+if (saveplots){
+  
+  filename <- "dAnnoyMnExpMod_AmbEnvMargEff_brmsOb"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=5, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=5, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+
+}
+
+
+# ---- Operation, Type and Proximity contrasts -----------------------
+ 
+p_op_type_prox <- ggplot(data=rbind(m0h_op_fixed_lae,
+                               m0h_prox_fixed_lae,
+                               m0h_type_fixed_lae),
+                           aes(x = contrast, y = estimate, colour=contrast)) +
+  theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
+        axis.text = element_text(family = "serif", size = 12)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
+  scale_colour_manual(values = mycolours) +
+  guides(colour = "none") +
+  labs(x = NULL, y = expression("Difference in"~bar(Delta*A)))
+p_op_type_prox
+
+if (saveplots){
+  
+  filename <- "dAnnoyMnExpMod_OpTypeProxMargEff_brmsOb"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=5, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=5, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+
+}
+
+# ---- environment x Type / Operation ----------------------------------
+
+p_type_within_env <- ggplot(m0h_type_within_env, aes(x = AmbientEnvCore, y = estimate, colour=AmbientEnvCore)) +
+  theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
+        axis.text = element_text(family = "serif", size = 12)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
+  scale_x_discrete(limits = env_order) +
+  scale_colour_manual(values = mycolours) +
+  guides(colour = "none") +
+  scale_y_continuous(limits=c(-0.25, 4.75)) +
+  labs(x = "Ambient environment", y = expression("T150 - H520 difference in "~bar(Delta*A)))
+
+p_type_within_env_brackets <- add_pairwise_brackets(base_plot=p_type_within_env,
+                                                    means_df=m0h_type_within_env,
+                                                    contrast_df=m0h_type_by_env,
+                                                    x_var="AmbientEnvCore",
+                                                    x_order=env_order,
+                                                    step_increase = 0.15)
+
+p_op_within_env <- ggplot(m0h_op_within_env, aes(x = AmbientEnvCore, y = estimate, colour=AmbientEnvCore)) +
+  theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
+        axis.text = element_text(family = "serif", size = 12)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
+  scale_x_discrete(limits = env_order) +
+  scale_colour_manual(values = mycolours) +
+  guides(colour = "none") +
+  scale_y_continuous(limits=c(-0.25, 4.75)) +
+  labs(x = "Ambient environment", y = expression("Delivery - Overflight difference in "~bar(Delta*A)))
+
+
+p_op_within_env_brackets <- add_pairwise_brackets(base_plot=p_op_within_env,
+                                                  means_df=m0h_op_within_env,
+                                                  contrast_df=m0h_op_by_env,
+                                                  x_var="AmbientEnvCore",
+                                                  x_order=env_order,
+                                                  step_increase = 0.25)
+
+(p_type_within_env_brackets | p_op_within_env_brackets) + plot_layout(axis_titles = "collect")
+
+if (saveplots){
+  
+  filename <- "dAnnoyMnExpMod_OpTypebyEnvMargEff_brmsOb"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=10, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=10, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+
+}
+
+# ---- events ---------------------------------------------------------
+
+p_evts_curve <- ggplot(m0h_evts_curve, aes(x = UASEvents, y = estimate)) +
+  theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
+        axis.text = element_text(family = "serif", size = 12)) +
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
+  geom_line(aes(x = UASEvents, y = estimate)) +
+  scale_x_continuous(breaks = c(1, 2, 3)) +
+  guides(colour = "none") +
+  labs(x = "Number of UAS events", y = "Mean change in annoyance")
+
+p_evts_curve_brackets <- add_pairwise_brackets(base_plot=p_evts_curve,
+                                               means_df=m0h_evts_curve,
+                                               contrast_df=m0h_evts_contrasts,
+                                               x_var="UASEvents",
+                                               step_increase=0.1,
+                                               y_margin=0.05)
+p_evts_curve_brackets
+
+if (saveplots){
+  
+  filename <- "dAnnoyMnExpMod_EvtsMargEff_brmsOb"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=5, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=5, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+
+}
+
 
 p_evts_curve_by_env <- ggplot(m0h_evts_curve_by_env, aes(x = UASEvents, y = estimate)) +
   theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
@@ -3740,14 +3850,95 @@ p_evts_curve_by_env <- ggplot(m0h_evts_curve_by_env, aes(x = UASEvents, y = esti
   scale_colour_manual(values = mycolours) +
   guides(colour = "none") +
   facet_wrap(vars(AmbientEnvCore)) +
-  labs(x = "Number of UAS events", y = expression(bar(Delta*A)))
+  labs(x = "Number of UAS events", y = "Mean change in annoyance")
 
 p_evts_curve_by_env_brackets <- add_pairwise_brackets(
   base_plot = p_evts_curve_by_env, means_df = m0h_evts_curve_by_env,
   contrast_df = m0h_evts_contrasts_by_env, x_var = "UASEvents",
-  step_increase = 0.05, y_margin = 0.01) +
+  step_increase = 0.06, y_margin = 0.025) +
   scale_y_continuous(limits = c(0, 8))
 p_evts_curve_by_env_brackets
+
+if (saveplots){
+  
+  filename <- "dAnnoyMnExpMod_EvtsbyEnvMargEff_brmsOb"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=9, height=9,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=9, height=9, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+
+}
+
+# Forest plot: one row per contrast, point = estimate, whiskers = 95% CI,
+# dashed reference line at zero
+p_between_fac <- ggplot(m0h_between_contrasts, aes(x = estimate,
+                            y = y_label,
+                            colour=variable)) +
+  theme(panel.grid = element_blank(),
+        text = element_text(family = "serif", size = 16),
+        axis.text = element_text(family = "serif", size = 14),
+        legend.position = "none") +
+  scale_colour_manual(values = mycolours) +
+  guides(colour = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
+  labs(x = expression("Difference in"~bar(Delta*A)), y = NULL)
+
+p_between_cov <- ggplot(m0h_covariate_slopes, aes(x = estimate, y = variable, colour = variable)) +
+  theme(panel.grid = element_blank(),
+        text = element_text(family = "serif", size = 16),
+        axis.text = element_text(family = "serif", size = 14),
+        legend.position = "none") +
+  scale_colour_manual(values = mycolours) +
+  guides(colour = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
+  labs(x = expression("Slope of"~bar(Delta*A)~"per unit increase"), y = NULL)
+
+p_between_fac | p_between_cov + plot_layout(widths = c(2, 1))
+
+if (saveplots){
+  
+  filename <- "dAnnoyMnExpMod_PersonMargEff_brmsOb"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=14, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=14, height=4,
+         path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+
+}
+
+p_trial_curve <- ggplot(m0h_trial_curve_smooth, aes(x = TrialNumberScl, y = estimate)) +
+    theme(panel.grid = element_blank(),
+          panel.grid.major.y=element_line(colour = alpha("grey90", alpha=0.5), linetype = "dashed"), text = element_text(family = "serif", size = 16),
+          axis.text = element_text(family = "serif", size = 12)) +
+    geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.15, fill = mycolours[1]) +
+    geom_line(colour = mycolours[1], linewidth = 1) +
+    rescaleTicks(subjDataNoAmb$TrialNumber, subjDataNoAmb$TrialNumberScl, sep = 3, sd.scale=TRUE) +
+    labs(x = "Trial number", y = "Mean change in annoyance") +
+    coord_cartesian(xlim=c(min(subjDataNoAmb$TrialNumberScl, na.rm=TRUE), max(subjDataNoAmb$TrialNumberScl, na.rm=TRUE)), ylim =c(2, 4))
+p_trial_curve
+
+
+if (saveplots){
+  
+  filename <- "dAnnoyMnExpMod_TrialMargEff_brmsOb"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=6, height=3,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=6, height=3,
+         path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+
+}
 
 ```
 
@@ -4050,7 +4241,7 @@ m0kformula <- dAnnoyanceOrdBetaScl ~
 
 ```
 
-### run model 0h
+### run model 0k
 
 ```{R}
 
@@ -4163,5 +4354,57 @@ m0k_loo
 
 ```
 
+#### plot calibration
 
+```{r}
+
+# create base datagrid
+m0kDataFit <- insight::get_data(m0k)
+
+set.seed(999)
+m0kpredMeans <- marginaleffects::avg_predictions(m0k, na.omit(m0kDataFit),
+                                                  by=c("StimID"),
+                                                re_formula = NULL,
+                                                transform=\(x) betaTransform(x, -10, 10,
+                                                                             direction='reverse',
+                                                                             squeeze='none')) |>
+  dplyr::arrange(StimID)
+
+gc()
+
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyanceMean - m0kpredMeans$estimate)^2)/sum((stimDataNoAmb$dAnnoyanceMean - mean(stimDataNoAmb$dAnnoyanceMean))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m0kpredMeans,
+                     measured_target='dAnnoyanceMean', measured_ci_low='dAnnoyanceMeanCI_Low',
+                     measured_ci_high='dAnnoyanceMeanCI_High', fitted='estimate')
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=cbind(m0kpredMeans,
+                  response=stimDataNoAmb$dAnnoyanceMean,
+                  responseCI_Low=stimDataNoAmb$dAnnoyanceMeanCI_Low,
+                  responseCI_High=stimDataNoAmb$dAnnoyanceMeanCI_High)) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  geom_point(mapping=aes(x=response, y=estimate), size=1.75, shape=4, stroke=0.75, colour=mycolours[1], alpha=0.5) +
+
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate), width=0, colour=mycolours[1], alpha=0.1) +
+  
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=conf.low, ymax=conf.high), width=0, colour=mycolours[1], alpha=0.1) +
+
+  scale_x_continuous(breaks=seq(-2, 10, by=1), limits=c(-1, 9)) +
+  scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-1, 9)) +
+  
+  labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance") +
+  
+  ggplot2::annotate("text", x=0.1, y=6.75, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=0.1, y=6, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = 0.1, y = 5.25, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
+
+
+```
 

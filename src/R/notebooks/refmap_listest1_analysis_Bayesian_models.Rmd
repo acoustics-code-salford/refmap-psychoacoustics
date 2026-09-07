@@ -687,6 +687,25 @@ m0_loo
 
 ```
 
+#### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+performance::check_collinearity(m0b)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(m0b), pars = c("b_UASLAEMaxLRScl",
+                                                           "b_Ilog10UASEvents",
+                                                           "b_UASOperationLanding",
+                                                           "b_UASOperationTakeoff",
+                                                           "b_UASTypeM300",
+                                                           "b_UASTypeT150",
+                                                           "b_AmbientEnvStreet"),
+                               off_diag_args=list(alpha=0.5, size=0.7))
+
+
+```
+
 ## visualise posterior draws for population level effects
 
 ```{R, fig.width=8, fig.height=6}
