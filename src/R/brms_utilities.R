@@ -92,3 +92,84 @@ get_Br2_table <- function(...) {
     # Reorder rows by the marginal R2 Estimate descending
     dplyr::arrange(desc(Marginal_Estimate))
 }
+
+
+# brms formula builder -------------------------------------------------
+# Helper function to build the formula programmatically
+build_bf <- function(y, 
+                     fixed = NULL, 
+                     intercept = TRUE,
+                     re = NULL, 
+                     sigma_fixed = NULL, 
+                     sigma_intercept = TRUE,
+                     sigma_re = NULL) {
+  
+  # Internal engine to assemble formula strings
+  construct_str <- function(lhs, fixed_vec, inc_intercept, re_list) {
+    # 1. Fixed effects handling
+    if (length(fixed_vec) > 0) {
+      fixed_body <- paste(fixed_vec, collapse = " + ")
+      fixed_str <- if (inc_intercept) fixed_body else paste("0 +", fixed_body)
+    } else {
+      fixed_str <- if (inc_intercept) "1" else "0"
+    }
+    
+    # 2. Random effects handling
+    re_str <- ""
+    if (is.list(re_list) && length(re_list) > 0) {
+      re_parts <- character(length(re_list))
+      
+      for (i in seq_along(re_list)) {
+        grp_name <- names(re_list)[i]
+        item <- re_list[[i]]
+        
+        # Parse list or atomic vector options
+        if (is.list(item)) {
+          slopes <- item$slopes
+          cor <- if (!is.null(item$cor)) item$cor else TRUE
+          re_inc_intercept <- if (!is.null(item$intercept)) item$intercept else TRUE
+        } else {
+          slopes <- item
+          cor <- TRUE
+          re_inc_intercept <- TRUE
+        }
+        
+        # Select pipe operator
+        pipe <- if (cor) "|" else "||"
+        
+        # Build random term LHS
+        int_prefix <- if (re_inc_intercept) "1" else "0"
+        
+        if (length(slopes) > 0) {
+          re_parts[i] <- sprintf("(%s + %s %s %s)", int_prefix, paste(slopes, collapse = " + "), pipe, grp_name)
+        } else {
+          # If no slopes and no intercept, default to intercept (0 | group is invalid syntax)
+          if (!re_inc_intercept) {
+            warning(sprintf("Group '%s' specified no intercept and no slopes; defaulting to (1 | %s)", grp_name, grp_name))
+            int_prefix <- "1"
+          }
+          re_parts[i] <- sprintf("(%s %s %s)", int_prefix, pipe, grp_name)
+        }
+      }
+      re_str <- paste0(" + ", paste(re_parts, collapse = " + "))
+    }
+    
+    if (is.null(lhs)) {
+      return(sprintf("%s ~ %s%s", y, fixed_str, re_str))
+    } else {
+      return(sprintf("%s ~ %s%s", lhs, fixed_str, re_str))
+    }
+  }
+  
+  # Build location formula
+  f_mu <- as.formula(construct_str(lhs = NULL, fixed, intercept, re))
+  
+  if (is.null(sigma_fixed) && is.null(sigma_re)) {
+    return(brms::bf(f_mu))
+  }
+  
+  # Build scale formula
+  f_sigma <- as.formula(construct_str(lhs = "sigma", sigma_fixed, sigma_intercept, sigma_re))
+  
+  return(brms::bf(f_mu, f_sigma))
+}
