@@ -22,6 +22,54 @@ require(car)
 # report back if anything errors or looks off.
 # =============================================================================
 
+# -----------------------------------------------------------------------------
+# Design-matrix condition number (Belsley, Kuh & Welsch 1980)
+# -----------------------------------------------------------------------------
+#
+# WHY THIS IS SEPARATE FROM TERM-LEVEL VIF: VIF assesses collinearity
+# term-by-term (how well can THIS term be predicted from the others); the
+# condition number reflects the OVERALL design matrix's numerical
+# conditioning, which can be poor because of a diffuse combination across
+# MANY columns jointly even when no single term's VIF is high (confirmed
+# directly this session: a related model's terms were all Adjusted_VIF < 4,
+# yet kappa(X) ~ 500). The two diagnostics are complementary, not redundant -
+# neither one implies the other, so both are reported.
+#
+# WHY NOT A NAIVE kappa(X) CALL: computing the condition number on the raw,
+# unscaled model matrix conflates two different phenomena Belsley (1991)
+# calls "essential" and "non-essential" ill-conditioning - the latter being
+# an artefact of predictors simply living on very different natural scales
+# (e.g. Age in years next to a 0/1 dummy), which inflates the condition
+# number without reflecting genuine collinearity BETWEEN predictors at all.
+# The standard fix is to scale each column to unit Euclidean norm (NOT
+# centre - centring the intercept column would remove the ability to detect
+# non-essential ill-conditioning in the first place) before taking the SVD.
+# Both the scaled (recommended) and raw kappa() figures are returned, so a
+# large gap between them is itself diagnostic of how much of the raw number
+# was a scaling artefact versus genuine multicollinearity.
+#
+# THRESHOLDS: Belsley, Kuh & Welsch (1980) suggest condition indices above
+# ~30 indicate moderate collinearity and above ~100 indicate severe
+# collinearity; the same thresholds are conventionally applied to the
+# largest (overall) condition number of the scaled matrix.
+.design_condition_diagnostics <- function(X) {
+  norms <- sqrt(colSums(X^2))
+  norms[norms == 0] <- 1  # guard against a degenerate constant/zero column
+  X_scaled <- sweep(X, 2, norms, "/")
+  
+  sv <- svd(X_scaled)$d
+  sv <- sv[sv > .Machine$double.eps]
+  cond_indices <- max(sv) / sv
+  
+  list(
+    condition_number_scaled      = max(cond_indices),
+    condition_number_raw         = tryCatch(kappa(X, exact = TRUE), error = function(e) NA_real_),
+    n_condition_indices_over_30  = sum(cond_indices > 30),
+    n_condition_indices_over_100 = sum(cond_indices > 100)
+  )
+}
+
+
 glmgee_vif <- function(model,
                        digits = 2,
                        sort = TRUE,
@@ -102,10 +150,13 @@ glmgee_vif <- function(model,
   tab$Adjusted_VIF <- round(tab$Adjusted_VIF, digits)
   tab$Tolerance    <- round(tab$Tolerance, digits + 1)
   
+  cond <- .design_condition_diagnostics(stats::model.matrix(glm_fit))
+  
   structure(tab, class = c("glmgee_vif", "data.frame"),
             thresholds = thresholds,
             n_high     = sum(tab$Severity == "High"),
-            n_moderate = sum(tab$Severity == "Moderate"))
+            n_moderate = sum(tab$Severity == "Moderate"),
+            condition  = cond)
 }
 
 # --- simple print method for nicer console output ---------------------------
@@ -121,16 +172,33 @@ print.glmgee_vif <- function(x, ...) {
   if (n_high > 0) cat(sprintf("-> %d term(s) at HIGH collinearity\n", n_high))
   if (n_mod  > 0) cat(sprintf("-> %d term(s) at MODERATE collinearity\n", n_mod))
   if (n_high == 0 && n_mod == 0) cat("-> No terms flagged for collinearity concern.\n")
+  
+  cond <- attr(x, "condition")
+  cat(strrep("-", 72), "\n")
+  cat("Design matrix condition number (Belsley, Kuh & Welsch 1980; complements\n")
+  cat("the term-level VIFs above - reflects OVERALL, not per-term, conditioning)\n")
+  cat(sprintf("  Scaled (recommended): %.1f   |   Raw kappa(X): %.1f\n",
+              cond$condition_number_scaled, cond$condition_number_raw))
+  cat(sprintf("  %d of %d condition indices exceed 30 (moderate); %d exceed 100 (severe)\n",
+              cond$n_condition_indices_over_30, nrow(x) + 1L,  # +1 for intercept
+              cond$n_condition_indices_over_100))
+  if (cond$condition_number_scaled > 100) {
+    cat("  -> SEVERE overall conditioning, despite the per-term VIFs above:\n")
+    cat("     this reflects a diffuse combination across MANY terms jointly,\n")
+    cat("     not any single problematic pair - term-level VIF cannot detect this.\n")
+  } else if (cond$condition_number_scaled > 30) {
+    cat("  -> Moderate overall conditioning.\n")
+  }
   invisible(x)
 }
 
 # =============================================================================
 # Example usage:
 #
-#   m <- glmtoolbox::glmgee(formula = mformula, data = mData, id = ID,
+#   m12 <- glmtoolbox::glmgee(formula = m12formula, data = m12Data, id = ID,
 #                              family = binomial(link = "logit"),
 #                              corstr = "exchangeable")
 #
-#   glmgee_vif(m)
+#   glmgee_vif(m12)
 #
 # =============================================================================

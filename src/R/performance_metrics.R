@@ -242,32 +242,47 @@ geeCohensf2 <- function(geeMod){
 # linear model had have been run on observations of the continuous latent
 # variable underlying the discrete responses (Veall and Zimmermann, 1992; Hagle
 # and Mitchell, 1992; Veall and Zimmermann, 1994).
-Bayes_R2_MZ <- function(fit, ...) {
+Bayes_R2_MZ <- function(fit, ci = 0.95, ...) {
   y_pred <- fitted(fit, scale = "linear", summary = FALSE, ...)
   var_fit <- apply(y_pred, 1, stats::var)
-  if (fit$formula$family$family == "cumulative" ||
-      fit$formula$family$family == "bernoulli") {
-    if (fit$formula$family$link == "probit" || 
-        fit$formula$family$link == "probit_approx") {
+  
+  if (fit$formula$family$family %in% c("cumulative", "bernoulli")) {
+    if (fit$formula$family$link %in% c("probit", "probit_approx")) {
       var_res <- 1
-    }
-    else if (fit$formula$family$link == "logit") {
+    } else if (fit$formula$family$link == "logit") {
       var_res <- pi^2 / 3 
     }
-  } 
-  else {
+  } else {
     sum_fit <- summary(fit)
     sig_res <- sum_fit$spec_pars["sigma", "Estimate"]
     var_res <- sig_res^2
   } 
+  
   R2_MZ <- var_fit / (var_fit + var_res)
-  print(
-    data.frame(
-      Estimate = mean(R2_MZ), 
-      Est.Error = stats::sd(R2_MZ), 
-      "l-95% CI" = quantile(R2_MZ, 0.025),
-      "u-95% CI" = quantile(R2_MZ, 0.975),
-      row.names = "Bayes_R2_MZ", 
-      check.names = FALSE), 
-    digits = 3)
+  
+  # Calculate lower and upper quantile probabilities based on coverage
+  tail_prob <- (1 - ci) / 2
+  probs <- c(tail_prob, 1 - tail_prob)
+  
+  # Calculate quantiles
+  quantiles <- quantile(R2_MZ, probs)
+  
+  # Dynamically generate column names (e.g., Q2.5 and Q97.5)
+  # Multiplying by 100 converts probabilities to percentages
+  q_names <- paste0("Q", probs * 100)
+  
+  # Build the output data frame
+  out_df <- data.frame(
+    Estimate = mean(R2_MZ), 
+    Est.Error = stats::sd(R2_MZ), 
+    q1 = quantiles[1],
+    q2 = quantiles[2],
+    row.names = "R2", 
+    check.names = FALSE
+  )
+  
+  # Assign the dynamic quantile names to the dataframe columns
+  colnames(out_df)[3:4] <- q_names
+  
+  print(out_df, digits = 3)
 }

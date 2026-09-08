@@ -52,7 +52,7 @@ options(marginaleffects_parallel_inferences = TRUE)
 options(marginaleffects_parallel = TRUE)
 options(marginaleffects_parallel_packages = c("marginaleffects", "brms"))
 options(marginaleffects_posterior_interval = "eti")
-options(marginaleffects_posterior_center = mean)
+options(marginaleffects_posterior_center = stats::median)
 
 bayesplot::bayesplot_theme_set(bayesplot::theme_default(base_family = "serif", base_size = 16))
 bayesplot::bayesplot_theme_update(axis.text = ggplot2::element_text(family = "serif", size = 14))
@@ -350,26 +350,24 @@ subjDataNoAmb <- rbind(subjDataNoAmb |>
 
 # dAnnoyance
 
-## m1: maximal ordbeta model
+## m1: maximal ordbeta model with random intercept only
 
 ### Formula
 
 ```{R}
 
 
-m1_pop_level <- c("TrialNumberScl", "UASStart", "UASProximity",
-               "UASLAEMaxLRScl*I(log10(UASEvents))",
-               "UASLAEMaxLRScl*AmbientEnvCore*UASOperation",
-               "UASLAEMaxLRScl*AmbientEnvCore*UASType",
-               "AmbientVariant*UASType",
-               "UASOperation*UASType",
-               "NationGeo2", "AAM_attitude2", "Home_Area2",
-               "Age", "Sex", "NoiseSensitivity", "Area_soundscape2")
+m1_pop_level <- c("TrialNumberScl", "UASStart*AmbientEnvCore",
+                  "UASStart*UASProximity",
+                  "UASLAEMaxLRScl*I(log10(UASEvents))",
+                  "UASLAEMaxLRScl*AmbientEnvCore*UASOperation",
+                  "UASLAEMaxLRScl*AmbientEnvCore*UASType",
+                  "AmbientVariant*UASType",
+                  "UASOperation*UASType",
+                  "NationGeo2", "AAM_attitude2", "Home_Area2",
+                  "Age", "Sex", "NoiseSensitivity", "Area_soundscape2")
 
-m1_grp_level_id <- c("UASProximity", "UASLAEMaxLRScl",
-                  "AmbientEnvCore", "I(log10(UASEvents))",
-                  "AmbientVariant", "UASOperation", "UASType",
-                  "UASStart")
+m1_grp_level_id <- c()
 
 m1_grp_level <- list(ID = m1_grp_level_id,
                      StimID = c())

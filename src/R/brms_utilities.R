@@ -75,7 +75,8 @@ get_Br2_table <- function(...) {
   map2_dfr(models, model_names, function(mod, name) {
     dplyr::bind_rows(
       get_metric(mod, "bayes_R2_marginal")    |> tibble::add_column(Type = "Marginal", .before = 1),
-      get_metric(mod, "bayes_R2_conditional") |> tibble::add_column(Type = "Conditional", .before = 1)
+      get_metric(mod, "bayes_R2_conditional") |> tibble::add_column(Type = "Conditional", .before = 1),
+      get_metric(mod, "bayes_R2_MZ") |> tibble::add_column(Type = "McKelvey&Zavoina's R2", .before = 1)
     ) |> 
       tibble::add_column(Model = name, .before = 1)
   }) |> 
@@ -87,6 +88,7 @@ get_Br2_table <- function(...) {
     ) |> 
     
     # Reorder columns so Marginal statistics block together, then Conditional block together
+    dplyr::relocate(starts_with("Conditional"), .after = Model) |>
     dplyr::relocate(starts_with("Marginal"), .after = Model) |> 
     
     # Reorder rows by the marginal R2 Estimate descending
@@ -102,7 +104,8 @@ build_bf <- function(y,
                      re = NULL, 
                      sigma_fixed = NULL, 
                      sigma_intercept = TRUE,
-                     sigma_re = NULL) {
+                     sigma_re = NULL,
+                     ...) {
   
   # Internal engine to assemble formula strings
   construct_str <- function(lhs, fixed_vec, inc_intercept, re_list) {
@@ -165,11 +168,11 @@ build_bf <- function(y,
   f_mu <- as.formula(construct_str(lhs = NULL, fixed, intercept, re))
   
   if (is.null(sigma_fixed) && is.null(sigma_re)) {
-    return(brms::bf(f_mu))
+    return(brms::bf(f_mu, ...))
   }
   
   # Build scale formula
   f_sigma <- as.formula(construct_str(lhs = "sigma", sigma_fixed, sigma_intercept, sigma_re))
   
-  return(brms::bf(f_mu, f_sigma))
+  return(brms::bf(f_mu, f_sigma, ...))
 }
