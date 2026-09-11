@@ -627,6 +627,39 @@
 #         sort(unique(as.character(...))) - matching the default-level
 #         convention used elsewhere in this file, rather than requiring
 #         it as a mandatory argument every time.
+#   v0.33 Not a bug fix - a documented conceptual gap, discovered via a real
+#         discrepancy: avg_predictions_manual(by=...) groups by whatever
+#         value newdata ALREADY carries for the by column(s); it does not
+#         overwrite/counterfactually set it the way avg_comparisons_manual()'s
+#         `variable` argument does. For within-subjects design factors
+#         (experimentally balanced/orthogonal) these coincide. For
+#         between-subjects traits (observed, not controlled), they can
+#         genuinely disagree if that trait happens to correlate with
+#         another between-subjects trait in the specific participant
+#         sample - confirmed directly: a by=c(<LAE sweep>,
+#         "Area_soundscape2")-grouped curve showed a near-zero gap between
+#         levels, while avg_comparisons_manual(variable="Area_soundscape2")
+#         on the IDENTICAL grid gave a real ~0.75-unit contrast, traced to
+#         Area_soundscape2 correlating with another between-subjects trait
+#         in that sample. Documented in avg_predictions_manual()'s `by`
+#         docstring with the fix (build explicit overwritten-level copies
+#         and rbind, rather than relying on `by` to isolate a
+#         between-subjects variable's own effect) - no code change, since
+#         `by`'s literal grouping behavior is correct and needed elsewhere
+#         (e.g. every within-subjects design-factor plot in this project).
+#   v0.34 Promoted v0.33's manual overwrite-then-rbind workaround into a
+#         proper reusable function, avg_predictions_adjusted_by(): builds
+#         one full grid copy per level of a between-subjects adjust_var
+#         (that column overwritten wholesale, every other variable's
+#         composition identical across copies), rbinds, and groups by the
+#         overwritten column - the same fix confirmed to bring a
+#         by=c(<LAE sweep>, "Area_soundscape2")-grouped curve back in line
+#         with avg_comparisons_manual()'s adjusted contrast on the same
+#         grid. Needed at least twice more in the same project
+#         (AAM_attitude2, Home_Area2 prediction curves) even though those
+#         two "looked fine" un-adjusted - their apparent agreement wasn't
+#         validation of the by= mechanism, just weaker correlation with
+#         other between-subjects traits in that particular sample.
 # =============================================================================
 
 
@@ -1591,6 +1624,31 @@ reset_size_cache <- function() {
 #'   needed - see grid-construction guidance in the source conversation).
 #' @param by Character vector of column names in `newdata` to group by
 #'   before averaging. NULL averages over the whole grid into one estimate.
+#'   IMPORTANT: this groups by whatever value each row of `newdata` ALREADY
+#'   carries for the `by` column(s) - it does NOT overwrite/counterfactually
+#'   set that value the way avg_comparisons_manual()'s `variable` argument
+#'   does. For a variable that is experimentally balanced/orthogonal across
+#'   the rest of the design (typical of within-subjects design factors,
+#'   e.g. AmbientEnvCore, UASType), this coincides with the adjusted,
+#'   ceteris-paribus quantity avg_comparisons_manual() would give for the
+#'   same variable. For a variable that is NOT balanced - typically any
+#'   between-subjects trait, which is observed rather than experimentally
+#'   controlled - the two can genuinely disagree: `by` silently inherits
+#'   whatever correlation that variable happens to have with OTHER
+#'   between-subjects traits in this specific sample, while
+#'   avg_comparisons_manual()'s overwrite mechanism does not. Confirmed in
+#'   practice: a by=c(<sweep var>, "Area_soundscape2")-grouped prediction
+#'   curve showed a near-zero gap between levels while
+#'   avg_comparisons_manual(variable="Area_soundscape2") on the identical
+#'   grid gave a real, credible-in-direction 0.75-unit contrast - traced to
+#'   Area_soundscape2 correlating with another between-subjects trait in
+#'   that particular participant sample. If you want a `by`-grouped
+#'   prediction curve for a between-subjects variable to MATCH an
+#'   avg_comparisons_manual() contrast for the same variable, build the
+#'   grid as two (or more) explicit copies with that variable overwritten
+#'   to each level and rbind them, then group by the overwritten column -
+#'   do not rely on `by` alone to isolate a between-subjects variable's own
+#'   effect.
 #' @param transform Function applied to the raw draws matrix before
 #'   averaging, e.g. a back-transform from a scaled/logit space.
 #' @param conf_level Credible/confidence interval coverage (default 0.95).
@@ -2355,6 +2413,72 @@ add_pairwise_brackets <- function(base_plot, means_df, contrast_df, x_var, x_ord
       step.increase = step_increase, coord.flip = FALSE,
       family = "serif", size = label_size
     )
+}
+
+
+# -----------------------------------------------------------------------------
+# avg_predictions_adjusted_by()
+# -----------------------------------------------------------------------------
+
+#' Build a by()-grouped prediction curve that is ADJUSTED for a
+#' between-subjects grouping variable, rather than naively split by its
+#' observed value
+#'
+#' avg_predictions_manual(by=...) groups by whatever value newdata ALREADY
+#' carries for the by column(s) - it does not overwrite/counterfactually
+#' set it (see the `by` docstring above and file v0.33). For a
+#' within-subjects design factor (experimentally balanced/orthogonal) this
+#' coincides with the adjusted, ceteris-paribus quantity
+#' avg_comparisons_manual() would give for the same variable. For a
+#' between-subjects trait (observed, not experimentally controlled), it
+#' can genuinely disagree if that trait correlates with another
+#' between-subjects trait in the specific participant sample - confirmed
+#' directly: Area_soundscape2 correlated with AAM_attitude2 in one
+#' project's sample (44% vs 12.5% Supportive between the two soundscape
+#' groups), producing a near-zero raw grouped gap where the adjusted
+#' contrast was a real ~0.75.
+#'
+#' This function builds one full copy of `newdata` per level of
+#' `adjust_var`, with that column overwritten wholesale in each copy
+#' (identical composition of every OTHER variable across copies), rbinds
+#' them, and groups by the overwritten column - mechanically the same
+#' operation avg_comparisons_manual() performs internally, just exposed as
+#' a full prediction curve across `counterfactual_var` rather than collapsed to a
+#' single contrast.
+#'
+#' NOTE (interpretation, not a code caveat): this gives the association
+#' adjusted for the MEASURED covariates already in newdata's composition -
+#' it is not automatically a causal claim about what would happen if
+#' `adjust_var` were experimentally manipulated, which would additionally
+#' require no unmeasured confounding between adjust_var and the outcome.
+#'
+#' @param model brmsfit or glmgee object.
+#' @param newdata Grid already containing `counterfactual_var`'s full range/sweep
+#'   (e.g. a counterfactual LAE sweep) and `adjust_var`'s naturally-varying
+#'   observed values (its current values are discarded - only its type/
+#'   levels are read).
+#' @param counterfactual_var Name of the continuous/swept column to group by
+#'   alongside `adjust_var` (e.g. "UASLAEMaxLRScl").
+#' @param adjust_var Name of the between-subjects column to adjust for
+#'   rather than naively group by (e.g. "Area_soundscape2").
+#' @param ... Passed to avg_predictions_manual() (transform, ndraws, seed,
+#'   re_formula, allow_new_levels, sample_new_levels, etc.) - pass the SAME
+#'   seed you would use for a directly-comparable avg_comparisons_manual()
+#'   call, so both share the same new-level draws.
+#' @return Same shape as avg_predictions_manual(by=c(counterfactual_var,
+#'   adjust_var), ...), but computed from the adjusted grid.
+avg_predictions_adjusted_by <- function(model, newdata, counterfactual_var, adjust_var, ...) {
+  adj_col <- newdata[[adjust_var]]
+  adj_levels <- if (is.factor(adj_col)) levels(adj_col) else sort(unique(as.character(adj_col)))
+  
+  grid_list <- lapply(adj_levels, function(lv) {
+    nd <- newdata
+    nd[[adjust_var]] <- if (is.factor(adj_col)) factor(lv, levels = adj_levels) else lv
+    nd
+  })
+  grid_adjusted <- do.call(rbind, grid_list)
+  
+  avg_predictions_manual(model, newdata = grid_adjusted, by = c(counterfactual_var, adjust_var), ...)
 }
 
 

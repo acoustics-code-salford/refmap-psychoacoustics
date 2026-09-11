@@ -221,6 +221,12 @@ subjData$Nationality <- factor(subjData$Nationality)
 subjData$UKNational <- factor(subjData$UKNational)
 subjData$Sex <- factor(subjData$Sex, levels=c("Female", "Male"))
 
+stimData$UASOperation <- factor(stimData$UASOperation, levels=UASOpCats)
+stimData$UASType <- factor(stimData$UASType, levels=UASTypeCats)
+stimData$UASStart <- factor(stimData$UASStart, levels=UASStartCats)
+stimData$UASProximity <- factor(stimData$UASProximity, levels=UASProximityCats)
+stimData$AmbientEnv <- factor(stimData$AmbientEnv, levels=c("Park", "Residential", "Park (high)",
+                                                            "Highway (low)", "Streetside square", "Highway"))
 
 # recode AAM_attitude to 2 groups
 subjData <- subjData |> dplyr::mutate(AAM_attitude2 = dplyr::recode_values(AAMAttitude,
@@ -317,16 +323,24 @@ stimDataNoAmb <- stimData |> dplyr::filter(UASStart != "Baseline")
 
 # rescale variables
 
-centre_vars = c("UASLAeqMaxLR", "UASLAEMaxLR", "UASEPNLMaxLR", "UASLAF50ExMaxLR")
+centre_vars = c("UASLAeqMaxLR", "UASLAEMaxLR", "UASEPNLMaxLR", "UASLAF50ExMaxLR",
+                "Age", "NoiseSensitivity")
 
-out <- standardise_list(list(subjData, subjDataNoAmb, stimData, stimDataNoAmb),
+out <- standardise_list(list(subjData, subjDataNoAmb),
                         vars = centre_vars,
                         scale = FALSE)
 
 subjData <- out[[1]]
 subjDataNoAmb <- out[[2]]
-stimData <- out[[3]]
-stimDataNoAmb <- out[[4]]
+
+centre_stim_vars = c("UASLAeqMaxLR", "UASLAEMaxLR", "UASEPNLMaxLR", "UASLAF50ExMaxLR")
+
+out <- standardise_list(list(stimData, stimDataNoAmb),
+                        vars = centre_stim_vars,
+                        scale = FALSE)
+
+stimData <- out[[1]]
+stimDataNoAmb <- out[[2]]
 
 
 out <- standardise_list(list(subjData, subjDataNoAmb),
