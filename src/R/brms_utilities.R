@@ -143,7 +143,13 @@ build_bf <- function(y,
   # listed above.
 
   construct_str <- function(lhs, fixed_vec, inc_intercept, re_list) {
-    
+    if (!is.null(fixed_vec) && !is.character(fixed_vec)) {
+      stop(sprintf(
+        "`fixed` (or a dpar's `fixed`) must be an atomic character vector, not a %s. ",
+        class(fixed_vec)[1]),
+        "Did you accidentally wrap it in list(), e.g. list(c(...)) instead of c(...)?"
+      )
+    }  
     # 1. Fixed effects handling (unchanged from original)
     if (length(fixed_vec) > 0) {
       fixed_body <- paste(fixed_vec, collapse = " + ")
@@ -269,7 +275,7 @@ build_bf <- function(y,
 
 if (FALSE) {
   
-  ## --- ordered-beta phi model (this session's m1d) ---------------------------
+  ## --- ordered-beta phi model (this session's m1d)
   build_bf(
     y = "dAnnoyanceOrdBetaScl",
     fixed = c("TrialNumberScl", "UASProximity", "UASLAEMaxLRScl*UASEvents"),
@@ -280,7 +286,7 @@ if (FALSE) {
     )
   )
   
-  ## cumulative disc model (this session's identifiability requirement) ----
+  ## cumulative disc model (this session's identifiability requirement)
   # NB: intercept = FALSE is required here per Bürkner & Vuorre (2019) - one
   # level of a categorical disc predictor must anchor disc = 1, or the model
   # is unidentified. This function will happily build "disc ~ 0 + ..." but
@@ -299,7 +305,7 @@ if (FALSE) {
     )
   )
   
-  # --- multiple auxiliary formulas at once (not possible in the original) ---
+  # --- multiple auxiliary formulas at once (not possible in the original)
   build_bf(
     y = "y", fixed = "x1",
     dpars = list(
@@ -307,4 +313,20 @@ if (FALSE) {
       zi  = list(fixed = "x3", intercept = FALSE)
     )
   )
+}
+
+
+# yrep_sd_by_group ---------------------------------------------
+yrep_sd_by_group <- function(fit, group_var, ndraws = 1000) {
+  yrep <- brms::posterior_predict(fit, ndraws = ndraws)
+  response_name <- all.vars(fit$formula$formula)[1]
+  y_obs <- insight::get_data(fit)[[response_name]]
+  grp <- insight::get_data(fit)[[group_var]]
+  levels(grp) |> purrr::map_dfr(function(lvl) {
+    idx <- grp == lvl
+    rep_sd <- apply(yrep[, idx], 1, stats::sd)
+    obs_sd <- stats::sd(y_obs[idx])
+    tibble::tibble(group = lvl, obs_sd = obs_sd,
+                   p_lower = mean(rep_sd < obs_sd))
+  })
 }

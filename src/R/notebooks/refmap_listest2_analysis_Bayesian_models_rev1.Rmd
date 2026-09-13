@@ -364,14 +364,13 @@ subjDataNoAmb <- rbind(subjDataNoAmb |>
 
 # dAnnoyance
 
-## m1: maximal ordbeta model with random intercept only
+## mdA1: maximal ordbeta model with random intercept only
 
-### Formula
+### Model dA1 formula
 
 ```{R}
 
-
-m1_pop_level <- c("TrialNumberScl", "UASStart*AmbientEnvCore",
+mdA1_pop_level <- c("TrialNumberScl", "UASStart*AmbientEnvCore",
                   "UASStart*UASProximity",
                   "UASLAEMaxLRScl*I(log10(UASEvents))",
                   "UASLAEMaxLRScl*AmbientEnvCore*UASOperation",
@@ -379,18 +378,18 @@ m1_pop_level <- c("TrialNumberScl", "UASStart*AmbientEnvCore",
                   "AmbientVariant*UASType",
                   "UASOperation*UASType",
                   "NationGeo2", "AAM_attitude2", "Home_Area2",
-                  "Age", "Sex", "NoiseSensitivity", "Area_soundscape2")
+                  "AgeScl", "Sex", "NoiseSensitivityScl", "Area_soundscape2")
 
-m1_grp_level_id <- c()
+mdA1_grp_level_id <- c()
 
-m1_grp_level <- list(ID = m1_grp_level_id,
+mdA1_grp_level <- list(ID = mdA1_grp_level_id,
                      StimID = c())
 
-m1formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
-                      fixed = m1_pop_level,
-                      re = m1_grp_level)
+mdA1formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                      fixed = mdA1_pop_level,
+                      re = mdA1_grp_level)
 
-m1Data <- subjDataNoAmb[, all.vars(m1formula$formula), drop=FALSE]
+mdA1Data <- subjDataNoAmb[, all.vars(mdA1formula$formula), drop=FALSE]
 
 ```
 

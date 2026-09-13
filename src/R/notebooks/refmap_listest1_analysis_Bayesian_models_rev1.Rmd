@@ -102,7 +102,7 @@ ndraws_pred <- 500
 nnew_pred <- 150
 
 # set flag whether to reloo models with Pareto k > 0.7
-reloo_flag = FALSE
+reloo_flag = TRUE
 
 
 ```
@@ -2313,14 +2313,15 @@ chains <- 4
 
 future::plan(future::multisession, workers = chains)
 
-p0 <- mean(na.omit(mA8Data)$AnnoyanceOrdBetaScl == 0, na.rm = TRUE)
-p1 <- mean(na.omit(mA8Data)$AnnoyanceOrdBetaScl == 1, na.rm = TRUE)
+y_full <- mA8Data$AnnoyanceOrdBetaScl
+p0 <- mean(y_full == 0, na.rm = TRUE)
+p1 <- mean(y_full == 1, na.rm = TRUE)
 
 xi_center   <- qlogis(p0)              # solves plogis(xi) = p0 exactly
 coi_center  <- qlogis(1 - p1)          # solves 1 - plogis(xi+kappa) = p1
 kappa_center <- coi_center - xi_center  # must come out positive, given kappa's <lower=0> constraint
 
-y_cont <- na.omit(mA8Data)$AnnoyanceOrdBetaScl
+y_cont <- na.omit(mA8Data$AnnoyanceOrdBetaScl)
 y_cont <- y_cont[y_cont > 0 & y_cont < 1]
 m <- mean(y_cont); v <- stats::var(y_cont)
 phi_center <- log((m * (1 - m)) / v - 1)
@@ -2483,15 +2484,192 @@ get_Br2_table(mA8)
 
 ```
 
+## mA9 ordered beta model for annoyance with modelled variance for AmbientEnv and UASOperation
+
+### model A9 formula
+
+```{r}
+
+mA9_pop_level <- mA8_pop_level
+
+mA9_grp_level <- mA8_grp_level
+
+mA9_dpar_pop_level <- c("AmbientEnv", "UASOperation")
+
+mA9_dpar_grp_level <- list(ID = c())
+
+mA9formula <- build_bf(y = "AnnoyanceOrdBetaScl",
+                        fixed = mA9_pop_level,
+                        re = mA9_grp_level,
+                       dpars = list(phi = list(fixed=mA9_dpar_pop_level,
+                                               re = mA9_dpar_grp_level)))
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priorsA9 <- c(priorsA8,
+  # precision model
+  brms::set_prior("normal(0, 1)", class = "b", dpar = "phi")
+)
+
+tic()
+mA9Priors <- brms::brm(mA9formula,
+                 data=mA8Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsA9, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mA9PriorCheck <- brms::pp_check(mA9Priors, type='dens_overlay', ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+
+mA9PriorCheck + ggplot2::coord_cartesian(ylim=c(0, 5))
+
+tic()
+mA9 <- brms::brm(mA9formula,
+                 data=mA8Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsA9, control=list(adapt_delta=0.95),
+                 threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+                 seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mA9 <- brms::add_criterion(mA9, criterion=c('loo', 'loo_R2'),
+                           cores=n_cores,
+                           reloo=reloo_flag,
+                           overwrite=TRUE,
+                           chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                           backend='cmdstanr',
+                           future_args=list(future.seed=TRUE))
+toc()
+
+mA9$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mA9))
+mA9$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mA9, re_formula=NA))
+mA9$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mA9, re_formula=NULL))
+
+```
+
+### summarise
+
+```{r}
+
+summary(mA9)
+
+```
+
+### posterior check
+
+```{r}
+
+mA9PostCheck <- brms::pp_check(mA9, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA9PostCheck
+
+mA9PostCheckEnv <- brms::pp_check(mA9, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA9PostCheckEnv
+
+mA9PostCheckEvt <- brms::pp_check(mA9, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA9PostCheckEvt
+
+mA9PostCheckType <- brms::pp_check(mA9, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA9PostCheckType
+
+mA9PostCheckOp <- brms::pp_check(mA9, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA9PostCheckOp
+
+brms::pp_check(mA9, type = "stat_grouped", group = "AmbientEnv",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mA9, type = "stat_grouped", group = "UASOperation",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mA9, type = "stat_grouped", group = "UASType",
+               stat ="sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+```
+
+### diagnostics
+
+```{R, fig.width=35, fig.height=35}
+
+# collinearity check
+brms_vif(mA9)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mA9), pars = c("b_UASLAEMaxLRScl",
+                                                           "b_Ilog10UASEvents",
+                                                           "b_UASOperationLanding",
+                                                           "b_UASOperationTakeoff",
+                                                           "b_UASTypeM300",
+                                                           "b_UASTypeT150",
+                                                           "b_AmbientEnvStreet",
+                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
+                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
+                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
+                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
+                                                           "b_AmbientEnvStreet:UASOperationLanding",
+                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
+                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
+                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                               off_diag_args=list(alpha=0.5, size=0.7))
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mA9)
+
+get_Br2_table(mA8, mA9)
+
+loo::loo_compare(mA8, mA9, criterion='loo')
+
+```
+
 ### plot calibration
 
 ```{r}
 
 # create base datagrid
-mA8DataFit <- insight::get_data(mA8)
+mA9DataFit <- insight::get_data(mA9)
 
 set.seed(999)
-mA8predMeans <- marginaleffects::avg_predictions(mA8, na.omit(mA8DataFit),
+mA9predMeans <- marginaleffects::avg_predictions(mA9, na.omit(mA9DataFit),
                                                   by=c("StimID"),
                                                 re_formula = NULL,
                                                 transform=\(x) betaTransform(x, 0, 10,
@@ -2501,14 +2679,14 @@ mA8predMeans <- marginaleffects::avg_predictions(mA8, na.omit(mA8DataFit),
 
 gc()
 
-R2means <- 1 - sum((stimDataNoAmb$AnnoyMean - mA8predMeans$estimate)^2)/sum((stimDataNoAmb$AnnoyMean - mean(stimDataNoAmb$AnnoyMean))^2)
+R2means <- 1 - sum((stimDataNoAmb$AnnoyMean - mA9predMeans$estimate)^2)/sum((stimDataNoAmb$AnnoyMean - mean(stimDataNoAmb$AnnoyMean))^2)
 
-eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=mA8predMeans,
-                     measured_target='AnnoyMean', measured_ci_low='dAnnoyMeanCI_Low',
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=mA9predMeans,
+                     measured_target='AnnoyMean', measured_ci_low='AnnoyMeanCI_Low',
                      measured_ci_high='AnnoyMeanCI_High', fitted='estimate')
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
-ggplot(data=cbind(mA8predMeans,
+ggplot(data=cbind(mA9predMeans,
                   response=stimDataNoAmb$AnnoyMean,
                   responseCI_Low=stimDataNoAmb$AnnoyMeanCI_Low,
                   responseCI_High=stimDataNoAmb$AnnoyMeanCI_High)) +
@@ -2552,49 +2730,49 @@ if (saveplots){
 
 ```{R, fig.width=24, fig.height=12}
 
-mA8_bCI_range <- bayestestR::hdi(mA8, ci = c(0.5, 0.89, 0.95))
+mA9_bCI_range <- bayestestR::hdi(mA9, ci = c(0.5, 0.89, 0.95))
 
 # plot spi for within-subjects factors only
-mA8_bCI_wsf <- mA8_bCI_range |>
+mA9_bCI_wsf <- mA9_bCI_range |>
   dplyr::filter(Parameter %in% c("b_UASTypeM300", 
                                  "b_UASTypeT150",
                                  "b_UASOperationLanding",
                                  "b_UASOperationTakeoff",
                                  "b_AmbientEnvStreet"))
-p_mA8_bCI_wsf <- plot(mA8_bCI_wsf, show_intercept=F) +
+p_mA9_bCI_wsf <- plot(mA9_bCI_wsf, show_intercept=F) +
   theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
   scale_fill_manual(values=mycolours) +
   labs(title="Within-subjects factors",
        x="Coefficient posterior distribution",
        y=NULL)
-p_mA8_bCI_wsf
+p_mA9_bCI_wsf
 
 # plot spi for within-subjects factor interactions only
-mA8_bCI_wsfi <- mA8_bCI_range |>
+mA9_bCI_wsfi <- mA9_bCI_range |>
   dplyr::filter(Parameter %in% c("b_AmbientEnvStreet:UASOperationLanding",
                                  "b_AmbientEnvStreet:UASOperationTakeoff"))
 
-p_mA8_bCI_wsfi <- plot(mA8_bCI_wsfi, show_intercept=F) +
+p_mA9_bCI_wsfi <- plot(mA9_bCI_wsfi, show_intercept=F) +
   theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
   scale_fill_manual(values=mycolours) +
   labs(title="Within-subjects factor interactions",
        x="Coefficient posterior distribution",
        y=NULL)
-p_mA8_bCI_wsfi
+p_mA9_bCI_wsfi
 
 # plot spi for within-subjects covariates only
-mA8_bCI_wsc <- mA8_bCI_range |>
+mA9_bCI_wsc <- mA9_bCI_range |>
   dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_PartTrialNumberScl"))
-p_mA8_bCI_wsc <- plot(mA8_bCI_wsc, show_intercept=F) +
+p_mA9_bCI_wsc <- plot(mA9_bCI_wsc, show_intercept=F) +
     theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
   scale_fill_manual(values=mycolours) +
   labs(title="Within-subjects covariates",
        x="Coefficient posterior distribution",
        y=NULL)
-p_mA8_bCI_wsc
+p_mA9_bCI_wsc
 
 # plot spi for within-subjects covariate-factor interactions only
-mA8_bCI_wscfi <- mA8_bCI_range |>
+mA9_bCI_wscfi <- mA9_bCI_range |>
   dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl:Ilog10UASEvents",
                                  "b_UASLAEMaxLRScl:AmbientEnvStreet",
                                  "b_UASLAEMaxLRScl:UASOperationLanding",
@@ -2602,40 +2780,40 @@ mA8_bCI_wscfi <- mA8_bCI_range |>
                                  "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
                                  "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"))
 
-p_mA8_bCI_wscfi <- plot(mA8_bCI_wscfi, show_intercept=F) +
+p_mA9_bCI_wscfi <- plot(mA9_bCI_wscfi, show_intercept=F) +
   theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
   scale_fill_manual(values=mycolours) +
   labs(title="Within-subjects covariate-factor interactions",
        x="Coefficient posterior distribution",
        y=NULL)
-p_mA8_bCI_wscfi
+p_mA9_bCI_wscfi
 
 # plot spi for between-subjects factors only
-mA8_bCI_bsf <- mA8_bCI_range |>
+mA9_bCI_bsf <- mA9_bCI_range |>
   dplyr::filter(Parameter %in% c("b_NationGeo2UK", "b_AAM_attitude2Ambiv_Concern_Neutral",
                                  "b_Home_Area2Urban", "b_SexMale", 
                                  "b_Area_soundscape2Unpleasant"))
-p_mA8_bCI_bsf <- plot(mA8_bCI_bsf, show_intercept=F) +
+p_mA9_bCI_bsf <- plot(mA9_bCI_bsf, show_intercept=F) +
   theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
   scale_fill_manual(values=mycolours) +
   labs(title="Between-subjects factors",
        x="Coefficient posterior distribution",
        y=NULL)
-p_mA8_bCI_bsf
+p_mA9_bCI_bsf
 
 # plot spi for between-subjects covariates only
-mA8_bCI_bsc <- mA8_bCI_range |>
+mA9_bCI_bsc <- mA9_bCI_range |>
   dplyr::filter(Parameter %in% c("b_AgeScl", "b_NoiseSensitivityScl"))
 
-p_mA8_bCI_bsc <- plot(mA8_bCI_bsc, show_intercept=F) +
+p_mA9_bCI_bsc <- plot(mA9_bCI_bsc, show_intercept=F) +
   theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
   scale_fill_manual(values=mycolours) +
   labs(title="Between-subjects covariates",
        x="Coefficient posterior distribution",
        y=NULL)
-p_mA8_bCI_bsc
+p_mA9_bCI_bsc
 
-(p_mA8_bCI_wsf | p_mA8_bCI_wsfi | p_mA8_bCI_wsc) / (p_mA8_bCI_wscfi | p_mA8_bCI_bsf | p_mA8_bCI_bsc)
+(p_mA9_bCI_wsf | p_mA9_bCI_wsfi | p_mA9_bCI_wsc) / (p_mA9_bCI_wscfi | p_mA9_bCI_bsf | p_mA9_bCI_bsc)
 
 if (saveplots) {
   
@@ -2656,7 +2834,7 @@ if (saveplots) {
 
 ```{r}
 
-mA8_sd_draws <- as.data.frame(mA8) |>
+mA9_sd_draws <- as.data.frame(mA9) |>
     dplyr::select(starts_with("sd_")) |>
     tidyr::pivot_longer(cols = everything(), names_to = "Parameter", values_to = "Value") |>
     dplyr::mutate(Parameter = gsub("sd_", "", Parameter)) |>  # Clean up label names
@@ -2665,7 +2843,7 @@ mA8_sd_draws <- as.data.frame(mA8) |>
     dplyr::ungroup()
 
 # 2. Plot using ridges with a shared x-axis and normalized curve heights
-p_sd <- ggplot(mA8_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
+p_sd <- ggplot(mA9_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
      theme(legend.position = "none",
             panel.grid.major.y = element_blank(),
             text = element_text(family = "serif", size=16)) +
@@ -2682,7 +2860,7 @@ p_sd <- ggplot(mA8_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
     labs(x = "Estimated variation (sd scale)",
          y = "Group parameter")
 
-p_sd_rel <- ggplot(mA8_sd_draws, aes(x = RelValue, y = Parameter, fill = Parameter)) +
+p_sd_rel <- ggplot(mA9_sd_draws, aes(x = RelValue, y = Parameter, fill = Parameter)) +
   theme(legend.position = "none", panel.grid.major.y = element_blank(),
         text = element_text(family = "serif", size = 16)) +
   geom_vline(xintercept = 1, linetype = "dashed", colour = "grey50") +
@@ -2722,15 +2900,13 @@ within_vars_all  <- c("AmbientEnv", "UASType", "UASOperation",
 between_vars_all <- c("NationGeo2", "AAM_attitude2", "Home_Area2", "AgeScl", "Sex",
                        "NoiseSensitivityScl", "Area_soundscape2")
  
-transform_dAnnoy <- \(x) betaTransform(x, 0, 10, direction = 'reverse', squeeze = 'none')
- 
-env_order <- c("Park", "Street")
+transform_Annoy <- \(x) betaTransform(x, 0, 10, direction = 'reverse', squeeze = 'none')
 
 # ---- full grids -------------------------------------------
  
 # grid_marg: LAE varies naturally with each real design cell
 grid_marg <- build_marginal_grid(
-  mA8, within_vars = within_vars_all, between_vars = between_vars_all,
+  mA9, within_vars = within_vars_all, between_vars = between_vars_all,
   id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
   n_new = nnew_pred, fixed_at_mean = "PartTrialNumberScl"
 )
@@ -2739,7 +2915,7 @@ grid_marg <- build_marginal_grid(
 lae_sweep <- seq(min(stimDataNoAmb$UASLAEMaxLRScl), max(stimDataNoAmb$UASLAEMaxLRScl), length.out = 11)
 
 grid_marg_lae_sweep <- build_marginal_grid(
-  mA8, within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"), between_vars = between_vars_all,
+  mA9, within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"), between_vars = between_vars_all,
   id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
   n_new = nnew_pred, fixed_at_mean = "PartTrialNumberScl",
   counterfactual_vars=list(UASLAEMaxLRScl=lae_sweep)
@@ -2751,7 +2927,7 @@ grid_evts_lae_sweep <- subset(grid_marg_lae_sweep,
 
 lae_step <- c(6, 12)
 grid_marg_lae_step <- build_marginal_grid(
-  mA8, within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"), between_vars = between_vars_all,
+  mA9, within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"), between_vars = between_vars_all,
   id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
   n_new = nnew_pred, fixed_at_mean = "PartTrialNumberScl",
   counterfactual_vars=list(UASLAEMaxLRScl=lae_step)
@@ -2763,7 +2939,7 @@ grid_evts_lae_step <- subset(grid_marg_lae_step,
 
 # grid_fixed_lae: LAE held at its mean
 grid_fixed_lae <- build_marginal_grid(
-  mA8,
+  mA9,
   within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"),
   between_vars = between_vars_all,
   id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
@@ -2776,7 +2952,7 @@ grid_fixed_lae <- build_marginal_grid(
 
 ```{r}
 
-mA8predType <- avg_predictions_manual(mA8, newdata=subset(grid_marg_lae_sweep,
+mA9predType <- avg_predictions_manual(mA9, newdata=subset(grid_marg_lae_sweep,
                                                          UASEvents==1),
                                               by=c("UASLAEMaxLRScl",
                                                    "UASType",
@@ -2786,11 +2962,9 @@ mA8predType <- avg_predictions_manual(mA8, newdata=subset(grid_marg_lae_sweep,
                                           allow_new_levels = TRUE,
                                             sample_new_levels = "gaussian",
                                            ndraws=ndraws_pred, seed=999,
-                                            transform=\(x) betaTransform(x, 0, 10,
-                                                                         direction='reverse',
-                                                                         squeeze='none'))
+                                            transform=transform_Annoy)
 
-mA8predOp <- avg_predictions_manual(mA8, newdata=subset(grid_marg_lae_sweep,
+mA9predOp <- avg_predictions_manual(mA9, newdata=subset(grid_marg_lae_sweep,
                                                         UASEvents==1),
                                                 by=c("UASLAEMaxLRScl",
                                                      "UASOperation",
@@ -2800,11 +2974,9 @@ mA8predOp <- avg_predictions_manual(mA8, newdata=subset(grid_marg_lae_sweep,
                                               allow_new_levels = TRUE,
                                                 sample_new_levels = "gaussian",
                                                ndraws=ndraws_pred, seed=999,
-                                              transform=\(x) betaTransform(x, 0, 10,
-                                                                           direction='reverse',
-                                                                           squeeze='none'))
+                                              transform=transform_Annoy)
 
-mA8predEnv <- avg_predictions_manual(mA8, newdata=subset(grid_marg_lae_sweep,
+mA9predEnv <- avg_predictions_manual(mA9, newdata=subset(grid_marg_lae_sweep,
                                                       UASEvents==1),
                                               by=c("UASLAEMaxLRScl",
                                                    "AmbientEnv",
@@ -2813,12 +2985,10 @@ mA8predEnv <- avg_predictions_manual(mA8, newdata=subset(grid_marg_lae_sweep,
                                             allow_new_levels = TRUE,
                                               sample_new_levels = "gaussian",
                                              ndraws=ndraws_pred, seed=999,
-                                            transform=\(x) betaTransform(x, 0, 10,
-                                                                         direction='reverse',
-                                                                         squeeze='none'))
+                                            transform=transform_Annoy)
 
 
-mA8predEvt <- avg_predictions_manual(mA8, newdata=subset(grid_marg_lae_sweep,
+mA9predEvt <- avg_predictions_manual(mA9, newdata=subset(grid_marg_lae_sweep,
                                                          AmbientEnv=="Park" &
                                                          UASOperation=="Overflight"),
                                     by=c("UASLAEMaxLRScl",
@@ -2829,11 +2999,9 @@ mA8predEvt <- avg_predictions_manual(mA8, newdata=subset(grid_marg_lae_sweep,
                                       allow_new_levels = TRUE,
                                         sample_new_levels = "gaussian",
                                        ndraws=ndraws_pred, seed=999,
-                                  transform=\(x) betaTransform(x, 0, 10,
-                                                               direction='reverse',
-                                                               squeeze='none'))
+                                  transform=transform_Annoy)
 
-mA8predEvt_step <- avg_predictions_manual(mA8, newdata=subset(grid_marg_lae_step,
+mA9predEvt_step <- avg_predictions_manual(mA9, newdata=subset(grid_marg_lae_step,
                                                               AmbientEnv=="Park" &
                                                               UASOperation=="Overflight" &
                                                                 UASType %in% c("H520", "T150")),
@@ -2845,53 +3013,47 @@ mA8predEvt_step <- avg_predictions_manual(mA8, newdata=subset(grid_marg_lae_step
                                           allow_new_levels = TRUE,
                                             sample_new_levels = "gaussian",
                                            ndraws=ndraws_pred, seed=999,
-                                        transform=\(x) betaTransform(x, 0, 10,
-                                                                     direction='reverse',
-                                                                     squeeze='none'))
+                                        transform=transform_Annoy)
 
-mA8predAtt <- avg_predictions_adjusted_by(mA8, newdata=grid_marg_lae_sweep,
+mA9predAtt <- avg_predictions_adjusted_by(mA9, newdata=grid_marg_lae_sweep,
                                      counterfactual_var="UASLAEMaxLRScl",
                                      adjust_var="AAM_attitude2",
                                       re_formula = NULL,
                                       allow_new_levels = TRUE,
                                         sample_new_levels = "gaussian",
                                        ndraws=ndraws_pred, seed=999,
-                                     transform=\(x) betaTransform(x, 0, 10,
-                                                                 direction='reverse',
-                                                                 squeeze='none'))
+                                     transform=transform_Annoy)
 
-mA8predAoR <- avg_predictions_adjusted_by(mA8, newdata=grid_marg_lae_sweep,
+mA9predAoR <- avg_predictions_adjusted_by(mA9, newdata=grid_marg_lae_sweep,
                                      counterfactual_var="UASLAEMaxLRScl",
                                         adjust_var="Home_Area2",
                                       re_formula = NULL,
                                       allow_new_levels = TRUE,
                                         sample_new_levels = "gaussian",
                                        ndraws=ndraws_pred, seed=999,
-                                     transform=\(x) betaTransform(x, 0, 10,
-                                                                 direction='reverse',
-                                                                 squeeze='none'))
+                                     transform=transform_Annoy)
 
-mA8predScp <- avg_predictions_adjusted_by(mA8, newdata=grid_marg_lae_sweep,
+mA9predScp <- avg_predictions_adjusted_by(mA9, newdata=grid_marg_lae_sweep,
                                      counterfactual_var="UASLAEMaxLRScl",
                                      adjust_var="Area_soundscape2",
                                       re_formula = NULL,
                                       allow_new_levels = TRUE,
                                         sample_new_levels = "gaussian",
                                      ndraws=ndraws_pred, seed=999,
-                                     transform=\(x) betaTransform(x, 0, 10,
-                                                                 direction='reverse',
-                                                                 squeeze='none'))
+                                     transform=transform_Annoy)
 
-mA8_op_fixed_lae <- avg_comparisons_manual(
-  mA8, grid_fixed_lae, variable = "UASOperation", auto_orient=TRUE,
+mA9_op_fixed_lae <- avg_comparisons_manual(
+  mA9, grid_fixed_lae, variable = "UASOperation", auto_orient=TRUE,
   re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm',
+  transform = transform_Annoy
 )
 
-mA8_type_fixed_lae <- avg_comparisons_manual(
-  mA8, grid_fixed_lae, variable = "UASType", auto_orient=TRUE,
+mA9_type_fixed_lae <- avg_comparisons_manual(
+  mA9, grid_fixed_lae, variable = "UASType", auto_orient=TRUE,
   re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm', transform = transform_dAnnoy
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm',
+  transform = transform_Annoy
 )
 
 ```
@@ -2905,12 +3067,12 @@ mA8_type_fixed_lae <- avg_comparisons_manual(
 contrast_vars <- c("Sex", "NationGeo2", "AAM_attitude2", "Home_Area2",
                     "Area_soundscape2")
 
-mA8_between_contrasts <- purrr::map_dfr(contrast_vars, function(v) {
+mA9_between_contrasts <- purrr::map_dfr(contrast_vars, function(v) {
   res <- avg_comparisons_manual(
-    mA8, newdata = grid_marg, variable = v, comparison_type = "pairwise",
+    mA9, newdata = grid_marg, variable = v, comparison_type = "pairwise",
     re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
     ndraws = ndraws_pred, seed=999,
-    transform = \(x) betaTransform(x, 0, 10, direction = 'reverse', squeeze = 'none')
+    transform = transform_Annoy
   )
   res$variable <- v
   gc()
@@ -2928,12 +3090,12 @@ mA8_between_contrasts <- purrr::map_dfr(contrast_vars, function(v) {
 
 slope_vars <- c("AgeScl", "NoiseSensitivityScl")
 
-mA8_covariate_slopes <- purrr::map_dfr(slope_vars, function(v) {
+mA9_covariate_slopes <- purrr::map_dfr(slope_vars, function(v) {
   res <- avg_slopes_manual(
-    mA8, newdata = grid_marg, variable = v,
+    mA9, newdata = grid_marg, variable = v,
     re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
     ndraws = ndraws_pred, seed=999,
-    transform = \(x) betaTransform(x, 0, 10, direction = 'reverse', squeeze = 'none')
+    transform = transform_Annoy
   )
   gc()
   return(res)
@@ -2952,7 +3114,7 @@ mA8_covariate_slopes <- purrr::map_dfr(slope_vars, function(v) {
 ```{r}
 
 
-p1 <- ggplot(data=subset(mA8predType, UASEvents==1)) +
+p1 <- ggplot(data=subset(mA9predType, UASEvents==1)) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
@@ -2977,12 +3139,14 @@ p1 <- ggplot(data=subset(mA8predType, UASEvents==1)) +
               rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
                              stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
               
-              scale_y_continuous(breaks=seq(0, 10, by=1), limits=c(0, 10)) +
+              scale_y_continuous(breaks=seq(0, 10, by=1)) +
+  
+              coord_cartesian(ylim=c(0, 10)) +
               
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean annoyance rating") +
               facet_grid(rows = vars(AmbientEnv))
 
-p2 <- ggplot(data=subset(mA8predOp, UASEvents==1)) +
+p2 <- ggplot(data=subset(mA9predOp, UASEvents==1)) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
@@ -3007,12 +3171,14 @@ p2 <- ggplot(data=subset(mA8predOp, UASEvents==1)) +
               rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
                              stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
               
-              scale_y_continuous(breaks=seq(0, 10, by=1), limits=c(0, 10)) +
+              scale_y_continuous(breaks=seq(0, 10, by=1)) +
+  
+              coord_cartesian(ylim=c(0, 10)) +
               
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean annoyance rating") +
               facet_grid(rows = vars(AmbientEnv))
 
-p3 <- ggplot(data=subset(mA8predEnv, UASEvents==1)) +
+p3 <- ggplot(data=subset(mA9predEnv, UASEvents==1)) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14),
@@ -3040,12 +3206,14 @@ p3 <- ggplot(data=subset(mA8predEnv, UASEvents==1)) +
               rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
                              stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
               
-              scale_y_continuous(breaks=seq(0, 10, by=1), limits=c(0, 10)) +
+              scale_y_continuous(breaks=seq(0, 10, by=1)) +
+  
+              coord_cartesian(ylim=c(0, 10)) +
               
               labs(y="Mean annoyance rating")
 
 
-p4 <- ggplot(data=subset(mA8predEvt, AmbientEnv=='Park' & UASOperation=='Overflight')) +
+p4 <- ggplot(data=subset(mA9predEvt, AmbientEnv=='Park' & UASOperation=='Overflight')) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
@@ -3071,7 +3239,9 @@ p4 <- ggplot(data=subset(mA8predEvt, AmbientEnv=='Park' & UASOperation=='Overfli
               rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
                              stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
               
-              scale_y_continuous(breaks=seq(0, 10, by=1), limits=c(min(0, min(mA8predEvt$conf.low)), 10)) +
+              scale_y_continuous(breaks=seq(0, 10, by=1)) +
+  
+              coord_cartesian(ylim=c(0, 10)) +
               
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean annoyance rating")
 
@@ -3131,7 +3301,7 @@ if (saveplots){
   unlink(paste(filename, ".pdf", sep=""))
 }
 
-p5 <- ggplot(data=subset(mA8predEvt_step, UASOperation=="Overflight" & AmbientEnv=="Park")) +
+p5 <- ggplot(data=subset(mA9predEvt_step, UASOperation=="Overflight" & AmbientEnv=="Park")) +
               theme(panel.grid = element_blank(), aspect.ratio=0.8,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
@@ -3173,7 +3343,9 @@ p5 <- ggplot(data=subset(mA8predEvt_step, UASOperation=="Overflight" & AmbientEn
                      shape=guide_legend(title="UAS type", reverse=FALSE)) +
             
               scale_x_continuous(breaks=c(1, 3, 5, 9), labels=c(1, 3, 5, 9)) +
-              scale_y_continuous(breaks=seq(0, 10, by=1), limits=c(3, 8)) +
+              scale_y_continuous(breaks=seq(0, 10, by=1)) +
+  
+              coord_cartesian(ylim=c(3, 8)) +
               
               labs(x="Number of UAS Overflight events", y="Mean annoyance rating")
 
@@ -3189,7 +3361,7 @@ if (saveplots){
   unlink(paste(filename, ".pdf", sep=""))
 }
 
-p6 <- ggplot(data=mA8predAtt) +
+p6 <- ggplot(data=mA9predAtt) +
               theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
                     panel.grid.minor = element_blank(),
                     aspect.ratio=1.35, text = element_text(family = "serif", size=16),
@@ -3207,11 +3379,13 @@ p6 <- ggplot(data=mA8predAtt) +
             
               rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
                              stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
-              scale_y_continuous(breaks=seq(0, 10, by=1), limits=c(0, 10)) +
+              scale_y_continuous(breaks=seq(0, 10, by=1)) +
+  
+              coord_cartesian(ylim=c(0, 10)) +
               
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean annoyance rating")
 
-p7 <- ggplot(data=mA8predAoR) +
+p7 <- ggplot(data=mA9predAoR) +
               theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
                     panel.grid.minor = element_blank(),
                     aspect.ratio=1.35, text = element_text(family = "serif", size=16),
@@ -3229,12 +3403,14 @@ p7 <- ggplot(data=mA8predAoR) +
             
               rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
                              stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
-              scale_y_continuous(breaks=seq(0, 10, by=1), limits=c(0, 10)) +
+              scale_y_continuous(breaks=seq(0, 10, by=1)) +
+  
+              coord_cartesian(ylim=c(0, 10)) +
               
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean annoyance rating")
 
 
-p8 <- ggplot(data=mA8predScp) +
+p8 <- ggplot(data=mA9predScp) +
               theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
                     panel.grid.minor = element_blank(),
                     aspect.ratio=1.35, text = element_text(family = "serif", size=16),
@@ -3252,7 +3428,9 @@ p8 <- ggplot(data=mA8predScp) +
             
               rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
                              stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
-              scale_y_continuous(breaks=seq(0, 10, by=1), limits=c(0, 10)) +
+              scale_y_continuous(breaks=seq(0, 10, by=1)) +
+  
+              coord_cartesian(ylim=c(0, 10)) +
               
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean annoyance rating")
 
@@ -3277,7 +3455,7 @@ if (saveplots){
 
 ```{r}
 
-p_type <- ggplot(data=mA8_type_fixed_lae,
+p_type <- ggplot(data=mA9_type_fixed_lae,
                            aes(x = contrast, y = estimate, colour=contrast)) +
   theme(panel.grid = element_blank(),
         panel.grid.major.y = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
@@ -3316,7 +3494,7 @@ p_type <- ggplot(data=mA8_type_fixed_lae,
   coord_cartesian(ylim=c(-0.2, 1)) +
   labs(x = NULL, y = expression("Difference in"~bar(Delta*A)))
 
-p_op <- ggplot(data=mA8_op_fixed_lae,
+p_op <- ggplot(data=mA9_op_fixed_lae,
                            aes(x = contrast, y = estimate, colour=contrast)) +
   theme(panel.grid = element_blank(),
         panel.grid.major.y = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
@@ -3377,31 +3555,84 @@ if (saveplots) {
 
 # Forest plot: one row per contrast, point = estimate, whiskers = 95% CI,
 # dashed reference line at zero
-p_between_fac <- ggplot(mA8_between_contrasts, aes(x = estimate,
+p_between_fac <- ggplot(mA9_between_contrasts, aes(x = estimate,
                             y = y_label,
                             colour=variable)) +
   theme(panel.grid = element_blank(),
         text = element_text(family = "serif", size = 16),
         axis.text = element_text(family = "serif", size = 14),
         legend.position = "none") +
+  
+  # Add text annotation next to estimate point
+  geom_text(aes(label = paste("pd:",
+                              ifelse(pd > 0.99, ">0.99",
+                                     sprintf("%.2f",
+                                             round(pd, digits = 2))))),
+            nudge_y = 0.25,      
+            hjust = 0.5,  
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
+  geom_text(aes(label = sprintf("%.2f", round(estimate, digits = 2))),
+            nudge_y = -0.25, 
+            hjust = 0.5,  
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
+  geom_text(aes(label = sprintf("[%.2f, %.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
+            nudge_y = -0.25, 
+            nudge_x = 0.2,
+            hjust = 0,
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
   scale_colour_manual(values = mycolours) +
   guides(colour = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
   geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
   labs(x = expression("Difference in"~bar(A)), y = NULL)
 
-p_between_cov <- ggplot(mA8_covariate_slopes, aes(x = estimate, y = variable, colour = variable)) +
+p_between_cov <- ggplot(mA9_covariate_slopes, aes(x = estimate, y = variable, colour = variable)) +
   theme(panel.grid = element_blank(),
         text = element_text(family = "serif", size = 16),
         axis.text = element_text(family = "serif", size = 14),
         legend.position = "none") +
+  
+  # Add text annotation next to estimate point
+  geom_text(aes(label = paste("pd:",
+                              ifelse(pd > 0.99, ">0.99",
+                                     sprintf("%.2f",
+                                             round(pd, digits = 2))))),
+            nudge_y = 0.1,      
+            hjust = 0.5,  
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
+  geom_text(aes(label = sprintf("%.2f", round(estimate, digits = 2))),
+            nudge_y = -0.1, 
+            hjust = 0.5,  
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
+  geom_text(aes(label = sprintf("[%.2f, %.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
+            nudge_y = -0.1, 
+            nudge_x = 0.02,
+            hjust = 0,
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
   scale_colour_manual(values = mycolours) +
   guides(colour = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
   geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
   labs(x = expression("Slope of"~bar(A)~"per unit increase"), y = NULL)
 
-p_between_fac | p_between_cov + plot_layout(widths = c(2, 1))
+(p_between_fac | p_between_cov) + plot_layout(widths = c(2, 1))
 
 if (saveplots){
   
@@ -3416,6 +3647,523 @@ if (saveplots){
   unlink(paste(filename, ".pdf", sep=""))
 
 }
+
+```
+
+## mA10 ordered beta model for annoyance with modelled variance for AmbientEnv, UASOperation and UASType
+
+### model A10 formula
+
+```{r}
+
+mA10_pop_level <- mA9_pop_level
+
+mA10_grp_level <- mA9_grp_level
+
+mA10_dpar_pop_level <- unique(c(mA9_dpar_pop_level, "UASType"))
+
+mA10_dpar_grp_level <- list(ID = c())
+
+mA10formula <- build_bf(y = "AnnoyanceOrdBetaScl",
+                        fixed = mA10_pop_level,
+                        re = mA10_grp_level,
+                       dpars = list(phi = list(fixed=mA10_dpar_pop_level,
+                                               re = mA10_dpar_grp_level)))
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+tic()
+mA10Priors <- brms::brm(mA10formula,
+                 data=mA8Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsA9, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mA10PriorCheck <- brms::pp_check(mA10Priors, type='dens_overlay', ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+
+mA10PriorCheck + ggplot2::coord_cartesian(ylim=c(0, 5))
+
+tic()
+mA10 <- brms::brm(mA10formula,
+                 data=mA8Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsA9, control=list(adapt_delta=0.95),
+                 threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+                 seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mA10 <- brms::add_criterion(mA10, criterion=c('loo', 'loo_R2'),
+                           cores=n_cores,
+                           reloo=reloo_flag,
+                           overwrite=TRUE,
+                           chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                           backend='cmdstanr',
+                           future_args=list(future.seed=TRUE))
+toc()
+
+mA10$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mA10))
+mA10$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mA10, re_formula=NA))
+mA10$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mA10, re_formula=NULL))
+
+```
+
+### summarise
+
+```{r}
+
+summary(mA10)
+
+```
+
+### posterior check
+
+```{r}
+
+mA10PostCheck <- brms::pp_check(mA10, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA10PostCheck
+
+mA10PostCheckEnv <- brms::pp_check(mA10, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA10PostCheckEnv
+
+mA10PostCheckEvt <- brms::pp_check(mA10, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA10PostCheckEvt
+
+mA10PostCheckType <- brms::pp_check(mA10, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA10PostCheckType
+
+mA10PostCheckOp <- brms::pp_check(mA10, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA10PostCheckOp
+
+brms::pp_check(mA10, type = "stat_grouped", group = "AmbientEnv",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mA10, type = "stat_grouped", group = "UASOperation",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mA10, type = "stat_grouped", group = "UASType",
+               stat ="sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+```
+
+### diagnostics
+
+```{R, fig.width=35, fig.height=35}
+
+# collinearity check
+brms_vif(mA10)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mA10), pars = c("b_UASLAEMaxLRScl",
+                                                           "b_Ilog10UASEvents",
+                                                           "b_UASOperationLanding",
+                                                           "b_UASOperationTakeoff",
+                                                           "b_UASTypeM300",
+                                                           "b_UASTypeT150",
+                                                           "b_AmbientEnvStreet",
+                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
+                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
+                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
+                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
+                                                           "b_AmbientEnvStreet:UASOperationLanding",
+                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
+                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
+                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                               off_diag_args=list(alpha=0.5, size=0.7))
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mA10)
+
+get_Br2_table(mA8, mA9, mA10)
+
+loo::loo_compare(mA8, mA9, mA10, criterion='loo')
+
+```
+
+## mA11 ordered beta model for annoyance with modelled variance for AmbientEnv and UASOperation with group-level variance for AmbientEnv
+
+### model A11 formula
+
+```{r}
+
+mA11_pop_level <- mA9_pop_level
+
+mA11_grp_level <- mA9_grp_level
+
+mA11_dpar_pop_level <- mA9_dpar_pop_level
+
+mA11_dpar_grp_level <- list(ID = c('AmbientEnv'))
+
+mA11formula <- build_bf(y = "AnnoyanceOrdBetaScl",
+                        fixed = mA11_pop_level,
+                        re = mA11_grp_level,
+                       dpars = list(phi = list(fixed=mA11_dpar_pop_level,
+                                               re = mA11_dpar_grp_level)))
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+tic()
+mA11Priors <- brms::brm(mA11formula,
+                 data=mA8Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsA9, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mA11PriorCheck <- brms::pp_check(mA11Priors, type='dens_overlay', ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+
+mA11PriorCheck + ggplot2::coord_cartesian(ylim=c(0, 5))
+
+tic()
+mA11 <- brms::brm(mA11formula,
+                 data=mA8Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsA9, control=list(adapt_delta=0.95),
+                 threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+                 seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mA11 <- brms::add_criterion(mA11, criterion=c('loo', 'loo_R2'),
+                           cores=n_cores,
+                           reloo=reloo_flag,
+                           overwrite=TRUE,
+                           chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                           backend='cmdstanr',
+                           future_args=list(future.seed=TRUE))
+toc()
+
+mA11$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mA11))
+mA11$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mA11, re_formula=NA))
+mA11$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mA11, re_formula=NULL))
+
+```
+
+### summarise
+
+```{r}
+
+summary(mA11)
+
+```
+
+### posterior check
+
+```{r}
+
+mA11PostCheck <- brms::pp_check(mA11, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA11PostCheck
+
+mA11PostCheckEnv <- brms::pp_check(mA11, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA11PostCheckEnv
+
+mA11PostCheckEvt <- brms::pp_check(mA11, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA11PostCheckEvt
+
+mA11PostCheckType <- brms::pp_check(mA11, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA11PostCheckType
+
+mA11PostCheckOp <- brms::pp_check(mA11, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA11PostCheckOp
+
+brms::pp_check(mA11, type = "stat_grouped", group = "AmbientEnv",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mA11, type = "stat_grouped", group = "UASOperation",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mA11, type = "stat_grouped", group = "UASType",
+               stat ="sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+```
+
+### diagnostics
+
+```{R, fig.width=35, fig.height=35}
+
+# collinearity check
+brms_vif(mA11)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mA11), pars = c("b_UASLAEMaxLRScl",
+                                                           "b_Ilog10UASEvents",
+                                                           "b_UASOperationLanding",
+                                                           "b_UASOperationTakeoff",
+                                                           "b_UASTypeM300",
+                                                           "b_UASTypeT150",
+                                                           "b_AmbientEnvStreet",
+                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
+                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
+                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
+                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
+                                                           "b_AmbientEnvStreet:UASOperationLanding",
+                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
+                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
+                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                               off_diag_args=list(alpha=0.5, size=0.7))
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mA11)
+
+get_Br2_table(mA8, mA9, mA10, mA11)
+
+loo::loo_compare(mA8, mA9, mA10, mA11, criterion='loo')
+
+```
+
+
+## mA12 ordered beta model for annoyance with modelled pop-level and group-level variance for AmbientEnv and UASOperation 
+
+### model A12 formula
+
+```{r}
+
+mA12_pop_level <- mA11_pop_level
+
+mA12_grp_level <- mA11_grp_level
+
+mA12_dpar_pop_level <- mA11_dpar_pop_level
+
+mA12_dpar_grp_level <- list(ID = c('AmbientEnv', 'UASOperation'))
+
+mA12formula <- build_bf(y = "AnnoyanceOrdBetaScl",
+                        fixed = mA12_pop_level,
+                        re = mA12_grp_level,
+                       dpars = list(phi = list(fixed=mA12_dpar_pop_level,
+                                               re = mA12_dpar_grp_level)))
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+tic()
+mA12Priors <- brms::brm(mA12formula,
+                 data=mA8Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsA9, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mA12PriorCheck <- brms::pp_check(mA12Priors, type='dens_overlay', ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+
+mA12PriorCheck + ggplot2::coord_cartesian(ylim=c(0, 5))
+
+tic()
+mA12 <- brms::brm(mA12formula,
+                 data=mA8Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsA9, control=list(adapt_delta=0.95),
+                 threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+                 seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mA12 <- brms::add_criterion(mA12, criterion=c('loo', 'loo_R2'),
+                           cores=n_cores,
+                           reloo=reloo_flag,
+                           overwrite=TRUE,
+                           chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                           backend='cmdstanr',
+                           future_args=list(future.seed=TRUE))
+toc()
+
+mA12$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mA12))
+mA12$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mA12, re_formula=NA))
+mA12$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mA12, re_formula=NULL))
+
+```
+
+### summarise
+
+```{r}
+
+summary(mA12)
+
+```
+
+### posterior check
+
+```{r}
+
+mA12PostCheck <- brms::pp_check(mA12, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA12PostCheck
+
+mA12PostCheckEnv <- brms::pp_check(mA12, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA12PostCheckEnv
+
+mA12PostCheckEvt <- brms::pp_check(mA12, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA12PostCheckEvt
+
+mA12PostCheckType <- brms::pp_check(mA12, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA12PostCheckType
+
+mA12PostCheckOp <- brms::pp_check(mA12, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean annoyance rating")
+mA12PostCheckOp
+
+brms::pp_check(mA12, type = "stat_grouped", group = "AmbientEnv",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mA12, type = "stat_grouped", group = "UASOperation",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mA12, type = "stat_grouped", group = "UASType",
+               stat ="sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+```
+
+### diagnostics
+
+```{R, fig.width=35, fig.height=35}
+
+# collinearity check
+brms_vif(mA12)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mA12), pars = c("b_UASLAEMaxLRScl",
+                                                           "b_Ilog10UASEvents",
+                                                           "b_UASOperationLanding",
+                                                           "b_UASOperationTakeoff",
+                                                           "b_UASTypeM300",
+                                                           "b_UASTypeT150",
+                                                           "b_AmbientEnvStreet",
+                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
+                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
+                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
+                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
+                                                           "b_AmbientEnvStreet:UASOperationLanding",
+                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
+                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
+                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                               off_diag_args=list(alpha=0.5, size=0.7))
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mA12)
+
+get_Br2_table(mA8, mA9, mA10, mA11, mA12)
+
+loo::loo_compare(mA8, mA9, mA10, mA11, mA12, criterion='loo')
 
 ```
 
@@ -3440,11 +4188,12 @@ mdA1_grp_level_id <- c()
 mdA1_grp_level <- list(ID = mdA1_grp_level_id,
                      StimID = c())
 
-mdA1_dpar_grp_level <- list(ID = c())
-
 mdA1formula <- build_bf(y = "dAnnoyanceOrd",
                        fixed = mdA1_pop_level,
                        re = mdA1_grp_level)
+
+# extract the data for the model
+mdA1Data <- subjDataNoAmb.med[, all.vars(mdA1formula$formula), drop=FALSE]
 
 ```
 
@@ -3468,9 +4217,6 @@ priorsdA1 <- c(
   brms::prior(normal(0.1, 0.5), class='b', coef='PartTrialNumberScl'),
   brms::prior_string(paste0("normal(", emp_threshdA1,", 16)"), class = "Intercept", coef = 1:length(emp_threshdA1))
 )
-
-# extract the data for the model
-mdA1Data <- subjDataNoAmb.med[, all.vars(mdA1formula$formula), drop=FALSE]
 
 tic()
 mdA1Priors <- brms::brm(mdA1formula,
@@ -5177,25 +5923,1353 @@ if (saveplots){
 
 ```
 
+## mdA8 ordered beta model for dAnnoyance
+
+### model dA8 formula
+
+```{r}
+
+mdA8_pop_level <- mdA7_pop_level
+
+mdA8_grp_level <- mdA7_grp_level
+
+mdA8_dpar_grp_level <- mdA7_dpar_grp_level
+
+mdA8formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                        fixed = mdA8_pop_level,
+                        re = mdA8_grp_level,
+                       dpars = list(phi = list(re = mdA8_dpar_grp_level)))
+
+# extract the data for the model
+mdA8Data <- subjDataNoAmb.med[, all.vars(mdA8formula$formula), drop=FALSE]
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+y_full <- mdA8Data$dAnnoyanceOrdBetaScl
+n0 <- sum(y_full == 0, na.rm = TRUE)
+n1 <- sum(y_full == 1, na.rm = TRUE)
+N  <- sum(!is.na(y_full))
+
+# Haldane-Anscombe Correction to avoid p0 or p1 being exactly 0 or 1, which would lead to infinite logit values
+p0 <- (n0 + 0.5) / (N + 1)
+p1 <- (n1 + 0.5) / (N + 1)
+
+xi_center   <- qlogis(p0)              # solves plogis(xi) = p0 exactly
+coi_center  <- qlogis(1 - p1)          # solves 1 - plogis(xi+kappa) = p1
+kappa_center <- coi_center - xi_center  # must come out positive, given kappa's <lower=0> constraint
+
+y_cont <- na.omit(mdA8Data)$dAnnoyanceOrdBetaScl
+y_cont <- y_cont[y_cont > 0 & y_cont < 1]
+m <- mean(y_cont); v <- stats::var(y_cont)
+phi_center <- log((m * (1 - m)) / v - 1)
+
+priorsdA8 <- c(
+  # mean model
+  brms::set_prior("normal(0, 1)", class='b', dpar='mu'),
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar='mu'),  # half-normal via lb=0
+  brms::prior(normal(0.2, 0.5), class='b', coef='UASLAEMaxLRScl', dpar='mu'),
+  brms::prior(normal(1.5, 1), class='b', coef='Ilog10UASEvents', dpar='mu'),
+  brms::prior(normal(0.1, 0.5), class='b', coef='PartTrialNumberScl', dpar='mu'),
+  brms::set_prior("normal(0, 2.5)", class='Intercept', dpar='mu'),
+
+  # precision model
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar = "phi"),
+  brms::set_prior(sprintf("normal(%.2f, 1)", phi_center), class = "Intercept", dpar = "phi"),
+
+  # cutpoints
+  brms::set_prior(sprintf("normal(%.2f, 1)", kappa_center), class = "kappa"),
+  brms::set_prior(sprintf("normal(%.2f, 1.5)", xi_center), class = "xi")
+)
+
+tic()
+mdA8Priors <- brms::brm(mdA8formula,
+                 data=mdA8Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA8, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA8PriorCheck <- brms::pp_check(mdA8Priors, type='dens_overlay', ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+mdA8PriorCheck + ggplot2::coord_cartesian(ylim=c(0, 5))
+
+tic()
+mdA8 <- brms::brm(mdA8formula,
+                 data=mdA8Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA8, control=list(adapt_delta=0.95),
+                 threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+                 seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA8 <- brms::add_criterion(mdA8, criterion=c('loo', 'loo_R2'),
+                           cores=n_cores,
+                           reloo=reloo_flag,
+                           overwrite=TRUE,
+                           chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                           backend='cmdstanr',
+                           future_args=list(future.seed=TRUE))
+toc()
+
+mdA8$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA8))
+mdA8$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA8, re_formula=NA))
+mdA8$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA8, re_formula=NULL))
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA8)
+
+```
+
+### posterior check
+
+```{r}
+
+mdA8PostCheck <- brms::pp_check(mdA8, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+mdA8PostCheck
+
+mdA8PostCheckEnv <- brms::pp_check(mdA8, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+mdA8PostCheckEnv
+
+mdA8PostCheckEvt <- brms::pp_check(mdA8, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+mdA8PostCheckEvt
+
+mdA8PostCheckType <- brms::pp_check(mdA8, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+mdA8PostCheckType
+
+mdA8PostCheckOp <- brms::pp_check(mdA8, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+mdA8PostCheckOp
+
+brms::pp_check(mdA8, type = "stat_grouped", group = "AmbientEnv",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA8, type = "stat_grouped", group = "UASOperation",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA8, type = "stat_grouped", group = "UASType",
+               stat ="sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+```
+
+### diagnostics
+
+```{R, fig.width=35, fig.height=35}
+
+# collinearity check
+brms_vif(mdA8)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA8), pars = c("b_UASLAEMaxLRScl",
+                                                           "b_Ilog10UASEvents",
+                                                           "b_UASOperationLanding",
+                                                           "b_UASOperationTakeoff",
+                                                           "b_UASTypeM300",
+                                                           "b_UASTypeT150",
+                                                           "b_AmbientEnvStreet",
+                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
+                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
+                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
+                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
+                                                           "b_AmbientEnvStreet:UASOperationLanding",
+                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
+                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
+                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                               off_diag_args=list(alpha=0.5, size=0.7))
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA8)
+
+get_Br2_table(mdA8)
+
+```
+
+## mdA9 ordered beta model for dAnnoyance with modelled variance for AmbientEnv and UASOperation
+
+### model dA9 formula
+
+```{r}
+
+mdA9_pop_level <- mdA8_pop_level
+
+mdA9_grp_level <- mdA8_grp_level
+
+mdA9_dpar_pop_level <- c("AmbientEnv", "UASOperation")
+
+mdA9_dpar_grp_level <- list(ID = c())
+
+mdA9formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                        fixed = mdA9_pop_level,
+                        re = mdA9_grp_level,
+                       dpars = list(phi = list(fixed=mdA9_dpar_pop_level,
+                                               re = mdA9_dpar_grp_level)))
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priorsdA9 <- c(priorsdA8,
+  # precision model
+  brms::set_prior("normal(0, 1)", class = "b", dpar = "phi")
+)
+
+tic()
+mdA9Priors <- brms::brm(mdA9formula,
+                 data=mdA8Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA9, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA9PriorCheck <- brms::pp_check(mdA9Priors, type='dens_overlay', ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+mdA9PriorCheck + ggplot2::coord_cartesian(ylim=c(0, 5))
+
+tic()
+mdA9 <- brms::brm(mdA9formula,
+                 data=mdA8Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA9, control=list(adapt_delta=0.95),
+                 threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+                 seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA9 <- brms::add_criterion(mdA9, criterion=c('loo', 'loo_R2'),
+                           cores=n_cores,
+                           reloo=reloo_flag,
+                           overwrite=TRUE,
+                           chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                           backend='cmdstanr',
+                           future_args=list(future.seed=TRUE))
+toc()
+
+mdA9$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA9))
+mdA9$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA9, re_formula=NA))
+mdA9$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA9, re_formula=NULL))
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA9)
+
+```
+
+### posterior check
+
+```{r}
+
+mdA9PostCheck <- brms::pp_check(mdA9, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+mdA9PostCheck
+
+mdA9PostCheckEnv <- brms::pp_check(mdA9, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+mdA9PostCheckEnv
+
+mdA9PostCheckEvt <- brms::pp_check(mdA9, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+mdA9PostCheckEvt
+
+mdA9PostCheckType <- brms::pp_check(mdA9, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+mdA9PostCheckType
+
+mdA9PostCheckOp <- brms::pp_check(mdA9, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+mdA9PostCheckOp
+
+brms::pp_check(mdA9, type = "stat_grouped", group = "AmbientEnv",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA9, type = "stat_grouped", group = "UASOperation",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA9, type = "stat_grouped", group = "UASType",
+               stat ="sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA9)
+
+get_Br2_table(mdA8, mdA9)
+
+loo::loo_compare(mdA8, mdA9, criterion='loo')
+
+```
+
+### plot calibration
+
+```{r}
+
+# create base datagrid
+mdA9DataFit <- insight::get_data(mdA9)
+
+set.seed(999)
+mdA9predMeans <- marginaleffects::avg_predictions(mdA9, na.omit(mdA9DataFit),
+                                                  by=c("StimID"),
+                                                re_formula = NULL,
+                                                transform=\(x) betaTransform(x, -10, 10,
+                                                                             direction='reverse',
+                                                                             squeeze='none')) |>
+  dplyr::arrange(StimID)
+
+gc()
+
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyMean - mdA9predMeans$estimate)^2)/sum((stimDataNoAmb$dAnnoyMean - mean(stimDataNoAmb$dAnnoyMean))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=mdA9predMeans,
+                     measured_target='dAnnoyMean', measured_ci_low='dAnnoyMeanCI_Low',
+                     measured_ci_high='dAnnoyMeanCI_High', fitted='estimate')
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=cbind(mdA9predMeans,
+                  response=stimDataNoAmb$dAnnoyMean,
+                  responseCI_Low=stimDataNoAmb$dAnnoyMeanCI_Low,
+                  responseCI_High=stimDataNoAmb$dAnnoyMeanCI_High)) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  geom_point(mapping=aes(x=response, y=estimate), size=1.75, shape=4, stroke=0.75, colour=mycolours[1], alpha=0.5) +
+
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate), width=0, colour=mycolours[1], alpha=0.1) +
+  
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=conf.low, ymax=conf.high), width=0, colour=mycolours[1], alpha=0.1) +
+
+  scale_x_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
+  scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
+  
+  labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance") +
+  
+  ggplot2::annotate("text", x=0.1, y=6.75, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=0.1, y=6, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = 0.1, y = 5.25, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
+
+if (saveplots){
+  
+  filename <- "PtsABdAnnoyMn_ExpMod_Cal_brmsOb"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4.5, height=4.5,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4.5, height=4.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
+### visualise posterior draws for population level effects
+
+```{R, fig.width=8, fig.height=6}
+
+mdA9_bCI_range <- bayestestR::hdi(mdA9, ci = c(0.5, 0.89, 0.95))
+
+# plot spi for within-subjects factors only
+mdA9_bCI_wsf <- mdA9_bCI_range |>
+  dplyr::filter(Parameter %in% c("b_UASTypeM300", 
+                                 "b_UASTypeT150",
+                                 "b_UASOperationLanding",
+                                 "b_UASOperationTakeoff",
+                                 "b_AmbientEnvStreet"))
+p_mdA9_bCI_wsf <- plot(mdA9_bCI_wsf, show_intercept=F) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
+  scale_fill_manual(values=mycolours) +
+  labs(title="Within-subjects factors",
+       x="Coefficient posterior distribution",
+       y=NULL)
+
+# plot spi for within-subjects factor interactions only
+mdA9_bCI_wsfi <- mdA9_bCI_range |>
+  dplyr::filter(Parameter %in% c("b_AmbientEnvStreet:UASOperationLanding",
+                                 "b_AmbientEnvStreet:UASOperationTakeoff"))
+
+p_mdA9_bCI_wsfi <- plot(mdA9_bCI_wsfi, show_intercept=F) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
+  scale_fill_manual(values=mycolours) +
+  labs(title="Within-subjects factor interactions",
+       x="Coefficient posterior distribution",
+       y=NULL)
+
+# plot spi for within-subjects covariates only
+mdA9_bCI_wsc <- mdA9_bCI_range |>
+  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_PartTrialNumberScl"))
+p_mdA9_bCI_wsc <- plot(mdA9_bCI_wsc, show_intercept=F) +
+    theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
+  scale_fill_manual(values=mycolours) +
+  labs(title="Within-subjects covariates",
+       x="Coefficient posterior distribution",
+       y=NULL)
+
+# plot spi for within-subjects covariate-factor interactions only
+mdA9_bCI_wscfi <- mdA9_bCI_range |>
+  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl:Ilog10UASEvents",
+                                 "b_UASLAEMaxLRScl:AmbientEnvStreet",
+                                 "b_UASLAEMaxLRScl:UASOperationLanding",
+                                 "b_UASLAEMaxLRScl:UASOperationTakeoff",
+                                 "b_UASLAEMaxLRScl:UASTypeM300",
+                                 "b_UASLAEMaxLRScl:UASTypeT150",
+                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
+                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff",
+                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeM300",
+                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeT150"))
+
+p_mdA9_bCI_wscfi <- plot(mdA9_bCI_wscfi, show_intercept=F) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
+  scale_fill_manual(values=mycolours) +
+  labs(title="Within-subjects covariate-factor interactions",
+       x="Coefficient posterior distribution",
+       y=NULL)
+
+# plot spi for between-subjects factors only
+mdA9_bCI_bsf <- mdA9_bCI_range |>
+  dplyr::filter(Parameter %in% c("b_NationGeo2UK", "b_AAM_attitude2Ambiv_Concern_Neutral",
+                                 "b_Home_Area2Urban", "b_SexMale", 
+                                 "b_Area_soundscape2Unpleasant"))
+p_mdA9_bCI_bsf <- plot(mdA9_bCI_bsf, show_intercept=F) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
+  scale_fill_manual(values=mycolours) +
+  labs(title="Between-subjects factors",
+       x="Coefficient posterior distribution",
+       y=NULL)
+
+# plot spi for between-subjects covariates only
+mdA9_bCI_bsc <- mdA9_bCI_range |>
+  dplyr::filter(Parameter %in% c("b_AgeScl", "b_NoiseSensitivityScl"))
+
+p_mdA9_bCI_bsc <- plot(mdA9_bCI_bsc, show_intercept=F) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
+  scale_fill_manual(values=mycolours) +
+  labs(title="Between-subjects covariates",
+       x="Coefficient posterior distribution",
+       y=NULL)
 
 
+(p_mdA9_bCI_wsf | p_mdA9_bCI_wsfi | p_mdA9_bCI_wsc) / (p_mdA9_bCI_wscfi | p_mdA9_bCI_bsf | p_mdA9_bCI_bsc)
+
+if (saveplots) {
+  
+  filename <- "PtsABAnnoyMn_ExpMod_CI_brmsOb"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=24, height=12,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=24, height=12, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
+### visualise posterior distributions of group level effects
+
+```{r}
+
+mdA9_sd_draws <- as.data.frame(mdA9) |>
+    dplyr::select(starts_with("sd_")) |>
+    tidyr::pivot_longer(cols = everything(), names_to = "Parameter", values_to = "Value") |>
+    dplyr::mutate(Parameter = gsub("sd_", "", Parameter)) |>  # Clean up label names
+    dplyr::group_by(Parameter) |>
+    dplyr::mutate(RelValue = Value / stats::median(Value)) |>
+    dplyr::ungroup()
+
+# 2. Plot using ridges with a shared x-axis and normalized curve heights
+p_sd <- ggplot(mdA9_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
+     theme(legend.position = "none",
+            panel.grid.major.y = element_blank(),
+            text = element_text(family = "serif", size=16)) +
+    # stat_density_ridges normalizes the peak height of each curve individually
+    ggridges::stat_density_ridges(aes(height = after_stat(density)), 
+                        geom = "density_ridges", 
+                        alpha = 1, 
+                        scale = 1.1) + # Controls how much curves can overlap vertically
+    # Adds the 50%, 89% and 95% credible intervals right beneath each curve
+    tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1), 
+                       .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+    # scale_fill_manual(values = mycolours) +
+    labs(x = "Estimated variation (sd scale)",
+         y = "Group parameter")
+
+p_sd_rel <- ggplot(mdA9_sd_draws, aes(x = RelValue, y = Parameter, fill = Parameter)) +
+  theme(legend.position = "none", panel.grid.major.y = element_blank(),
+        text = element_text(family = "serif", size = 16)) +
+  geom_vline(xintercept = 1, linetype = "dashed", colour = "grey50") +
+  ggridges::stat_density_ridges(aes(height = after_stat(density)),
+                                 geom = "density_ridges",
+                                alpha = 1, scale = 0.9) +
+  tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1),
+                                 .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+  # scale_fill_manual(values = mycolours) +
+  labs(x = "Median-normalised\n(relative estimation uncertainty)",
+       y = "Group parameter")
+
+p_sd | (p_sd_rel + theme(axis.title.y = element_blank(), axis.text.y = element_blank()))
 
 
+if (saveplots){
+  
+  filename <- "PtsABdAnnoyMn_ExpMod_SD_brmsOb"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=12,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=12, height=12, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
+### set up marginal grids
+
+```{r}
+
+within_vars_all  <- c("AmbientEnv", "UASType", "UASOperation",
+                       "UASLAEMaxLRScl", "UASEvents")
+between_vars_all <- c("NationGeo2", "AAM_attitude2", "Home_Area2", "AgeScl", "Sex",
+                       "NoiseSensitivityScl", "Area_soundscape2")
+
+transform_dAnnoy <- \(x) betaTransform(x, -10, 10, direction = 'reverse', squeeze = 'none')
+
+# ---- full grids -------------------------------------------
+ 
+# grid_marg: LAE varies naturally with each real design cell
+grid_marg <- build_marginal_grid(
+  mdA9, within_vars = within_vars_all, between_vars = between_vars_all,
+  id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
+  n_new = nnew_pred, fixed_at_mean = "PartTrialNumberScl"
+)
 
 
+lae_sweep <- seq(min(stimDataNoAmb$UASLAEMaxLRScl), max(stimDataNoAmb$UASLAEMaxLRScl), length.out = 11)
+
+grid_marg_lae_sweep <- build_marginal_grid(
+  mdA9, within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"), between_vars = between_vars_all,
+  id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
+  n_new = nnew_pred, fixed_at_mean = "PartTrialNumberScl",
+  counterfactual_vars=list(UASLAEMaxLRScl=lae_sweep)
+)
+
+grid_evts_lae_sweep <- subset(grid_marg_lae_sweep,
+                        UASOperation == "Overflight" &
+                        AmbientEnv == "Park")
+
+lae_step <- c(6, 12)
+grid_marg_lae_step <- build_marginal_grid(
+  mdA9, within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"), between_vars = between_vars_all,
+  id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
+  n_new = nnew_pred, fixed_at_mean = "PartTrialNumberScl",
+  counterfactual_vars=list(UASLAEMaxLRScl=lae_step)
+)
+
+grid_evts_lae_step <- subset(grid_marg_lae_step,
+                        UASOperation == "Overflight" &
+                        AmbientEnv == "Park")
+
+# grid_fixed_lae: LAE held at its mean
+grid_fixed_lae <- build_marginal_grid(
+  mdA9,
+  within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"),
+  between_vars = between_vars_all,
+  id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
+  n_new = nnew_pred, fixed_at_mean = c("PartTrialNumberScl", "UASLAEMaxLRScl")
+)
+
+```
+
+### analyse within subjects predictions
+
+```{r}
+
+mdA9predType <- avg_predictions_manual(mdA9, newdata=subset(grid_marg_lae_sweep,
+                                                         UASEvents==1),
+                                              by=c("UASLAEMaxLRScl",
+                                                   "UASType",
+                                                   "AmbientEnv",
+                                                   "UASEvents"),
+                                          re_formula = NULL,
+                                          allow_new_levels = TRUE,
+                                            sample_new_levels = "gaussian",
+                                           ndraws=ndraws_pred, seed=999,
+                                            transform=transform_dAnnoy)
+
+mdA9predOp <- avg_predictions_manual(mdA9, newdata=subset(grid_marg_lae_sweep,
+                                                        UASEvents==1),
+                                                by=c("UASLAEMaxLRScl",
+                                                     "UASOperation",
+                                                     "AmbientEnv",
+                                                     "UASEvents"),
+                                              re_formula = NULL,
+                                              allow_new_levels = TRUE,
+                                                sample_new_levels = "gaussian",
+                                               ndraws=ndraws_pred, seed=999,
+                                              transform=transform_dAnnoy)
+
+mdA9predEnv <- avg_predictions_manual(mdA9, newdata=subset(grid_marg_lae_sweep,
+                                                      UASEvents==1),
+                                              by=c("UASLAEMaxLRScl",
+                                                   "AmbientEnv",
+                                                   "UASEvents"),
+                                            re_formula = NULL,
+                                            allow_new_levels = TRUE,
+                                              sample_new_levels = "gaussian",
+                                             ndraws=ndraws_pred, seed=999,
+                                            transform=transform_dAnnoy)
 
 
+mdA9predEvt <- avg_predictions_manual(mdA9, newdata=subset(grid_marg_lae_sweep,
+                                                         AmbientEnv=="Park" &
+                                                         UASOperation=="Overflight"),
+                                    by=c("UASLAEMaxLRScl",
+                                         "AmbientEnv",
+                                         "UASEvents",
+                                         "UASOperation"),
+                                      re_formula = NULL,
+                                      allow_new_levels = TRUE,
+                                        sample_new_levels = "gaussian",
+                                       ndraws=ndraws_pred, seed=999,
+                                  transform=transform_dAnnoy)
+
+mdA9predEvt_step <- avg_predictions_manual(mdA9, newdata=subset(grid_marg_lae_step,
+                                                              AmbientEnv=="Park" &
+                                                              UASOperation=="Overflight" &
+                                                                UASType %in% c("H520", "T150")),
+                                          by=c("UASLAEMaxLRScl",
+                                               "AmbientEnv",
+                                               "UASEvents",
+                                               "UASOperation"),
+                                          re_formula = NULL,
+                                          allow_new_levels = TRUE,
+                                            sample_new_levels = "gaussian",
+                                           ndraws=ndraws_pred, seed=999,
+                                        transform=transform_dAnnoy)
+
+mdA9predAtt <- avg_predictions_adjusted_by(mdA9, newdata=grid_marg_lae_sweep,
+                                     counterfactual_var="UASLAEMaxLRScl",
+                                     adjust_var="AAM_attitude2",
+                                      re_formula = NULL,
+                                      allow_new_levels = TRUE,
+                                        sample_new_levels = "gaussian",
+                                       ndraws=ndraws_pred, seed=999,
+                                     transform=transform_dAnnoy)
+
+mdA9predAoR <- avg_predictions_adjusted_by(mdA9, newdata=grid_marg_lae_sweep,
+                                     counterfactual_var="UASLAEMaxLRScl",
+                                        adjust_var="Home_Area2",
+                                      re_formula = NULL,
+                                      allow_new_levels = TRUE,
+                                        sample_new_levels = "gaussian",
+                                       ndraws=ndraws_pred, seed=999,
+                                     transform=transform_dAnnoy)
+
+mdA9predScp <- avg_predictions_adjusted_by(mdA9, newdata=grid_marg_lae_sweep,
+                                     counterfactual_var="UASLAEMaxLRScl",
+                                     adjust_var="Area_soundscape2",
+                                      re_formula = NULL,
+                                      allow_new_levels = TRUE,
+                                        sample_new_levels = "gaussian",
+                                     ndraws=ndraws_pred, seed=999,
+                                     transform=transform_dAnnoy)
+
+mdA9_op_fixed_lae <- avg_comparisons_manual(
+  mdA9, grid_fixed_lae, variable = "UASOperation", auto_orient=TRUE,
+  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm',
+  transform = transform_dAnnoy
+)
+
+mdA9_type_fixed_lae <- avg_comparisons_manual(
+  mdA9, grid_fixed_lae, variable = "UASType", auto_orient=TRUE,
+  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm',
+  transform = transform_dAnnoy
+)
+
+```
+
+### analyse between-subjects contrasts
+
+```{r}
+
+# contrast analysis for between-subjects variables
+
+contrast_vars <- c("Sex", "NationGeo2", "AAM_attitude2", "Home_Area2",
+                    "Area_soundscape2")
+
+mdA9_between_contrasts <- purrr::map_dfr(contrast_vars, function(v) {
+  res <- avg_comparisons_manual(
+    mdA9, newdata = grid_marg, variable = v, comparison_type = "pairwise",
+    re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+    ndraws = ndraws_pred, seed=999,
+    transform = transform_dAnnoy
+  )
+  res$variable <- v
+  gc()
+  return(res)
+}) |>
+  as.data.frame() |>
+  mutate(
+    variable = factor(variable, levels = rev(contrast_vars)),
+    # Create the text label string
+    y_label = paste(variable, contrast, sep = ": "),
+    
+    # Reorder the y-axis labels using the underlying numeric levels of 'variable'
+    y_label = fct_reorder(y_label, as.numeric(variable))
+  )
+
+slope_vars <- c("AgeScl", "NoiseSensitivityScl")
+
+mdA9_covariate_slopes <- purrr::map_dfr(slope_vars, function(v) {
+  res <- avg_slopes_manual(
+    mdA9, newdata = grid_marg, variable = v,
+    re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+    ndraws = ndraws_pred, seed=999,
+    transform = transform_dAnnoy
+  )
+  gc()
+  return(res)
+}) |>
+  as.data.frame() |>
+  mutate(
+    variable = factor(variable, levels = rev(slope_vars))
+  )
+
+```
+
+### plot predictions
+
+#### within-subjects counterfactual predictions
+
+```{r}
 
 
+p1 <- ggplot(data=subset(mdA9predType, UASEvents==1)) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35,
+                    text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_point(data=subset(stimDataNoAmb, UASEvents==1),
+                         aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
+                             colour=UASType, shape=UASType),
+                         alpha=0.35, size=2) +
+              
+              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=UASType),
+                          alpha=0.15) +
+              
+              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=UASType), linewidth=1) +
+              
+              scale_color_viridis(option='plasma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_fill_viridis(option='plasma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_shape_manual(values=c(10, 11, 12)) +
+              
+              guides(colour=guide_legend(title="UAS type", reverse=FALSE),
+                     fill=guide_legend(title="UAS type", reverse=FALSE),
+                     shape=guide_legend(title="UAS type", reverse=FALSE)) +
+            
+              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              
+              scale_y_continuous(breaks=seq(-10, 10, by=1)) +
+  
+              coord_cartesian(ylim=c(-2, 8)) +
+              
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance") +
+              facet_grid(rows = vars(AmbientEnv))
+
+p2 <- ggplot(data=subset(mdA9predOp, UASEvents==1)) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35,
+                    text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_point(data=subset(stimDataNoAmb, UASEvents==1),
+                         aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
+                             colour=UASOperation, shape=UASOperation),
+                         alpha=0.35, size=2) +
+              
+              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=UASOperation),
+                          alpha=0.15) +
+              
+              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=UASOperation), linewidth=1) +
+              
+              scale_color_viridis(option='mako', discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_fill_viridis(option='mako', discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_shape_manual(values=c(9, 6, 2)) +
+              
+              guides(colour=guide_legend(title="UAS operation", reverse=TRUE),
+                     fill=guide_legend(title="UAS operation", reverse=TRUE),
+                     shape=guide_legend(title="UAS operation", reverse=TRUE)) +
+              
+              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              
+              scale_y_continuous(breaks=seq(-10, 10, by=1)) +
+  
+              coord_cartesian(ylim=c(-2, 8)) +
+              
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance") +
+              facet_grid(rows = vars(AmbientEnv))
+
+p3 <- ggplot(data=subset(mdA9predEnv, UASEvents==1)) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35,
+                    text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14),
+                    axis.title.x=element_blank(),
+                    axis.text.x=element_blank(),
+                    axis.ticks.x=element_blank()) +
+              
+              geom_point(data=subset(stimDataNoAmb, UASEvents==1),
+                         aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
+                             colour=AmbientEnv, shape=AmbientEnv),
+                         alpha=0.35, size=2) +
+              
+              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=AmbientEnv),
+                          alpha=0.15) +
+              
+              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=AmbientEnv), linewidth=1) +
+              
+              scale_color_viridis(option='magma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.7) +
+              scale_fill_viridis(option='magma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.7) +
+              scale_shape_manual(values=c(1, 3)) +
+              
+              guides(colour=guide_legend(title="Amb. env.", reverse=FALSE),
+                     fill=guide_legend(title="Amb. env.", reverse=FALSE),
+                     shape=guide_legend(title="Amb. env.", reverse=FALSE)) +
+            
+              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              
+              scale_y_continuous(breaks=seq(-10, 10, by=1)) +
+  
+              coord_cartesian(ylim=c(-2, 8)) +
+              
+              labs(y="Mean change in annoyance")
 
 
+p4 <- ggplot(data=subset(mdA9predEvt, AmbientEnv=='Park' & UASOperation=='Overflight')) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35,
+                    text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_point(data=subset(stimDataNoAmb, AmbientEnv=='Park' & UASOperation=='Overflight'),
+                         aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
+                             colour=factor(UASEvents), shape=factor(UASEvents)),
+                         alpha=0.55, size=2) +
+              
+              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=factor(UASEvents)),
+                          alpha=0.15) +
+              
+              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=factor(UASEvents)), linewidth=1) +
+              
+              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8) +
+              scale_shape_manual(values=c(4, 5, 7, 8)) +
+              
+              guides(colour=guide_legend(title="UAS events", reverse=TRUE),
+                     fill=guide_legend(title="UAS events", reverse=TRUE),
+                     shape=guide_legend(title="UAS events", reverse=TRUE)) +
+            
+              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              
+              scale_y_continuous(breaks=seq(-10, 10, by=1)) +
+  
+              coord_cartesian(ylim=c(-2, 8)) +
+              
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
+
+(p1 | p2) + (p3 / p4)
+
+filename <- "PtsABdAnnoyMn_ExpMod_brmsOb"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=15, height=8,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=15, height=8, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+# add faint dashed grey major grid lines to p1, p2, p3, p4 and remove minor grid lines and point data
+p1b <- p1 + theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+                  panel.grid.minor = element_blank())
+p1b <- gginnards::delete_layers(p1b, "GeomPoint")
+p2b <- p2 + theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+                 panel.grid.minor = element_blank())
+p2b <- gginnards::delete_layers(p2b, "GeomPoint")
+p3b <- p3 + theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+                 panel.grid.minor = element_blank())
+p3b <- gginnards::delete_layers(p3b, "GeomPoint")
+p4b <- p4 + theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+                 panel.grid.minor = element_blank())
+p4b <- gginnards::delete_layers(p4b, "GeomPoint")
+
+(p1b | p2b) + (p3b / p4b)
+
+filename <- "PtsABdAnnoyMn_ExpModGrid_brmsOb"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=15, height=8,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=15, height=8, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+p3c <- p3 + theme(axis.title.x=element_text(family = "serif", size=14),
+                  axis.text.x=element_text(family = "serif", size=14),
+                  axis.ticks.x=element_line(colour="black", linewidth=1)) + 
+        labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)))
+
+filename <- "PtsABdAnnoyMn_ExpModEnv_brmsOb"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=5, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=5, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+p5 <- ggplot(data=subset(mdA9predEvt_step, UASOperation=="Overflight" & AmbientEnv=="Park")) +
+              theme(panel.grid = element_blank(), aspect.ratio=0.8,
+                    text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_point(data=subset(stimDataNoAmb, AmbientEnv=='Park' &
+                                       UASOperation=='Overflight' & SessionPart=='B'),
+                         aes(x=UASEvents, y=dAnnoyMean,
+                             colour=UASLAEMaxLR, shape=UASType),
+                         alpha=0.35, size=2) +
+  
+              scale_color_viridis(option='inferno', direction=1, discrete=FALSE, begin = 0.2, end = 0.8,
+                                  breaks=c(73, 79)) +
+              
+              guides(colour=guide_legend(title=expression(paste(UAS~italic(L)[AE]~","~dB)), reverse=TRUE)) +
+  
+              ggnewscale::new_scale_color() +
+  
+              geom_ribbon(aes(x=UASEvents, ymin=conf.low, ymax=conf.high, fill=factor(UASLAEMaxLRScl)),
+                          alpha=0.05) +
+  
+              geom_line(aes(x=UASEvents, y=estimate, colour=factor(UASLAEMaxLRScl)), linewidth=1, alpha=0.5) +
+
+              scale_color_viridis(option='inferno', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
+                                   labels=function(x) format(round(as.numeric(x) +
+                                                                   mean(stimDataNoAmb$UASLAEMaxLR) -
+                                                                   mean(stimDataNoAmb$UASLAEMaxLRScl),
+                                                                   0),
+                                                             nsmall = 0)) +
+              scale_fill_viridis(option='inferno', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
+                                   labels=function(x) format(round(as.numeric(x) +
+                                                                   mean(stimDataNoAmb$UASLAEMaxLR) -
+                                                                   mean(stimDataNoAmb$UASLAEMaxLRScl),
+                                                                   0),
+                                                             nsmall = 0)) +
+              scale_shape_manual(values=c(10, 11, 12)) +
+              
+              guides(colour=guide_legend(title=expression(paste(UAS~italic(L)[AE]~","~dB)), reverse=TRUE),
+                     fill=guide_legend(title=expression(paste(UAS~italic(L)[AE]~","~dB)), reverse=TRUE),
+                     shape=guide_legend(title="UAS type", reverse=FALSE)) +
+            
+              scale_x_continuous(breaks=c(1, 3, 5, 9), labels=c(1, 3, 5, 9)) +
+              scale_y_continuous(breaks=seq(-10, 10, by=1)) +
+  
+              coord_cartesian(ylim=c(2, 7)) +
+              
+              labs(x="Number of UAS Overflight events", y="Mean change in annoyance")
+
+p5
+
+filename <- "PtsABdAnnoyMn_ExpMod_EvtComp_brmsOb"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=6, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=6, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+p6 <- ggplot(data=mdA9predAtt) +
+              theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+                    panel.grid.minor = element_blank(),
+                    aspect.ratio=1.35, text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=AAM_attitude2), alpha=0.15) +
+              
+              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=AAM_attitude2), linewidth=1) +
+              
+              scale_color_viridis(option='rocket', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              scale_fill_viridis(option='rocket', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              
+              guides(colour=guide_legend(title="AAM attitude", reverse=TRUE),
+                     fill=guide_legend(title="AAM attitude", reverse=TRUE)) +
+            
+              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_y_continuous(breaks=seq(-10, 10, by=1)) +
+  
+              coord_cartesian(ylim=c(-2, 8)) +
+              
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
+
+p7 <- ggplot(data=mdA9predAoR) +
+              theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+                    panel.grid.minor = element_blank(),
+                    aspect.ratio=1.35, text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=Home_Area2), alpha=0.15) +
+              
+              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=Home_Area2), linewidth=1) +
+              
+              scale_color_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              scale_fill_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              
+              guides(colour=guide_legend(title="Area of residence", reverse=FALSE),
+                     fill=guide_legend(title="Area of residence", reverse=FALSE)) +
+            
+              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_y_continuous(breaks=seq(-10, 10, by=1)) +
+  
+              coord_cartesian(ylim=c(-2, 8)) +
+              
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
 
 
+p8 <- ggplot(data=mdA9predScp) +
+              theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+                    panel.grid.minor = element_blank(),
+                    aspect.ratio=1.35, text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=Area_soundscape2), alpha=0.15) +
+              
+              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=Area_soundscape2), linewidth=1) +
+              
+              scale_color_viridis(option='turbo', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              scale_fill_viridis(option='turbo', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
+              
+              guides(colour=guide_legend(title="Soundscape at residence", reverse=FALSE),
+                     fill=guide_legend(title="Soundscape at residence", reverse=FALSE)) +
+            
+              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_y_continuous(breaks=seq(-10, 10, by=1)) +
+  
+              coord_cartesian(ylim=c(-2, 8)) +
+              
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
 
 
+p6 + p7 + p8
+
+filename <- "PtsABdAnnoyMn_ExpMod_AttAoRScp_brmsOb"
+
+if (saveplots){
+  ggsave(filename=paste(filename, ".svg", sep=""), width=15, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=15, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
 
 
+```
 
+#### within-subjects contrasts
+
+```{r}
+
+p_type <- ggplot(data=mdA9_type_fixed_lae,
+                           aes(x = contrast, y = estimate, colour=contrast)) +
+  theme(panel.grid = element_blank(),
+        panel.grid.major.y = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+        text = element_text(family = "serif", size = 16),
+        axis.text = element_text(family = "serif", size = 12)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = alpha("grey65", alpha=0.75)) +
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
+  # Add text annotation next to estimate point
+  geom_text(aes(label = paste("pd:",
+                              ifelse(pd > 0.99, ">0.99",
+                                     sprintf("%.2f",
+                                             round(pd, digits = 2))))),
+            nudge_x = 0.15,      # Shifts text slightly to the right of the point
+            hjust = 0,           # Left-aligns text relative to the nudge position
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
+  geom_text(aes(label = sprintf("%.2f", round(estimate, digits = 2))),
+            nudge_x = -0.325,      # Shifts text slightly to the right of the point
+            hjust = 0,           # Left-aligns text relative to the nudge position
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
+  geom_text(aes(label = sprintf("[%.2f,\n%.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
+            nudge_x = -0.075,     # Kept on the left side alongside the estimate
+            nudge_y = -0.125,    # Slightly offset downward so it sits underneath the estimate
+            hjust = 1,
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
+  scale_colour_manual(values = mycolours) +
+  guides(colour = "none") +
+  coord_cartesian(ylim=c(-0.2, 1)) +
+  labs(x = NULL, y = expression("Difference in"~bar(Delta*A)))
+
+p_op <- ggplot(data=mdA9_op_fixed_lae,
+                           aes(x = contrast, y = estimate, colour=contrast)) +
+  theme(panel.grid = element_blank(),
+        panel.grid.major.y = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+        text = element_text(family = "serif", size = 16),
+        axis.text = element_text(family = "serif", size = 12)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = alpha("grey65", alpha=0.75)) +
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
+  # Add text annotation next to estimate point
+  geom_text(aes(label = paste("pd:",
+                              ifelse(pd > 0.99, ">0.99",
+                                     sprintf("%.2f", round(pd, digits = 2))))),
+            nudge_x = 0.1,      # Shifts text slightly to the right of the point
+            hjust = 0,           # Left-aligns text relative to the nudge position
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
+  geom_text(aes(label = sprintf("%.2f", round(estimate, digits = 2))),
+            nudge_x = -0.25,      # Shifts text slightly to the right of the point
+            hjust = 0,           # Left-aligns text relative to the nudge position
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+
+  geom_text(aes(label = sprintf("[%.2f,\n%.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
+            nudge_x = -0.05,     # Kept on the left side alongside the estimate
+            nudge_y = -0.125,    # Slightly offset downward so it sits underneath the estimate
+            hjust = 1,
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
+  scale_colour_manual(values = mycolours) +
+  guides(colour = "none") +
+  coord_cartesian(ylim=c(-0.2, 1)) +
+  labs(x = NULL, y = expression("Difference in"~bar(Delta*A)))
+
+(p_type | p_op) + patchwork::plot_layout(axis_titles='collect', axes='collect_y', widths=c(1.5, 2))
+
+if (saveplots) {
+  
+  filename <- "PtsABdAnnoyMn_ExpMod_OpType_brmsOb"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=10, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=10, height=4,
+         path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+
+}
+
+```
+
+#### between-subjects contrasts and covariate slopes
+
+```{r}
+
+# Forest plot: one row per contrast, point = estimate, whiskers = 95% CI,
+# dashed reference line at zero
+p_between_fac <- ggplot(mdA9_between_contrasts, aes(x = estimate,
+                            y = y_label,
+                            colour=variable)) +
+  theme(panel.grid = element_blank(),
+        text = element_text(family = "serif", size = 16),
+        axis.text = element_text(family = "serif", size = 14),
+        legend.position = "none") +
+  
+  # Add text annotation next to estimate point
+  geom_text(aes(label = paste("pd:",
+                              ifelse(pd > 0.99, ">0.99",
+                                     sprintf("%.2f",
+                                             round(pd, digits = 2))))),
+            nudge_y = 0.25,      
+            hjust = 0.5,  
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
+  geom_text(aes(label = sprintf("%.2f", round(estimate, digits = 2))),
+            nudge_y = -0.25, 
+            hjust = 0.5,  
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
+  geom_text(aes(label = sprintf("[%.2f, %.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
+            nudge_y = -0.25, 
+            nudge_x = 0.15,
+            hjust = 0,
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  scale_colour_manual(values = mycolours) +
+  guides(colour = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
+  labs(x = expression("Difference in"~bar(A)), y = NULL)
+
+p_between_cov <- ggplot(mdA9_covariate_slopes, aes(x = estimate, y = variable, colour = variable)) +
+  theme(panel.grid = element_blank(),
+        text = element_text(family = "serif", size = 16),
+        axis.text = element_text(family = "serif", size = 14),
+        legend.position = "none") +
+  
+  # Add text annotation next to estimate point
+  geom_text(aes(label = paste("pd:",
+                              ifelse(pd > 0.99, ">0.99",
+                                     sprintf("%.2f",
+                                             round(pd, digits = 2))))),
+            nudge_y = 0.1,      
+            hjust = 0.5,  
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
+  geom_text(aes(label = sprintf("%.2f", round(estimate, digits = 2))),
+            nudge_y = -0.1, 
+            hjust = 0.5,  
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
+  geom_text(aes(label = sprintf("[%.2f, %.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
+            nudge_y = -0.1, 
+            nudge_x = 0.015,
+            hjust = 0,
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
+  scale_colour_manual(values = mycolours) +
+  guides(colour = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
+  labs(x = expression("Slope of"~bar(A)~"per unit increase"), y = NULL)
+
+(p_between_fac | p_between_cov) + plot_layout(widths = c(2, 1))
+
+if (saveplots){
+  
+  filename <- "PtsdABAnnoyMn_ExpMod_PersonMargEff_brmsOb"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=14, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=14, height=4,
+         path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+
+}
+
+```
 
 
 
