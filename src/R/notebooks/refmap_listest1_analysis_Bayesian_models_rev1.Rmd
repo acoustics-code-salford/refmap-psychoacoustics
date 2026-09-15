@@ -132,7 +132,6 @@ source(here("src/R/plotting_helpers.R"))
 source(here("src/R/brms_utilities.R"))
 source(here("src/R/brms_vif.R"))
 
-
 ```
 
 ## avg_comparisons_slopes
@@ -477,6 +476,16 @@ for (i in seq_along(subjDataNoAmb.imp)) {
 
 ```{R}
 
+role_lookup <- c(
+  UASType = "wsf", UASOperation = "wsf",
+  AmbientEnv = "wsf",
+  Ilog10UASEvents = "wsc", PartTrialNumberScl = "wsc", UASLAEMaxLRScl = "wsc",
+  NationGeo2 = "bsf", AAM_attitude2 = "bsf", Home_Area2 = "bsf",
+  Sex = "bsf", Area_soundscape2 = "bsf",
+  AgeScl = "bsc", NoiseSensitivityScl = "bsc"
+)
+
+
 mA1_pop_level <- c("PartTrialNumberScl",
                    "UASLAEMaxLRScl*I(log10(UASEvents))",
                    "UASLAEMaxLRScl*AmbientEnv*UASOperation",
@@ -709,97 +718,37 @@ get_Br2_table(mA1)
 
 ```{R, fig.width=8, fig.height=6}
 
-mA1_bCI_range <- bayestestR::hdi(mA1, ci = c(0.5, 0.89, 0.95))
+mA1_bCI_range <- bayestestR::hdi(mA1, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-# plot spi for within-subjects factors only
-mA1_bCI_wsf <- mA1_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASTypeM300", 
-                                 "b_UASTypeT150",
-                                 "b_UASOperationLanding",
-                                 "b_UASOperationTakeoff",
-                                 "b_AmbientEnvStreet"))
-p_mA1_bCI_wsf <- plot(mA1_bCI_wsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mA1_bCI_wsf   <- make_group_plot(mA1_bCI_range, "Within-subjects factors",
+                                    "Within-subjects factors",
+                                    fill_palette = mycolours)
 p_mA1_bCI_wsf
 
-# plot spi for within-subjects factor interactions only
-mA1_bCI_wsfi <- mA1_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASOperationLanding:UASTypeM300",
-                                 "b_UASOperationLanding:UASTypeT150",
-                                 "b_UASOperationTakeoff:UASTypeM300",
-                                 "b_UASOperationTakeoff:UASTypeT150",
-                                 "b_AmbientEnvStreet:UASOperationLanding",
-                                 "b_AmbientEnvStreet:UASOperationTakeoff",
-                                 "b_AmbientEnvStreet:UASTypeM300",
-                                 "b_AmbientEnvStreet:UASTypeT150"))
-
-p_mA1_bCI_wsfi <- plot(mA1_bCI_wsfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mA1_bCI_wsfi  <- make_group_plot(mA1_bCI_range, "Within-subjects factor interactions",
+                                    "Within-subjects factor interactions",
+                                    fill_palette = mycolours)
 p_mA1_bCI_wsfi
 
-# plot spi for within-subjects covariates only
-mA1_bCI_wsc <- mA1_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_PartTrialNumberScl"))
-p_mA1_bCI_wsc <- plot(mA1_bCI_wsc, show_intercept=F) +
-    theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mA1_bCI_wsc   <- make_group_plot(mA1_bCI_range, "Within-subjects covariates",
+                                    "Within-subjects covariates",
+                                    fill_palette = mycolours)
 p_mA1_bCI_wsc
 
-# plot spi for within-subjects covariate-factor interactions only
-mA1_bCI_wscfi <- mA1_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                 "b_UASLAEMaxLRScl:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:UASTypeM300",
-                                 "b_UASLAEMaxLRScl:UASTypeT150",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeM300",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeT150"))
-
-p_mA1_bCI_wscfi <- plot(mA1_bCI_wscfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariate-factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mA1_bCI_wscfi <- make_group_plot(mA1_bCI_range,
+                                    "Within-subjects covariate-factor interactions",
+                                    "Within-subjects covariate-factor interactions",
+                                    fill_palette = mycolours)
 p_mA1_bCI_wscfi
 
-# plot spi for between-subjects factors only
-mA1_bCI_bsf <- mA1_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_NationGeo2UK", "b_AAM_attitude2Ambiv_Concern_Neutral",
-                                 "b_Home_Area2Urban", "b_SexMale", 
-                                 "b_Area_soundscape2Unpleasant"))
-p_mA1_bCI_bsf <- plot(mA1_bCI_bsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mA1_bCI_bsf   <- make_group_plot(mA1_bCI_range, "Between-subjects factors",
+                                    "Between-subjects factors",
+                                    fill_palette = mycolours)
 p_mA1_bCI_bsf
 
-# plot spi for between-subjects covariates only
-mA1_bCI_bsc <- mA1_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AgeScl", "b_NoiseSensitivityScl"))
-
-p_mA1_bCI_bsc <- plot(mA1_bCI_bsc, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mA1_bCI_bsc   <- make_group_plot(mA1_bCI_range, "Between-subjects covariates",
+                                    "Between-subjects covariates",
+                                    fill_palette = mycolours)
 p_mA1_bCI_bsc
 
 ```
@@ -3562,6 +3511,7 @@ p_between_fac <- ggplot(mA9_between_contrasts, aes(x = estimate,
         text = element_text(family = "serif", size = 16),
         axis.text = element_text(family = "serif", size = 14),
         legend.position = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
   
   # Add text annotation next to estimate point
   geom_text(aes(label = paste("pd:",
@@ -3590,7 +3540,7 @@ p_between_fac <- ggplot(mA9_between_contrasts, aes(x = estimate,
             show.legend = FALSE) +
   scale_colour_manual(values = mycolours) +
   guides(colour = "none") +
-  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  
   geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
   labs(x = expression("Difference in"~bar(A)), y = NULL)
 
@@ -3599,6 +3549,7 @@ p_between_cov <- ggplot(mA9_covariate_slopes, aes(x = estimate, y = variable, co
         text = element_text(family = "serif", size = 16),
         axis.text = element_text(family = "serif", size = 14),
         legend.position = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
   
   # Add text annotation next to estimate point
   geom_text(aes(label = paste("pd:",
@@ -3628,7 +3579,7 @@ p_between_cov <- ggplot(mA9_covariate_slopes, aes(x = estimate, y = variable, co
   
   scale_colour_manual(values = mycolours) +
   guides(colour = "none") +
-  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  
   geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
   labs(x = expression("Slope of"~bar(A)~"per unit increase"), y = NULL)
 
@@ -7183,6 +7134,7 @@ p_between_fac <- ggplot(mdA9_between_contrasts, aes(x = estimate,
         text = element_text(family = "serif", size = 16),
         axis.text = element_text(family = "serif", size = 14),
         legend.position = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
   
   # Add text annotation next to estimate point
   geom_text(aes(label = paste("pd:",
@@ -7211,7 +7163,7 @@ p_between_fac <- ggplot(mdA9_between_contrasts, aes(x = estimate,
             show.legend = FALSE) +
   scale_colour_manual(values = mycolours) +
   guides(colour = "none") +
-  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  
   geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
   labs(x = expression("Difference in"~bar(A)), y = NULL)
 
@@ -7220,6 +7172,7 @@ p_between_cov <- ggplot(mdA9_covariate_slopes, aes(x = estimate, y = variable, c
         text = element_text(family = "serif", size = 16),
         axis.text = element_text(family = "serif", size = 14),
         legend.position = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
   
   # Add text annotation next to estimate point
   geom_text(aes(label = paste("pd:",
@@ -7249,7 +7202,7 @@ p_between_cov <- ggplot(mdA9_covariate_slopes, aes(x = estimate, y = variable, c
   
   scale_colour_manual(values = mycolours) +
   guides(colour = "none") +
-  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  
   geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
   labs(x = expression("Slope of"~bar(A)~"per unit increase"), y = NULL)
 

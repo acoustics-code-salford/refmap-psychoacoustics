@@ -34,13 +34,14 @@ require(car)
 # equivalent mgcv::gam() fit instead. This function will error informatively
 # (via the model.matrix()/lm() failure) rather than silently mishandle these.
 #
-# NOT executed here - no R access in this environment. Please run and report
-# back if anything errors or looks off, same as the other scripts this
-# session.
+# NOTE: not executed here (no R execution environment available) - please
+# run and report back if anything errors or looks off, same as the other
+# scripts this session.
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# Design-matrix condition number (Belsley, Kuh & Welsch 1980)
+# Design-matrix condition number + variance-decomposition proportions
+# (Belsley, Kuh & Welsch 1980)
 # -----------------------------------------------------------------------------
 #
 # WHY THIS IS SEPARATE FROM TERM-LEVEL VIF: VIF assesses collinearity
@@ -65,24 +66,77 @@ require(car)
 # large gap between them is itself diagnostic of how much of the raw number
 # was a scaling artefact versus genuine multicollinearity.
 #
-# THRESHOLDS: Belsley, Kuh & Welsch (1980) suggest condition indices above
-# ~30 indicate moderate collinearity and above ~100 indicate severe
-# collinearity; the same thresholds are conventionally applied to the
-# largest (overall) condition number of the scaled matrix.
-.design_condition_diagnostics <- function(X) {
+# THRESHOLDS (condition index, on the SCALED matrix): Belsley, Kuh & Welsch
+# (1980) give a four-tier gradient - <=10: weak near-dependencies (no real
+# concern); 10-30: moderately strong; 30-100: large/strong near-dependency;
+# >100: severe. The same gradient applies to the largest (overall) condition
+# number, which is simply the largest condition index.
+#
+# VARIANCE-DECOMPOSITION PROPORTIONS (the second half of BKW's procedure -
+# a high condition index ALONE cannot identify which variables are involved,
+# nor distinguish a real problem from an incidentally-large index loading on
+# only one variable): for each dimension k, the proportion of variable j's
+# coefficient-variance attributable to that dimension is
+#   pi[j,k] = phi[j,k] / sum_k(phi[j,k]),  phi[j,k] = V[j,k]^2 / d[k]^2
+# where V holds the right singular vectors and d the singular values of the
+# scaled matrix. A dimension with condition index above ci_threshold (30 by
+# default) on which TWO OR MORE variables have pi > vdp_threshold (0.5 by
+# default, per BKW) indicates those specific variables are collinear with
+# each other via that dimension. A single high-proportion variable on a
+# flagged dimension is not, by itself, evidence of a collinearity problem.
+.design_condition_diagnostics <- function(X, ci_threshold = 30, vdp_threshold = 0.5) {
   norms <- sqrt(colSums(X^2))
   norms[norms == 0] <- 1  # guard against a degenerate constant/zero column
   X_scaled <- sweep(X, 2, norms, "/")
   
-  sv <- svd(X_scaled)$d
-  sv <- sv[sv > .Machine$double.eps]
-  cond_indices <- max(sv) / sv
+  sv_decomp <- svd(X_scaled)
+  d <- sv_decomp$d
+  V <- sv_decomp$v
+  
+  keep <- d > .Machine$double.eps
+  if (!all(keep)) {
+    warning(sum(!keep), " near-zero singular value(s) dropped (the design ",
+            "matrix is exactly rank-deficient) - condition indices and ",
+            "variance-decomposition proportions reflect only the ",
+            "non-degenerate dimensions; investigate via alias() first.")
+  }
+  d <- d[keep]
+  V <- V[, keep, drop = FALSE]
+  
+  cond_indices <- max(d) / d
+  
+  # --- variance-decomposition proportions -----------------------------------
+  phi        <- sweep(V^2, 2, d^2, "/")   # phi[j,k]: rows = variables, cols = dimensions
+  row_totals <- rowSums(phi)
+  row_totals[row_totals == 0] <- 1        # guard against a degenerate all-zero row
+  pi_mat <- sweep(phi, 1, row_totals, "/")
+  rownames(pi_mat) <- colnames(X)
+  colnames(pi_mat) <- paste0("dim", seq_along(d))
+  
+  # --- flag dimensions with a high condition index AND >=2 implicated vars --
+  flagged_dims <- which(cond_indices > ci_threshold)
+  problem_groups <- lapply(flagged_dims, function(k) {
+    vars <- rownames(pi_mat)[pi_mat[, k] > vdp_threshold]
+    if (length(vars) >= 2) {
+      list(dimension = k, condition_index = cond_indices[k], variables = vars)
+    } else {
+      NULL
+    }
+  })
+  problem_groups <- Filter(Negate(is.null), problem_groups)
   
   list(
-    condition_number_scaled      = max(cond_indices),
-    condition_number_raw         = tryCatch(kappa(X, exact = TRUE), error = function(e) NA_real_),
-    n_condition_indices_over_30  = sum(cond_indices > 30),
-    n_condition_indices_over_100 = sum(cond_indices > 100)
+    condition_number_scaled   = max(cond_indices),
+    condition_number_raw      = tryCatch(kappa(X, exact = TRUE), error = function(e) NA_real_),
+    condition_indices         = cond_indices,
+    n_condition_indices_total = length(cond_indices),
+    n_ci_10_30                = sum(cond_indices > 10  & cond_indices <= 30),
+    n_ci_30_100                = sum(cond_indices > 30  & cond_indices <= 100),
+    n_ci_over_100              = sum(cond_indices > 100),
+    vdp            = pi_mat,
+    problem_groups = problem_groups,
+    vdp_threshold  = vdp_threshold,
+    ci_threshold   = ci_threshold
   )
 }
 
@@ -91,7 +145,9 @@ brms_vif <- function(model,
                      dpar = NULL,
                      digits = 2,
                      sort = TRUE,
-                     thresholds = c(moderate = 5, high = 10),
+                     thresholds = c(moderate = sqrt(5), high = sqrt(10)),
+                     ci_threshold = 30,
+                     vdp_threshold = 0.5,
                      seed = 1) {
   
   if (!inherits(model, "brmsfit")) {
@@ -138,6 +194,24 @@ brms_vif <- function(model,
   #     it, to avoid any risk of re-parsing subtly changing the formula. The
   #     response is irrelevant to VIF (a property of X only), so a fresh
   #     random dummy response is substituted in directly. -------------------
+  #
+  # RNG NOTE: set.seed() mutates the GLOBAL RNG state, which would otherwise
+  # silently affect anything relying on random draws later in the SAME R
+  # session (e.g. a subsequent brm(..., seed = ...) call's actual sampling
+  # path, or any other stochastic step) - this save/restore keeps the dummy
+  # response reproducible internally without leaking that side effect out.
+  old_seed <- if (exists(".Random.seed", envir = .GlobalEnv)) {
+    get(".Random.seed", envir = .GlobalEnv)
+  } else {
+    NULL
+  }
+  on.exit({
+    if (!is.null(old_seed)) {
+      assign(".Random.seed", old_seed, envir = .GlobalEnv)
+    } else if (exists(".Random.seed", envir = .GlobalEnv)) {
+      rm(".Random.seed", envir = .GlobalEnv)
+    }
+  }, add = TRUE)
   set.seed(seed)
   dat$.brms_vif_dummy_y <- stats::rnorm(nrow(dat))
   
@@ -188,10 +262,14 @@ brms_vif <- function(model,
   if (is.null(tab$Df)) tab$Df <- 1L
   
   # --- SE-inflation-scale adjusted VIF, comparable across all terms ---------
-  # (reduces to sqrt(VIF) for ordinary 1-df terms; this is the scale on which
-  # the conventional ~5 / ~10 severity thresholds apply, and is computed
-  # CORRECTLY here per-term Df, unlike the performance::check_collinearity()
-  # bug this function exists to route around)
+  # (reduces to sqrt(VIF) for ordinary 1-df terms; per Fox (2020, "Regression
+  # Diagnostics", 2nd ed.) and car::vif()'s own documentation, this quantity
+  # is on the same scale as sqrt(VIF), NOT raw VIF - the conventional 5/10
+  # rule-of-thumb therefore applies at sqrt(5)/sqrt(10) on THIS column, which
+  # is why those are the function's default thresholds, not 5/10 directly.
+  # Computed CORRECTLY here per-term Df, unlike the
+  # performance::check_collinearity() bug this function exists to route
+  # around.)
   tab$Adjusted_VIF <- tab$GVIF ^ (1 / (2 * tab$Df))
   tab$Tolerance     <- 1 / tab$GVIF
   
@@ -209,8 +287,15 @@ brms_vif <- function(model,
   tab$Adjusted_VIF <- round(tab$Adjusted_VIF, digits)
   tab$Tolerance    <- round(tab$Tolerance, digits + 1)
   
-  cond <- .design_condition_diagnostics(stats::model.matrix(lm_fit))
+  cond <- .design_condition_diagnostics(stats::model.matrix(lm_fit),
+                                        ci_threshold = ci_threshold,
+                                        vdp_threshold = vdp_threshold)
   
+  # NOTE: attributes set here (thresholds/n_high/n_moderate/condition) are
+  # not guaranteed to survive generic data.frame operations like `[` or
+  # rbind() on the returned object - if you subset/combine this result,
+  # re-run print()/inspect the attributes on the ORIGINAL object, not a
+  # derived subset of it.
   structure(tab, class = c("brms_vif", "data.frame"),
             dpar_checked = target_name,
             thresholds   = thresholds,
@@ -229,7 +314,7 @@ print.brms_vif <- function(x, ...) {
   print.data.frame(x, row.names = FALSE)
   cat(strrep("-", 72), "\n")
   n_high <- attr(x, "n_high"); n_mod <- attr(x, "n_moderate")
-  cat(sprintf("Severity thresholds on Adjusted_VIF: Moderate >= %s, High >= %s\n",
+  cat(sprintf("Severity thresholds on Adjusted_VIF: Moderate >= %.2f, High >= %.2f\n",
               th[["moderate"]], th[["high"]]))
   if (n_high > 0) cat(sprintf("-> %d term(s) at HIGH collinearity\n", n_high))
   if (n_mod  > 0) cat(sprintf("-> %d term(s) at MODERATE collinearity\n", n_mod))
@@ -241,15 +326,33 @@ print.brms_vif <- function(x, ...) {
   cat("the term-level VIFs above - reflects OVERALL, not per-term, conditioning)\n")
   cat(sprintf("  Scaled (recommended): %.1f   |   Raw kappa(X): %.1f\n",
               cond$condition_number_scaled, cond$condition_number_raw))
-  cat(sprintf("  %d of %d condition indices exceed 30 (moderate); %d exceed 100 (severe)\n",
-              cond$n_condition_indices_over_30, nrow(x) + 1L,  # +1 for intercept
-              cond$n_condition_indices_over_100))
-  if (cond$condition_number_scaled > 100) {
-    cat("  -> SEVERE overall conditioning, despite the per-term VIFs above:\n")
-    cat("     this reflects a diffuse combination across MANY terms jointly,\n")
-    cat("     not any single problematic pair - term-level VIF cannot detect this.\n")
-  } else if (cond$condition_number_scaled > 30) {
-    cat("  -> Moderate overall conditioning.\n")
+  cat(sprintf("  Condition indices (%d total): %d in (10,30] moderate | %d in (30,100] strong | %d > 100 severe\n",
+              cond$n_condition_indices_total, cond$n_ci_10_30, cond$n_ci_30_100, cond$n_ci_over_100))
+  
+  cn <- cond$condition_number_scaled
+  overall <- if (cn <= 10)       "Weak/no meaningful ill-conditioning."
+  else if (cn <= 30)  "Moderate overall conditioning."
+  else if (cn <= 100) "Strong overall conditioning."
+  else                "SEVERE overall conditioning."
+  cat("  ->", overall, "\n")
+  
+  if (length(cond$problem_groups) > 0) {
+    cat(strrep("-", 72), "\n")
+    cat(sprintf("Variance-decomposition proportions (Belsley, Kuh & Welsch 1980):\n"))
+    cat(sprintf("dimensions with condition index > %g AND >= 2 variables with proportion > %.2f:\n",
+                cond$ci_threshold, cond$vdp_threshold))
+    for (grp in cond$problem_groups) {
+      cat(sprintf("  Dimension (condition index = %.1f): %s\n",
+                  grp$condition_index, paste(grp$variables, collapse = ", ")))
+    }
+  } else if (cond$n_ci_30_100 + cond$n_ci_over_100 > 0) {
+    cat(strrep("-", 72), "\n")
+    cat(sprintf("Note: %d dimension(s) have condition index > %g, but none show >= 2\n",
+                cond$n_ci_30_100 + cond$n_ci_over_100, cond$ci_threshold))
+    cat("variables with variance-decomposition proportion > 0.5 - i.e. no specific\n")
+    cat("variable pair is clearly implicated per Belsley, Kuh & Welsch's criterion,\n")
+    cat("despite the elevated condition index(es). Full proportions are in\n")
+    cat("attr(x, \"condition\")$vdp if you want to inspect below-threshold loadings.\n")
   }
   invisible(x)
 }
@@ -268,4 +371,10 @@ print.brms_vif <- function(x, ...) {
 #   # any family works identically - no family-specific code path needed:
 #   brms_vif(m3b)     # ordbeta
 #   brms_vif(mA1)      # cumulative
+#
+#   # full variance-decomposition-proportion matrix (variables x dimensions):
+#   attr(brms_vif(mA6), "condition")$vdp
+#
+#   # adjust BKW's default conventions if needed:
+#   brms_vif(mA6, ci_threshold = 15, vdp_threshold = 0.4)
 # =============================================================================

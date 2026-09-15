@@ -169,3 +169,12 @@ standardise_list <- function(df_list, vars, scale = TRUE, ...) {
     df
   })
 }
+
+# Prune terms ------------------------
+prune_terms <- function(pop_level, drop) {
+  missing <- setdiff(drop, pop_level)
+  if (length(missing) > 0) {
+    warning("Not found in pop_level, NOT removed: ", paste(missing, collapse = ", "))
+  }
+  setdiff(pop_level, drop)
+}

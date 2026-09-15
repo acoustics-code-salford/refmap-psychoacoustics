@@ -7,46 +7,30 @@ require(tidyverse)
 # Prior predictive distribution ppd_ridgeplot ----------------------------------
 ## Adapted from: https://bruno.nicenboim.me/posts/posts/2026-01-09-ordinal-models/index.html
 
-ppd_ridgeplot <- function(fit, title = "Prior Predictive Distribution", 
-                          subtitle = NULL, ndraws = 500) {
-  
+ppd_ridgeplot <- function(fit, title = "Prior Predictive Distribution",
+                          subtitle = NULL, ndraws = 500,
+                          fill_colour = "steelblue", base_size = 12) {
   yrep <- brms::posterior_predict(fit, ndraws = ndraws)
-  
-  # extract observed response categories from model
   response_name <- all.vars(fit$formula$formula)[1]
-  
   observed_y <- fit$data[[response_name]]
-  
-  # preserve ordinal ordering
   response_levels <- sort(unique(observed_y))
   
   proportions_per_draw <- lapply(seq_len(nrow(yrep)), function(i) {
     props <- table(factor(yrep[i, ], levels = response_levels)) / ncol(yrep)
-    data.frame(
-      draw = i,
-      response = factor(response_levels,
-                        levels = response_levels,
-                        ordered = TRUE),
-      proportion = as.numeric(props)
-    )
+    data.frame(draw = i,
+               response = factor(response_levels, levels = response_levels, ordered = TRUE),
+               proportion = as.numeric(props))
   })
-  
   ppd_data <- do.call(rbind, proportions_per_draw)
-  
-  # reference line for equal occupancy
   equal_prob <- 1 / length(response_levels)
   
   ggplot(ppd_data, aes(x = proportion, y = response)) +
-    ggridges::geom_density_ridges(fill = "steelblue", alpha = 0.7, scale = 0.9, stat = "binline") +
+    ggridges::geom_density_ridges(fill = fill_colour, alpha = 0.7, scale = 0.9, stat = "binline") +
     scale_x_continuous(breaks = seq(0, 1, by = 0.2), limits = c(0, 1)) +
     geom_vline(xintercept = equal_prob, linetype = "dashed") +
-    labs(title = title,
-         subtitle = subtitle,
-         x = "Predicted category proportion",
-         y = "Response category") +
-    theme_minimal(base_size = 12) +
+    labs(title = title, subtitle = subtitle, x = "Predicted category proportion", y = "Response category") +
+    theme_minimal(base_size = base_size) +
     coord_flip()
-  
 }
 
 # Bayesian R2 table extraction function ----------------------------------------
@@ -317,6 +301,8 @@ if (FALSE) {
 
 
 # yrep_sd_by_group ---------------------------------------------
+# Bayesian p-value-style tail probability for each sd group: this is useful for
+# identifying sd groups that may not be well-identified by the data
 yrep_sd_by_group <- function(fit, group_var, ndraws = 1000) {
   yrep <- brms::posterior_predict(fit, ndraws = ndraws)
   response_name <- all.vars(fit$formula$formula)[1]
@@ -329,4 +315,189 @@ yrep_sd_by_group <- function(fit, group_var, ndraws = 1000) {
     tibble::tibble(group = lvl, obs_sd = obs_sd,
                    p_lower = mean(rep_sd < obs_sd))
   })
+}
+
+
+# match_interaction_coefs --------------------------------------------
+match_interaction_coefs <- function(dp, vars, dpar = "mu") {
+  dpar_vals <- if (dpar %in% c("mu", "")) c("", "mu") else dpar
+  rows <- dp[dp$class == "b" & dp$dpar %in% dpar_vals, ]
+  n_vars <- length(vars)
+  hit <- vapply(rows$coef, function(cf) {
+    pieces <- strsplit(cf, ":", fixed = TRUE)[[1]]
+    if (length(pieces) != n_vars) return(FALSE)
+    remaining <- vars
+    for (p in pieces) {
+      m <- strip_var_prefix(p, remaining)
+      if (is.null(m)) return(FALSE)
+      remaining <- setdiff(remaining, m)
+    }
+    length(remaining) == 0
+  }, logical(1))
+  rows$coef[hit]
+}
+
+# strip_var_prefix --------------------------------------------
+strip_var_prefix <- function(piece, candidates) {
+  hits <- candidates[startsWith(piece, candidates)]
+  if (length(hits) == 0) return(NULL)
+  hits <- hits[order(-nchar(hits))]  # longest candidate first, e.g. prefer "AgeScl" over "Age" if both present
+  for (h in hits) {
+    remainder <- substr(piece, nchar(h) + 1, nchar(piece))
+    if (remainder == "" || grepl("^[A-Z0-9]", remainder)) return(h)
+  }
+  NULL
+}
+
+# set_interaction_prior ---------------------------------------------
+set_interaction_prior <- function(dp, vars, prior_string, dpar = "mu") {
+  coefs <- match_interaction_coefs(dp, vars, dpar)
+  if (length(coefs) == 0) { warning("No match for ", paste(vars, collapse = ":")); return(NULL) }
+  do.call(c, lapply(coefs, brms::set_prior, prior = prior_string, class = "b", dpar = dpar))
+}
+
+# Sanitize variable names for brms compatibility ------------
+## sanitize_var_brms ----
+sanitize_var <- function(x) gsub("[()]", "", x)
+
+
+
+# Derive interaction specifications ----------------
+## derive_interaction_specs ----
+derive_interaction_specs <- function(pop_level, tier_priors) {
+  has_star  <- grepl("*", pop_level, fixed = TRUE)
+  has_colon <- grepl(":", pop_level, fixed = TRUE)
+  
+  if (any(has_star & has_colon)) {
+    bad <- pop_level[has_star & has_colon]
+    stop("Terms mixing '*' and ':' are not supported (ambiguous hierarchy): ",
+         paste(bad, collapse = ", "))
+  }
+  
+  star_terms  <- pop_level[has_star]
+  colon_terms <- pop_level[has_colon & !has_star]
+  
+  parse_term <- function(term, sep) {
+    vars <- sanitize_var(trimws(strsplit(term, sep, fixed = TRUE)[[1]]))
+    if (anyDuplicated(vars)) stop("Duplicate variable within one term: ", term)
+    vars
+  }
+  
+  # '*': full factorial — every implied lower-order term is a real parameter
+  star_subsets <- list()
+  for (term in star_terms) {
+    vars <- parse_term(term, "*")
+    n <- length(vars)
+    for (k in 2:n) star_subsets <- c(star_subsets, utils::combn(vars, k, simplify = FALSE))
+  }
+  
+  # ':': literal interaction only — no implied lower-order terms
+  colon_subsets <- lapply(colon_terms, parse_term, sep = ":")
+  
+  all_subsets <- c(star_subsets, colon_subsets)
+  keys <- vapply(all_subsets, function(v) paste(sort(v), collapse = ":"), character(1))
+  dupe_keys <- keys[duplicated(keys)]
+  if (length(dupe_keys) > 0) {
+    warning("Duplicate interaction spec(s), first occurrence kept: ", paste(unique(dupe_keys), collapse = ", "))
+  }
+  all_subsets <- all_subsets[!duplicated(keys)]
+  
+  lapply(all_subsets, function(vars) {
+    n <- as.character(length(vars))
+    if (!n %in% names(tier_priors)) {
+      stop("No prior specified for a ", n, "-way interaction: ", paste(vars, collapse = ":"),
+           ". Add it to tier_priors.")
+    }
+    list(vars = vars, prior = tier_priors[[n]])
+  })
+}
+
+
+# Derive coefficient priors for brms model --------------------------------
+## derive_coef_priors --------------------------------
+derive_coef_priors <- function(formula, data, family, pop_level, tier_priors,
+                               main_effect_spec = list(), dpar = "mu") {
+  dp <- brms::get_prior(formula, data = data, family = family)
+  
+  specs <- derive_interaction_specs(pop_level, tier_priors)
+  check_interaction_coverage(dp, specs, dpar = dpar)
+  
+  all_specs <- c(specs, main_effect_spec)
+  priors <- lapply(all_specs, function(s) set_interaction_prior(dp, s$vars, s$prior, dpar = dpar))
+  do.call(c, Filter(Negate(is.null), priors))
+}
+
+
+# check_interaction_coverage -----------------------------
+check_interaction_coverage <- function(dp, specs, dpar = "mu") {
+  dpar_vals <- if (dpar %in% c("mu", "")) c("", "mu") else dpar
+  covered <- unique(unlist(lapply(specs, function(s) match_interaction_coefs(dp, s$vars, dpar))))
+  all_interaction_coefs <- dp$coef[dp$class == "b" & dp$dpar %in% dpar_vals & grepl(":", dp$coef, fixed = TRUE)]
+  uncovered <- setdiff(all_interaction_coefs, covered)
+  if (length(uncovered) > 0) {
+    warning("Interaction coefficients with NO tiered prior (falling to blanket): ",
+            paste(uncovered, collapse = ", "))
+  }
+  invisible(uncovered)
+}
+
+
+# Tools for plotting grouped posteriors ------------------------
+decompose_coef_vars <- function(coef_name, known_vars) {
+  name <- sub("^b_", "", coef_name)
+  if (name == "Intercept") return(character(0))
+  pieces <- strsplit(name, ":", fixed = TRUE)[[1]]
+  vars <- character(length(pieces))
+  for (i in seq_along(pieces)) {
+    v <- strip_var_prefix(pieces[i], known_vars)   # from the earlier prior-matching machinery
+    if (is.null(v)) return(NULL)
+    vars[i] <- v
+  }
+  vars
+}
+
+classify_coef_group <- function(coef_name, role_lookup) {
+  if (!startsWith(coef_name, "b_")) return(NA_character_)  # sd/cor/phi/xi/kappa rows — out of scope here
+  vars <- decompose_coef_vars(coef_name, names(role_lookup))
+  if (is.null(vars)) return("UNRESOLVED")
+  if (length(vars) == 0) return(NA_character_)             # Intercept — excluded by design, as in your original code
+  roles <- unname(role_lookup[vars])
+  if (anyNA(roles)) return("UNRESOLVED")
+  
+  if (length(vars) == 1) {
+    return(switch(roles[1],
+                  wsf = "Within-subjects factors", wsc = "Within-subjects covariates",
+                  bsf = "Between-subjects factors", bsc = "Between-subjects covariates",
+                  stop("Unrecognized role '", roles[1], "' for variable '", vars[1], "' — check role_lookup.")
+    ))
+  }
+  u <- unique(roles)
+  if (setequal(u, "wsf")) return("Within-subjects factor interactions")
+  if (setequal(u, c("wsf", "wsc"))) return("Within-subjects covariate-factor interactions")
+  # anything not matching a named bucket you already use — labelled descriptively
+  # and flagged, rather than silently dropped or mis-bucketed
+  paste0("UNCATEGORIZED (", paste(sort(u), collapse = "+"), ")")
+}
+
+build_coef_groups <- function(bCI_range, role_lookup) {
+  bCI_range$Group <- vapply(bCI_range$Parameter, classify_coef_group, character(1), role_lookup = role_lookup)
+  needs_flag <- !is.na(bCI_range$Group) & (bCI_range$Group == "UNRESOLVED" | grepl("^UNCATEGORIZED", bCI_range$Group))
+  flagged <- unique(bCI_range$Parameter[needs_flag])
+  if (length(flagged) > 0) warning("Not cleanly classified, check manually: ", paste(flagged, collapse = ", "))
+  bCI_range
+}
+
+make_group_plot <- function(bCI_range, group_name, title,
+                            fill_palette = NULL, base_family = NULL, base_size = NULL,
+                            remove_gridlines = TRUE) {
+  df <- bCI_range |> dplyr::filter(Group == group_name)
+  if (nrow(df) == 0) {
+    warning("No parameters matched group '", group_name, "' — check spelling against classify_coef_group()'s output strings.")
+  }
+  p <- plot(df, show_intercept = FALSE) +
+    theme(text = element_text(family = base_family, size = base_size)) +
+    labs(title = title, x = "Coefficient posterior distribution", y = NULL)
+  if (remove_gridlines) p <- p + theme(panel.grid = element_blank())
+  if (!is.null(fill_palette)) p <- p + scale_fill_manual(values = fill_palette)
+  p
 }
