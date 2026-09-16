@@ -92,8 +92,12 @@ nActive = blockSize - nZerosEnd - nZerosStart;
 % candidate frequency falls exactly on a DFT bin centre - see Note above)
 freqNorm = kIndices./blockSize - modRate./sampleRate + epsilon;
 
-% Section 9.1.4 Equation 127 [W_E,l,z,fc,m(k)]
-windowResponse = exp(-1i*2*pi*freqNorm.*(blockSize - nZerosEnd + nZerosStart - 1))...
+% NOTE: Equation 127 shows exp(-1i*2*pi*freqNorm...which seems to be
+% incorrect
+% As-written: windowResponse = exp(-1i*2*pi*freqNorm.*(blockSize - nZerosEnd + nZerosStart - 1))...
+                 % .*sin(pi*freqNorm.*nActive)./sin(pi*freqNorm);
+windowResponse = exp(-1i*pi*freqNorm.*(blockSize - nZerosEnd + nZerosStart - 1))...
                  .*sin(pi*freqNorm.*nActive)./sin(pi*freqNorm);
+
 
 % end of function

@@ -1,5 +1,5 @@
-function [pHat, Elz] = shmHSA(fc, spectrumE, blockSize, sampleRate, nZerosStart, nZerosEnd, epsilon)
-% [pHat, Elz] = shmHSA(fc, spectrumE, blockSize, sampleRate, nZerosStart, nZerosEnd, epsilon)
+function [pHat, Elz, diagInfo] = shmHSA(fc, spectrumE, blockSize, sampleRate, nZerosStart, nZerosEnd, epsilon)
+% [pHat, Elz, diagInfo] = shmHSA(fc, spectrumE, blockSize, sampleRate, nZerosStart, nZerosEnd, epsilon)
 %
 % Returns the High-resolution Spectral Analysis (HSA) estimate of the
 % constant (DC) component and the complex spectral line amplitude(s) at
@@ -46,6 +46,27 @@ function [pHat, Elz] = shmHSA(fc, spectrumE, blockSize, sampleRate, nZerosStart,
 %
 % Elz : double
 %   the HSA error function value E_l,z(fc) (Section 9.1.4 Equation 135)
+%
+% diagInfo : structure
+%   diagnostic information about the linear solve, for use in isolating
+%   numerical issues (this is not part of the standard's algorithm - it
+%   is provided purely to support debugging/validation). Fields:
+%     Mc       : number of non-zero candidate lines fitted (numel(fc))
+%     KL       : the number of DFT bins used in the fit (Equation 125)
+%     nUnknown : 2*Mc + 1, the number of unknowns in Formula (130)
+%     rcondA   : rcond(A), the reciprocal condition number estimate of
+%                the matrix in Formula (130). Values close to 0 indicate
+%                a near-singular (poorly conditioned or rank-deficient)
+%                system; this becomes structurally more likely as Mc
+%                grows, since K_L is capped at 49 (Equation 125)
+%                regardless of Mc, while the system has 2*Mc + 1
+%                unknowns - so Mc approaching 24-25 can leave the system
+%                exactly or nearly rank-deficient (49 equations against
+%                up to 51 unknowns).
+%     usedPinv : true if rcondA was low enough to trigger the pinv
+%                fallback described in the Note below, in which case the
+%                returned pHat is a minimum-norm least-squares solution
+%                rather than a well-determined one
 %
 % Assumptions
 % -----------
@@ -174,7 +195,9 @@ b(~isRealCol) = Wr(:, ~isRealCol).'*PEi + Wi(:, ~isRealCol).'*PEr;
 % (a numerical robustness safeguard, not specified by the standard: fall
 % back to the minimum-norm least-squares solution if A is close to
 % singular, which can occur for pathological candidate frequency sets)
-if rcond(A) < 1e3*eps(class(A))
+rcondA = rcond(A);
+usedPinv = rcondA < 1e3*eps(class(A));
+if usedPinv
     x = pinv(A)*b;
 else
     x = A\b;
@@ -193,5 +216,12 @@ pHat(1) = x(1);  % [phat_0,l,z], real-valued
 for mLine = 1:Mc
     pHat(mLine + 1) = 2*x(2*mLine) + 1i*2*x(2*mLine + 1);  % [phat_fc,m,l,z]
 end
+
+% diagnostic information (not part of the standard - see Returns above)
+diagInfo.Mc = Mc;
+diagInfo.KL = KL;
+diagInfo.nUnknown = nCols;
+diagInfo.rcondA = rcondA;
+diagInfo.usedPinv = usedPinv;
 
 % end of function

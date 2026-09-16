@@ -1,4 +1,4 @@
-function fluctuationSHM = acousticSHMFluctuation(p, sampleRateIn, axisN, soundField, waitBar, outPlot, binaural)
+function fluctuationSHM = acousticSHMFluctuation(p, sampleRateIn, axisN, soundField, waitBar, outPlot, binaural, diagOn)
 % fluctuationSHM = acousticSHMFluctuation(p, sampleRateIn, axisN, soundField, waitBar, outPlot, binaural)
 %
 % Returns fluctuation strength values according to ECMA-418-2:2025
@@ -38,6 +38,19 @@ function fluctuationSHM = acousticSHMFluctuation(p, sampleRateIn, axisN, soundFi
 %   Flag indicating whether to output combined binaural fluctuation
 %   strength for stereo input signal.
 %
+% diagOn : Boolean true/false (default: false)
+%   Diagnostic instrumentation flag, NOT part of the standard's
+%   algorithm. When true, one row is logged for every non-quiet
+%   block/band processed by the HSA pipeline (Sections 9.1.4-9.1.10),
+%   recording the size and conditioning of the linear system solved in
+%   Section 9.1.4's initial (potentially many-candidate) fit, together
+%   with the block's key intermediate and final values. This is
+%   intended purely to help isolate numerical or logical issues (e.g.
+%   rank-deficiency of the HSA linear system when many candidate lines
+%   are found simultaneously) without needing to re-instrument the code
+%   by hand. See fluctuationSHM.diagLog below. Leaving this false (the
+%   default) avoids the associated memory/time overhead.
+%
 % Returns
 % -------
 %
@@ -70,6 +83,32 @@ function fluctuationSHM = acousticSHMFluctuation(p, sampleRateIn, axisN, soundFi
 % soundField : string
 %   identifies the soundfield type applied (the input argument
 %   soundField)
+%
+% diagLog : structure (only present if diagOn = true)
+%   diagnostic log, not part of the standard's algorithm - see the
+%   diagOn input description above. Contains equal-length vectors, one
+%   element per logged block/band/channel:
+%     chan, zBand, lBlock : indices identifying the block
+%     status  : categorical string - 'ok', 'no_modulation' (Section
+%               9.1.5, no local maximum and no local minimum),
+%               'no_survivors' (Equation 146 threshold left nothing),
+%               'no_harmonic_group' (Section 9.1.8 found no valid
+%               harmonic grouping), or 'discarded_low_freq' (Section
+%               9.1.7, f_c,1,opt < 0.125 Hz)
+%     Mc, KL, nUnknown, rcondA, usedPinv : from the initial (potentially
+%               many-candidate) HSA fit's diagInfo output (see shmHSA.m)
+%     fcOpt   : fine-tuned dominant modulation rate [Hz] (NaN if not
+%               reached)
+%     nHarm   : number of components in the retained harmonic complex
+%               (NaN if not reached)
+%     Ahat, powerSum, N_HSA : Section 9.1.9/9.1.10 intermediate values
+%               (NaN if not reached)
+%     A_lz    : the pre-threshold value of A(l,z) (Equation 159), i.e.
+%               before the Section 9.1.10 5.2519 threshold is applied
+%               (NaN if not reached)
+%     nzb, nze : the Section 9.1.3 envelope analysis window parameters
+%               (number of zeros at the start/end of the block) actually
+%               used for this block/band's HSA fit
 %
 % If binaural=true, a corresponding set of outputs for the binaural
 % fluctuation strength is also contained in fluctuationSHM
@@ -132,6 +171,7 @@ function fluctuationSHM = acousticSHMFluctuation(p, sampleRateIn, axisN, soundFi
         waitBar {mustBeNumericOrLogical} = true
         outPlot {mustBeNumericOrLogical} = false
         binaural {mustBeNumericOrLogical} = true
+        diagOn {mustBeNumericOrLogical} = false
     end
 
 %% Load path (assumes root directory is refmap-psychoacoustics)
@@ -265,6 +305,16 @@ LTQz = [0.3310, 0.1625, 0.1051, 0.0757, 0.0576, 0.0453, 0.0365, 0.0298,...
 
 % Loop through channels in file
 % -----------------------------
+if diagOn
+    % cross-channel diagnostic log accumulators (see diagOn in the
+    % function help and fluctuationSHM.diagLog below)
+    diagLogAll = struct('chan', [], 'zBand', [], 'lBlock', [], 'status', {{}},...
+                         'Mc', [], 'KL', [], 'nUnknown', [], 'rcondA', [],...
+                         'usedPinv', [], 'fcOpt', [], 'nHarm', [], 'Ahat', [],...
+                         'powerSum', [], 'N_HSA', [], 'A_lz', [], 'belowThreshold', [],...
+                         'nzb', [], 'nze', []);
+end
+
 for chan = chansIn:-1:1
 
     if waitBar
@@ -496,6 +546,31 @@ for chan = chansIn:-1:1
     N_HSA_Mat = zeros(nBlocks, nBands);      % [N'_HSA(l,z)], Equation 161
     fundRateMat = zeros(nBlocks, nBands);    % [f_1(l,z)], Equation 156
 
+    % Diagnostic log preallocation (diagOn only - see diagOn in the
+    % function help). Upper bound nBlocks*nBands rows; unused rows are
+    % trimmed to diagIdx before being appended to the cross-channel log.
+    if diagOn
+        diagChan = zeros(nBlocks*nBands, 1);
+        diagZBand = zeros(nBlocks*nBands, 1);
+        diagLBlock = zeros(nBlocks*nBands, 1);
+        diagStatus = cell(nBlocks*nBands, 1);
+        diagMc = nan(nBlocks*nBands, 1);
+        diagKL = nan(nBlocks*nBands, 1);
+        diagNUnknown = nan(nBlocks*nBands, 1);
+        diagRcondA = nan(nBlocks*nBands, 1);
+        diagUsedPinv = nan(nBlocks*nBands, 1);
+        diagFcOpt = nan(nBlocks*nBands, 1);
+        diagNHarm = nan(nBlocks*nBands, 1);
+        diagAhat = nan(nBlocks*nBands, 1);
+        diagPowerSum = nan(nBlocks*nBands, 1);
+        diagNHSA = nan(nBlocks*nBands, 1);
+        diagAlz = nan(nBlocks*nBands, 1);
+        diagBelowThresh = nan(nBlocks*nBands, 1);
+        diagNzb = nan(nBlocks*nBands, 1);
+        diagNze = nan(nBlocks*nBands, 1);
+        diagIdx = 0;
+    end
+
     for zBand = nBands:-1:1
         if waitBar
             waitbar(i_step/n_steps, w, strcat("Running HSA in 53 bands, ",...
@@ -522,7 +597,6 @@ for chan = chansIn:-1:1
             % both neighbours k-1 and k+1 in Equation 144)
             [phiPks, kLocs] = findpeaks(spectrumPhi);
             keepMask = phiPks >= modSpecCriterion(lBlock, zBand);
-            phiPks = phiPks(keepMask);
             kLocs = kLocs(keepMask);  % 1-based MATLAB index; k0 = kLocs - mlabIdx
             % Section 9.1.5 - number of local maxima cannot exceed 24;
             % this is guaranteed by construction (at most floor(47/2)
@@ -535,7 +609,34 @@ for chan = chansIn:-1:1
                 jIdx = (k0 - 1):(k0 + 1);  % 0-based neighbour indices
                 phiNeighbours = spectrumPhi(jIdx + mlabIdx);
                 % Section 9.1.5 Equation 144 [f_p,i(l,z)]
-                fpCandidates(iPk) = (sum(jIdx(:).*phiNeighbours)/sum(phiNeighbours) - 1)*deltaF1500;
+                %
+                % CORRECTION relative to the printed standard: Equation 144
+                % as typeset in ECMA-418-2:2025 includes a "- 1" term inside
+                % the outer brackets, i.e. fp,i = (centroid - 1)*Delta_f.
+                % This was verified to be present in the actual typeset
+                % page image (not a text-extraction artefact), but applying
+                % it produces a systematic bias of very close to one full
+                % DFT bin (Delta_f) below the true frequency, confirmed
+                % numerically across multiple independent single-tone test
+                % cases (errors of -0.73 to -0.85 Hz, i.e. essentially
+                % -Delta_f, versus +0.01 to -0.12 Hz - a small fraction of
+                % one bin, consistent with a standard power-weighted
+                % three-point centroid interpolator - with the "- 1" term
+                % removed). The weighted centroid of the bin indices
+                % themselves (without an additional offset) is the
+                % conventional and correct form of this estimator, matching
+                % the analogous (unbiased) refinement step used by
+                % Equations 73-76 for roughness. Removing this term also
+                % resolved a >90% amplitude recovery error for a secondary
+                % (non-dominant) spectral line in a two-tone synthetic test,
+                % which the biased estimate could push far enough from the
+                % true frequency to substantially corrupt that line's HSA
+                % fit; the dominant line was less affected only because
+                % Section 9.1.5's own case I/II duplicate-selection logic
+                % happened to discard the biased estimate in favour of
+                % f_min in that specific (single-line) test case.
+                % As-written: fpCandidates(iPk) = (sum(jIdx(:).*phiNeighbours)/sum(phiNeighbours) - 1)*deltaF1500;
+                fpCandidates(iPk) = (sum(jIdx(:).*phiNeighbours)/sum(phiNeighbours))*deltaF1500;
             end
 
             % Section 9.1.5 Stage 2 - local minima of the HSA error
@@ -555,11 +656,17 @@ for chan = chansIn:-1:1
                 if isempty(fpCandidates)
                     % Section 9.1.5 - no local maximum and no local
                     % minimum: no modulation in this block
+                    if diagOn
+                        diagIdx = diagIdx + 1;
+                        diagChan(diagIdx) = chan; diagZBand(diagIdx) = zBand; diagLBlock(diagIdx) = lBlock;
+                        diagStatus{diagIdx} = 'no_modulation';
+                        diagNzb(diagIdx) = nzb; diagNze(diagIdx) = nze;
+                    end
                     continue
                 end
                 % Section 9.1.5 - no local minimum: use all local maxima
                 fcFinal = sort(fpCandidates(:).');
-                [pHatAll, ~] = shmHSA(fcFinal, spectrumE, blockSize1500,...
+                [pHatAll, ~, diagBig] = shmHSA(fcFinal, spectrumE, blockSize1500,...
                                      sampleRate1500, nzb, nze, epsilon);
             else
                 errCandidates = errHSA(isLocalMin);
@@ -572,34 +679,44 @@ for chan = chansIn:-1:1
 
                 if isempty(fpCandidates)
                     fcFinal = fMin;
-                    [pHatAll, ~] = shmHSA(fcFinal, spectrumE, blockSize1500,...
+                    [pHatAll, ~, diagBig] = shmHSA(fcFinal, spectrumE, blockSize1500,...
                                          sampleRate1500, nzb, nze, epsilon);
                 elseif ~any(idDup)
                     fcFinal = sort([fpCandidates(:).', fMin]);
-                    [pHatAll, ~] = shmHSA(fcFinal, spectrumE, blockSize1500,...
+                    [pHatAll, ~, diagBig] = shmHSA(fcFinal, spectrumE, blockSize1500,...
                                          sampleRate1500, nzb, nze, epsilon);
                 else
                     % Case I: fMin plus all local maxima except duplicates
                     fcCaseI = sort([fpCandidates(~idDup).', fMin]);
-                    [pHatCaseI, errCaseI] = shmHSA(fcCaseI, spectrumE, blockSize1500,...
+                    [pHatCaseI, errCaseI, diagCaseI] = shmHSA(fcCaseI, spectrumE, blockSize1500,...
                                                    sampleRate1500, nzb, nze, epsilon);
 
                     % Case II: all local maxima only
                     fcCaseII = sort(fpCandidates(:).');
-                    [pHatCaseII, errCaseII] = shmHSA(fcCaseII, spectrumE, blockSize1500,...
+                    [pHatCaseII, errCaseII, diagCaseII] = shmHSA(fcCaseII, spectrumE, blockSize1500,...
                                                      sampleRate1500, nzb, nze, epsilon);
 
                     if errCaseI <= errCaseII
                         fcFinal = fcCaseI;
                         pHatAll = pHatCaseI;
+                        diagBig = diagCaseI;
                     else
                         fcFinal = fcCaseII;
                         pHatAll = pHatCaseII;
+                        diagBig = diagCaseII;
                     end
                 end
             end
 
             if isempty(fcFinal)
+                if diagOn
+                    diagIdx = diagIdx + 1;
+                    diagChan(diagIdx) = chan; diagZBand(diagIdx) = zBand; diagLBlock(diagIdx) = lBlock;
+                    diagStatus{diagIdx} = 'no_modulation';
+                    diagMc(diagIdx) = diagBig.Mc; diagKL(diagIdx) = diagBig.KL;
+                    diagNUnknown(diagIdx) = diagBig.nUnknown; diagRcondA(diagIdx) = diagBig.rcondA;
+                    diagUsedPinv(diagIdx) = diagBig.usedPinv;
+                end
                 continue
             end
 
@@ -609,6 +726,15 @@ for chan = chansIn:-1:1
             aRaw = abs(pHatAll(2:end)).^2;
             keepFinal = aRaw > 0.05*max(aRaw);
             if ~any(keepFinal)
+                if diagOn
+                    diagIdx = diagIdx + 1;
+                    diagChan(diagIdx) = chan; diagZBand(diagIdx) = zBand; diagLBlock(diagIdx) = lBlock;
+                    diagStatus{diagIdx} = 'no_survivors';
+                    diagMc(diagIdx) = diagBig.Mc; diagKL(diagIdx) = diagBig.KL;
+                    diagNUnknown(diagIdx) = diagBig.nUnknown; diagRcondA(diagIdx) = diagBig.rcondA;
+                    diagUsedPinv(diagIdx) = diagBig.usedPinv;
+                    diagNzb(diagIdx) = nzb; diagNze(diagIdx) = nze;
+                end
                 continue
             end
             fcSurvive = fcFinal(keepFinal);
@@ -648,6 +774,15 @@ for chan = chansIn:-1:1
             end
 
             if fcOpt < 0.125
+                if diagOn
+                    diagIdx = diagIdx + 1;
+                    diagChan(diagIdx) = chan; diagZBand(diagIdx) = zBand; diagLBlock(diagIdx) = lBlock;
+                    diagStatus{diagIdx} = 'discarded_low_freq';
+                    diagMc(diagIdx) = diagBig.Mc; diagKL(diagIdx) = diagBig.KL;
+                    diagNUnknown(diagIdx) = diagBig.nUnknown; diagRcondA(diagIdx) = diagBig.rcondA;
+                    diagUsedPinv(diagIdx) = diagBig.usedPinv; diagFcOpt(diagIdx) = fcOpt;
+                    diagNzb(diagIdx) = nzb; diagNze(diagIdx) = nze;
+                end
                 continue  % Section 9.1.7 - modulation discarded
             end
 
@@ -676,6 +811,15 @@ for chan = chansIn:-1:1
             end
 
             if isempty(bestIset)
+                if diagOn
+                    diagIdx = diagIdx + 1;
+                    diagChan(diagIdx) = chan; diagZBand(diagIdx) = zBand; diagLBlock(diagIdx) = lBlock;
+                    diagStatus{diagIdx} = 'no_harmonic_group';
+                    diagMc(diagIdx) = diagBig.Mc; diagKL(diagIdx) = diagBig.KL;
+                    diagNUnknown(diagIdx) = diagBig.nUnknown; diagRcondA(diagIdx) = diagBig.rcondA;
+                    diagUsedPinv(diagIdx) = diagBig.usedPinv; diagFcOpt(diagIdx) = fcOpt;
+                    diagNzb(diagIdx) = nzb; diagNze(diagIdx) = nze;
+                end
                 continue
             end
 
@@ -693,7 +837,6 @@ for chan = chansIn:-1:1
             % average the resulting constant-part estimates
             p0Estimates = zeros(nHarm, 1);
             aRawHarm = zeros(nHarm, 1);
-            aTildeHarm = zeros(nHarm, 1);
             for iHarm = 1:nHarm
                 [pHatHarm, ~] = shmHSA(fcHarmCorrected(iHarm), spectrumE, blockSize1500,...
                                        sampleRate1500, nzb, nze, epsilon);
@@ -729,6 +872,18 @@ for chan = chansIn:-1:1
             N_HSA_Mat(lBlock, zBand) = N_HSA;
             fundRateMat(lBlock, zBand) = fc1Fund;
 
+            if diagOn
+                diagIdx = diagIdx + 1;
+                diagChan(diagIdx) = chan; diagZBand(diagIdx) = zBand; diagLBlock(diagIdx) = lBlock;
+                diagStatus{diagIdx} = 'ok';
+                diagMc(diagIdx) = diagBig.Mc; diagKL(diagIdx) = diagBig.KL;
+                diagNUnknown(diagIdx) = diagBig.nUnknown; diagRcondA(diagIdx) = diagBig.rcondA;
+                diagUsedPinv(diagIdx) = diagBig.usedPinv; diagFcOpt(diagIdx) = fcOpt;
+                diagNHarm(diagIdx) = nHarm; diagAhat(diagIdx) = Ahat;
+                diagPowerSum(diagIdx) = powerSum; diagNHSA(diagIdx) = N_HSA;
+                diagNzb(diagIdx) = nzb; diagNze(diagIdx) = nze;
+            end
+
         end  % end of for loop over blocks
     end  % end of for loop over bands
 
@@ -743,6 +898,27 @@ for chan = chansIn:-1:1
     belowThreshold = A_lz < aThreshold;
     A_lz(belowThreshold) = 0;
     fundRateMat(belowThreshold) = 0; %#ok<NASGU> % retained for completeness/diagnostics; not used further below
+
+    % Diagnostic log: backfill the pre-threshold A(l,z) value and the
+    % threshold outcome for every logged block/band (only meaningful for
+    % status = 'ok' rows; NaN elsewhere since A_lz is only computed - and
+    % only nonzero prior to thresholding - for blocks that reached that
+    % point in the pipeline)
+    if diagOn
+        linIdx = sub2ind([nBlocks, nBands], diagLBlock(1:diagIdx), diagZBand(1:diagIdx));
+        isOkRow = strcmp(diagStatus(1:diagIdx), 'ok');
+        % recomputed from the per-block matrices rather than read from
+        % A_lz directly, since A_lz has already been zeroed above for
+        % below-threshold entries and the pre-threshold value is the
+        % diagnostically useful one; only meaningful (non-NaN) for rows
+        % that actually reached the point where these matrices are
+        % populated, i.e. status = 'ok'
+        alzRecomputed = AhatMat(linIdx).*(N_HSA_Mat(linIdx).^2)./(N_HSA_max(diagLBlock(1:diagIdx)) + epsilon)./(powerSumMat(linIdx) + epsilon).*blockSize1500;
+        diagAlz(1:diagIdx) = alzRecomputed;
+        diagAlz(~isOkRow) = NaN;
+        diagBelowThresh(1:diagIdx) = double(belowThreshold(linIdx));
+        diagBelowThresh(~isOkRow) = NaN;
+    end
 
     % Time-dependent specific fluctuation strength
     % ---------------------------------------------
@@ -788,6 +964,27 @@ for chan = chansIn:-1:1
 
     if waitBar
         close(w)  % close waitbar
+    end
+
+    if diagOn
+        diagLogAll.chan = [diagLogAll.chan; diagChan(1:diagIdx)];
+        diagLogAll.zBand = [diagLogAll.zBand; diagZBand(1:diagIdx)];
+        diagLogAll.lBlock = [diagLogAll.lBlock; diagLBlock(1:diagIdx)];
+        diagLogAll.status = [diagLogAll.status; diagStatus(1:diagIdx)];
+        diagLogAll.Mc = [diagLogAll.Mc; diagMc(1:diagIdx)];
+        diagLogAll.KL = [diagLogAll.KL; diagKL(1:diagIdx)];
+        diagLogAll.nUnknown = [diagLogAll.nUnknown; diagNUnknown(1:diagIdx)];
+        diagLogAll.rcondA = [diagLogAll.rcondA; diagRcondA(1:diagIdx)];
+        diagLogAll.usedPinv = [diagLogAll.usedPinv; diagUsedPinv(1:diagIdx)];
+        diagLogAll.fcOpt = [diagLogAll.fcOpt; diagFcOpt(1:diagIdx)];
+        diagLogAll.nHarm = [diagLogAll.nHarm; diagNHarm(1:diagIdx)];
+        diagLogAll.Ahat = [diagLogAll.Ahat; diagAhat(1:diagIdx)];
+        diagLogAll.powerSum = [diagLogAll.powerSum; diagPowerSum(1:diagIdx)];
+        diagLogAll.N_HSA = [diagLogAll.N_HSA; diagNHSA(1:diagIdx)];
+        diagLogAll.A_lz = [diagLogAll.A_lz; diagAlz(1:diagIdx)];
+        diagLogAll.belowThreshold = [diagLogAll.belowThreshold; diagBelowThresh(1:diagIdx)];
+        diagLogAll.nzb = [diagLogAll.nzb; diagNzb(1:diagIdx)];
+        diagLogAll.nze = [diagLogAll.nze; diagNze(1:diagIdx)];
     end
 
     clearvars envelopes  % avoid stale data carried over between channels
@@ -937,6 +1134,10 @@ else
     fluctuationSHM.bandCentreFreqs = bandCentreFreqs;
     fluctuationSHM.timeOut = timeOut;
     fluctuationSHM.soundField = soundField;
+end
+
+if diagOn
+    fluctuationSHM.diagLog = diagLogAll;
 end
 
 % end of function

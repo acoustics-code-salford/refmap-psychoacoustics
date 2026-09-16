@@ -19,7 +19,7 @@ function acousticSHMVerification(savePlots, includePython)
 % Institution: University of Salford
 %
 % Date created: 19/08/2024
-% Date last modified: 17/11/2025
+% Date last modified: 16/09/2026
 % MATLAB version: 2023b
 % [Python version: 3.11]
 %
@@ -53,7 +53,7 @@ refpath = fullfile("validation", "ECMA-418-2", "reference");
 
 % Loudness
 
-sine_1kHz_40dB.LoudTDep = readmatrix(fullfile(refpath, "sine_1kHz_40dB.Loud_SHM_TDep.asc"), 'FileType', 'text');
+sine_1kHz_40dB.LoudTDep = readmatrix(fullfile(refpath, "sine_1kHz_4Hz_60dB.Loudness (Hearing Model) vs. Time LR.asc"), 'FileType', 'text');
 sine_1kHz_40dB.LoudSpec = readmatrix(fullfile(refpath, "sine_1kHz_40dB.LoudSpec_SHM.asc"), 'FileType', 'text');
 sine_1kHz_40dB.LoudSpecTDep = readmatrix(fullfile(refpath, "sine_1kHz_40dB.LoudSpec_SHM_TDep.asc"), 'FileType', 'text');
 
@@ -97,6 +97,20 @@ BusyStreet1_0530_0600.RoughSpecTDep = readmatrix(fullfile(refpath, "BusyStreet1_
 BusyStreet1_0530_0600.RoughTDepBin = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.Rough_SHM_TDep_Bin.asc"), 'FileType', 'text');
 BusyStreet1_0530_0600.RoughSpecBin = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.RoughSpec_SHM_Bin.asc"), 'FileType', 'text');
 BusyStreet1_0530_0600.RoughSpecTDepBin = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.RoughSpec_SHM_TDep_Bin.asc"), 'FileType', 'text');
+
+% Fluctuation strength
+
+sine_1kHz_4Hz_60dB.FluctTDep = readmatrix(fullfile(refpath, "sine_1kHz_4Hz_60dB.Loudness (Hearing Model) vs. Time LR.asc"), 'FileType', 'text');
+sine_1kHz_4Hz_60dB.FluctSpec = readmatrix(fullfile(refpath, "sine_1kHz_4Hz_60dB.Specific Fluctuation Strength (Hearing Model) LR.asc"), 'FileType', 'text');
+sine_1kHz_4Hz_60dB.FluctSpecTDep = readmatrix(fullfile(refpath, "sine_1kHz_4Hz_60dB.Specific Fluctuation Strength (Hearing Model) vs. Time LR.asc"), 'FileType', 'text');
+
+BusyStreet1_0530_0600.FluctTDep = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.Fluctuation Strength (Hearing Model) vs. Time LR.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.FluctSpec = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.Specific Fluctuation Strength (Hearing Model) LR.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.FluctSpecTDep = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.Specific Fluctuation Strength (Hearing Model) vs. Time LR.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.FluctTDepBin = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.Fluctuation Strength (Hearing Model) vs. Time Bin.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.FluctSpecBin = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.Specific Fluctuation Strength (Hearing Model) Bin.asc"), 'FileType', 'text');
+BusyStreet1_0530_0600.FluctSpecTDepBin = readmatrix(fullfile(refpath, "BusyStreet1_0530-0600.Specific Fluctuation Strength (Hearing Model) vs. Time Bin.asc"), 'FileType', 'text');
+
 
 % single values
 verification_ECMA_418_2_3_2025_LR = readcell(fullfile(refpath, "verification_ECMA-418-2_2025_LR.xlsx"),...
@@ -665,6 +679,16 @@ function SpecTDepPlot(struct1, struct2, metricType, titleStr, binaural,...
             else
                 metric1 = struct1.RoughSpecTDep;
                 metric2 = struct2.specRoughness;
+            end
+        case 'fluctuation'
+            cmap = colormap('parula');
+            unit = {"Specific fluctuation str.,"; "vacil_{SHM}/Bark_{SHM}"};
+            if binaural
+                metric1 = struct1.FluctSpecTDepBin;
+                metric2 = struct2.specFluctuationBin;
+            else
+                metric1 = struct1.FluctSpecTDep;
+                metric2 = struct2.specFluctuation;
             end
     end
 
