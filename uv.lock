@@ -10,20 +10,22 @@ resolution-markers = [
 
 [[package]]
 name = "acoustic-toolbox"
-version = "0.1.2"
+version = "0.2.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "matplotlib" },
+    { name = "numba" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "pyoctaveband" },
     { name = "pysoundfile" },
     { name = "scipy" },
     { name = "six" },
     { name = "tabulate" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7c/35/b0ac49de2c9bc334514b048d58ae683ee7e20b13b980e0534d13f51b0f1c/acoustic_toolbox-0.1.2.tar.gz", hash = "sha256:e0b97a172b734d30c7e9f885dfbfd25b3a1a779cb25d1f99e6de11e5d419e9a2", size = 4203264, upload-time = "2025-02-22T21:54:41.262Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/62/2c/845fae14414c78f6538ec0989f52164ae3c8cea65da9d6e540286e3cddf7/acoustic_toolbox-0.2.2.tar.gz", hash = "sha256:79ff4d738194c5483f9443a62006d493734b0ab5e980ebb6047c58f7553dc0a0", size = 4204253, upload-time = "2026-01-26T11:46:02.439Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/89/6d/28946f0b70bfc5791c4d1b111df49adfbdd86206ac353577383a0fcd2dc0/acoustic_toolbox-0.1.2-py3-none-any.whl", hash = "sha256:514dda70833124c534d949c7d3f150d0ccb374086676db7aaeb652f653a31501", size = 76861, upload-time = "2025-02-22T21:54:39.71Z" },
+    { url = "https://files.pythonhosted.org/packages/38/eb/a06005807d5b746e914be2286ae1e44b15c9c2431c295e3bec3d95f50a95/acoustic_toolbox-0.2.2-py3-none-any.whl", hash = "sha256:10d1861467a86d5e3e805b932fc6e25298c90ee1d1ef6777185431eb5e2b9e25", size = 76660, upload-time = "2026-01-26T11:46:01.22Z" },
 ]
 
 [[package]]
@@ -2352,6 +2354,21 @@ wheels = [
 ]
 
 [[package]]
+name = "pyoctaveband"
+version = "1.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "matplotlib" },
+    { name = "numba" },
+    { name = "numpy" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8b/d5/1fa2415d7bff629d3615377ac699e10b3e1aa41378fa5a0496c0b1ded58e/pyoctaveband-1.2.1.tar.gz", hash = "sha256:f4519387f2cdfdb6bfe1297a2686f60a0654ad1632af5ac28173d5caa22a35a6", size = 55853, upload-time = "2026-03-08T10:37:47.89Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7b/1d/83832e539175e44b492870d41afbb5ba20082529f65bdea178b8c1360c6b/pyoctaveband-1.2.1-py3-none-any.whl", hash = "sha256:8255afb23413ddae69f43245805a9821ffd3a7fae1407b9b2b6c858635016e69", size = 35885, upload-time = "2026-03-08T10:37:46.733Z" },
+]
+
+[[package]]
 name = "pyparsing"
 version = "3.2.3"
 source = { registry = "https://pypi.org/simple" }
@@ -2824,6 +2841,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "ipykernel" },
     { name = "jupyter" },
     { name = "jupyterlab" },
     { name = "snakeviz" },
@@ -2862,6 +2880,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "ipykernel", specifier = ">=6.30.1" },
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "jupyterlab", specifier = ">=4.4.7" },
     { name = "snakeviz", specifier = ">=2.2.2" },
@@ -3299,8 +3318,8 @@ name = "standard-aifc"
 version = "3.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "audioop-lts", marker = "python_full_version >= '3.13'" },
-    { name = "standard-chunk", marker = "python_full_version >= '3.13'" },
+    { name = "audioop-lts" },
+    { name = "standard-chunk" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c4/53/6050dc3dde1671eb3db592c13b55a8005e5040131f7509cef0215212cb84/standard_aifc-3.13.0.tar.gz", hash = "sha256:64e249c7cb4b3daf2fdba4e95721f811bde8bdfc43ad9f936589b7bb2fae2e43", size = 15240, upload-time = "2024-10-30T16:01:31.772Z" }
 wheels = [
@@ -3321,7 +3340,7 @@ name = "standard-sunau"
 version = "3.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "audioop-lts", marker = "python_full_version >= '3.13'" },
+    { name = "audioop-lts" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/66/e3/ce8d38cb2d70e05ffeddc28bb09bad77cfef979eb0a299c9117f7ed4e6a9/standard_sunau-3.13.0.tar.gz", hash = "sha256:b319a1ac95a09a2378a8442f403c66f4fd4b36616d6df6ae82b8e536ee790908", size = 9368, upload-time = "2024-10-30T16:01:41.626Z" }
 wheels = [

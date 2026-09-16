@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # %% Preamble
 """
-arrays.py
+array_helpers.py
 --------------
 
 Array manipulations and operations
@@ -16,7 +16,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
 
 Date created: 30/04/2025
-Date last modified: 30/04/2025
+Date last modified: 22/04/2026
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within

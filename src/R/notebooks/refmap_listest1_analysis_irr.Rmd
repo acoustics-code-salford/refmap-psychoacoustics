@@ -67,6 +67,9 @@ annoyDataB <- dplyr::mutate_all(annoyDataB, function(x) as.numeric(as.character(
 irr::icc(annoyDataA, model = 'twoway', 
          type = 'consistency', unit = 'average')
 
+irr::icc(annoyDataA, model = 'twoway', 
+         type = 'agreement', unit = 'average')
+
 ```
 
 
@@ -77,6 +80,10 @@ irr::icc(annoyDataA, model = 'twoway',
 
 irr::icc(annoyDataB, model = 'twoway', 
          type = 'consistency', unit = 'average')
+
+
+irr::icc(annoyDataB, model = 'twoway', 
+         type = 'agreement', unit = 'average')
 
 
 ```
@@ -92,6 +99,10 @@ annoyDataAB <- rbind(annoyDataA, annoyDataB[ , colnames(annoyDataB) %in% colname
 
 irr::icc(annoyDataAB, model = 'twoway', 
          type = 'consistency', unit = 'average')
+
+
+irr::icc(annoyDataAB, model = 'twoway', 
+         type = 'agreement', unit = 'average')
 
 
 ```

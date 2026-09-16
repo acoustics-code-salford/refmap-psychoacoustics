@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 from PyQt5.QtWidgets import QFileDialog, QApplication
 from warnings import simplefilter
+from refmap_psychoacoustics.utils import data_helpers
 
 # suppress pandas performance warnings
 simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
@@ -97,9 +98,21 @@ df_endAnnoy.drop(columns=['response'], inplace=True)
 
 df_endCircumplex = df[df['response'] == "EndCircumplex"]
 df_endCircumplex = df_endCircumplex.loc[:, ~((df_endCircumplex.columns.str.contains('^Unnamed')) & (df_endCircumplex.isnull().all()))]
-df_endCircumplex.rename(columns={"rating" : "Pleasantness"}, inplace=True)
-df_endCircumplex.rename(columns={df_endCircumplex.columns[df_endCircumplex.columns.str.contains('^Unnamed')][0] : "Eventfulness"}, inplace=True)
-df_endCircumplex.drop(columns=['response'], inplace=True)
+df_endCircumplex.rename(columns={"rating" : "XPleasantness"}, inplace=True)
+df_endCircumplex.rename(columns={df_endCircumplex.columns[df_endCircumplex.columns.str.contains('^Unnamed')][0] : "YEventfulness"}, inplace=True)
+
+# Transformation from raw input circumplex XY to ISO 12913-3:2025 Annex A transformed coordinates
+# form an array from the original circumplex coordinates and apply the ISO transform to get the transformed coordinates
+circumplexXY = np.array([df_endCircumplex['XPleasantness'], df_endCircumplex['YEventfulness']]).T
+transformedCircumplexXY = np.zeros(circumplexXY.shape)
+for row in range(circumplexXY.shape[0]):
+    transformedCircumplexXY[row] = data_helpers.iso_transform_circ(circumplexXY[row, 0], circumplexXY[row, 1])
+
+df_endCircumplex['Pleasantness'] = transformedCircumplexXY[:, 0]
+df_endCircumplex['Eventfulness'] = transformedCircumplexXY[:, 1]
+
+df_endCircumplex.drop(columns=['response', 'XPleasantness', 'YEventfulness'], inplace=True)
+
 # merge DataFrames
 df_endResponse = pd.merge(df_endAnnoy, df_endCircumplex, how='inner')
 
@@ -112,7 +125,6 @@ def logistic(x, L, x0, k):
 # add change in response columns
 df_endResponse['HighlyAnnoyed'] = df_endResponse['Annoyance'] >= 10*(8/11)  # mark highly annoyed responses (>= 8 on 0-10 scale)
 # logistic function to convert annoyance ratings to probability of being highly annoyed
-df_endResponse['ProbHA30k'] = df_endResponse['Annoyance'].apply(lambda x: logistic(x, L=1, x0=10*(8/11), k=30))
 df_endResponse['ProbHA20k'] = df_endResponse['Annoyance'].apply(lambda x: logistic(x, L=1, x0=10*(8/11), k=20))
 df_endResponse['ProbHA10k'] = df_endResponse['Annoyance'].apply(lambda x: logistic(x, L=1, x0=10*(8/11), k=10))
 
@@ -156,7 +168,7 @@ for response in ['Annoyance', 'Pleasantness', 'Eventfulness']:
 # if the baseline probability is <0.5, otherwise they are NaN
 # loop through participants
 for participant in df_endResponse['participant'].unique():
-    for response in ['HighlyAnnoyed', 'ProbHA30k', 'ProbHA20k', 'ProbHA10k']:
+    for response in ['HighlyAnnoyed', 'ProbHA20k', 'ProbHA10k']:
         
         df_endResponse.loc[df_endResponse['participant'] == participant, 'd' + response] = np.nan  # initialize column with NaN values
 
@@ -167,12 +179,10 @@ for participant in df_endResponse['participant'].unique():
                                                     & (df_endResponse['stimulus'].str.contains("Baseline"))
                                                     & (df_endResponse['ambientRef']
                                                         == ambient)), response]
-            
+
             # this is needed for participant 49 who is missing data for baseline HA
             if df_baseResponse.empty:
                 continue
-
-            
 
             if response == 'HighlyAnnoyed':
                 # if baseline is HA, skip
@@ -214,6 +224,10 @@ for participant in df_endResponse['participant'].unique():
 # convert HighlyAnnoyed and dHighlyAnnoyed to binary 0 or 1 integers
 df_endResponse['HighlyAnnoyed'] = df_endResponse['HighlyAnnoyed'].astype(int)
 df_endResponse['dHighlyAnnoyed'] = df_endResponse['dHighlyAnnoyed'].astype('Int64')
+
+# fix dPropHA20k and dProbHA10k to be 0 for baseline responses (by definition)
+df_endResponse.loc[df_endResponse['stimulus'].str.contains("Baseline"), 'dProbHA20k'] = 0
+df_endResponse.loc[df_endResponse['stimulus'].str.contains("Baseline"), 'dProbHA10k'] = 0
 
 # extract MomentAnnoyance data
 df_momentAnnoy = df[df['response'] == "MomentAnnoyance"]
@@ -266,13 +280,24 @@ df_questionnaire.drop(columns=['Start time', 'Completion time', 'NoiseSensitive1
                                'NoiseSensitive5', 'Comments'], inplace=True)
 # make Participant ID column name ParticipantID
 df_questionnaire.rename(columns={"Participant ID": "ParticipantID"}, inplace=True)
-# fill na for AAMExperience (NA is "None"), for NativeLanguage (NA is "NotAnswered")
+# fill na for AAMExperience (NA is "None"), for NativeLanguage (NA is "Unanswered")
 df_questionnaire['AAMExperience'] = df_questionnaire['AAMExperience'].fillna("None")
-df_questionnaire['Nationality'] = df_questionnaire['Nationality'].fillna("NotAnswered")
-df_questionnaire['NativeLanguage'] = df_questionnaire['NativeLanguage'].fillna("NotAnswered")
+df_questionnaire['Nationality'] = df_questionnaire['Nationality'].fillna("Unanswered")
+df_questionnaire['NativeLanguage'] = df_questionnaire['NativeLanguage'].fillna("Unanswered")
 # remove substring following first space
 df_questionnaire['AAMAttitude'] = df_questionnaire['AAMAttitude'].str.split(' ').str[0]
-df_questionnaire['UKNational'] = df_questionnaire['UKNational'].str.replace("No answer", "NotAnswered")
+df_questionnaire['UKNational'] = df_questionnaire['UKNational'].str.replace("No answer", "Unanswered")
+
+# add NationGeo column and assign geographic area of nationality according to dict
+nationGeo = {"British": "UK", "English": "UK", "Scottish": "UK", "Nigerian": "Africa", "Ecuadorean": "SouthAmerica", "Peruvian": "SouthAmerica",
+             "Austrian" : "Europe", "Lithuanian": "Europe", "China" : "EastAsia", "Pakistani" : "SouthAsia", "Indian" : "SouthAsia",
+             "British / Dutch" : "UK", "Turkish" : "Europe", "Iranian": "MidEast", "Italian" : "Europe",
+             "Unanswered" : "Unanswered"}
+
+df_questionnaire['NationGeo'] = df_questionnaire['Nationality'].map(nationGeo)
+
+# move NationGeo to after Nationality column
+df_questionnaire.insert(df_questionnaire.columns.get_loc('Nationality') + 1, 'NationGeo', df_questionnaire.pop('NationGeo'))
 
 # check/open QApplication instance
 if not QApplication.instance():
@@ -280,7 +305,7 @@ if not QApplication.instance():
 else:
     app = QApplication.instance() 
 
-outFilePath = QFileDialog.getExistingDirectory(caption="Choose output folder to save processed files in  in '03 Experiment\Experiment 2\Test_files\Questionnaire'")
+outFilePath = QFileDialog.getExistingDirectory(caption="Choose output folder to save processed files in  in '03 Experiment\Experiment 2\Analysis\PostProcess'")
 
 # save cleaned questionnaire data to file
 questionOutFile = os.path.join(outFilePath, "refmap_listest2_questionnaireResponses.csv")

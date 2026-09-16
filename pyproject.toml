@@ -43,6 +43,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "ipykernel>=6.30.1",
     "jupyter>=1.1.1",
     "jupyterlab>=4.4.7",
     "snakeviz>=2.2.2",
