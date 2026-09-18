@@ -303,20 +303,47 @@ if (FALSE) {
 # yrep_sd_by_group ---------------------------------------------
 # Bayesian p-value-style tail probability for each sd group: this is useful for
 # identifying sd groups that may not be well-identified by the data
-yrep_sd_by_group <- function(fit, group_var, ndraws = 1000) {
+yrep_sd_by_group <- function(fit, group_var, ndraws = 1000, bins = NULL) {
   yrep <- brms::posterior_predict(fit, ndraws = ndraws)
   response_name <- all.vars(fit$formula$formula)[1]
   y_obs <- insight::get_data(fit)[[response_name]]
   grp <- insight::get_data(fit)[[group_var]]
-  levels(grp) |> purrr::map_dfr(function(lvl) {
-    idx <- grp == lvl
-    rep_sd <- apply(yrep[, idx], 1, stats::sd)
+  
+  if (is.factor(grp) || is.character(grp)) {
+    grp_labels <- as.character(grp)
+    grp_levels <- sort(unique(grp_labels))
+  } else if (is.numeric(grp)) {
+    n_unique <- length(unique(grp))
+    if (!is.null(bins)) {
+      grp_labels <- cut(grp, breaks = bins, include.lowest = TRUE)
+    } else if (n_unique <= 10) {
+      # discrete count-like variable (e.g. UASEvents {1,3,5,9}) — use exact values, no binning needed
+      grp_labels <- factor(grp, levels = sort(unique(grp)))
+    } else {
+      # genuinely continuous — quartile bins, since exact-value groups would mostly have n=1
+      message(group_var, " has ", n_unique, " unique values — binning into quartiles. ",
+              "Pass `bins =` explicitly for a different scheme.")
+      grp_labels <- cut(grp, breaks = stats::quantile(grp, probs = seq(0, 1, 0.25), na.rm = TRUE),
+                        include.lowest = TRUE)
+    }
+    grp_levels <- levels(factor(grp_labels))
+  } else {
+    stop("`group_var` must be a factor, character, or numeric column.")
+  }
+  
+  purrr::map_dfr(grp_levels, function(lvl) {
+    idx <- as.character(grp_labels) == as.character(lvl)
+    n <- sum(idx, na.rm = TRUE)
+    if (n < 2) {
+      return(tibble::tibble(group = as.character(lvl), n = n, obs_sd = NA_real_, p_lower = NA_real_))
+    }
+    rep_sd <- apply(yrep[, idx, drop = FALSE], 1, stats::sd)
     obs_sd <- stats::sd(y_obs[idx])
-    tibble::tibble(group = lvl, obs_sd = obs_sd,
-                   p_lower = mean(rep_sd < obs_sd))
+    tibble::tibble(group = as.character(lvl), n = n, obs_sd = obs_sd,
+                   p_lower = mean(rep_sd < obs_sd),
+                   p_higher = mean(rep_sd > obs_sd))
   })
 }
-
 
 # match_interaction_coefs --------------------------------------------
 match_interaction_coefs <- function(dp, vars, dpar = "mu") {
