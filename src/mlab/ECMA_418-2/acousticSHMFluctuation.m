@@ -272,12 +272,11 @@ newtonMaxIt = 40;  % Equation 152 maximum number of iterations
 % f_i +/- 0.002 Hz). With the cap raised to 2*10^-1 Hz the optimisation
 % converges, the rejection test becomes meaningful (maximum travel 2 Hz),
 % and the agreement of the time-dependent specific fluctuation strength
-% with the reference implementation (HEAD acoustics ArtemiS v17) improves
-% substantially on complex recordings (e.g. band-spectrum relative error
-% reduced by about one third), with no effect on the calibration
-% sinusoids (whose 4 Hz rate lies exactly on the candidate grid). The
-% printed value is therefore treated as a typographical error in the
-% exponent. As-written: newtonStepLim = 2e-4;
+% with the reference results improves substantially on complex recordings
+% (e.g. band-spectrum relative error reduced by about one third), with no
+% effect on the calibration sinusoids (whose 4 Hz rate lies exactly on the
+% candidate grid). The printed value is therefore treated as a
+% typographical error in the exponent. As-written: newtonStepLim = 2e-4;
 newtonStepLim = 2e-1;
 newtonConvTol = 1e-7;  % Equation 152 convergence tolerance [Hz]
 newtonRejectTol = 1.25*deltaF1500;  % Section 9.1.7 rejection tolerance
@@ -860,7 +859,7 @@ for chan = chansIn:-1:1
                 % recordings this reading, combined with the Equation 152
                 % step-cap correction above, reduced the relative error of
                 % the time-dependent specific fluctuation strength against
-                % the reference implementation (ArtemiS v17) by about one
+                % the reference results by about one
                 % third to one half, whereas testing only o = 1, dropping the
                 % harmonic complex, or dropping w_bw all made agreement
                 % worse.

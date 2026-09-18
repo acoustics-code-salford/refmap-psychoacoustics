@@ -120,8 +120,7 @@ function [pHat, Elz, diagInfo] = shmHSA(fc, spectrumE, blockSize, sampleRate, nZ
 % line values of Equation 66 equal the HSA line values multiplied by the
 % DFT length s~b) are only consistent with the two-sided convention.
 % The two-sided convention is therefore used here, and has been
-% verified against the reference implementation (HEAD acoustics
-% ArtemiS v17) - see the note at the point of use below.
+% verified against reference results - see the note at the point of use below.
 %
 % Requirements
 % ------------
@@ -252,11 +251,11 @@ Elz = sum(abs(spectrumEk).^2) + x.'*A*x - 2*b.'*x;
 % |phat|^2 by a factor of 4 and the harmonic-complex power by up to a
 % factor of 2, and was found to reproduce a modulation-depth-dependent
 % overestimation of fluctuation strength (approx. 1.8x at m = 1 rising
-% to 3x at m = 0.25) relative to the reference (HEAD acoustics ArtemiS)
-% results; with the two-sided convention the reference calibration
-% signal yields F = 0.994 vacil_HMS (ArtemiS: 1.003) and per-band
-% specific fluctuation strength agrees with ArtemiS to within a few %
-% across 50-70 dB and modulation depths 25-100 %.
+% to 3x at m = 0.25) relative to the reference results; with the two-sided 
+% convention the reference calibration signal yields F = 0.994 vacil_HMS
+% (reference: 1.003) and per-band specific fluctuation strength agrees
+% with the reference to within a few % across 50-70 dB and modulation
+% depths 25-100 %.
 pHat = zeros(Mc + 1, 1);
 pHat(1) = x(1);  % [phat_0,l,z], real-valued
 for mLine = 1:Mc

@@ -32,7 +32,7 @@
 % across multiple single-tone synthetic tests and fixed by removing it.
 %
 % A third issue - the one that actually accounted for the remaining
-% systematic overestimation relative to ArtemiS - was the amplitude
+% systematic overestimation relative to the reference - was the amplitude
 % convention of the recovered spectral lines: a literal inversion of
 % Equation 123 gives the one-sided (cosine) amplitude, whereas Equations
 % 159-160 and footnote 46 require the two-sided line amplitude (half the
