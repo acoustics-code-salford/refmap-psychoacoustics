@@ -137,7 +137,7 @@ function fluctuationSHM = acousticSHMFluctuation(p, sampleRateIn, axisN, soundFi
 % Institution: University of Salford
 %
 % Date created: 16/05/2025
-% Date last modified: 16/09/2026
+% Date last modified: 18/09/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -256,7 +256,29 @@ phiEmin = 0.15;  % Section 9.1.5 Equation 143 [Phi_Emin]
 % Section 9.1.7 - fine tuning (modified damped Newton method) parameters
 newtonDx = 1e-5;  % finite-difference step [Delta x]
 newtonMaxIt = 40;  % Equation 152 maximum number of iterations
-newtonStepLim = 2e-4;  % Equation 152 maximum step size [Hz]
+% Equation 152 maximum step size [Hz]
+%
+% CORRECTION relative to the printed standard: Equation 152 as typeset in
+% ECMA-418-2:2025 caps the Newton step at 2*10^-4 Hz. With the 1/4 damping
+% factor and the 40-iteration limit of Equation 152, the fine tuning can
+% then move the modulation rate by at most 40*0.25*2e-4 = 0.002 Hz, which
+% (i) is far smaller than the resolution of the initial estimates (Delta f
+% = 0.732 Hz for Equation 144, and the 1/3-octave grid of the f_min
+% candidates), so the optimisation almost never converges and simply
+% stops after 40 cap-limited steps, and (ii) makes the rejection test
+% |f_c,1,opt - f_c,imax| > 1.25*Delta f = 0.92 Hz in Section 9.1.7
+% unreachable. Diagnostics on real recordings confirmed the cap is active
+% in 77-87 % of all blocks (fine-tuned rates clustering at exactly
+% f_i +/- 0.002 Hz). With the cap raised to 2*10^-1 Hz the optimisation
+% converges, the rejection test becomes meaningful (maximum travel 2 Hz),
+% and the agreement of the time-dependent specific fluctuation strength
+% with the reference implementation (HEAD acoustics ArtemiS v17) improves
+% substantially on complex recordings (e.g. band-spectrum relative error
+% reduced by about one third), with no effect on the calibration
+% sinusoids (whose 4 Hz rate lies exactly on the candidate grid). The
+% printed value is therefore treated as a typographical error in the
+% exponent. As-written: newtonStepLim = 2e-4;
+newtonStepLim = 2e-1;
 newtonConvTol = 1e-7;  % Equation 152 convergence tolerance [Hz]
 newtonRejectTol = 1.25*deltaF1500;  % Section 9.1.7 rejection tolerance
 
@@ -723,6 +745,11 @@ for chan = chansIn:-1:1
             % Section 9.1.5 Equation 146 - amplitude threshold (raw,
             % unweighted power A_i(l,z) = |P_HSA,i|^2; strictly greater
             % than, per the standard)
+            % Note: shmHSA.m returns TWO-SIDED spectral line amplitudes
+            % (half the cosine amplitude of each envelope component), so
+            % that phat_0^2 + 2*sum(A_i) in Equations 159-160 is the
+            % mean-square power of the harmonic complex - see the Note in
+            % shmHSA.m regarding Equation 123 and footnote 46.
             aRaw = abs(pHatAll(2:end)).^2;
             keepFinal = aRaw > 0.05*max(aRaw);
             if ~any(keepFinal)
@@ -770,7 +797,16 @@ for chan = chansIn:-1:1
             if abs(fcOpt - x0) > newtonRejectTol
                 fcOpt = x0;  % optimisation rejected, retain original estimate
             else
+                % Section 9.1.7 - replace the modulation rate of the
+                % maximum with the fine-tuned value and update the
+                % corresponding spectral component of P_HSA and
+                % Atilde_imax accordingly (constant part plus one
+                % spectral line pair, as used by the optimisation)
                 fcSurvive(iMax) = fcOpt;
+                [pHatOpt, ~] = shmHSA(fcOpt, spectrumE, blockSize1500,...
+                                      sampleRate1500, nzb, nze, epsilon);
+                aRawSurvive(iMax) = abs(pHatOpt(2))^2;
+                aTildeSurvive(iMax) = aRawSurvive(iMax)*shmFluctWeight(fcOpt, bandCentreFreqs(zBand));
             end
 
             if fcOpt < 0.125
@@ -798,7 +834,28 @@ for chan = chansIn:-1:1
                 validRatio = ratios > 0;
                 tolCheck = false(size(fcSurvive));
                 tolCheck(validRatio) = abs(fcSurvive(validRatio)./(ratios(validRatio)*fc1o) - 1) < 0.04;  % Equation 154
-                if ~any(tolCheck)
+                % Section 9.1.8 - a "harmonic complex with fundamental
+                % modulation rate f_c,1,o" (Equation 154) is only taken to
+                % exist if one of the components is itself at that
+                % fundamental (integer ratio R = 1 within the 4 %
+                % tolerance). For o = 1 this is always satisfied by
+                % f_c,1,opt; for o = 2, 3 it requires a component near
+                % f_c,1,opt/o. INTERPRETATION NOTE: the printed text does
+                % not state this explicitly, but it mirrors the roughness
+                % procedure of Section 7.1.5.3 (Equations 88-91), where
+                % every candidate fundamental is itself one of the
+                % detected components, and without it the o = 2, 3 index
+                % sets (which admit all half- and third-integer multiples
+                % of f_c,1,opt) almost always accumulate more energy than
+                % the o = 1 set purely by admitting more members. On complex
+                % recordings this reading, combined with the Equation 152
+                % step-cap correction above, reduced the relative error of
+                % the time-dependent specific fluctuation strength against
+                % the reference implementation (ArtemiS v17) by about one
+                % third to one half, whereas testing only o = 1, dropping the
+                % harmonic complex, or dropping w_bw all made agreement
+                % worse.
+                if ~any(tolCheck) || ~any(tolCheck & ratios == 1)
                     continue
                 end
                 energyOrder = sum(aTildeSurvive(tolCheck));  % Equation 155

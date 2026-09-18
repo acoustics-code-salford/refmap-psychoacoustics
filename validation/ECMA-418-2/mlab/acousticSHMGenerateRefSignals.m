@@ -11,7 +11,7 @@ function acousticSHMGenerateRefSignals
 % Institution: University of Salford
 %
 % Date created: 19/08/2024
-% Date last modified: 17/11/2025
+% Date last modified: 18/09/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -37,6 +37,7 @@ dt = 1/fs;
 T = 5;
 n = T*fs;
 t = linspace(0, T-dt, n);
+t2 = linspace(0, 2*T-dt, 2*n);
 f_tone = 1000;
 f_mod70 = 70;
 f_mod4 = 4;
@@ -58,8 +59,8 @@ sine_1kHz_70Hz_60dB = sine_1kHz_70Hz_60dB/A_adjust;
 
 % reference modulated sinusoid for fluctuation strength
 
-sine_4Hz_mod = sin(2*pi*f_mod4.*t - pi/2);
-sine_1kHz_4Hz_60dB = (1 + sine_4Hz_mod).*sin(2*pi*f_tone.*t);
+sine_4Hz_mod = sin(2*pi*f_mod4.*t2 - pi/2);
+sine_1kHz_4Hz_60dB = (1 + sine_4Hz_mod).*sin(2*pi*f_tone.*t2);
 A_adjust = rms(sine_1kHz_4Hz_60dB)/0.02;
 sine_1kHz_4Hz_60dB = sine_1kHz_4Hz_60dB/A_adjust;
 

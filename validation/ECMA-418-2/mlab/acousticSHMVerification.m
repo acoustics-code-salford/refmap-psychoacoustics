@@ -100,7 +100,7 @@ BusyStreet1_0530_0600.RoughSpecTDepBin = readmatrix(fullfile(refpath, "BusyStree
 
 % Fluctuation strength
 
-sine_1kHz_4Hz_60dB.FluctTDep = readmatrix(fullfile(refpath, "sine_1kHz_4Hz_60dB.Loudness (Hearing Model) vs. Time LR.asc"), 'FileType', 'text');
+sine_1kHz_4Hz_60dB.FluctTDep = readmatrix(fullfile(refpath, "sine_1kHz_4Hz_60dB.Fluctuation Strength (Hearing Model) vs. Time LR.asc"), 'FileType', 'text');
 sine_1kHz_4Hz_60dB.FluctSpec = readmatrix(fullfile(refpath, "sine_1kHz_4Hz_60dB.Specific Fluctuation Strength (Hearing Model) LR.asc"), 'FileType', 'text');
 sine_1kHz_4Hz_60dB.FluctSpecTDep = readmatrix(fullfile(refpath, "sine_1kHz_4Hz_60dB.Specific Fluctuation Strength (Hearing Model) vs. Time LR.asc"), 'FileType', 'text');
 

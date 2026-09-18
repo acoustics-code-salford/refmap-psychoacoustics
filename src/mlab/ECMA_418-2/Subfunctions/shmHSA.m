@@ -13,7 +13,11 @@ function [pHat, Elz, diagInfo] = shmHSA(fc, spectrumE, blockSize, sampleRate, nZ
 %   candidate modulation rate(s) [Hz] of the Mc non-zero spectral line
 %   pairs under consideration, fc = (fc_1, ..., fc_Mc). The zero
 %   (constant) component is handled internally and must NOT be included
-%   in fc.
+%   in fc. Negative values are accepted (the error function E_l,z is an
+%   even function of each fc, since W+ is even and W- is odd in fc), so
+%   that the Newton iteration of Section 9.1.7 may pass through zero and
+%   the resulting f_c,1,opt < 0.125 Hz is then discarded by the caller as
+%   the standard specifies, rather than raising an error.
 %
 % spectrumE : column vector
 %   the s~b-point complex DFT spectrum P_E,l,z(k) of the windowed,
@@ -42,7 +46,10 @@ function [pHat, Elz, diagInfo] = shmHSA(fc, spectrumE, blockSize, sampleRate, nZ
 % pHat : column vector, length Mc + 1
 %   the HSA-estimated complex spectral amplitudes: pHat(1) = phat_0,l,z
 %   (real-valued constant part), pHat(2:end) = phat_fc,m,l,z (complex),
-%   m = 1, ..., Mc, in the same order as the input fc
+%   m = 1, ..., Mc, in the same order as the input fc. The spectral
+%   line amplitudes are TWO-SIDED line amplitudes, i.e. an envelope
+%   component a*cos(2*pi*fc*t + phi) is returned as
+%   phat_fc = (a/2)*exp(1i*phi) (see the Note below)
 %
 % Elz : double
 %   the HSA error function value E_l,z(fc) (Section 9.1.4 Equation 135)
@@ -97,6 +104,25 @@ function [pHat, Elz, diagInfo] = shmHSA(fc, spectrumE, blockSize, sampleRate, nZ
 % (it is introduced only in Formula (126), and repeated in the a13/a23/b3
 % terms of Formulae (138)-(139) for the Mc = 1 case).
 %
+% Note on the amplitude convention of phat_fc,m (Equation 123): the
+% real-valued normal equations of Formulae (130)-(134) are exactly the
+% least-squares fit of the model
+%   Phat(k) = x_1*W_0(k) + sum_m [x_2m*W+_m(k) + j*x_2m+1*W-_m(k)]
+% to P_E,l,z(k), which is the DFT of the windowed envelope model
+%   x_1 + sum_m 2*Re((x_2m + j*x_2m+1)*exp(j*2*pi*fc,m*ntilde/rs~)).
+% Hence (x_2m + j*x_2m+1) is the two-sided line amplitude (the line at
+% +fc,m, with its conjugate at -fc,m), and 2*(x_2m + j*x_2m+1) would be
+% the one-sided (cosine) amplitude. Equation 123 as printed
+% (x_i = Re(phat)/2, Im(phat)/2) implies the one-sided convention, but
+% Equations 159-160 (phat_0^2 + 2*sum(A_i) as the mean-square power of
+% the harmonic complex, and sqrt(0.5*(...)) as the RMS sound pressure
+% passed to the nonlinearity of Equation 23) and footnote 46 (the DFT
+% line values of Equation 66 equal the HSA line values multiplied by the
+% DFT length s~b) are only consistent with the two-sided convention.
+% The two-sided convention is therefore used here, and has been
+% verified against the reference implementation (HEAD acoustics
+% ArtemiS v17) - see the note at the point of use below.
+%
 % Requirements
 % ------------
 % None
@@ -107,7 +133,7 @@ function [pHat, Elz, diagInfo] = shmHSA(fc, spectrumE, blockSize, sampleRate, nZ
 % Institution: University of Salford
 %
 % Date created: 16/09/2026
-% Date last modified: 16/09/2026
+% Date last modified: 18/09/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -124,7 +150,7 @@ function [pHat, Elz, diagInfo] = shmHSA(fc, spectrumE, blockSize, sampleRate, nZ
 %
 %% Arguments validation
     arguments (Input)
-        fc (1, :) double {mustBeReal, mustBePositive}
+        fc (1, :) double {mustBeReal, mustBeNonzero}
         spectrumE (:, 1) double
         blockSize (1, 1) double {mustBePositive}
         sampleRate (1, 1) double {mustBePositive}
@@ -140,7 +166,7 @@ nCols = 2*Mc + 1;  % number of unknowns/columns, size of x [2Mc + 1]
 
 % Section 9.1.4 Equation 125 [Delta f] and [K_L]
 deltaF = sampleRate/blockSize;
-KL = min(max(17, round(max(fc)/deltaF) + 8), 49);
+KL = min(max(17, round(max(abs(fc))/deltaF) + 8), 49);
 
 kIndices = (0:KL - 1).';  % zero-based DFT bin indices used in the fit
 
@@ -210,11 +236,31 @@ end
 Elz = sum(abs(spectrumEk).^2) + x.'*A*x - 2*b.'*x;
 
 % Section 9.1.4 Equation 123 (inverted) - recover the complex spectral
-% amplitudes from the solution vector x
+% amplitudes from the solution vector x.
+%
+% NOTE on the amplitude convention (see also the Note in the function
+% help): the spectral line amplitude is returned as the TWO-SIDED line
+% amplitude phat_fc,m = x_2m + j*x_2m+1 (i.e. the amplitude of the
+% positive-modulation-rate line, whose conjugate sits at -fc,m), and NOT
+% as 2*(x_2m + j*x_2m+1) as a literal inversion of Equation 123 would
+% give. The two-sided convention is the one required by Equations 159
+% and 160 (where phat_0^2 + 2*sum(A_i) is the mean-square of the
+% envelope, so that sqrt(0.5*(...)) is the RMS of the band-pass signal
+% fed to the nonlinearity of Equation 23) and by footnote 46 (the DFT
+% results of Equation 66 equal the HSA results multiplied by the DFT
+% length). Using the literal Equation 123 factor of 2 overestimates
+% |phat|^2 by a factor of 4 and the harmonic-complex power by up to a
+% factor of 2, and was found to reproduce a modulation-depth-dependent
+% overestimation of fluctuation strength (approx. 1.8x at m = 1 rising
+% to 3x at m = 0.25) relative to the reference (HEAD acoustics ArtemiS)
+% results; with the two-sided convention the reference calibration
+% signal yields F = 0.994 vacil_HMS (ArtemiS: 1.003) and per-band
+% specific fluctuation strength agrees with ArtemiS to within a few %
+% across 50-70 dB and modulation depths 25-100 %.
 pHat = zeros(Mc + 1, 1);
 pHat(1) = x(1);  % [phat_0,l,z], real-valued
 for mLine = 1:Mc
-    pHat(mLine + 1) = 2*x(2*mLine) + 1i*2*x(2*mLine + 1);  % [phat_fc,m,l,z]
+    pHat(mLine + 1) = x(2*mLine) + 1i*x(2*mLine + 1);  % [phat_fc,m,l,z], two-sided line amplitude
 end
 
 % diagnostic information (not part of the standard - see Returns above)

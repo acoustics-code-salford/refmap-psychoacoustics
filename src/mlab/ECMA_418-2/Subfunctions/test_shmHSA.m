@@ -30,6 +30,18 @@
 % candidate frequency estimate): the printed "- 1" term introduces a
 % systematic bias of close to one full DFT bin, confirmed numerically
 % across multiple single-tone synthetic tests and fixed by removing it.
+%
+% A third issue - the one that actually accounted for the remaining
+% systematic overestimation relative to ArtemiS - was the amplitude
+% convention of the recovered spectral lines: a literal inversion of
+% Equation 123 gives the one-sided (cosine) amplitude, whereas Equations
+% 159-160 and footnote 46 require the two-sided line amplitude (half the
+% cosine amplitude). shmHSA.m now returns the two-sided amplitude, and
+% the ground-truth values in this script are defined accordingly (A1/2
+% in Test 1, trueAmps/2 in Test 2). Note that this class of error is
+% invisible to a self-consistent unit test: the previous version of this
+% script "passed" with the one-sided convention because its expected
+% values were written with the same convention.
 % This script (shmHSA.m in isolation) would not detect that class of
 % error, since it lives in the surrounding candidate-selection logic in
 % acousticSHMFluctuation.m, not in the solver itself - a reminder that
@@ -71,7 +83,7 @@
 % Institution: University of Salford
 %
 % Date created: 16/09/2026
-% Date last modified: 16/09/2026
+% Date last modified: 18/09/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -121,10 +133,14 @@ tSec = nSamp/sampleRate1500;
 fprintf('--- Test 1: single-line recovery ---------------------------\n');
 
 A0 = 0.0500;             % true DC (constant) amplitude [Pa]
-A1 = 0.0200;             % true AC amplitude [Pa]
+A1 = 0.0200;             % true AC (cosine) amplitude [Pa]
 f1 = 4.1;                 % true modulation rate [Hz] (off-bin on purpose)
 phi1 = 0.7;               % true phase [rad]
-pTrue = A1*exp(1i*phi1);  % true complex amplitude at f1
+% true complex TWO-SIDED line amplitude at f1: shmHSA.m returns the
+% amplitude of the line at +f1 (with its conjugate at -f1), i.e. A1/2,
+% consistent with Equations 159-160 and footnote 46 of ECMA-418-2:2025
+% (see the Note in shmHSA.m)
+pTrue = (A1/2)*exp(1i*phi1);
 
 envelope1 = A0 + A1*cos(2*pi*f1*tSec + phi1);
 spectrumE1 = fft(envelope1.*envWindow, blockSize1500);
@@ -205,11 +221,13 @@ for Mc = McSweep
     [pHat2, ~, diag2] = shmHSA(fcTest, spectrumE2, blockSize1500, sampleRate1500, nzb, nze);
 
     % find the recovered amplitude nearest each true line's frequency
+    % (recovered values are two-sided line amplitudes, i.e. half the
+    % cosine amplitude - see Test 1)
     lineErr = nan(1, 3);
     for iLine = 1:3
         [~, iNearest] = min(abs(fcTest - trueFreqs(iLine)));
         recoveredAmp = abs(pHat2(iNearest + 1));
-        lineErr(iLine) = abs(recoveredAmp - trueAmps(iLine))/trueAmps(iLine);
+        lineErr(iLine) = abs(recoveredAmp - trueAmps(iLine)/2)/(trueAmps(iLine)/2);
     end
 
     fprintf('  %4d  %8d  %10.3e  %8d  %10.3e  %10.3e  %10.3e\n',...
