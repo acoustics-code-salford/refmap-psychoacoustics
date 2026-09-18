@@ -132,7 +132,7 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRateIn, axisN, soundField,
 % Institution: University of Salford
 %
 % Date created: 01/11/2024
-% Date last modified: 11/12/2025
+% Date last modified: 05/09/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -218,7 +218,7 @@ dt = 1/187.5;  % time step (resolution, s)
 
 switch method
     case 'aures'
-        calS = 1.064337788536963;
+        calS = 1.072523640684056;
         acum = "Aur | SHM";
 
     case 'vonbismarck'
@@ -271,18 +271,28 @@ end
 switch method
     case 'aures'
         % Aures weighting
+        % Note: no multiplication by N or division by z (these factors drop
+        % out of the combined sharpness equation)
         weightSharp = permute(0.078*(exp(0.171.*permute(repmat(z, chansOut, 1),...
                                                         [2, 1])))...
                               ./(log(0.05*permute(repmat(loudnessTDep, 1, 1,...
                                                          length(z)), [3, 2, 1])...
                                      + 1) + eps), [3, 1, 2]);
+        
         % Adjustment to the first part (1-57 time steps) to avoid visualisation of
         % nonsense values generated from first redundant 0.3s of time-dependent
         % loudness
         weightSharp(1:57, :, :) = repmat(weightSharp(58, :, :), 57, 1, 1);
 
+        % force the weighting function towards the minimum at low critical
+        % bands <1/0.171 ~ 5.85
+        inflect = 1/0.171;
+        weightSharp(:, z < inflect, :) = repmat(min(weightSharp, [], 2), 1,...
+                                                    size(weightSharp(:, z < inflect, :), 2),...
+                                                    1);
+
         % time-dependent sharpness
-        % Note: no multiplication by z (otherwise weighting would need /z term)
+        % Note: no multiplication by z or division by z-integrated N' (otherwise weighting would need N(t)/z term)
         sharpnessTDep = calS*0.11.*sum(specSHMLoudness.*weightSharp*dz, 2);
 
     case {'vonbismarck', 'widmann'}

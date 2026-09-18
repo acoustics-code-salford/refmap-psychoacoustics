@@ -11,7 +11,7 @@ requires-python = ">=3.11"
 dependencies = [
     "acoustic-toolbox>=0.1.2",
     "bottleneck>=1.6.0",
-    "dabest>=2025.10.20",
+    "dabest",
     "guidata>=3.12.0",
     "librosa>=0.11.0",
     "mat73>=0.65",
@@ -49,3 +49,6 @@ dev = [
     "snakeviz>=2.2.2",
     "spyder-kernels>=3.0.5",
 ]
+
+[tool.uv.sources]
+dabest = { path = "../DABEST-python-cluster", editable = true }
