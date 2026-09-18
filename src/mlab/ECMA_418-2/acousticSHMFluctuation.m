@@ -450,10 +450,19 @@ for chan = chansIn:-1:1
                 quietPeriodsPad = [0; quietPeriodsNew; 0];
 
                 quietPeriodStartsNew = find(diff(quietPeriodsPad(1:end - 1), 1) == 1);
-                % Note: the subtraction of one is to identify the last
-                % index of each quieter period, which is one before the
-                % difference of -1 occurs
-                quietPeriodEndsNew = find(diff(quietPeriodsPad(2:end), 1) == -1) - 1;
+                % quietPeriodsPad(2:end) is quietPeriodsPad shifted one
+                % index earlier relative to quietPeriodsPad(1:end - 1) above
+                % (rather than shifted one index later, as an unshifted
+                % diff(quietPeriodsPad) would be), so the -1 -> 0 transition
+                % this diff() detects already lands exactly on the last
+                % index of each quieter period - no further offset is
+                % needed. (An earlier version of this line subtracted an
+                % additional 1 here on the reasoning that the transition
+                % occurs one index after the last quiet sample, which is
+                % true of diff(quietPeriodsPad) unshifted, but not of this
+                % already-shifted diff(quietPeriodsPad(2:end)); verified
+                % against synthetic quiet runs of known length.)
+                quietPeriodEndsNew = find(diff(quietPeriodsPad(2:end), 1) == -1);
 
                 quietPeriodLengths = quietPeriodEndsNew - quietPeriodStartsNew + 1;
 
