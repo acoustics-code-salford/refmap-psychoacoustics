@@ -3565,6 +3565,7 @@ between_vars_all <- c("NationGeo2", "AAM_attitude2", "Home_Area2", "AgeScl",
 transform_dAnnoy <- \(x) betaTransform(x, -10, 10, direction = 'reverse', squeeze = 'none')
  
 env_order <- c("Park", "Residential", "Streetside square", "Highway")
+envvar_order <- c("Park", "Residential", "Park (high)", "Highway (low)", "Streetside square", "Highway")
 
 # ---- full grids -------------------------------------------
  
@@ -3600,6 +3601,11 @@ grid_resi_st_variant <- subset(grid_marg, !(AmbientEnvCore == "Highway" |
                                               AmbientEnvCore == "Park") &
                                  UASOperation == "Overflight" &
                                  UASProximity == "Far" & UASEvents == 1)
+
+grid_envcomp_base <- subset(grid_marg,
+                            UASOperation == "Overflight" &
+                             UASProximity == "Far" &
+                             UASEvents == 1)
 
 ```
 
@@ -3748,29 +3754,49 @@ mdA13_envvarcore_means_matched <- dplyr::bind_rows(mdA13_park_variant_means,
                                                    "Park (high)", "Highway (low)",
                                                    "Streetside square", "Highway")))
 
-mdA13_parkhigh_contrast <- avg_comparisons_manual(
-  mdA13, newdata = grid_park_variant, variable = "AmbientVariant",
-  levels = c("Standard", "ParkHigh"), comparison_type = "reference",
-  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust = 'holm',
-  transform = transform_dAnnoy
-)
-mdA13_parkhigh_contrast$contrast <- "Park (high) - Park"
+# predict for all environment core and variants but for the relevant restricted subset
+make_state_grid <- function(base_grid, env, variant) {
+  nd <- base_grid
+  nd$AmbientEnvCore <- factor(env, levels = levels(base_grid$AmbientEnvCore))
+  nd$AmbientVariant <- factor(variant, levels = levels(base_grid$AmbientVariant))
+  nd
+}
 
-mdA13_highwaylow_contrast <- avg_comparisons_manual(
-  mdA13, newdata = grid_highway_variant, variable = "AmbientVariant",
-  levels = c("Standard", "HighwayLow"), comparison_type = "reference",
-  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust = 'holm',
-  transform = transform_dAnnoy
+states <- list(
+  "Park"           = c("Park", "Standard"),
+  "Residential"    = c("Residential", "Standard"),
+  "Park (high)"    = c("Park", "ParkHigh"),
+  "Streetside square" = c("Streetside square", "Standard"),
+  "Highway (low)"  = c("Highway", "HighwayLow"),
+  "Highway"        = c("Highway", "Standard")
 )
-mdA13_highwaylow_contrast$contrast <- "Highway (low) - Highway"
 
-mdA13_envvar_contrasts <- dplyr::bind_rows(
-  cbind(reference_env = "Park",    mdA13_parkhigh_contrast),
-  cbind(reference_env = "Highway", mdA13_highwaylow_contrast)
-) |> 
-  dplyr::mutate(reference_env = factor(reference_env, levels = c("Park", "Highway")))
+draws_list <- lapply(names(states), function(nm) {
+  nd <- make_state_grid(grid_envcomp_base, states[[nm]][1], states[[nm]][2])
+  set.seed(999)
+  d <- brms::posterior_epred(mdA13, newdata = nd, re_formula = NULL,
+                              allow_new_levels = TRUE, sample_new_levels = "gaussian",
+                              ndraws = ndraws_pred)
+  rowMeans(transform_dAnnoy(d))
+})
+names(draws_list) <- names(states)
+
+pairs_idx <- utils::combn(names(states), 2)
+preserve_order <- list(c("Park (high)", "Park"), c("Highway (low)", "Highway"))
+
+mdA13_envvar_contrasts_all <- do.call(rbind, lapply(seq_len(ncol(pairs_idx)), function(i) {
+  hi <- pairs_idx[1, i]; lo <- pairs_idx[2, i]
+  d <- draws_list[[hi]] - draws_list[[lo]]
+  is_preserved <- any(sapply(preserve_order, function(p) setequal(p, c(hi, lo))))
+  if (!is_preserved && mean(d) < 0) { d <- -d; tmp <- hi; hi <- lo; lo <- tmp }
+  pd <- as.numeric(bayestestR::p_direction(d))
+  data.frame(
+    contrast = paste(hi, "-", lo), estimate = mean(d),
+    conf.low = unname(quantile(d, 0.025)), conf.high = unname(quantile(d, 0.975)),
+    pd = pd, p.value = .pd_to_pvalue(pd, length(d)), ndraws_used = length(d)
+  )
+}))
+mdA13_envvar_contrasts_all$p.value.adj <- p.adjust(mdA13_envvar_contrasts_all$p.value, method = "holm")
 
 # ---- events curve --------------------------------------
 
@@ -3921,74 +3947,44 @@ if (saveplots){
 
 }
 
-p_envvar_means <- ggplot(mdA13_envvar_means_matched, aes(x = AmbientVariant, y = estimate, colour = AmbientVariant)) +
-  theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
-        axis.text = element_text(family = "serif", size = 12), legend.position = "none") +
-geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
-  scale_colour_manual(values = mycolours[5:length(mycolours)]) +
-  coord_cartesian(ylim=(c(0, 6))) +
-  labs(x = "Ambient environment (overflight, far, 1 event)", y = "Mean change in annoyance")
-
-p_envvar_means_brackets <- add_pairwise_brackets(base_plot=p_envvar_means,
-                                              means_df=mdA13_envvar_means_matched,
-                                              contrast_df=mdA13_envvar_contrasts,
-                                              x_var="AmbientVariant",
-                                              y_margin=0.2,
-                                              step_increase=0.1)
-
-p_envvar_contrasts <- ggplot(mdA13_envvar_contrasts, aes(x = contrast, y = estimate, colour = reference_env)) +
+p_env_means_allvar <- ggplot(mdA13_envvarcore_means_matched, aes(x = AmbientVariant,
+                                                                 y = estimate,
+                                                                 colour = AmbientVariant)) +
   theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
         axis.text = element_text(family = "serif", size = 12),
-        axis.text.x = element_text(family = "serif", size = 10)) +
+        axis.text.x = element_text(family = "serif", size = 10),
+        legend.position = "none") +
   geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-  
-  # Add text annotation next to estimate point
-  geom_text(aes(label = paste("pd:",
-                              ifelse(pd > 0.99, ">0.99",
-                                     sprintf("%.2f",
-                                             round(pd, digits = 2))))),
-            nudge_x = 0.1,      
-            hjust = 0,           
-            family = "serif", 
-            size = 4, 
-            show.legend = FALSE) +
-  
-  geom_text(aes(label = sprintf("%.2f", round(estimate, digits = 2))),
-            nudge_x = -0.1,  
-            hjust = 1,         
-            family = "serif", 
-            size = 4, 
-            show.legend = FALSE) +
-  
-  geom_text(aes(label = sprintf("[%.2f,\n%.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
-            nudge_x = -0.075,     # Kept on the left side alongside the estimate
-            nudge_y = -0.7,    # Slightly offset downward so it sits underneath the estimate
-            hjust = 1,
-            family = "serif", 
-            size = 4, 
-            show.legend = FALSE) +
   geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
-  scale_colour_manual(values = mycolours[5:length(mycolours)], name = NULL) +
-  coord_cartesian(ylim = c(-4, 4)) +
-  guides(colour = "none") +
-  labs(x = "Ambient env. variant", y = expression("Difference in "~bar(Delta*A)))
+  scale_x_discrete(limits = envvar_order) +
+  
+  scale_colour_manual(values = mycolours) +
+  coord_cartesian(ylim = c(0, 10)) +
+  labs(x = "Ambient environment (overflight, far, 1 event)", y = "Mean change in annoyance")
 
-(p_variant_means + p_variant_contrasts) +
-  plot_layout(axes='collect')
+p_env_means_brackets_allvar <- add_pairwise_brackets(base_plot=p_env_means_allvar,
+                                              means_df=mdA13_envvarcore_means_matched,
+                                              contrast_df=mdA13_envvar_contrasts_all,
+                                              x_var="AmbientVariant",
+                                              x_order=envvar_order,
+                                              y_margin=0.15,
+                                              step_increase=0.125)
+
+p_env_means_brackets_allvar
 
 if (saveplots){
   
-  filename <- "dAnnoyMnExpMod_AmbVarMargEff_brmsOb"
+  filename <- "dAnnoyMnExpMod_AmbEnvVarAllMargEff_brmsOb"
   
-  ggsave(filename=paste(filename, ".svg", sep=""), width=5, height=4,
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=6,
          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
   unlink(paste(filename, ".svg", sep=""))
 
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=5, height=4, path=file.path(outFigPath, "pdf"))
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=6, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 
 }
+
 
 # ---- environment x Type / Operation / Proximity ----------------------------------
 
