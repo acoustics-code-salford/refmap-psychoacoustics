@@ -1780,6 +1780,11 @@ brms::pp_check(mdA7, type='dens_overlay_grouped', ndraws=100, group='AmbientVari
   scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
   labs(x="Mean change in annoyance")
 
+brms::pp_check(mdA7, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"), y = "Change in Annoyance")
+
 brms::pp_check(mdA7, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
@@ -1891,17 +1896,17 @@ p_mdA7_bCI_bsc
 
 mdA8_pop_level <- prune_terms(mdA7_pop_level, c("UASLAEMaxLRScl"))  # keeping UASStart but omitting UASLAE
 
-mdA8_grp_level <- mdA8_grp_level_id <- c("TrialNumberScl",
-                                         "I(log10(UASEvents))",
-                                         "AmbientEnvCore",
-                                         "AmbientVariant",
-                                         "UASOperation",
-                                         "UASType",
-                                         "UASProximity",
-                                         "UASStart",
-                                         "AmbientEnvCore*UASOperation",
-                                         "AmbientEnvCore*UASType",
-                                         "AmbientEnvCore*I(log10(UASEvents))")
+mdA8_grp_level_id <- c("TrialNumberScl",
+                     "I(log10(UASEvents))",
+                     "AmbientEnvCore",
+                     "AmbientVariant",
+                     "UASOperation",
+                     "UASType",
+                     "UASProximity",
+                     "UASStart",
+                     "AmbientEnvCore*UASOperation",
+                     "AmbientEnvCore*UASType",
+                     "AmbientEnvCore*I(log10(UASEvents))")
 
 mdA8_grp_level <- list(ID = mdA8_grp_level_id,
                       StimID = c())
@@ -3165,9 +3170,9 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA12), pars = c("b_Ilog10UASEvents"
 loo::loo(mdA12)
 
 # make a table of the bayes_R2 values and quantiles for each model
-get_Br2_table(mdA6, mdA8, mdA9, mdA10, mdA11, mdA12)
+get_Br2_table(mdA11, mdA12)
 
-loo::loo_compare(mdA6, mdA8, mdA9, mdA10, mdA11, mdA12, criterion='loo')
+loo::loo_compare(mdA11, mdA12, criterion='loo')
 
 ```
 
@@ -3379,9 +3384,9 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA13), pars = c("b_Ilog10UASEvents"
 loo::loo(mdA13)
 
 # make a table of the bayes_R2 values and quantiles for each model
-get_Br2_table(mdA6, mdA8, mdA9, mdA10, mdA11, mdA12, mdA13)
+get_Br2_table(mdA11, mdA12, mdA13)
 
-loo::loo_compare(mdA6, mdA8, mdA9, mdA10, mdA11, mdA12, mdA13, criterion='loo')
+loo::loo_compare(mdA11, mdA12, mdA13, criterion='loo')
 
 ```
 
@@ -4616,6 +4621,4096 @@ loo::loo(mdA14)
 get_Br2_table(mdA6, mdA8, mdA9, mdA10, mdA11, mdA12, mdA13, mdA14)
 
 loo::loo_compare(mdA6, mdA8, mdA9, mdA10, mdA11, mdA12, mdA13, mdA14, criterion='loo')
+
+```
+
+# dAnnoyance with LAE instead of UASType, UASoperation and UAProximity
+
+## mdA15: maximal ordbeta model with random intercept only
+
+### Model dA15 formula
+
+```{R}
+
+role_lookup <- c(
+  UASStart = "wsf",
+  AmbientEnvCore = "wsf", AmbientVariant = "wsf",
+  Ilog10UASEvents = "wsc", TrialNumberScl = "wsc", UASLAEMaxLRScl = "wsc",
+  NationGeo2 = "bsf", AAM_attitude2 = "bsf", Home_Area2 = "bsf",
+  Sex = "bsf", Area_soundscape2 = "bsf",
+  AgeScl = "bsc", NoiseSensitivityScl = "bsc"
+)
+
+mdA15_pop_level <- c("TrialNumberScl",
+                    "UASLAEMaxLRScl*UASStart*AmbientEnvCore",
+                    "UASLAEMaxLRScl*I(log10(UASEvents))*AmbientEnvCore",
+                    "UASLAEMaxLRScl*AmbientVariant",
+                    "NationGeo2", "AAM_attitude2", "Home_Area2",
+                    "AgeScl", "Sex", "NoiseSensitivityScl", "Area_soundscape2")
+
+mdA15_grp_level_id <- c()
+
+mdA15_grp_level <- list(ID = mdA15_grp_level_id,
+                     StimID = c())
+
+mdA15formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                      fixed = mdA15_pop_level,
+                      re = mdA15_grp_level)
+
+mdA15Data <- subjDataNoAmb[, all.vars(mdA15formula$formula), drop=FALSE]
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+y_full <- mdA15Data$dAnnoyanceOrdBetaScl
+n0 <- sum(y_full == 0, na.rm = TRUE)
+n1 <- sum(y_full == 1, na.rm = TRUE)
+N  <- sum(!is.na(y_full))
+
+# Haldane-Anscombe Correction to avoid p0 or p1 being exactly 0 or 1, which would lead to infinite logit values
+p0 <- (n0 + 0.5) / (N + 1)
+p1 <- (n1 + 0.5) / (N + 1)
+
+xi_center   <- qlogis(p0)              # solves plogis(xi) = p0 exactly
+coi_center  <- qlogis(1 - p1)          # solves 1 - plogis(xi+kappa) = p1
+kappa_center <- coi_center - xi_center  # must come out positive, given kappa's <lower=0> constraint
+
+y_cont <- na.omit(mdA15Data)$dAnnoyanceOrdBetaScl
+y_cont <- y_cont[y_cont > 0 & y_cont < 1]
+m <- mean(y_cont); v <- stats::var(y_cont)
+phi_center <- log((m * (1 - m)) / v - 1)
+
+tier_priors_dA15 <- c("2" = "normal(0, 0.3)", "3" = "normal(0, 0.1)")
+
+main_effects <- list(
+  list(vars = "UASLAEMaxLRScl",  prior = "normal(0.2, 0.5)"),
+  list(vars = "Ilog10UASEvents", prior = "normal(0.5, 1)"),
+  list(vars = "TrialNumberScl",  prior = "normal(0.1, 0.5)")
+)
+
+priorsdA15 <- c(
+  # mean model
+  brms::set_prior("normal(0, 0.5)", class = "b", dpar = "mu"),
+  derive_coef_priors(mdA15formula, mdA15Data, ordbeta(link = "logit"),
+                     mdA15_pop_level, tier_priors_dA15, main_effects),
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar = "mu"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "mu"),
+  # scale model
+  brms::set_prior(sprintf("lognormal(%.2f, 1)", phi_center), class = "phi"),
+  # cutpoints model
+  brms::set_prior(sprintf("normal(%.2f, 1)", kappa_center), class = "kappa"),
+  brms::set_prior(sprintf("normal(%.2f, 1.5)", xi_center), class = "xi")
+)
+
+tic()
+mdA15Priors <- brms::brm(mdA15formula,
+                 data=mdA15Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA15, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA15PriorCheck <- brms::pp_check(mdA15Priors, ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+mdA15PriorCheck
+
+tic()
+mdA15 <- brms::brm(mdA15formula, data=mdA15Data,
+                family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priorsdA15, control=list(adapt_delta=0.95),
+               threads = threading(threads = 3, static = TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA15 <- brms::add_criterion(mdA15, criterion=c('loo', 'loo_R2'),
+                          cores=n_cores,
+                          reloo=reloo_flag,
+                          overwrite=TRUE,
+                          chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                          backend='cmdstanr',
+                          future_args=list(future.seed=TRUE))
+toc()
+
+mdA15$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA15))
+mdA15$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA15, re_formula=NA))
+mdA15$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA15, re_formula=NULL))
+
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA15)
+
+```
+
+### posterior check
+
+```{r}
+
+brms::pp_check(mdA15, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA15, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA15, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA15, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"), y = "Change in annoyance")
+
+brms::pp_check(mdA15, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA15, type='dens_overlay_grouped', ndraws=100, group='UASStart') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+```
+
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA15)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA15), pars = c("b_Ilog10UASEvents",
+                                                            "b_UASLAEMaxLRScl",
+                                                            "b_UASStartRight",
+                                                          "b_AmbientEnvCoreResidential",
+                                                          "b_AmbientEnvCoreStreetsidesquare",
+                                                          "b_AmbientEnvCoreHighway",
+                                                          "b_AmbientVariantParkHigh",
+                                                          "b_AmbientVariantHighwayLow"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
+
+
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA15)
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(mdA13, mdA15)
+
+loo::loo_compare(mdA13, mdA15, criterion='loo')
+
+```
+
+### visualise posterior draws for population level effects
+
+```{R}
+
+mdA15_bCI_range <- bayestestR::hdi(mdA15, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
+
+p_mdA15_bCI_wsf   <- make_group_plot(mdA15_bCI_range, "Within-subjects factors",
+                                    "Within-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA15_bCI_wsf
+
+p_mdA15_bCI_wsfi  <- make_group_plot(mdA15_bCI_range, "Within-subjects factor interactions",
+                                    "Within-subjects factor interactions",
+                                    fill_palette = mycolours)
+p_mdA15_bCI_wsfi
+
+p_mdA15_bCI_wsc   <- make_group_plot(mdA15_bCI_range, "Within-subjects covariates",
+                                    "Within-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA15_bCI_wsc
+
+p_mdA15_bCI_wscfi <- make_group_plot(mdA15_bCI_range,
+                                    "Within-subjects covariate-factor interactions",
+                                    "Within-subjects covariate-factor interactions",
+                                    fill_palette = mycolours)
+p_mdA15_bCI_wscfi
+
+p_mdA15_bCI_bsf   <- make_group_plot(mdA15_bCI_range, "Between-subjects factors",
+                                    "Between-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA15_bCI_bsf
+
+p_mdA15_bCI_bsc   <- make_group_plot(mdA15_bCI_range, "Between-subjects covariates",
+                                    "Between-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA15_bCI_bsc
+
+```
+
+## mdA16: reduced ordbeta model with random intercept only
+
+### Model dA16 formula
+
+```{R}
+
+mdA16_pop_level <- prune_terms(mdA15_pop_level, c("UASLAEMaxLRScl:UASStart:AmbientEnvCore"),
+                               sanitize_fn = sanitize_var_brms)
+
+mdA16_grp_level <- mdA15_grp_level
+
+mdA16formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                      fixed = mdA16_pop_level,
+                      re = mdA16_grp_level)
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priorsdA16 <- c(
+  # mean model
+  brms::set_prior("normal(0, 0.5)", class = "b", dpar = "mu"),
+  derive_coef_priors(mdA16formula, mdA15Data, ordbeta(link = "logit"),
+                     mdA16_pop_level, tier_priors_dA15, main_effects),
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar = "mu"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "mu"),
+  # scale model
+  brms::set_prior(sprintf("lognormal(%.2f, 1)", phi_center), class = "phi"),
+  # cutpoints model
+  brms::set_prior(sprintf("normal(%.2f, 1)", kappa_center), class = "kappa"),
+  brms::set_prior(sprintf("normal(%.2f, 1.5)", xi_center), class = "xi")
+)
+
+tic()
+mdA16Priors <- brms::brm(mdA16formula,
+                 data=mdA15Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA16, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA16PriorCheck <- brms::pp_check(mdA16Priors, ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+mdA16PriorCheck
+
+tic()
+mdA16 <- brms::brm(mdA16formula, data=mdA15Data,
+                family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priorsdA16, control=list(adapt_delta=0.95),
+               threads = threading(threads = 3, static = TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA16 <- brms::add_criterion(mdA16, criterion=c('loo', 'loo_R2'),
+                          cores=n_cores,
+                          reloo=reloo_flag,
+                          overwrite=TRUE,
+                          chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                          backend='cmdstanr',
+                          future_args=list(future.seed=TRUE))
+toc()
+
+mdA16$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA16))
+mdA16$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA16, re_formula=NA))
+mdA16$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA16, re_formula=NULL))
+
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA16)
+
+```
+
+### posterior check
+
+```{r}
+
+brms::pp_check(mdA16, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA16, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA16, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA16, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"), y = "Change in annoyance")
+
+brms::pp_check(mdA16, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA16, type='dens_overlay_grouped', ndraws=100, group='UASStart') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+```
+
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA16)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA16), pars = c("b_Ilog10UASEvents",
+                                                            "b_UASLAEMaxLRScl",
+                                                            "b_UASStartRight",
+                                                          "b_AmbientEnvCoreResidential",
+                                                          "b_AmbientEnvCoreStreetsidesquare",
+                                                          "b_AmbientEnvCoreHighway",
+                                                          "b_AmbientVariantParkHigh",
+                                                          "b_AmbientVariantHighwayLow"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
+
+
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA16)
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(mdA15, mdA16)
+
+loo::loo_compare(mdA15, mdA16, criterion='loo')
+
+```
+
+### visualise posterior draws for population level effects
+
+```{R}
+
+mdA16_bCI_range <- bayestestR::hdi(mdA16, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
+
+p_mdA16_bCI_wsf   <- make_group_plot(mdA16_bCI_range, "Within-subjects factors",
+                                    "Within-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA16_bCI_wsf
+
+p_mdA16_bCI_wsfi  <- make_group_plot(mdA16_bCI_range, "Within-subjects factor interactions",
+                                    "Within-subjects factor interactions",
+                                    fill_palette = mycolours)
+p_mdA16_bCI_wsfi
+
+p_mdA16_bCI_wsc   <- make_group_plot(mdA16_bCI_range, "Within-subjects covariates",
+                                    "Within-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA16_bCI_wsc
+
+p_mdA16_bCI_wscfi <- make_group_plot(mdA16_bCI_range,
+                                    "Within-subjects covariate-factor interactions",
+                                    "Within-subjects covariate-factor interactions",
+                                    fill_palette = mycolours)
+p_mdA16_bCI_wscfi
+
+p_mdA16_bCI_bsf   <- make_group_plot(mdA16_bCI_range, "Between-subjects factors",
+                                    "Between-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA16_bCI_bsf
+
+p_mdA16_bCI_bsc   <- make_group_plot(mdA16_bCI_range, "Between-subjects covariates",
+                                    "Between-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA16_bCI_bsc
+
+```
+
+## mdA17: further reduced ordbeta model with random intercept only
+
+### Model dA17 formula
+
+```{R}
+
+mdA17_pop_level <- prune_terms(mdA16_pop_level, c("UASLAEMaxLRScl:I(log10(UASEvents)):AmbientEnvCore"),
+                               sanitize_fn = sanitize_var_brms)
+
+mdA17_grp_level <- mdA16_grp_level
+
+mdA17formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                      fixed = mdA17_pop_level,
+                      re = mdA17_grp_level)
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priorsdA17 <- c(
+  # mean model
+  brms::set_prior("normal(0, 0.5)", class = "b", dpar = "mu"),
+  derive_coef_priors(mdA17formula, mdA15Data, ordbeta(link = "logit"),
+                     mdA17_pop_level, tier_priors_dA15, main_effects),
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar = "mu"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "mu"),
+  # scale model
+  brms::set_prior(sprintf("lognormal(%.2f, 1)", phi_center), class = "phi"),
+  # cutpoints model
+  brms::set_prior(sprintf("normal(%.2f, 1)", kappa_center), class = "kappa"),
+  brms::set_prior(sprintf("normal(%.2f, 1.5)", xi_center), class = "xi")
+)
+
+tic()
+mdA17Priors <- brms::brm(mdA17formula,
+                 data=mdA15Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA17, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA17PriorCheck <- brms::pp_check(mdA17Priors, ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+mdA17PriorCheck
+
+tic()
+mdA17 <- brms::brm(mdA17formula, data=mdA15Data,
+                family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priorsdA17, control=list(adapt_delta=0.95),
+               threads = threading(threads = 3, static = TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA17 <- brms::add_criterion(mdA17, criterion=c('loo', 'loo_R2'),
+                          cores=n_cores,
+                          reloo=reloo_flag,
+                          overwrite=TRUE,
+                          chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                          backend='cmdstanr',
+                          future_args=list(future.seed=TRUE))
+toc()
+
+mdA17$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA17))
+mdA17$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA17, re_formula=NA))
+mdA17$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA17, re_formula=NULL))
+
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA17)
+
+```
+
+### posterior check
+
+```{r}
+
+brms::pp_check(mdA17, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA17, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA17, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA17, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"), y = "Change in annoyance")
+
+brms::pp_check(mdA17, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA17, type='dens_overlay_grouped', ndraws=100, group='UASStart') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+```
+
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA17)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA17), pars = c("b_Ilog10UASEvents",
+                                                            "b_UASLAEMaxLRScl",
+                                                            "b_UASStartRight",
+                                                          "b_AmbientEnvCoreResidential",
+                                                          "b_AmbientEnvCoreStreetsidesquare",
+                                                          "b_AmbientEnvCoreHighway",
+                                                          "b_AmbientVariantParkHigh",
+                                                          "b_AmbientVariantHighwayLow"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
+
+
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA17)
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(mdA15, mdA16, mdA17)
+
+loo::loo_compare(mdA15, mdA16, mdA17, criterion='loo')
+
+```
+
+### visualise posterior draws for population level effects
+
+```{R}
+
+mdA17_bCI_range <- bayestestR::hdi(mdA17, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
+
+p_mdA17_bCI_wsf   <- make_group_plot(mdA17_bCI_range, "Within-subjects factors",
+                                    "Within-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA17_bCI_wsf
+
+p_mdA17_bCI_wsfi  <- make_group_plot(mdA17_bCI_range, "Within-subjects factor interactions",
+                                    "Within-subjects factor interactions",
+                                    fill_palette = mycolours)
+p_mdA17_bCI_wsfi
+
+p_mdA17_bCI_wsc   <- make_group_plot(mdA17_bCI_range, "Within-subjects covariates",
+                                    "Within-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA17_bCI_wsc
+
+p_mdA17_bCI_wscfi <- make_group_plot(mdA17_bCI_range,
+                                    "Within-subjects covariate-factor interactions",
+                                    "Within-subjects covariate-factor interactions",
+                                    fill_palette = mycolours)
+p_mdA17_bCI_wscfi
+
+p_mdA17_bCI_bsf   <- make_group_plot(mdA17_bCI_range, "Between-subjects factors",
+                                    "Between-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA17_bCI_bsf
+
+p_mdA17_bCI_bsc   <- make_group_plot(mdA17_bCI_range, "Between-subjects covariates",
+                                    "Between-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA17_bCI_bsc
+
+```
+
+## mdA18: further reduced ordbeta model with random intercept only
+
+### Model dA18 formula
+
+```{R}
+
+mdA18_pop_level <- prune_terms(mdA17_pop_level, c("UASStart:AmbientEnvCore"),
+                               sanitize_fn = sanitize_var_brms)
+
+mdA18_grp_level <- mdA17_grp_level
+
+mdA18formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                      fixed = mdA18_pop_level,
+                      re = mdA18_grp_level)
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priorsdA18 <- c(
+  # mean model
+  brms::set_prior("normal(0, 0.5)", class = "b", dpar = "mu"),
+  derive_coef_priors(mdA18formula, mdA15Data, ordbeta(link = "logit"),
+                     mdA18_pop_level, tier_priors_dA15, main_effects),
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar = "mu"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "mu"),
+  # scale model
+  brms::set_prior(sprintf("lognormal(%.2f, 1)", phi_center), class = "phi"),
+  # cutpoints model
+  brms::set_prior(sprintf("normal(%.2f, 1)", kappa_center), class = "kappa"),
+  brms::set_prior(sprintf("normal(%.2f, 1.5)", xi_center), class = "xi")
+)
+
+tic()
+mdA18Priors <- brms::brm(mdA18formula,
+                 data=mdA15Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA18, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA18PriorCheck <- brms::pp_check(mdA18Priors, ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+mdA18PriorCheck
+
+tic()
+mdA18 <- brms::brm(mdA18formula, data=mdA15Data,
+                family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priorsdA18, control=list(adapt_delta=0.95),
+               threads = threading(threads = 3, static = TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA18 <- brms::add_criterion(mdA18, criterion=c('loo', 'loo_R2'),
+                          cores=n_cores,
+                          reloo=reloo_flag,
+                          overwrite=TRUE,
+                          chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                          backend='cmdstanr',
+                          future_args=list(future.seed=TRUE))
+toc()
+
+mdA18$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA18))
+mdA18$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA18, re_formula=NA))
+mdA18$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA18, re_formula=NULL))
+
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA18)
+
+```
+
+### posterior check
+
+```{r}
+
+brms::pp_check(mdA18, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA18, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA18, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA18, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"), y = "Change in annoyance")
+
+brms::pp_check(mdA18, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA18, type='dens_overlay_grouped', ndraws=100, group='UASStart') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+```
+
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA18)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA18), pars = c("b_Ilog10UASEvents",
+                                                            "b_UASLAEMaxLRScl",
+                                                            "b_UASStartRight",
+                                                          "b_AmbientEnvCoreResidential",
+                                                          "b_AmbientEnvCoreStreetsidesquare",
+                                                          "b_AmbientEnvCoreHighway",
+                                                          "b_AmbientVariantParkHigh",
+                                                          "b_AmbientVariantHighwayLow"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
+
+
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA18)
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(mdA15, mdA16, mdA17, mdA18)
+
+loo::loo_compare(mdA15, mdA16, mdA17, mdA18, criterion='loo')
+
+```
+
+### visualise posterior draws for population level effects
+
+```{R}
+
+mdA18_bCI_range <- bayestestR::hdi(mdA18, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
+
+p_mdA18_bCI_wsf   <- make_group_plot(mdA18_bCI_range, "Within-subjects factors",
+                                    "Within-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA18_bCI_wsf
+
+p_mdA18_bCI_wsc   <- make_group_plot(mdA18_bCI_range, "Within-subjects covariates",
+                                    "Within-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA18_bCI_wsc
+
+p_mdA18_bCI_wscfi <- make_group_plot(mdA18_bCI_range,
+                                    "Within-subjects covariate-factor interactions",
+                                    "Within-subjects covariate-factor interactions",
+                                    fill_palette = mycolours)
+p_mdA18_bCI_wscfi
+
+p_mdA18_bCI_wsci <- make_group_plot(mdA18_bCI_range,
+                                    "Within-subjects covariate interactions",
+                                    "Within-subjects covariate interactions",
+                                    fill_palette = mycolours)
+p_mdA18_bCI_wsci
+
+p_mdA18_bCI_bsf   <- make_group_plot(mdA18_bCI_range, "Between-subjects factors",
+                                    "Between-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA18_bCI_bsf
+
+p_mdA18_bCI_bsc   <- make_group_plot(mdA18_bCI_range, "Between-subjects covariates",
+                                    "Between-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA18_bCI_bsc
+
+```
+
+## mdA19: further reduced ordbeta model with random intercept only
+
+### Model dA19 formula
+
+```{R}
+
+mdA19_pop_level <- prune_terms(mdA18_pop_level, c("UASLAEMaxLRScl:I(log10(UASEvents))"),
+                               sanitize_fn = sanitize_var_brms)
+
+mdA19_grp_level <- mdA18_grp_level
+
+mdA19formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                      fixed = mdA19_pop_level,
+                      re = mdA19_grp_level)
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priorsdA19 <- c(
+  # mean model
+  brms::set_prior("normal(0, 0.5)", class = "b", dpar = "mu"),
+  derive_coef_priors(mdA19formula, mdA15Data, ordbeta(link = "logit"),
+                     mdA19_pop_level, tier_priors_dA15, main_effects),
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar = "mu"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "mu"),
+  # scale model
+  brms::set_prior(sprintf("lognormal(%.2f, 1)", phi_center), class = "phi"),
+  # cutpoints model
+  brms::set_prior(sprintf("normal(%.2f, 1)", kappa_center), class = "kappa"),
+  brms::set_prior(sprintf("normal(%.2f, 1.5)", xi_center), class = "xi")
+)
+
+tic()
+mdA19Priors <- brms::brm(mdA19formula,
+                 data=mdA15Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA19, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA19PriorCheck <- brms::pp_check(mdA19Priors, ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+mdA19PriorCheck
+
+tic()
+mdA19 <- brms::brm(mdA19formula, data=mdA15Data,
+                family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priorsdA19, control=list(adapt_delta=0.95),
+               threads = threading(threads = 3, static = TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA19 <- brms::add_criterion(mdA19, criterion=c('loo', 'loo_R2'),
+                          cores=n_cores,
+                          reloo=reloo_flag,
+                          overwrite=TRUE,
+                          chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                          backend='cmdstanr',
+                          future_args=list(future.seed=TRUE))
+toc()
+
+mdA19$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA19))
+mdA19$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA19, re_formula=NA))
+mdA19$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA19, re_formula=NULL))
+
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA19)
+
+```
+
+### posterior check
+
+```{r}
+
+brms::pp_check(mdA19, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA19, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA19, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA19, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"), y = "Change in annoyance")
+
+brms::pp_check(mdA19, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA19, type='dens_overlay_grouped', ndraws=100, group='UASStart') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+```
+
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA19)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA19), pars = c("b_Ilog10UASEvents",
+                                                            "b_UASLAEMaxLRScl",
+                                                            "b_UASStartRight",
+                                                          "b_AmbientEnvCoreResidential",
+                                                          "b_AmbientEnvCoreStreetsidesquare",
+                                                          "b_AmbientEnvCoreHighway",
+                                                          "b_AmbientVariantParkHigh",
+                                                          "b_AmbientVariantHighwayLow"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
+
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA19)
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(mdA15, mdA16, mdA17, mdA18, mdA19)
+
+loo::loo_compare(mdA15, mdA16, mdA17, mdA18, mdA19, criterion='loo')
+
+```
+
+### visualise posterior draws for population level effects
+
+```{R}
+
+mdA19_bCI_range <- bayestestR::hdi(mdA19, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
+
+p_mdA19_bCI_wsf   <- make_group_plot(mdA19_bCI_range, "Within-subjects factors",
+                                    "Within-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA19_bCI_wsf
+
+p_mdA19_bCI_wsc   <- make_group_plot(mdA19_bCI_range, "Within-subjects covariates",
+                                    "Within-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA19_bCI_wsc
+
+p_mdA19_bCI_wscfi <- make_group_plot(mdA19_bCI_range,
+                                    "Within-subjects covariate-factor interactions",
+                                    "Within-subjects covariate-factor interactions",
+                                    fill_palette = mycolours)
+p_mdA19_bCI_wscfi
+
+p_mdA19_bCI_bsf   <- make_group_plot(mdA19_bCI_range, "Between-subjects factors",
+                                    "Between-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA19_bCI_bsf
+
+p_mdA19_bCI_bsc   <- make_group_plot(mdA19_bCI_range, "Between-subjects covariates",
+                                    "Between-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA19_bCI_bsc
+
+```
+
+## mdA20: further reduced ordbeta model with random intercept only
+
+### Model dA20 formula
+
+```{R}
+
+mdA20_pop_level <- prune_terms(mdA19_pop_level, c("UASLAEMaxLRScl:UASStart"),
+                               sanitize_fn = sanitize_var_brms)
+
+mdA20_grp_level <- mdA19_grp_level
+
+mdA20formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                      fixed = mdA20_pop_level,
+                      re = mdA20_grp_level)
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priorsdA20 <- c(
+  # mean model
+  brms::set_prior("normal(0, 0.5)", class = "b", dpar = "mu"),
+  derive_coef_priors(mdA20formula, mdA15Data, ordbeta(link = "logit"),
+                     mdA20_pop_level, tier_priors_dA15, main_effects),
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar = "mu"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "mu"),
+  # scale model
+  brms::set_prior(sprintf("lognormal(%.2f, 1)", phi_center), class = "phi"),
+  # cutpoints model
+  brms::set_prior(sprintf("normal(%.2f, 1)", kappa_center), class = "kappa"),
+  brms::set_prior(sprintf("normal(%.2f, 1.5)", xi_center), class = "xi")
+)
+
+tic()
+mdA20Priors <- brms::brm(mdA20formula,
+                 data=mdA15Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA20, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA20PriorCheck <- brms::pp_check(mdA20Priors, ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+mdA20PriorCheck
+
+tic()
+mdA20 <- brms::brm(mdA20formula, data=mdA15Data,
+                family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priorsdA20, control=list(adapt_delta=0.95),
+               threads = threading(threads = 3, static = TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA20 <- brms::add_criterion(mdA20, criterion=c('loo', 'loo_R2'),
+                          cores=n_cores,
+                          reloo=reloo_flag,
+                          overwrite=TRUE,
+                          chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                          backend='cmdstanr',
+                          future_args=list(future.seed=TRUE))
+toc()
+
+mdA20$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA20))
+mdA20$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA20, re_formula=NA))
+mdA20$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA20, re_formula=NULL))
+
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA20)
+
+```
+
+### posterior check
+
+```{r}
+
+brms::pp_check(mdA20, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA20, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA20, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA20, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"), y = "Change in annoyance")
+
+brms::pp_check(mdA20, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA20, type='dens_overlay_grouped', ndraws=100, group='UASStart') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+```
+
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA20)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA20), pars = c("b_Ilog10UASEvents",
+                                                            "b_UASLAEMaxLRScl",
+                                                            "b_UASStartRight",
+                                                          "b_AmbientEnvCoreResidential",
+                                                          "b_AmbientEnvCoreStreetsidesquare",
+                                                          "b_AmbientEnvCoreHighway",
+                                                          "b_AmbientVariantParkHigh",
+                                                          "b_AmbientVariantHighwayLow"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
+
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA20)
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(mdA15, mdA16, mdA17, mdA18, mdA19, mdA20)
+
+loo::loo_compare(mdA15, mdA16, mdA17, mdA18, mdA19, mdA20, criterion='loo')
+
+```
+
+### visualise posterior draws for population level effects
+
+```{R}
+
+mdA20_bCI_range <- bayestestR::hdi(mdA20, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
+
+p_mdA20_bCI_wsf   <- make_group_plot(mdA20_bCI_range, "Within-subjects factors",
+                                    "Within-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA20_bCI_wsf
+
+p_mdA20_bCI_wsc   <- make_group_plot(mdA20_bCI_range, "Within-subjects covariates",
+                                    "Within-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA20_bCI_wsc
+
+p_mdA20_bCI_wscfi <- make_group_plot(mdA20_bCI_range,
+                                    "Within-subjects covariate-factor interactions",
+                                    "Within-subjects covariate-factor interactions",
+                                    fill_palette = mycolours)
+p_mdA20_bCI_wscfi
+
+p_mdA20_bCI_bsf   <- make_group_plot(mdA20_bCI_range, "Between-subjects factors",
+                                    "Between-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA20_bCI_bsf
+
+p_mdA20_bCI_bsc   <- make_group_plot(mdA20_bCI_range, "Between-subjects covariates",
+                                    "Between-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA20_bCI_bsc
+
+```
+
+## mdA21: further reduced ordbeta model with random intercept only
+
+### Model dA21 formula
+
+```{R}
+
+mdA21_pop_level <- prune_terms(mdA20_pop_level, c("I(log10(UASEvents)):AmbientEnvCore"),
+                               sanitize_fn = sanitize_var_brms)
+
+mdA21_grp_level <- mdA20_grp_level
+
+mdA21formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                      fixed = mdA21_pop_level,
+                      re = mdA21_grp_level)
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priorsdA21 <- c(
+  # mean model
+  brms::set_prior("normal(0, 0.5)", class = "b", dpar = "mu"),
+  derive_coef_priors(mdA21formula, mdA15Data, ordbeta(link = "logit"),
+                     mdA21_pop_level, tier_priors_dA15, main_effects),
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar = "mu"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "mu"),
+  # scale model
+  brms::set_prior(sprintf("lognormal(%.2f, 1)", phi_center), class = "phi"),
+  # cutpoints model
+  brms::set_prior(sprintf("normal(%.2f, 1)", kappa_center), class = "kappa"),
+  brms::set_prior(sprintf("normal(%.2f, 1.5)", xi_center), class = "xi")
+)
+
+tic()
+mdA21Priors <- brms::brm(mdA21formula,
+                 data=mdA15Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA21, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA21PriorCheck <- brms::pp_check(mdA21Priors, ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+mdA21PriorCheck
+
+tic()
+mdA21 <- brms::brm(mdA21formula, data=mdA15Data,
+                family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priorsdA21, control=list(adapt_delta=0.95),
+               threads = threading(threads = 3, static = TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA21 <- brms::add_criterion(mdA21, criterion=c('loo', 'loo_R2'),
+                          cores=n_cores,
+                          reloo=reloo_flag,
+                          overwrite=TRUE,
+                          chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                          backend='cmdstanr',
+                          future_args=list(future.seed=TRUE))
+toc()
+
+mdA21$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA21))
+mdA21$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA21, re_formula=NA))
+mdA21$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA21, re_formula=NULL))
+
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA21)
+
+```
+
+### posterior check
+
+```{r}
+
+brms::pp_check(mdA21, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA21, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA21, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA21, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"), y = "Change in annoyance")
+
+brms::pp_check(mdA21, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA21, type='dens_overlay_grouped', ndraws=100, group='UASStart') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+```
+
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA21)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA21), pars = c("b_Ilog10UASEvents",
+                                                            "b_UASLAEMaxLRScl",
+                                                            "b_UASStartRight",
+                                                          "b_AmbientEnvCoreResidential",
+                                                          "b_AmbientEnvCoreStreetsidesquare",
+                                                          "b_AmbientEnvCoreHighway",
+                                                          "b_AmbientVariantParkHigh",
+                                                          "b_AmbientVariantHighwayLow"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
+
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA21)
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(mdA15, mdA16, mdA17, mdA18, mdA19, mdA20, mdA21)
+
+loo::loo_compare(mdA15, mdA16, mdA17, mdA18, mdA19, mdA20, mdA21, criterion='loo')
+
+```
+
+### visualise posterior draws for population level effects
+
+```{R}
+
+mdA21_bCI_range <- bayestestR::hdi(mdA21, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
+
+p_mdA21_bCI_wsf   <- make_group_plot(mdA21_bCI_range, "Within-subjects factors",
+                                    "Within-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA21_bCI_wsf
+
+p_mdA21_bCI_wsc   <- make_group_plot(mdA21_bCI_range, "Within-subjects covariates",
+                                    "Within-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA21_bCI_wsc
+
+p_mdA21_bCI_wscfi <- make_group_plot(mdA21_bCI_range,
+                                    "Within-subjects covariate-factor interactions",
+                                    "Within-subjects covariate-factor interactions",
+                                    fill_palette = mycolours)
+p_mdA21_bCI_wscfi
+
+p_mdA21_bCI_bsf   <- make_group_plot(mdA21_bCI_range, "Between-subjects factors",
+                                    "Between-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA21_bCI_bsf
+
+p_mdA21_bCI_bsc   <- make_group_plot(mdA21_bCI_range, "Between-subjects covariates",
+                                    "Between-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA21_bCI_bsc
+
+```
+
+## mdA22: add group level effects
+
+### Model dA22 formula
+
+```{R}
+
+mdA22_pop_level <- mdA21_pop_level
+
+mdA22_grp_level_id <- c("TrialNumberScl",
+                        "UASLAEMaxLRScl",
+                       "I(log10(UASEvents))",
+                       "UASLAEMaxLRScl*AmbientEnvCore",
+                       "UASLAEMaxLRScl*AmbientVariant",
+                       "UASStart")
+
+mdA22_grp_level <- list(ID = mdA22_grp_level_id,
+                     StimID = c())
+
+mdA22formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                      fixed = mdA22_pop_level,
+                      re = mdA22_grp_level)
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priorsdA22 <- c(
+  # mean model
+  brms::set_prior("normal(0, 0.5)", class = "b", dpar = "mu"),
+  derive_coef_priors(mdA22formula, mdA15Data, ordbeta(link = "logit"),
+                     mdA22_pop_level, tier_priors_dA15, main_effects),
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar = "mu"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "mu"),
+  # scale model
+  brms::set_prior(sprintf("lognormal(%.2f, 1)", phi_center), class = "phi"),
+  # cutpoints model
+  brms::set_prior(sprintf("normal(%.2f, 1)", kappa_center), class = "kappa"),
+  brms::set_prior(sprintf("normal(%.2f, 1.5)", xi_center), class = "xi")
+)
+
+tic()
+mdA22Priors <- brms::brm(mdA22formula,
+                 data=mdA15Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA22, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA22PriorCheck <- brms::pp_check(mdA22Priors, ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+mdA22PriorCheck
+
+tic()
+mdA22 <- brms::brm(mdA22formula, data=mdA15Data,
+                family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priorsdA22, control=list(adapt_delta=0.95),
+               threads = threading(threads = 3, static = TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA22 <- brms::add_criterion(mdA22, criterion=c('loo', 'loo_R2'),
+                          cores=n_cores,
+                          reloo=reloo_flag,
+                          overwrite=TRUE,
+                          chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                          backend='cmdstanr',
+                          future_args=list(future.seed=TRUE))
+toc()
+
+mdA22$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA22))
+mdA22$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA22, re_formula=NA))
+mdA22$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA22, re_formula=NULL))
+
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA22)
+
+```
+
+### posterior check
+
+```{r}
+
+brms::pp_check(mdA22, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA22, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA22, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA22, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"), y = "Change in annoyance")
+
+brms::pp_check(mdA22, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA22, type='dens_overlay_grouped', ndraws=100, group='UASStart') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+```
+
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA22)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA22), pars = c("b_Ilog10UASEvents",
+                                                            "b_UASLAEMaxLRScl",
+                                                            "b_UASStartRight",
+                                                          "b_AmbientEnvCoreResidential",
+                                                          "b_AmbientEnvCoreStreetsidesquare",
+                                                          "b_AmbientEnvCoreHighway",
+                                                          "b_AmbientVariantParkHigh",
+                                                          "b_AmbientVariantHighwayLow"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
+
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA22)
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(mdA21, mdA22)
+
+loo::loo_compare(mdA21, mdA22, criterion='loo')
+
+```
+
+### visualise posterior draws for population level effects
+
+```{R}
+
+mdA22_bCI_range <- bayestestR::hdi(mdA22, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
+
+p_mdA22_bCI_wsf   <- make_group_plot(mdA22_bCI_range, "Within-subjects factors",
+                                    "Within-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA22_bCI_wsf
+
+p_mdA22_bCI_wsc   <- make_group_plot(mdA22_bCI_range, "Within-subjects covariates",
+                                    "Within-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA22_bCI_wsc
+
+p_mdA22_bCI_wscfi <- make_group_plot(mdA22_bCI_range,
+                                    "Within-subjects covariate-factor interactions",
+                                    "Within-subjects covariate-factor interactions",
+                                    fill_palette = mycolours)
+p_mdA22_bCI_wscfi
+
+p_mdA22_bCI_bsf   <- make_group_plot(mdA22_bCI_range, "Between-subjects factors",
+                                    "Between-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA22_bCI_bsf
+
+p_mdA22_bCI_bsc   <- make_group_plot(mdA22_bCI_range, "Between-subjects covariates",
+                                    "Between-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA22_bCI_bsc
+
+```
+
+### visualise posterior distributions of group level effects
+
+```{r}
+
+mdA22_sd_draws <- as.data.frame(mdA22) |>
+    dplyr::select(starts_with("sd_")) |>
+    tidyr::pivot_longer(cols = everything(), names_to = "Parameter", values_to = "Value") |>
+    dplyr::mutate(Parameter = gsub("sd_", "", Parameter)) |>  # Clean up label names
+    dplyr::group_by(Parameter) |>
+    dplyr::mutate(RelValue = Value / stats::median(Value)) |>
+    dplyr::ungroup()
+
+# 2. Plot using ridges with a shared x-axis and normalized curve heights
+p_sd <- ggplot(mdA22_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
+     theme(legend.position = "none",
+            panel.grid.major.y = element_blank(),
+            text = element_text(family = "serif", size=16)) +
+    # stat_density_ridges normalizes the peak height of each curve individually
+    ggridges::stat_density_ridges(aes(height = after_stat(density)), 
+                        geom = "density_ridges", 
+                        alpha = 1, 
+                        scale = 1.1) + # Controls how much curves can overlap vertically
+    # Adds the 50%, 89% and 95% credible intervals right beneath each curve
+    tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1), 
+                       .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+    # scale_fill_manual(values = mycolours) +
+    labs(x = "Estimated variation (sd scale)",
+         y = "Group parameter")
+
+p_sd_rel <- ggplot(mdA22_sd_draws, aes(x = RelValue, y = Parameter, fill = Parameter)) +
+  theme(legend.position = "none", panel.grid.major.y = element_blank(),
+        text = element_text(family = "serif", size = 16)) +
+  geom_vline(xintercept = 1, linetype = "dashed", colour = "grey50") +
+  ggridges::stat_density_ridges(aes(height = after_stat(density)),
+                                 geom = "density_ridges",
+                                alpha = 1, scale = 0.9) +
+  tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1),
+                                 .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+  # scale_fill_manual(values = mycolours) +
+  labs(x = "Median-normalised\n(relative estimation uncertainty)",
+       y = "Group parameter")
+
+p_sd | (p_sd_rel + theme(axis.title.y = element_blank(), axis.text.y = element_blank()))
+
+```
+
+## mdA23: reduce group level effects
+
+### Model dA23 formula
+
+```{R}
+
+mdA23_pop_level <- mdA22_pop_level
+
+mdA23_grp_level_id <- prune_terms(mdA22_grp_level_id,
+                                  c("UASStart"),
+                                   sanitize_fn = sanitize_var_brms)
+
+mdA23_grp_level <- list(ID = mdA23_grp_level_id,
+                     StimID = c())
+
+mdA23formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                      fixed = mdA23_pop_level,
+                      re = mdA23_grp_level)
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priorsdA23 <- c(
+  # mean model
+  brms::set_prior("normal(0, 0.5)", class = "b", dpar = "mu"),
+  derive_coef_priors(mdA23formula, mdA15Data, ordbeta(link = "logit"),
+                     mdA23_pop_level, tier_priors_dA15, main_effects),
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar = "mu"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "mu"),
+  # scale model
+  brms::set_prior(sprintf("lognormal(%.2f, 1)", phi_center), class = "phi"),
+  # cutpoints model
+  brms::set_prior(sprintf("normal(%.2f, 1)", kappa_center), class = "kappa"),
+  brms::set_prior(sprintf("normal(%.2f, 1.5)", xi_center), class = "xi")
+)
+
+tic()
+mdA23Priors <- brms::brm(mdA23formula,
+                 data=mdA15Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA23, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA23PriorCheck <- brms::pp_check(mdA23Priors, ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+mdA23PriorCheck
+
+tic()
+mdA23 <- brms::brm(mdA23formula, data=mdA15Data,
+                family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priorsdA23, control=list(adapt_delta=0.95),
+               threads = threading(threads = 3, static = TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA23 <- brms::add_criterion(mdA23, criterion=c('loo', 'loo_R2'),
+                          cores=n_cores,
+                          reloo=reloo_flag,
+                          overwrite=TRUE,
+                          chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                          backend='cmdstanr',
+                          future_args=list(future.seed=TRUE))
+toc()
+
+mdA23$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA23))
+mdA23$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA23, re_formula=NA))
+mdA23$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA23, re_formula=NULL))
+
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA23)
+
+```
+
+### posterior check
+
+```{r}
+
+brms::pp_check(mdA23, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA23, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA23, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA23, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"), y = "Change in annoyance")
+
+brms::pp_check(mdA23, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA23, type='dens_overlay_grouped', ndraws=100, group='UASStart') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+```
+
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA23)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA23), pars = c("b_Ilog10UASEvents",
+                                                            "b_UASLAEMaxLRScl",
+                                                            "b_UASStartRight",
+                                                          "b_AmbientEnvCoreResidential",
+                                                          "b_AmbientEnvCoreStreetsidesquare",
+                                                          "b_AmbientEnvCoreHighway",
+                                                          "b_AmbientVariantParkHigh",
+                                                          "b_AmbientVariantHighwayLow"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
+
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA23)
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(mdA21, mdA22, mdA23)
+
+loo::loo_compare(mdA21, mdA22, mdA23, criterion='loo')
+
+```
+
+### visualise posterior draws for population level effects
+
+```{R}
+
+mdA23_bCI_range <- bayestestR::hdi(mdA23, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
+
+p_mdA23_bCI_wsf   <- make_group_plot(mdA23_bCI_range, "Within-subjects factors",
+                                    "Within-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA23_bCI_wsf
+
+p_mdA23_bCI_wsc   <- make_group_plot(mdA23_bCI_range, "Within-subjects covariates",
+                                    "Within-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA23_bCI_wsc
+
+p_mdA23_bCI_wscfi <- make_group_plot(mdA23_bCI_range,
+                                    "Within-subjects covariate-factor interactions",
+                                    "Within-subjects covariate-factor interactions",
+                                    fill_palette = mycolours)
+p_mdA23_bCI_wscfi
+
+p_mdA23_bCI_bsf   <- make_group_plot(mdA23_bCI_range, "Between-subjects factors",
+                                    "Between-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA23_bCI_bsf
+
+p_mdA23_bCI_bsc   <- make_group_plot(mdA23_bCI_range, "Between-subjects covariates",
+                                    "Between-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA23_bCI_bsc
+
+```
+
+### visualise posterior distributions of group level effects
+
+```{r}
+
+mdA23_sd_draws <- as.data.frame(mdA23) |>
+    dplyr::select(starts_with("sd_")) |>
+    tidyr::pivot_longer(cols = everything(), names_to = "Parameter", values_to = "Value") |>
+    dplyr::mutate(Parameter = gsub("sd_", "", Parameter)) |>  # Clean up label names
+    dplyr::group_by(Parameter) |>
+    dplyr::mutate(RelValue = Value / stats::median(Value)) |>
+    dplyr::ungroup()
+
+# 2. Plot using ridges with a shared x-axis and normalized curve heights
+p_sd <- ggplot(mdA23_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
+     theme(legend.position = "none",
+            panel.grid.major.y = element_blank(),
+            text = element_text(family = "serif", size=16)) +
+    # stat_density_ridges normalizes the peak height of each curve individually
+    ggridges::stat_density_ridges(aes(height = after_stat(density)), 
+                        geom = "density_ridges", 
+                        alpha = 1, 
+                        scale = 1.1) + # Controls how much curves can overlap vertically
+    # Adds the 50%, 89% and 95% credible intervals right beneath each curve
+    tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1), 
+                       .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+    # scale_fill_manual(values = mycolours) +
+    labs(x = "Estimated variation (sd scale)",
+         y = "Group parameter")
+
+p_sd_rel <- ggplot(mdA23_sd_draws, aes(x = RelValue, y = Parameter, fill = Parameter)) +
+  theme(legend.position = "none", panel.grid.major.y = element_blank(),
+        text = element_text(family = "serif", size = 16)) +
+  geom_vline(xintercept = 1, linetype = "dashed", colour = "grey50") +
+  ggridges::stat_density_ridges(aes(height = after_stat(density)),
+                                 geom = "density_ridges",
+                                alpha = 1, scale = 0.9) +
+  tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1),
+                                 .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+  # scale_fill_manual(values = mycolours) +
+  labs(x = "Median-normalised\n(relative estimation uncertainty)",
+       y = "Group parameter")
+
+p_sd | (p_sd_rel + theme(axis.title.y = element_blank(), axis.text.y = element_blank()))
+
+```
+
+## mdA24: further reduce group level effects
+
+### Model dA24 formula
+
+```{R}
+
+mdA24_pop_level <- mdA23_pop_level
+
+mdA24_grp_level_id <- prune_terms(mdA23_grp_level_id,
+                                  c("UASLAEMaxLRScl:AmbientVariant"),
+                                   sanitize_fn = sanitize_var_brms)
+
+mdA24_grp_level <- list(ID = mdA24_grp_level_id,
+                     StimID = c())
+
+mdA24formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                      fixed = mdA24_pop_level,
+                      re = mdA24_grp_level)
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priorsdA24 <- c(
+  # mean model
+  brms::set_prior("normal(0, 0.5)", class = "b", dpar = "mu"),
+  derive_coef_priors(mdA24formula, mdA15Data, ordbeta(link = "logit"),
+                     mdA24_pop_level, tier_priors_dA15, main_effects),
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar = "mu"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "mu"),
+  # scale model
+  brms::set_prior(sprintf("lognormal(%.2f, 1)", phi_center), class = "phi"),
+  # cutpoints model
+  brms::set_prior(sprintf("normal(%.2f, 1)", kappa_center), class = "kappa"),
+  brms::set_prior(sprintf("normal(%.2f, 1.5)", xi_center), class = "xi")
+)
+
+tic()
+mdA24Priors <- brms::brm(mdA24formula,
+                 data=mdA15Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA24, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA24PriorCheck <- brms::pp_check(mdA24Priors, ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+mdA24PriorCheck
+
+tic()
+mdA24 <- brms::brm(mdA24formula, data=mdA15Data,
+                family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priorsdA24, control=list(adapt_delta=0.95),
+               threads = threading(threads = 3, static = TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA24 <- brms::add_criterion(mdA24, criterion=c('loo', 'loo_R2'),
+                          cores=n_cores,
+                          reloo=reloo_flag,
+                          overwrite=TRUE,
+                          chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                          backend='cmdstanr',
+                          future_args=list(future.seed=TRUE))
+toc()
+
+mdA24$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA24))
+mdA24$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA24, re_formula=NA))
+mdA24$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA24, re_formula=NULL))
+
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA24)
+
+```
+
+### posterior check
+
+```{r}
+
+brms::pp_check(mdA24, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA24, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA24, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA24, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"), y = "Change in annoyance")
+
+brms::pp_check(mdA24, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA24, type='dens_overlay_grouped', ndraws=100, group='UASStart') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+```
+
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA24)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA24), pars = c("b_Ilog10UASEvents",
+                                                            "b_UASLAEMaxLRScl",
+                                                            "b_UASStartRight",
+                                                          "b_AmbientEnvCoreResidential",
+                                                          "b_AmbientEnvCoreStreetsidesquare",
+                                                          "b_AmbientEnvCoreHighway",
+                                                          "b_AmbientVariantParkHigh",
+                                                          "b_AmbientVariantHighwayLow"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
+
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA24)
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(mdA21, mdA22, mdA23, mdA24)
+
+loo::loo_compare(mdA21, mdA22, mdA23, mdA24, criterion='loo')
+
+```
+
+### visualise posterior draws for population level effects
+
+```{R}
+
+mdA24_bCI_range <- bayestestR::hdi(mdA24, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
+
+p_mdA24_bCI_wsf   <- make_group_plot(mdA24_bCI_range, "Within-subjects factors",
+                                    "Within-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA24_bCI_wsf
+
+p_mdA24_bCI_wsc   <- make_group_plot(mdA24_bCI_range, "Within-subjects covariates",
+                                    "Within-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA24_bCI_wsc
+
+p_mdA24_bCI_wscfi <- make_group_plot(mdA24_bCI_range,
+                                    "Within-subjects covariate-factor interactions",
+                                    "Within-subjects covariate-factor interactions",
+                                    fill_palette = mycolours)
+p_mdA24_bCI_wscfi
+
+p_mdA24_bCI_bsf   <- make_group_plot(mdA24_bCI_range, "Between-subjects factors",
+                                    "Between-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA24_bCI_bsf
+
+p_mdA24_bCI_bsc   <- make_group_plot(mdA24_bCI_range, "Between-subjects covariates",
+                                    "Between-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA24_bCI_bsc
+
+```
+
+### visualise posterior distributions of group level effects
+
+```{r}
+
+mdA24_sd_draws <- as.data.frame(mdA24) |>
+    dplyr::select(starts_with("sd_")) |>
+    tidyr::pivot_longer(cols = everything(), names_to = "Parameter", values_to = "Value") |>
+    dplyr::mutate(Parameter = gsub("sd_", "", Parameter)) |>  # Clean up label names
+    dplyr::group_by(Parameter) |>
+    dplyr::mutate(RelValue = Value / stats::median(Value)) |>
+    dplyr::ungroup()
+
+# 2. Plot using ridges with a shared x-axis and normalized curve heights
+p_sd <- ggplot(mdA24_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
+     theme(legend.position = "none",
+            panel.grid.major.y = element_blank(),
+            text = element_text(family = "serif", size=16)) +
+    # stat_density_ridges normalizes the peak height of each curve individually
+    ggridges::stat_density_ridges(aes(height = after_stat(density)), 
+                        geom = "density_ridges", 
+                        alpha = 1, 
+                        scale = 1.1) + # Controls how much curves can overlap vertically
+    # Adds the 50%, 89% and 95% credible intervals right beneath each curve
+    tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1), 
+                       .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+    # scale_fill_manual(values = mycolours) +
+    labs(x = "Estimated variation (sd scale)",
+         y = "Group parameter")
+
+p_sd_rel <- ggplot(mdA24_sd_draws, aes(x = RelValue, y = Parameter, fill = Parameter)) +
+  theme(legend.position = "none", panel.grid.major.y = element_blank(),
+        text = element_text(family = "serif", size = 16)) +
+  geom_vline(xintercept = 1, linetype = "dashed", colour = "grey50") +
+  ggridges::stat_density_ridges(aes(height = after_stat(density)),
+                                 geom = "density_ridges",
+                                alpha = 1, scale = 0.9) +
+  tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1),
+                                 .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+  # scale_fill_manual(values = mycolours) +
+  labs(x = "Median-normalised\n(relative estimation uncertainty)",
+       y = "Group parameter")
+
+p_sd | (p_sd_rel + theme(axis.title.y = element_blank(), axis.text.y = element_blank()))
+
+```
+
+## mdA25 add scale model
+
+### Model dA25 formula
+
+```{R}
+
+mdA25_pop_level <- mdA24_pop_level
+
+mdA25_grp_level <- mdA24_grp_level
+
+mdA25_dpar_grp_level <- list(ID = c())
+
+mdA25formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                        fixed = mdA25_pop_level,
+                        re = mdA25_grp_level,
+                        dpars = list(phi = list(re = mdA25_dpar_grp_level)))
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priorsdA25 <- c(
+  # mean model
+  brms::set_prior("normal(0, 0.5)", class = "b", dpar = "mu"),
+  derive_coef_priors(mdA25formula, mdA15Data, ordbeta(link = "logit"),
+                     mdA25_pop_level, tier_priors_dA1, main_effects),
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar = "mu"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "mu"),
+  # scale model
+  # brms::set_prior(sprintf("lognormal(%.2f, 1)", phi_center), class = "phi"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "phi"),
+  # cutpoints model
+  brms::set_prior(sprintf("normal(%.2f, 1)", kappa_center), class = "kappa"),
+  brms::set_prior(sprintf("normal(%.2f, 1.5)", xi_center), class = "xi")
+)
+
+
+tic()
+mdA25Priors <- brms::brm(mdA25formula,
+                 data=mdA15Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA25, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA25PriorCheck <- brms::pp_check(mdA25Priors, ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+mdA25PriorCheck
+
+tic()
+mdA25 <- brms::brm(mdA25formula, data=mdA15Data,
+                family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priorsdA25, control=list(adapt_delta=0.95),
+               threads = threading(threads = 3, static = TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA25 <- brms::add_criterion(mdA25, criterion=c('loo', 'loo_R2'),
+                          cores=n_cores,
+                          reloo=reloo_flag,
+                          overwrite=TRUE,
+                          chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                          backend='cmdstanr',
+                          future_args=list(future.seed=TRUE))
+toc()
+
+mdA25$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA25))
+mdA25$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA25, re_formula=NA))
+mdA25$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA25, re_formula=NULL))
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA25)
+
+```
+
+### posterior check
+
+```{r}
+
+brms::pp_check(mdA25, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA25, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA25, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA25, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"), y = "Change in annoyance")
+
+brms::pp_check(mdA25, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA25, type='dens_overlay_grouped', ndraws=100, group='UASStart') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA25, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    labs(x="Mean posterior predictive error", y = "UASLAEMaxLRScl")
+
+brms::pp_check(mdA25, type = "stat_grouped", group = "AmbientEnvCore",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA25, type = "stat_grouped", group = "AmbientVariant",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA25, type = "stat_grouped", group = "UASEvents",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA25, type = "stat_grouped", group = "UASStart",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+
+
+```
+
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA25)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA25), pars = c("b_Ilog10UASEvents",
+                                                            "b_UASLAEMaxLRScl",
+                                                            "b_UASStartRight",
+                                                          "b_AmbientEnvCoreResidential",
+                                                          "b_AmbientEnvCoreStreetsidesquare",
+                                                          "b_AmbientEnvCoreHighway",
+                                                          "b_AmbientVariantParkHigh",
+                                                          "b_AmbientVariantHighwayLow"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
+
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA25)
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(mdA21, mdA22, mdA23, mdA24, mdA25)
+
+loo::loo_compare(mdA21, mdA22, mdA23, mdA24, mdA25, criterion='loo')
+
+```
+
+### visualise posterior draws for population level effects
+
+```{R}
+
+mdA25_bCI_range <- bayestestR::hdi(mdA25, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
+
+p_mdA25_bCI_wsf   <- make_group_plot(mdA25_bCI_range, "Within-subjects factors",
+                                    "Within-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA25_bCI_wsf
+
+p_mdA25_bCI_wsc   <- make_group_plot(mdA25_bCI_range, "Within-subjects covariates",
+                                    "Within-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA25_bCI_wsc
+
+p_mdA25_bCI_wscfi <- make_group_plot(mdA25_bCI_range,
+                                    "Within-subjects covariate-factor interactions",
+                                    "Within-subjects covariate-factor interactions",
+                                    fill_palette = mycolours)
+p_mdA25_bCI_wscfi
+
+p_mdA25_bCI_bsf   <- make_group_plot(mdA25_bCI_range, "Between-subjects factors",
+                                    "Between-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA25_bCI_bsf
+
+p_mdA25_bCI_bsc   <- make_group_plot(mdA25_bCI_range, "Between-subjects covariates",
+                                    "Between-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA25_bCI_bsc
+
+```
+
+### visualise posterior distributions of group level effects
+
+```{r}
+
+mdA25_sd_draws <- as.data.frame(mdA25) |>
+    dplyr::select(starts_with("sd_")) |>
+    tidyr::pivot_longer(cols = everything(), names_to = "Parameter", values_to = "Value") |>
+    dplyr::mutate(Parameter = gsub("sd_", "", Parameter)) |>  # Clean up label names
+    dplyr::group_by(Parameter) |>
+    dplyr::mutate(RelValue = Value / stats::median(Value)) |>
+    dplyr::ungroup()
+
+# 2. Plot using ridges with a shared x-axis and normalized curve heights
+p_sd <- ggplot(mdA25_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
+     theme(legend.position = "none",
+            panel.grid.major.y = element_blank(),
+            text = element_text(family = "serif", size=16)) +
+    # stat_density_ridges normalizes the peak height of each curve individually
+    ggridges::stat_density_ridges(aes(height = after_stat(density)), 
+                        geom = "density_ridges", 
+                        alpha = 1, 
+                        scale = 1.1) + # Controls how much curves can overlap vertically
+    # Adds the 50%, 89% and 95% credible intervals right beneath each curve
+    tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1), 
+                       .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+    # scale_fill_manual(values = mycolours) +
+    labs(x = "Estimated variation (sd scale)",
+         y = "Group parameter")
+
+p_sd_rel <- ggplot(mdA25_sd_draws, aes(x = RelValue, y = Parameter, fill = Parameter)) +
+  theme(legend.position = "none", panel.grid.major.y = element_blank(),
+        text = element_text(family = "serif", size = 16)) +
+  geom_vline(xintercept = 1, linetype = "dashed", colour = "grey50") +
+  ggridges::stat_density_ridges(aes(height = after_stat(density)),
+                                 geom = "density_ridges",
+                                alpha = 1, scale = 0.9) +
+  tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1),
+                                 .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+  # scale_fill_manual(values = mycolours) +
+  labs(x = "Median-normalised\n(relative estimation uncertainty)",
+       y = "Group parameter")
+
+p_sd | (p_sd_rel + theme(axis.title.y = element_blank(), axis.text.y = element_blank()))
+
+```
+
+## mdA26 add further to scale model
+
+### Model dA26 formula
+
+```{R}
+
+mdA26_pop_level <- mdA25_pop_level
+
+mdA26_grp_level <- mdA25_grp_level
+
+mdA26_dpar_pop_level <- c("UASLAEMaxLRScl")
+
+mdA26_dpar_grp_level <- mdA25_dpar_grp_level
+
+mdA26formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                        fixed = mdA26_pop_level,
+                        re = mdA26_grp_level,
+                        dpars = list(phi = list(fixed=mdA26_dpar_pop_level,
+                                                re = mdA26_dpar_grp_level)))
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priorsdA26 <- c(
+  # mean model
+  brms::set_prior("normal(0, 0.5)", class = "b", dpar = "mu"),
+  derive_coef_priors(mdA26formula, mdA15Data, ordbeta(link = "logit"),
+                     mdA26_pop_level, tier_priors_dA1, main_effects),
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar = "mu"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "mu"),
+  # scale model
+  # brms::set_prior(sprintf("lognormal(%.2f, 1)", phi_center), class = "phi"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "phi"),
+  brms::set_prior("normal(0, 1)", class = "b", dpar = "phi"),
+  # cutpoints model
+  brms::set_prior(sprintf("normal(%.2f, 1)", kappa_center), class = "kappa"),
+  brms::set_prior(sprintf("normal(%.2f, 1.5)", xi_center), class = "xi")
+)
+
+
+tic()
+mdA26Priors <- brms::brm(mdA26formula,
+                 data=mdA15Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA26, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA26PriorCheck <- brms::pp_check(mdA26Priors, ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+mdA26PriorCheck
+
+tic()
+mdA26 <- brms::brm(mdA26formula, data=mdA15Data,
+                family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priorsdA26, control=list(adapt_delta=0.95),
+               threads = threading(threads = 3, static = TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA26 <- brms::add_criterion(mdA26, criterion=c('loo', 'loo_R2'),
+                          cores=n_cores,
+                          reloo=reloo_flag,
+                          overwrite=TRUE,
+                          chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                          backend='cmdstanr',
+                          future_args=list(future.seed=TRUE))
+toc()
+
+mdA26$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA26))
+mdA26$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA26, re_formula=NA))
+mdA26$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA26, re_formula=NULL))
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA26)
+
+```
+
+### posterior check
+
+```{r}
+
+brms::pp_check(mdA26, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA26, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA26, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA26, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"), y = "Change in annoyance")
+
+brms::pp_check(mdA26, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA26, type='dens_overlay_grouped', ndraws=100, group='UASStart') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA26, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x="Mean posterior predictive error", y = "UASLAEMaxLRScl")
+
+brms::pp_check(mdA26, type = "stat_grouped", group = "AmbientEnvCore",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA26, type = "stat_grouped", group = "AmbientVariant",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA26, type = "stat_grouped", group = "UASEvents",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA26, type = "stat_grouped", group = "UASStart",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+
+
+```
+
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA26)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA26), pars = c("b_Ilog10UASEvents",
+                                                            "b_UASLAEMaxLRScl",
+                                                            "b_UASStartRight",
+                                                          "b_AmbientEnvCoreResidential",
+                                                          "b_AmbientEnvCoreStreetsidesquare",
+                                                          "b_AmbientEnvCoreHighway",
+                                                          "b_AmbientVariantParkHigh",
+                                                          "b_AmbientVariantHighwayLow"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
+
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA26)
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(mdA25, mdA26)
+
+loo::loo_compare(mdA25, mdA26, criterion='loo')
+
+```
+
+### visualise posterior draws for population level effects
+
+```{R}
+
+mdA26_bCI_range <- bayestestR::hdi(mdA26, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
+
+p_mdA26_bCI_wsf   <- make_group_plot(mdA26_bCI_range, "Within-subjects factors",
+                                    "Within-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA26_bCI_wsf
+
+p_mdA26_bCI_wsc   <- make_group_plot(mdA26_bCI_range, "Within-subjects covariates",
+                                    "Within-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA26_bCI_wsc
+
+p_mdA26_bCI_wscfi <- make_group_plot(mdA26_bCI_range,
+                                    "Within-subjects covariate-factor interactions",
+                                    "Within-subjects covariate-factor interactions",
+                                    fill_palette = mycolours)
+p_mdA26_bCI_wscfi
+
+p_mdA26_bCI_bsf   <- make_group_plot(mdA26_bCI_range, "Between-subjects factors",
+                                    "Between-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA26_bCI_bsf
+
+p_mdA26_bCI_bsc   <- make_group_plot(mdA26_bCI_range, "Between-subjects covariates",
+                                    "Between-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA26_bCI_bsc
+
+```
+
+### visualise posterior distributions of group level effects
+
+```{r}
+
+mdA26_sd_draws <- as.data.frame(mdA26) |>
+    dplyr::select(starts_with("sd_")) |>
+    tidyr::pivot_longer(cols = everything(), names_to = "Parameter", values_to = "Value") |>
+    dplyr::mutate(Parameter = gsub("sd_", "", Parameter)) |>  # Clean up label names
+    dplyr::group_by(Parameter) |>
+    dplyr::mutate(RelValue = Value / stats::median(Value)) |>
+    dplyr::ungroup()
+
+# 2. Plot using ridges with a shared x-axis and normalized curve heights
+p_sd <- ggplot(mdA26_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
+     theme(legend.position = "none",
+            panel.grid.major.y = element_blank(),
+            text = element_text(family = "serif", size=16)) +
+    # stat_density_ridges normalizes the peak height of each curve individually
+    ggridges::stat_density_ridges(aes(height = after_stat(density)), 
+                        geom = "density_ridges", 
+                        alpha = 1, 
+                        scale = 1.1) + # Controls how much curves can overlap vertically
+    # Adds the 50%, 89% and 95% credible intervals right beneath each curve
+    tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1), 
+                       .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+    # scale_fill_manual(values = mycolours) +
+    labs(x = "Estimated variation (sd scale)",
+         y = "Group parameter")
+
+p_sd_rel <- ggplot(mdA26_sd_draws, aes(x = RelValue, y = Parameter, fill = Parameter)) +
+  theme(legend.position = "none", panel.grid.major.y = element_blank(),
+        text = element_text(family = "serif", size = 16)) +
+  geom_vline(xintercept = 1, linetype = "dashed", colour = "grey50") +
+  ggridges::stat_density_ridges(aes(height = after_stat(density)),
+                                 geom = "density_ridges",
+                                alpha = 1, scale = 0.9) +
+  tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1),
+                                 .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+  # scale_fill_manual(values = mycolours) +
+  labs(x = "Median-normalised\n(relative estimation uncertainty)",
+       y = "Group parameter")
+
+p_sd | (p_sd_rel + theme(axis.title.y = element_blank(), axis.text.y = element_blank()))
+
+```
+
+## mdA27 add further to scale model
+
+### Model dA27 formula
+
+```{R}
+
+mdA27_pop_level <- mdA26_pop_level
+
+mdA27_grp_level <- mdA26_grp_level
+
+mdA27_dpar_pop_level <- c(mdA26_dpar_pop_level, "AmbientEnvCore")
+
+mdA27_dpar_grp_level <- mdA26_dpar_grp_level
+
+mdA27formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                        fixed = mdA27_pop_level,
+                        re = mdA27_grp_level,
+                        dpars = list(phi = list(fixed=mdA27_dpar_pop_level,
+                                                re = mdA27_dpar_grp_level)))
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priorsdA27 <- c(
+  # mean model
+  brms::set_prior("normal(0, 0.5)", class = "b", dpar = "mu"),
+  derive_coef_priors(mdA27formula, mdA15Data, ordbeta(link = "logit"),
+                     mdA27_pop_level, tier_priors_dA1, main_effects),
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar = "mu"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "mu"),
+  # scale model
+  # brms::set_prior(sprintf("lognormal(%.2f, 1)", phi_center), class = "phi"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "phi"),
+  brms::set_prior("normal(0, 1)", class = "b", dpar = "phi"),
+  # cutpoints model
+  brms::set_prior(sprintf("normal(%.2f, 1)", kappa_center), class = "kappa"),
+  brms::set_prior(sprintf("normal(%.2f, 1.5)", xi_center), class = "xi")
+)
+
+
+tic()
+mdA27Priors <- brms::brm(mdA27formula,
+                 data=mdA15Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA27, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA27PriorCheck <- brms::pp_check(mdA27Priors, ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+mdA27PriorCheck
+
+tic()
+mdA27 <- brms::brm(mdA27formula, data=mdA15Data,
+                family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priorsdA27, control=list(adapt_delta=0.95),
+               threads = threading(threads = 3, static = TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA27 <- brms::add_criterion(mdA27, criterion=c('loo', 'loo_R2'),
+                          cores=n_cores,
+                          reloo=reloo_flag,
+                          overwrite=TRUE,
+                          chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                          backend='cmdstanr',
+                          future_args=list(future.seed=TRUE))
+toc()
+
+mdA27$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA27))
+mdA27$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA27, re_formula=NA))
+mdA27$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA27, re_formula=NULL))
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA27)
+
+```
+
+### posterior check
+
+```{r}
+
+brms::pp_check(mdA27, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA27, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA27, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA27, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"), y = "Change in annoyance")
+
+brms::pp_check(mdA27, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA27, type='dens_overlay_grouped', ndraws=100, group='UASStart') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA27, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x="Mean posterior predictive error", y = "UASLAEMaxLRScl")
+
+brms::pp_check(mdA27, type = "stat_grouped", group = "AmbientEnvCore",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA27, type = "stat_grouped", group = "AmbientVariant",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA27, type = "stat_grouped", group = "UASEvents",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA27, type = "stat_grouped", group = "UASStart",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+
+
+```
+
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA27)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA27), pars = c("b_Ilog10UASEvents",
+                                                            "b_UASLAEMaxLRScl",
+                                                            "b_UASStartRight",
+                                                          "b_AmbientEnvCoreResidential",
+                                                          "b_AmbientEnvCoreStreetsidesquare",
+                                                          "b_AmbientEnvCoreHighway",
+                                                          "b_AmbientVariantParkHigh",
+                                                          "b_AmbientVariantHighwayLow"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
+
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA27)
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(mdA25, mdA26, mdA27)
+
+loo::loo_compare(mdA25, mdA26, mdA27, criterion='loo')
+
+```
+
+### visualise posterior draws for population level effects
+
+```{R}
+
+mdA27_bCI_range <- bayestestR::hdi(mdA27, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
+
+p_mdA27_bCI_wsf   <- make_group_plot(mdA27_bCI_range, "Within-subjects factors",
+                                    "Within-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA27_bCI_wsf
+
+p_mdA27_bCI_wsc   <- make_group_plot(mdA27_bCI_range, "Within-subjects covariates",
+                                    "Within-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA27_bCI_wsc
+
+p_mdA27_bCI_wscfi <- make_group_plot(mdA27_bCI_range,
+                                    "Within-subjects covariate-factor interactions",
+                                    "Within-subjects covariate-factor interactions",
+                                    fill_palette = mycolours)
+p_mdA27_bCI_wscfi
+
+p_mdA27_bCI_bsf   <- make_group_plot(mdA27_bCI_range, "Between-subjects factors",
+                                    "Between-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA27_bCI_bsf
+
+p_mdA27_bCI_bsc   <- make_group_plot(mdA27_bCI_range, "Between-subjects covariates",
+                                    "Between-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA27_bCI_bsc
+
+```
+
+### visualise posterior distributions of group level effects
+
+```{r}
+
+mdA27_sd_draws <- as.data.frame(mdA27) |>
+    dplyr::select(starts_with("sd_")) |>
+    tidyr::pivot_longer(cols = everything(), names_to = "Parameter", values_to = "Value") |>
+    dplyr::mutate(Parameter = gsub("sd_", "", Parameter)) |>  # Clean up label names
+    dplyr::group_by(Parameter) |>
+    dplyr::mutate(RelValue = Value / stats::median(Value)) |>
+    dplyr::ungroup()
+
+# 2. Plot using ridges with a shared x-axis and normalized curve heights
+p_sd <- ggplot(mdA27_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
+     theme(legend.position = "none",
+            panel.grid.major.y = element_blank(),
+            text = element_text(family = "serif", size=16)) +
+    # stat_density_ridges normalizes the peak height of each curve individually
+    ggridges::stat_density_ridges(aes(height = after_stat(density)), 
+                        geom = "density_ridges", 
+                        alpha = 1, 
+                        scale = 1.1) + # Controls how much curves can overlap vertically
+    # Adds the 50%, 89% and 95% credible intervals right beneath each curve
+    tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1), 
+                       .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+    # scale_fill_manual(values = mycolours) +
+    labs(x = "Estimated variation (sd scale)",
+         y = "Group parameter")
+
+p_sd_rel <- ggplot(mdA27_sd_draws, aes(x = RelValue, y = Parameter, fill = Parameter)) +
+  theme(legend.position = "none", panel.grid.major.y = element_blank(),
+        text = element_text(family = "serif", size = 16)) +
+  geom_vline(xintercept = 1, linetype = "dashed", colour = "grey50") +
+  ggridges::stat_density_ridges(aes(height = after_stat(density)),
+                                 geom = "density_ridges",
+                                alpha = 1, scale = 0.9) +
+  tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1),
+                                 .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+  # scale_fill_manual(values = mycolours) +
+  labs(x = "Median-normalised\n(relative estimation uncertainty)",
+       y = "Group parameter")
+
+p_sd | (p_sd_rel + theme(axis.title.y = element_blank(), axis.text.y = element_blank()))
+
+```
+
+## mdA28 modify scale model
+
+### Model dA28 formula
+
+```{R}
+
+mdA28_pop_level <- mdA27_pop_level
+
+mdA28_grp_level <- mdA27_grp_level
+
+mdA28_dpar_pop_level <- c(prune_terms(mdA27_dpar_pop_level,
+                                      "AmbientEnvCore",
+                                      sanitize_fn=sanitize_var_brms),
+                          "UASEvents")
+
+mdA28_dpar_grp_level <- mdA27_dpar_grp_level
+
+mdA28formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                        fixed = mdA28_pop_level,
+                        re = mdA28_grp_level,
+                        dpars = list(phi = list(fixed=mdA28_dpar_pop_level,
+                                                re = mdA28_dpar_grp_level)))
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priorsdA28 <- c(
+  # mean model
+  brms::set_prior("normal(0, 0.5)", class = "b", dpar = "mu"),
+  derive_coef_priors(mdA28formula, mdA15Data, ordbeta(link = "logit"),
+                     mdA28_pop_level, tier_priors_dA1, main_effects),
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar = "mu"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "mu"),
+  # scale model
+  # brms::set_prior(sprintf("lognormal(%.2f, 1)", phi_center), class = "phi"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "phi"),
+  brms::set_prior("normal(0, 1)", class = "b", dpar = "phi"),
+  # cutpoints model
+  brms::set_prior(sprintf("normal(%.2f, 1)", kappa_center), class = "kappa"),
+  brms::set_prior(sprintf("normal(%.2f, 1.5)", xi_center), class = "xi")
+)
+
+
+tic()
+mdA28Priors <- brms::brm(mdA28formula,
+                 data=mdA15Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA28, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA28PriorCheck <- brms::pp_check(mdA28Priors, ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+mdA28PriorCheck
+
+tic()
+mdA28 <- brms::brm(mdA28formula, data=mdA15Data,
+                family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priorsdA28, control=list(adapt_delta=0.95),
+               threads = threading(threads = 3, static = TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA28 <- brms::add_criterion(mdA28, criterion=c('loo', 'loo_R2'),
+                          cores=n_cores,
+                          reloo=reloo_flag,
+                          overwrite=TRUE,
+                          chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                          backend='cmdstanr',
+                          future_args=list(future.seed=TRUE))
+toc()
+
+mdA28$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA28))
+mdA28$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA28, re_formula=NA))
+mdA28$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA28, re_formula=NULL))
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA28)
+
+```
+
+### posterior check
+
+```{r}
+
+brms::pp_check(mdA28, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA28, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA28, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA28, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"), y = "Change in annoyance")
+
+brms::pp_check(mdA28, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA28, type='dens_overlay_grouped', ndraws=100, group='UASStart') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA28, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x="Mean posterior predictive error", y = "UASLAEMaxLRScl")
+
+brms::pp_check(mdA28, type = "stat_grouped", group = "AmbientEnvCore",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA28, type = "stat_grouped", group = "AmbientVariant",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA28, type = "stat_grouped", group = "UASEvents",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA28, type = "stat_grouped", group = "UASStart",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+
+
+```
+
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA28)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA28), pars = c("b_Ilog10UASEvents",
+                                                            "b_UASLAEMaxLRScl",
+                                                            "b_UASStartRight",
+                                                          "b_AmbientEnvCoreResidential",
+                                                          "b_AmbientEnvCoreStreetsidesquare",
+                                                          "b_AmbientEnvCoreHighway",
+                                                          "b_AmbientVariantParkHigh",
+                                                          "b_AmbientVariantHighwayLow"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
+
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA28)
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(mdA25, mdA26, mdA27, mdA28)
+
+loo::loo_compare(mdA25, mdA26, mdA27, mdA28, criterion='loo')
+
+```
+
+### visualise posterior draws for population level effects
+
+```{R}
+
+mdA28_bCI_range <- bayestestR::hdi(mdA28, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
+
+p_mdA28_bCI_wsf   <- make_group_plot(mdA28_bCI_range, "Within-subjects factors",
+                                    "Within-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA28_bCI_wsf
+
+p_mdA28_bCI_wsc   <- make_group_plot(mdA28_bCI_range, "Within-subjects covariates",
+                                    "Within-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA28_bCI_wsc
+
+p_mdA28_bCI_wscfi <- make_group_plot(mdA28_bCI_range,
+                                    "Within-subjects covariate-factor interactions",
+                                    "Within-subjects covariate-factor interactions",
+                                    fill_palette = mycolours)
+p_mdA28_bCI_wscfi
+
+p_mdA28_bCI_bsf   <- make_group_plot(mdA28_bCI_range, "Between-subjects factors",
+                                    "Between-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA28_bCI_bsf
+
+p_mdA28_bCI_bsc   <- make_group_plot(mdA28_bCI_range, "Between-subjects covariates",
+                                    "Between-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA28_bCI_bsc
+
+```
+
+### visualise posterior distributions of group level effects
+
+```{r}
+
+mdA28_sd_draws <- as.data.frame(mdA28) |>
+    dplyr::select(starts_with("sd_")) |>
+    tidyr::pivot_longer(cols = everything(), names_to = "Parameter", values_to = "Value") |>
+    dplyr::mutate(Parameter = gsub("sd_", "", Parameter)) |>  # Clean up label names
+    dplyr::group_by(Parameter) |>
+    dplyr::mutate(RelValue = Value / stats::median(Value)) |>
+    dplyr::ungroup()
+
+# 2. Plot using ridges with a shared x-axis and normalized curve heights
+p_sd <- ggplot(mdA28_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
+     theme(legend.position = "none",
+            panel.grid.major.y = element_blank(),
+            text = element_text(family = "serif", size=16)) +
+    # stat_density_ridges normalizes the peak height of each curve individually
+    ggridges::stat_density_ridges(aes(height = after_stat(density)), 
+                        geom = "density_ridges", 
+                        alpha = 1, 
+                        scale = 1.1) + # Controls how much curves can overlap vertically
+    # Adds the 50%, 89% and 95% credible intervals right beneath each curve
+    tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1), 
+                       .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+    # scale_fill_manual(values = mycolours) +
+    labs(x = "Estimated variation (sd scale)",
+         y = "Group parameter")
+
+p_sd_rel <- ggplot(mdA28_sd_draws, aes(x = RelValue, y = Parameter, fill = Parameter)) +
+  theme(legend.position = "none", panel.grid.major.y = element_blank(),
+        text = element_text(family = "serif", size = 16)) +
+  geom_vline(xintercept = 1, linetype = "dashed", colour = "grey50") +
+  ggridges::stat_density_ridges(aes(height = after_stat(density)),
+                                 geom = "density_ridges",
+                                alpha = 1, scale = 0.9) +
+  tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1),
+                                 .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+  # scale_fill_manual(values = mycolours) +
+  labs(x = "Median-normalised\n(relative estimation uncertainty)",
+       y = "Group parameter")
+
+p_sd | (p_sd_rel + theme(axis.title.y = element_blank(), axis.text.y = element_blank()))
+
+```
+
+## mdA29 modify scale model
+
+### Model dA29 formula
+
+```{R}
+
+mdA29_pop_level <- mdA28_pop_level
+
+mdA29_grp_level <- mdA28_grp_level
+
+mdA29_dpar_pop_level <- c(mdA28_dpar_pop_level,
+                          "AmbientEnvCore")
+
+mdA29_dpar_grp_level <- mdA28_dpar_grp_level
+
+mdA29formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                        fixed = mdA29_pop_level,
+                        re = mdA29_grp_level,
+                        dpars = list(phi = list(fixed=mdA29_dpar_pop_level,
+                                                re = mdA29_dpar_grp_level)))
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priorsdA29 <- c(
+  # mean model
+  brms::set_prior("normal(0, 0.5)", class = "b", dpar = "mu"),
+  derive_coef_priors(mdA29formula, mdA15Data, ordbeta(link = "logit"),
+                     mdA29_pop_level, tier_priors_dA1, main_effects),
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar = "mu"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "mu"),
+  # scale model
+  # brms::set_prior(sprintf("lognormal(%.2f, 1)", phi_center), class = "phi"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "phi"),
+  brms::set_prior("normal(0, 1)", class = "b", dpar = "phi"),
+  # cutpoints model
+  brms::set_prior(sprintf("normal(%.2f, 1)", kappa_center), class = "kappa"),
+  brms::set_prior(sprintf("normal(%.2f, 1.5)", xi_center), class = "xi")
+)
+
+
+tic()
+mdA29Priors <- brms::brm(mdA29formula,
+                 data=mdA15Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA29, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA29PriorCheck <- brms::pp_check(mdA29Priors, ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+mdA29PriorCheck
+
+tic()
+mdA29 <- brms::brm(mdA29formula, data=mdA15Data,
+                family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priorsdA29, control=list(adapt_delta=0.95),
+               threads = threading(threads = 3, static = TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA29 <- brms::add_criterion(mdA29, criterion=c('loo', 'loo_R2'),
+                          cores=n_cores,
+                          reloo=reloo_flag,
+                          overwrite=TRUE,
+                          chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                          backend='cmdstanr',
+                          future_args=list(future.seed=TRUE))
+toc()
+
+mdA29$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA29))
+mdA29$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA29, re_formula=NA))
+mdA29$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA29, re_formula=NULL))
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA29)
+
+```
+
+### posterior check
+
+```{r}
+
+brms::pp_check(mdA29, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA29, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA29, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA29, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"), y = "Change in annoyance")
+
+brms::pp_check(mdA29, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA29, type='dens_overlay_grouped', ndraws=100, group='UASStart') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA29, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x="Mean posterior predictive error", y = "UASLAEMaxLRScl")
+
+brms::pp_check(mdA29, type = "stat_grouped", group = "AmbientEnvCore",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA29, type = "stat_grouped", group = "AmbientVariant",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA29, type = "stat_grouped", group = "UASEvents",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA29, type = "stat_grouped", group = "UASStart",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+
+
+```
+
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA29)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA29), pars = c("b_Ilog10UASEvents",
+                                                            "b_UASLAEMaxLRScl",
+                                                            "b_UASStartRight",
+                                                          "b_AmbientEnvCoreResidential",
+                                                          "b_AmbientEnvCoreStreetsidesquare",
+                                                          "b_AmbientEnvCoreHighway",
+                                                          "b_AmbientVariantParkHigh",
+                                                          "b_AmbientVariantHighwayLow"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
+
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA29)
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(mdA25, mdA26, mdA27, mdA28, mdA29)
+
+loo::loo_compare(mdA25, mdA26, mdA27, mdA28, mdA29, criterion='loo')
+
+```
+
+### visualise posterior draws for population level effects
+
+```{R}
+
+mdA29_bCI_range <- bayestestR::hdi(mdA29, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
+
+p_mdA29_bCI_wsf   <- make_group_plot(mdA29_bCI_range, "Within-subjects factors",
+                                    "Within-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA29_bCI_wsf
+
+p_mdA29_bCI_wsc   <- make_group_plot(mdA29_bCI_range, "Within-subjects covariates",
+                                    "Within-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA29_bCI_wsc
+
+p_mdA29_bCI_wscfi <- make_group_plot(mdA29_bCI_range,
+                                    "Within-subjects covariate-factor interactions",
+                                    "Within-subjects covariate-factor interactions",
+                                    fill_palette = mycolours)
+p_mdA29_bCI_wscfi
+
+p_mdA29_bCI_bsf   <- make_group_plot(mdA29_bCI_range, "Between-subjects factors",
+                                    "Between-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA29_bCI_bsf
+
+p_mdA29_bCI_bsc   <- make_group_plot(mdA29_bCI_range, "Between-subjects covariates",
+                                    "Between-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA29_bCI_bsc
+
+```
+
+### visualise posterior distributions of group level effects
+
+```{r}
+
+mdA29_sd_draws <- as.data.frame(mdA29) |>
+    dplyr::select(starts_with("sd_")) |>
+    tidyr::pivot_longer(cols = everything(), names_to = "Parameter", values_to = "Value") |>
+    dplyr::mutate(Parameter = gsub("sd_", "", Parameter)) |>  # Clean up label names
+    dplyr::group_by(Parameter) |>
+    dplyr::mutate(RelValue = Value / stats::median(Value)) |>
+    dplyr::ungroup()
+
+# 2. Plot using ridges with a shared x-axis and normalized curve heights
+p_sd <- ggplot(mdA29_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
+     theme(legend.position = "none",
+            panel.grid.major.y = element_blank(),
+            text = element_text(family = "serif", size=16)) +
+    # stat_density_ridges normalizes the peak height of each curve individually
+    ggridges::stat_density_ridges(aes(height = after_stat(density)), 
+                        geom = "density_ridges", 
+                        alpha = 1, 
+                        scale = 1.1) + # Controls how much curves can overlap vertically
+    # Adds the 50%, 89% and 95% credible intervals right beneath each curve
+    tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1), 
+                       .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+    # scale_fill_manual(values = mycolours) +
+    labs(x = "Estimated variation (sd scale)",
+         y = "Group parameter")
+
+p_sd_rel <- ggplot(mdA29_sd_draws, aes(x = RelValue, y = Parameter, fill = Parameter)) +
+  theme(legend.position = "none", panel.grid.major.y = element_blank(),
+        text = element_text(family = "serif", size = 16)) +
+  geom_vline(xintercept = 1, linetype = "dashed", colour = "grey50") +
+  ggridges::stat_density_ridges(aes(height = after_stat(density)),
+                                 geom = "density_ridges",
+                                alpha = 1, scale = 0.9) +
+  tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1),
+                                 .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+  # scale_fill_manual(values = mycolours) +
+  labs(x = "Median-normalised\n(relative estimation uncertainty)",
+       y = "Group parameter")
+
+p_sd | (p_sd_rel + theme(axis.title.y = element_blank(), axis.text.y = element_blank()))
+
+```
+
+## mdA30 modify scale model
+
+### Model dA30 formula
+
+```{R}
+
+mdA30_pop_level <- mdA29_pop_level
+
+mdA30_grp_level <- mdA29_grp_level
+
+mdA30_dpar_pop_level <- prune_terms(mdA29_dpar_pop_level,
+                          c("UASLAEMaxLRScl", "UASEvents"),
+                          sanitize_fn=sanitize_var_brms)
+
+mdA30_dpar_grp_level <- mdA29_dpar_grp_level
+
+mdA30formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                        fixed = mdA30_pop_level,
+                        re = mdA30_grp_level,
+                        dpars = list(phi = list(fixed=mdA30_dpar_pop_level,
+                                                re = mdA30_dpar_grp_level)))
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priorsdA30 <- c(
+  # mean model
+  brms::set_prior("normal(0, 0.5)", class = "b", dpar = "mu"),
+  derive_coef_priors(mdA30formula, mdA15Data, ordbeta(link = "logit"),
+                     mdA30_pop_level, tier_priors_dA1, main_effects),
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar = "mu"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "mu"),
+  # scale model
+  # brms::set_prior(sprintf("lognormal(%.2f, 1)", phi_center), class = "phi"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "phi"),
+  brms::set_prior("normal(0, 1)", class = "b", dpar = "phi"),
+  # cutpoints model
+  brms::set_prior(sprintf("normal(%.2f, 1)", kappa_center), class = "kappa"),
+  brms::set_prior(sprintf("normal(%.2f, 1.5)", xi_center), class = "xi")
+)
+
+
+tic()
+mdA30Priors <- brms::brm(mdA30formula,
+                 data=mdA15Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA30, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA30PriorCheck <- brms::pp_check(mdA30Priors, ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+mdA30PriorCheck
+
+tic()
+mdA30 <- brms::brm(mdA30formula, data=mdA15Data,
+                family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priorsdA30, control=list(adapt_delta=0.95),
+               threads = threading(threads = 3, static = TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA30 <- brms::add_criterion(mdA30, criterion=c('loo', 'loo_R2'),
+                          cores=n_cores,
+                          reloo=reloo_flag,
+                          overwrite=TRUE,
+                          chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                          backend='cmdstanr',
+                          future_args=list(future.seed=TRUE))
+toc()
+
+mdA30$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA30))
+mdA30$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA30, re_formula=NA))
+mdA30$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA30, re_formula=NULL))
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA30)
+
+```
+
+### posterior check
+
+```{r}
+
+brms::pp_check(mdA30, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA30, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA30, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA30, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"), y = "Change in annoyance")
+
+brms::pp_check(mdA30, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA30, type='dens_overlay_grouped', ndraws=100, group='UASStart') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA30, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x="Mean posterior predictive error", y = "UASLAEMaxLRScl")
+
+brms::pp_check(mdA30, type = "stat_grouped", group = "AmbientEnvCore",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA30, type = "stat_grouped", group = "AmbientVariant",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA30, type = "stat_grouped", group = "UASEvents",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA30, type = "stat_grouped", group = "UASStart",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+
+
+```
+
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA30)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA30), pars = c("b_Ilog10UASEvents",
+                                                            "b_UASLAEMaxLRScl",
+                                                            "b_UASStartRight",
+                                                          "b_AmbientEnvCoreResidential",
+                                                          "b_AmbientEnvCoreStreetsidesquare",
+                                                          "b_AmbientEnvCoreHighway",
+                                                          "b_AmbientVariantParkHigh",
+                                                          "b_AmbientVariantHighwayLow"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
+
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA30)
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(mdA25, mdA26, mdA27, mdA28, mdA29, mdA30)
+
+loo::loo_compare(mdA25, mdA26, mdA27, mdA28, mdA29, mdA30, criterion='loo')
+
+```
+
+### visualise posterior draws for population level effects
+
+```{R}
+
+mdA30_bCI_range <- bayestestR::hdi(mdA30, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
+
+p_mdA30_bCI_wsf   <- make_group_plot(mdA30_bCI_range, "Within-subjects factors",
+                                    "Within-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA30_bCI_wsf
+
+p_mdA30_bCI_wsc   <- make_group_plot(mdA30_bCI_range, "Within-subjects covariates",
+                                    "Within-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA30_bCI_wsc
+
+p_mdA30_bCI_wscfi <- make_group_plot(mdA30_bCI_range,
+                                    "Within-subjects covariate-factor interactions",
+                                    "Within-subjects covariate-factor interactions",
+                                    fill_palette = mycolours)
+p_mdA30_bCI_wscfi
+
+p_mdA30_bCI_bsf   <- make_group_plot(mdA30_bCI_range, "Between-subjects factors",
+                                    "Between-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA30_bCI_bsf
+
+p_mdA30_bCI_bsc   <- make_group_plot(mdA30_bCI_range, "Between-subjects covariates",
+                                    "Between-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA30_bCI_bsc
+
+```
+
+### visualise posterior distributions of group level effects
+
+```{r}
+
+mdA30_sd_draws <- as.data.frame(mdA30) |>
+    dplyr::select(starts_with("sd_")) |>
+    tidyr::pivot_longer(cols = everything(), names_to = "Parameter", values_to = "Value") |>
+    dplyr::mutate(Parameter = gsub("sd_", "", Parameter)) |>  # Clean up label names
+    dplyr::group_by(Parameter) |>
+    dplyr::mutate(RelValue = Value / stats::median(Value)) |>
+    dplyr::ungroup()
+
+# 2. Plot using ridges with a shared x-axis and normalized curve heights
+p_sd <- ggplot(mdA30_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
+     theme(legend.position = "none",
+            panel.grid.major.y = element_blank(),
+            text = element_text(family = "serif", size=16)) +
+    # stat_density_ridges normalizes the peak height of each curve individually
+    ggridges::stat_density_ridges(aes(height = after_stat(density)), 
+                        geom = "density_ridges", 
+                        alpha = 1, 
+                        scale = 1.1) + # Controls how much curves can overlap vertically
+    # Adds the 50%, 89% and 95% credible intervals right beneath each curve
+    tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1), 
+                       .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+    # scale_fill_manual(values = mycolours) +
+    labs(x = "Estimated variation (sd scale)",
+         y = "Group parameter")
+
+p_sd_rel <- ggplot(mdA30_sd_draws, aes(x = RelValue, y = Parameter, fill = Parameter)) +
+  theme(legend.position = "none", panel.grid.major.y = element_blank(),
+        text = element_text(family = "serif", size = 16)) +
+  geom_vline(xintercept = 1, linetype = "dashed", colour = "grey50") +
+  ggridges::stat_density_ridges(aes(height = after_stat(density)),
+                                 geom = "density_ridges",
+                                alpha = 1, scale = 0.9) +
+  tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1),
+                                 .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+  # scale_fill_manual(values = mycolours) +
+  labs(x = "Median-normalised\n(relative estimation uncertainty)",
+       y = "Group parameter")
+
+p_sd | (p_sd_rel + theme(axis.title.y = element_blank(), axis.text.y = element_blank()))
+
+```
+
+## mdA31 modify scale model
+
+### Model dA31 formula
+
+```{R}
+
+mdA31_pop_level <- mdA30_pop_level
+
+mdA31_grp_level <- mdA30_grp_level
+
+mdA31_dpar_pop_level <- "UASLAEMaxLRScl"
+
+mdA31_dpar_grp_level_id = "UASLAEMaxLRScl"
+
+mdA31_dpar_grp_level <- list(ID=mdA31_dpar_grp_level_id,
+                             StimID=c())
+
+mdA31formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                        fixed = mdA31_pop_level,
+                        re = mdA31_grp_level,
+                        dpars = list(phi = list(fixed=mdA31_dpar_pop_level,
+                                                re = mdA31_dpar_grp_level)))
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priorsdA31 <- c(
+  # mean model
+  brms::set_prior("normal(0, 0.5)", class = "b", dpar = "mu"),
+  derive_coef_priors(mdA31formula, mdA15Data, ordbeta(link = "logit"),
+                     mdA31_pop_level, tier_priors_dA1, main_effects),
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar = "mu"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "mu"),
+  # scale model
+  # brms::set_prior(sprintf("lognormal(%.2f, 1)", phi_center), class = "phi"),
+  brms::set_prior("normal(0, 1)", class = "Intercept", dpar = "phi"),
+  brms::set_prior("normal(0, 1)", class = "b", dpar = "phi"),
+  # cutpoints model
+  brms::set_prior(sprintf("normal(%.2f, 1)", kappa_center), class = "kappa"),
+  brms::set_prior(sprintf("normal(%.2f, 1.5)", xi_center), class = "xi")
+)
+
+
+tic()
+mdA31Priors <- brms::brm(mdA31formula,
+                 data=mdA15Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA31, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA31PriorCheck <- brms::pp_check(mdA31Priors, ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean change in annoyance")
+mdA31PriorCheck
+
+tic()
+mdA31 <- brms::brm(mdA31formula, data=mdA15Data,
+                family=ordbeta(link='logit'),
+               future=TRUE, backend='cmdstanr', init=0,
+               prior = priorsdA31, control=list(adapt_delta=0.95),
+               threads = threading(threads = 3, static = TRUE),  # check threads*chains = n_cores
+               seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA31 <- brms::add_criterion(mdA31, criterion=c('loo', 'loo_R2'),
+                          cores=n_cores,
+                          reloo=reloo_flag,
+                          overwrite=TRUE,
+                          chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                          backend='cmdstanr',
+                          future_args=list(future.seed=TRUE))
+toc()
+
+mdA31$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA31))
+mdA31$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA31, re_formula=NA))
+mdA31$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA31, re_formula=NULL))
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA31)
+
+```
+
+### posterior check
+
+```{r}
+
+brms::pp_check(mdA31, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA31, type='dens_overlay_grouped', ndraws=100, group='AmbientEnvCore') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA31, type='dens_overlay_grouped', ndraws=100, group='AmbientVariant') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA31, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"), y = "Change in annoyance")
+
+brms::pp_check(mdA31, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA31, type='dens_overlay_grouped', ndraws=100, group='UASStart') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.25),labels=seq(-10, 10, by=5), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+brms::pp_check(mdA31, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x="Mean posterior predictive error", y = "UASLAEMaxLRScl")
+
+brms::pp_check(mdA31, type = "stat_grouped", group = "AmbientEnvCore",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA31, type = "stat_grouped", group = "AmbientVariant",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA31, type = "stat_grouped", group = "UASEvents",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA31, type = "stat_grouped", group = "UASStart",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+
+
+```
+
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA31)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA31), pars = c("b_Ilog10UASEvents",
+                                                            "b_UASLAEMaxLRScl",
+                                                            "b_UASStartRight",
+                                                          "b_AmbientEnvCoreResidential",
+                                                          "b_AmbientEnvCoreStreetsidesquare",
+                                                          "b_AmbientEnvCoreHighway",
+                                                          "b_AmbientVariantParkHigh",
+                                                          "b_AmbientVariantHighwayLow"),
+                               off_diag_args=list(alpha=0.3, size=0.5))
+
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA31)
+
+# make a table of the bayes_R2 values and quantiles for each model
+get_Br2_table(mdA25, mdA26, mdA27, mdA28, mdA29, mdA30, mdA31)
+
+loo::loo_compare(mdA25, mdA26, mdA27, mdA28, mdA29, mdA30, mdA31, criterion='loo')
+
+```
+
+### visualise posterior draws for population level effects
+
+```{R}
+
+mdA31_bCI_range <- bayestestR::hdi(mdA31, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
+
+p_mdA31_bCI_wsf   <- make_group_plot(mdA31_bCI_range, "Within-subjects factors",
+                                    "Within-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA31_bCI_wsf
+
+p_mdA31_bCI_wsc   <- make_group_plot(mdA31_bCI_range, "Within-subjects covariates",
+                                    "Within-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA31_bCI_wsc
+
+p_mdA31_bCI_wscfi <- make_group_plot(mdA31_bCI_range,
+                                    "Within-subjects covariate-factor interactions",
+                                    "Within-subjects covariate-factor interactions",
+                                    fill_palette = mycolours)
+p_mdA31_bCI_wscfi
+
+p_mdA31_bCI_bsf   <- make_group_plot(mdA31_bCI_range, "Between-subjects factors",
+                                    "Between-subjects factors",
+                                    fill_palette = mycolours)
+p_mdA31_bCI_bsf
+
+p_mdA31_bCI_bsc   <- make_group_plot(mdA31_bCI_range, "Between-subjects covariates",
+                                    "Between-subjects covariates",
+                                    fill_palette = mycolours)
+p_mdA31_bCI_bsc
+
+```
+
+### visualise posterior distributions of group level effects
+
+```{r}
+
+mdA31_sd_draws <- as.data.frame(mdA31) |>
+    dplyr::select(starts_with("sd_")) |>
+    tidyr::pivot_longer(cols = everything(), names_to = "Parameter", values_to = "Value") |>
+    dplyr::mutate(Parameter = gsub("sd_", "", Parameter)) |>  # Clean up label names
+    dplyr::group_by(Parameter) |>
+    dplyr::mutate(RelValue = Value / stats::median(Value)) |>
+    dplyr::ungroup()
+
+# 2. Plot using ridges with a shared x-axis and normalized curve heights
+p_sd <- ggplot(mdA31_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
+     theme(legend.position = "none",
+            panel.grid.major.y = element_blank(),
+            text = element_text(family = "serif", size=16)) +
+    # stat_density_ridges normalizes the peak height of each curve individually
+    ggridges::stat_density_ridges(aes(height = after_stat(density)), 
+                        geom = "density_ridges", 
+                        alpha = 1, 
+                        scale = 1.1) + # Controls how much curves can overlap vertically
+    # Adds the 50%, 89% and 95% credible intervals right beneath each curve
+    tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1), 
+                       .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+    # scale_fill_manual(values = mycolours) +
+    labs(x = "Estimated variation (sd scale)",
+         y = "Group parameter")
+
+p_sd_rel <- ggplot(mdA31_sd_draws, aes(x = RelValue, y = Parameter, fill = Parameter)) +
+  theme(legend.position = "none", panel.grid.major.y = element_blank(),
+        text = element_text(family = "serif", size = 16)) +
+  geom_vline(xintercept = 1, linetype = "dashed", colour = "grey50") +
+  ggridges::stat_density_ridges(aes(height = after_stat(density)),
+                                 geom = "density_ridges",
+                                alpha = 1, scale = 0.9) +
+  tidybayes::stat_pointinterval(aes(y = as.numeric(as.factor(Parameter)) - 0.1),
+                                 .width = c(0.5, 0.89, 0.95),
+                                size=1, linewidth=0.5) +
+  # scale_fill_manual(values = mycolours) +
+  labs(x = "Median-normalised\n(relative estimation uncertainty)",
+       y = "Group parameter")
+
+p_sd | (p_sd_rel + theme(axis.title.y = element_blank(), axis.text.y = element_blank()))
 
 ```
 

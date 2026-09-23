@@ -171,10 +171,99 @@ standardise_list <- function(df_list, vars, scale = TRUE, ...) {
 }
 
 # Prune terms ------------------------
-prune_terms <- function(pop_level, drop) {
-  missing <- setdiff(drop, pop_level)
-  if (length(missing) > 0) {
-    warning("Not found in pop_level, NOT removed: ", paste(missing, collapse = ", "))
+prune_terms <- function(pop_level, drop, sanitize_fn = identity, respect_hierarchy = TRUE) {
+  
+  parse_term <- function(term) {
+    sep <- if (grepl("*", term, fixed = TRUE)) "*"
+    else if (grepl(":", term, fixed = TRUE)) ":"
+    else NULL
+    raw <- if (is.null(sep)) trimws(term) else trimws(strsplit(term, sep, fixed = TRUE)[[1]])
+    list(vars_raw = raw, vars = sanitize_fn(raw), notation = if (is.null(sep)) "main" else sep)
   }
-  setdiff(pop_level, drop)
+  term_implies <- function(term, candidate) {
+    if (term$notation == "*") length(candidate) <= length(term$vars) && all(candidate %in% term$vars)
+    else setequal(term$vars, candidate)
+  }
+  full_expansion <- function(term) {
+    n <- length(term$vars)
+    idx_sets <- unlist(lapply(seq_len(n), function(k) utils::combn(n, k, simplify = FALSE)), recursive = FALSE)
+    list(pieces = vapply(idx_sets, function(idx)
+      if (length(idx) == 1) term$vars_raw[idx] else paste(term$vars_raw[idx], collapse = ":"), character(1)),
+      sets   = lapply(idx_sets, function(idx) term$vars[idx]))
+  }
+  
+  pop_parsed  <- lapply(pop_level, parse_term)
+  drop_parsed <- lapply(drop, parse_term)
+  
+  exact_match <- vapply(drop_parsed, function(dp) {
+    hit <- which(vapply(pop_parsed, function(pp) setequal(pp$vars, dp$vars), logical(1)))
+    if (length(hit) == 0) NA_integer_ else hit[1]
+  }, integer(1))
+  
+  subset_match <- lapply(seq_along(drop), function(i) {
+    if (!is.na(exact_match[i])) return(NULL)
+    dp <- drop_parsed[[i]]
+    hit <- which(vapply(pop_parsed, function(pp)
+      pp$notation == "*" && length(dp$vars) < length(pp$vars) && all(dp$vars %in% pp$vars), logical(1)))
+    if (length(hit) == 0) NULL else hit
+  })
+  
+  kept <- pop_level
+  additions <- character(0)
+  unresolved <- character(0)
+  
+  # --- exact-match removals, retaining implied lower-order pieces not covered elsewhere
+  remove_idx <- unique(stats::na.omit(exact_match))
+  if (length(remove_idx) > 0) {
+    kept <- pop_level[-remove_idx]
+    kept_parsed <- pop_parsed[-remove_idx]
+    for (i in seq_along(drop)) {
+      if (is.na(exact_match[i])) next
+      pop_term <- pop_parsed[[exact_match[i]]]
+      if (pop_term$notation != "*") next
+      surgical <- drop_parsed[[i]]$notation != "*"
+      exp <- full_expansion(pop_term)
+      for (j in seq_along(exp$pieces)) {
+        if (length(exp$sets[[j]]) == length(pop_term$vars)) next
+        if (any(vapply(kept_parsed, term_implies, logical(1), candidate = exp$sets[[j]]))) next
+        if (!surgical) next
+        if (!(exp$pieces[j] %in% kept) && !(exp$pieces[j] %in% additions)) additions <- c(additions, exp$pieces[j])
+      }
+    }
+  }
+  
+  # --- subset-match (de-bundling) requests
+  for (i in seq_along(drop)) {
+    if (!is.na(exact_match[i]) || is.null(subset_match[[i]])) next
+    if (respect_hierarchy) { unresolved <- c(unresolved, drop[i]); next }
+    
+    if (length(subset_match[[i]]) > 1) {
+      warning("'", drop[i], "' matches multiple '*' terms; using the first.")
+    }
+    target_str <- pop_level[subset_match[[i]][1]]
+    exp <- full_expansion(pop_parsed[[subset_match[[i]][1]]])
+    exclude <- vapply(exp$sets, setequal, logical(1), y = drop_parsed[[i]]$vars)
+    remaining_pieces <- exp$pieces[!exclude]
+    remaining_sets   <- exp$sets[!exclude]
+    
+    other_terms <- lapply(kept[kept != target_str], parse_term)
+    final_pieces <- remaining_pieces[!vapply(remaining_sets, function(s)
+      any(vapply(other_terms, term_implies, logical(1), candidate = s)), logical(1))]
+    
+    kept <- c(kept[kept != target_str], final_pieces)
+    message("respect_hierarchy = FALSE: de-bundled '", target_str, "' -> kept: ",
+            paste(final_pieces, collapse = ", "), " (removed only '", drop[i], "')")
+  }
+  
+  truly_missing <- drop[is.na(exact_match) & vapply(subset_match, is.null, logical(1))]
+  if (length(truly_missing) > 0) warning("Not found in pop_level, NOT removed: ", paste(truly_missing, collapse = ", "))
+  if (length(unresolved) > 0) {
+    warning("Not removed (respect_hierarchy = TRUE, default): ", paste(unresolved, collapse = ", "),
+            " would require partially de-bundling a '*' term into a non-hierarchical formula. ",
+            "Pass respect_hierarchy = FALSE to allow this explicitly.")
+  }
+  
+  kept <- c(kept, additions)   # <-- the fix: additions was never reaching the return value before this
+  if (length(additions) > 0) message("Auto-retained implied term(s): ", paste(additions, collapse = ", "))
+  kept
 }

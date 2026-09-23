@@ -385,9 +385,7 @@ set_interaction_prior <- function(dp, vars, prior_string, dpar = "mu") {
 
 # Sanitize variable names for brms compatibility ------------
 ## sanitize_var_brms ----
-sanitize_var <- function(x) gsub("[()]", "", x)
-
-
+sanitize_var_brms <- function(x) gsub("[()]", "", x)
 
 # Derive interaction specifications ----------------
 ## derive_interaction_specs ----
@@ -405,7 +403,7 @@ derive_interaction_specs <- function(pop_level, tier_priors) {
   colon_terms <- pop_level[has_colon & !has_star]
   
   parse_term <- function(term, sep) {
-    vars <- sanitize_var(trimws(strsplit(term, sep, fixed = TRUE)[[1]]))
+    vars <- sanitize_var_brms(trimws(strsplit(term, sep, fixed = TRUE)[[1]]))
     if (anyDuplicated(vars)) stop("Duplicate variable within one term: ", term)
     vars
   }
@@ -484,10 +482,10 @@ decompose_coef_vars <- function(coef_name, known_vars) {
 }
 
 classify_coef_group <- function(coef_name, role_lookup) {
-  if (!startsWith(coef_name, "b_")) return(NA_character_)  # sd/cor/phi/xi/kappa rows — out of scope here
+  if (!startsWith(coef_name, "b_")) return(NA_character_)
   vars <- decompose_coef_vars(coef_name, names(role_lookup))
   if (is.null(vars)) return("UNRESOLVED")
-  if (length(vars) == 0) return(NA_character_)             # Intercept — excluded by design, as in your original code
+  if (length(vars) == 0) return(NA_character_)
   roles <- unname(role_lookup[vars])
   if (anyNA(roles)) return("UNRESOLVED")
   
@@ -500,9 +498,8 @@ classify_coef_group <- function(coef_name, role_lookup) {
   }
   u <- unique(roles)
   if (setequal(u, "wsf")) return("Within-subjects factor interactions")
+  if (setequal(u, "wsc")) return("Within-subjects covariate interactions")   # new
   if (setequal(u, c("wsf", "wsc"))) return("Within-subjects covariate-factor interactions")
-  # anything not matching a named bucket you already use — labelled descriptively
-  # and flagged, rather than silently dropped or mis-bucketed
   paste0("UNCATEGORIZED (", paste(sort(u), collapse = "+"), ")")
 }
 
@@ -519,12 +516,54 @@ make_group_plot <- function(bCI_range, group_name, title,
                             remove_gridlines = TRUE) {
   df <- bCI_range |> dplyr::filter(Group == group_name)
   if (nrow(df) == 0) {
-    warning("No parameters matched group '", group_name, "' — check spelling against classify_coef_group()'s output strings.")
+    warning("No parameters matched group '", group_name, "'.")
+    return(NULL)
   }
+  params <- unique(as.character(df$Parameter))
+  single <- length(params) == 1
+  
   p <- plot(df, show_intercept = FALSE) +
     theme(text = element_text(family = base_family, size = base_size)) +
-    labs(title = title, x = "Coefficient posterior distribution", y = NULL)
+    labs(title = title, x = "Coefficient posterior distribution",
+         y = if (single) sub("^b_", "", params) |> gsub(":", " \u00d7 ", x = _) else NULL)
   if (remove_gridlines) p <- p + theme(panel.grid = element_blank())
   if (!is.null(fill_palette)) p <- p + scale_fill_manual(values = fill_palette)
   p
+}
+
+# term_swing ----------------------------
+term_swing <- function(fit, coef_pattern, covariate, transform_fn = identity, data = NULL) {
+  if (is.null(data)) data <- insight::get_data(fit)
+  raw_var <- data[[covariate]]
+  if (is.null(raw_var)) {
+    stop("Column '", covariate, "' not found in the model's data. If this covariate is ",
+         "transformed (e.g. I(log10(UASEvents))), pass the RAW column name as `covariate` ",
+         "and the transform as `transform_fn` (e.g. covariate = 'UASEvents', transform_fn = log10).")
+  }
+  covariate_range <- diff(range(transform_fn(raw_var), na.rm = TRUE))
+  
+  draws_df <- as.data.frame(brms::as_draws_df(fit))
+  
+  escape_regex <- function(x) {
+    specials <- c("\\", ".", "|", "(", ")", "[", "]", "{", "}", "^", "$", "*", "+", "?")
+    for (ch in specials) x <- gsub(ch, paste0("\\", ch), x, fixed = TRUE)
+    x
+  }
+  pattern_regex <- paste0("^b_", escape_regex(coef_pattern), "[^:]*$")
+  matched_cols <- grep(pattern_regex, names(draws_df), value = TRUE)
+  
+  if (length(matched_cols) == 0) {
+    stop("No coefficients matched pattern '", coef_pattern, "' (regex: '", pattern_regex, "'). ",
+         "Check spelling against names(brms::as_draws_df(fit)), and remember brms strips ",
+         "parentheses from I(...) terms (e.g. 'I(log10(UASEvents))' -> 'Ilog10UASEvents').")
+  }
+  
+  purrr::map_dfr(matched_cols, function(cn) {
+    swing <- draws_df[[cn]] * covariate_range
+    tibble::tibble(
+      coef = cn, covariate_range = covariate_range,
+      Estimate = mean(swing), Q2.5 = stats::quantile(swing, 0.025),
+      Q97.5 = stats::quantile(swing, 0.975), excludes_0 = sign(Q2.5) == sign(Q97.5)
+    )
+  })
 }
