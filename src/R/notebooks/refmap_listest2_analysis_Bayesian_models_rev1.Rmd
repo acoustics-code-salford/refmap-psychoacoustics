@@ -3488,6 +3488,19 @@ p_sd_rel <- ggplot(mdA13_sd_draws, aes(x = RelValue, y = Parameter, fill = Param
 
 p_sd | (p_sd_rel + theme(axis.title.y = element_blank(), axis.text.y = element_blank()))
 
+
+if (saveplots){
+  
+  filename <- "PtsABdAnnoyMn_ExpMod_SD_brmsOb"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=12,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=12, height=12, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
 ```
 
 ### set up marginal grids
@@ -6085,31 +6098,23 @@ loo::loo_compare(mdA21, mdA22, criterion='loo')
 
 mdA22_bCI_range <- bayestestR::hdi(mdA22, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA22_bCI_wsf   <- make_group_plot(mdA22_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA22_bCI_wsf
+make_group_plot(mdA22_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-p_mdA22_bCI_wsc   <- make_group_plot(mdA22_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA22_bCI_wsc
+make_group_plot(mdA22_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-p_mdA22_bCI_wscfi <- make_group_plot(mdA22_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA22_bCI_wscfi
+make_group_plot(mdA22_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA22_bCI_bsf   <- make_group_plot(mdA22_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA22_bCI_bsf
+make_group_plot(mdA22_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-p_mdA22_bCI_bsc   <- make_group_plot(mdA22_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA22_bCI_bsc
+make_group_plot(mdA22_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
+
 
 ```
 
@@ -6330,31 +6335,22 @@ loo::loo_compare(mdA21, mdA22, mdA23, criterion='loo')
 
 mdA23_bCI_range <- bayestestR::hdi(mdA23, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA23_bCI_wsf   <- make_group_plot(mdA23_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA23_bCI_wsf
+make_group_plot(mdA23_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-p_mdA23_bCI_wsc   <- make_group_plot(mdA23_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA23_bCI_wsc
+make_group_plot(mdA23_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-p_mdA23_bCI_wscfi <- make_group_plot(mdA23_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA23_bCI_wscfi
+make_group_plot(mdA23_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA23_bCI_bsf   <- make_group_plot(mdA23_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA23_bCI_bsf
+make_group_plot(mdA23_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-p_mdA23_bCI_bsc   <- make_group_plot(mdA23_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA23_bCI_bsc
+make_group_plot(mdA23_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
 ```
 
@@ -6575,31 +6571,23 @@ loo::loo_compare(mdA21, mdA22, mdA23, mdA24, criterion='loo')
 
 mdA24_bCI_range <- bayestestR::hdi(mdA24, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA24_bCI_wsf   <- make_group_plot(mdA24_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA24_bCI_wsf
+make_group_plot(mdA24_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-p_mdA24_bCI_wsc   <- make_group_plot(mdA24_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA24_bCI_wsc
+make_group_plot(mdA24_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-p_mdA24_bCI_wscfi <- make_group_plot(mdA24_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA24_bCI_wscfi
+make_group_plot(mdA24_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA24_bCI_bsf   <- make_group_plot(mdA24_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA24_bCI_bsf
+make_group_plot(mdA24_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-p_mdA24_bCI_bsc   <- make_group_plot(mdA24_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA24_bCI_bsc
+make_group_plot(mdA24_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
+
 
 ```
 
@@ -6846,31 +6834,22 @@ loo::loo_compare(mdA21, mdA22, mdA23, mdA24, mdA25, criterion='loo')
 
 mdA25_bCI_range <- bayestestR::hdi(mdA25, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA25_bCI_wsf   <- make_group_plot(mdA25_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA25_bCI_wsf
+make_group_plot(mdA25_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-p_mdA25_bCI_wsc   <- make_group_plot(mdA25_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA25_bCI_wsc
+make_group_plot(mdA25_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-p_mdA25_bCI_wscfi <- make_group_plot(mdA25_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA25_bCI_wscfi
+make_group_plot(mdA25_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA25_bCI_bsf   <- make_group_plot(mdA25_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA25_bCI_bsf
+make_group_plot(mdA25_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-p_mdA25_bCI_bsc   <- make_group_plot(mdA25_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA25_bCI_bsc
+make_group_plot(mdA25_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
 ```
 
@@ -7121,31 +7100,22 @@ loo::loo_compare(mdA25, mdA26, criterion='loo')
 
 mdA26_bCI_range <- bayestestR::hdi(mdA26, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA26_bCI_wsf   <- make_group_plot(mdA26_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA26_bCI_wsf
+make_group_plot(mdA26_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-p_mdA26_bCI_wsc   <- make_group_plot(mdA26_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA26_bCI_wsc
+make_group_plot(mdA26_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-p_mdA26_bCI_wscfi <- make_group_plot(mdA26_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA26_bCI_wscfi
+make_group_plot(mdA26_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA26_bCI_bsf   <- make_group_plot(mdA26_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA26_bCI_bsf
+make_group_plot(mdA26_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-p_mdA26_bCI_bsc   <- make_group_plot(mdA26_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA26_bCI_bsc
+make_group_plot(mdA26_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
 ```
 
@@ -7396,31 +7366,23 @@ loo::loo_compare(mdA25, mdA26, mdA27, criterion='loo')
 
 mdA27_bCI_range <- bayestestR::hdi(mdA27, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA27_bCI_wsf   <- make_group_plot(mdA27_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA27_bCI_wsf
 
-p_mdA27_bCI_wsc   <- make_group_plot(mdA27_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA27_bCI_wsc
+make_group_plot(mdA27_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-p_mdA27_bCI_wscfi <- make_group_plot(mdA27_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA27_bCI_wscfi
+make_group_plot(mdA27_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-p_mdA27_bCI_bsf   <- make_group_plot(mdA27_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA27_bCI_bsf
+make_group_plot(mdA27_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA27_bCI_bsc   <- make_group_plot(mdA27_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA27_bCI_bsc
+make_group_plot(mdA27_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
+
+make_group_plot(mdA27_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
 ```
 
@@ -7674,31 +7636,23 @@ loo::loo_compare(mdA25, mdA26, mdA27, mdA28, criterion='loo')
 
 mdA28_bCI_range <- bayestestR::hdi(mdA28, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA28_bCI_wsf   <- make_group_plot(mdA28_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA28_bCI_wsf
 
-p_mdA28_bCI_wsc   <- make_group_plot(mdA28_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA28_bCI_wsc
+make_group_plot(mdA28_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-p_mdA28_bCI_wscfi <- make_group_plot(mdA28_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA28_bCI_wscfi
+make_group_plot(mdA28_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-p_mdA28_bCI_bsf   <- make_group_plot(mdA28_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA28_bCI_bsf
+make_group_plot(mdA28_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA28_bCI_bsc   <- make_group_plot(mdA28_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA28_bCI_bsc
+make_group_plot(mdA28_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
+
+make_group_plot(mdA28_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
 ```
 
@@ -7950,31 +7904,22 @@ loo::loo_compare(mdA25, mdA26, mdA27, mdA28, mdA29, criterion='loo')
 
 mdA29_bCI_range <- bayestestR::hdi(mdA29, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA29_bCI_wsf   <- make_group_plot(mdA29_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA29_bCI_wsf
+make_group_plot(mdA29_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-p_mdA29_bCI_wsc   <- make_group_plot(mdA29_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA29_bCI_wsc
+make_group_plot(mdA29_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-p_mdA29_bCI_wscfi <- make_group_plot(mdA29_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA29_bCI_wscfi
+make_group_plot(mdA29_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA29_bCI_bsf   <- make_group_plot(mdA29_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA29_bCI_bsf
+make_group_plot(mdA29_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-p_mdA29_bCI_bsc   <- make_group_plot(mdA29_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA29_bCI_bsc
+make_group_plot(mdA29_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
 ```
 
@@ -8227,31 +8172,22 @@ loo::loo_compare(mdA25, mdA26, mdA27, mdA28, mdA29, mdA30, criterion='loo')
 
 mdA30_bCI_range <- bayestestR::hdi(mdA30, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA30_bCI_wsf   <- make_group_plot(mdA30_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA30_bCI_wsf
+make_group_plot(mdA30_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-p_mdA30_bCI_wsc   <- make_group_plot(mdA30_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA30_bCI_wsc
+make_group_plot(mdA30_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-p_mdA30_bCI_wscfi <- make_group_plot(mdA30_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA30_bCI_wscfi
+make_group_plot(mdA30_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA30_bCI_bsf   <- make_group_plot(mdA30_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA30_bCI_bsf
+make_group_plot(mdA30_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-p_mdA30_bCI_bsc   <- make_group_plot(mdA30_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA30_bCI_bsc
+make_group_plot(mdA30_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
 ```
 
@@ -8503,6 +8439,71 @@ loo::loo_compare(mdA13, mdA31, criterion='loo')
 
 ```
 
+### plot calibration
+
+```{r}
+
+# create base datagrid
+mdA31DataFit <- insight::get_data(mdA31)
+
+set.seed(999)
+mdA31predMeans <- marginaleffects::avg_predictions(mdA31, na.omit(mdA31DataFit),
+                                                  by=c("StimID"),
+                                                re_formula = NULL,
+                                                transform=\(x) betaTransform(x, -10, 10,
+                                                                             direction='reverse',
+                                                                             squeeze='none')) |>
+  dplyr::arrange(StimID)
+
+gc()
+
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyanceMean - mdA31predMeans$estimate)^2)/sum((stimDataNoAmb$dAnnoyanceMean - mean(stimDataNoAmb$dAnnoyanceMean))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=mdA31predMeans,
+                     measured_target='dAnnoyanceMean', measured_ci_low='dAnnoyanceMeanCI_Low',
+                     measured_ci_high='dAnnoyanceMeanCI_High', fitted='estimate')
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=cbind(mdA31predMeans,
+                  response=stimDataNoAmb$dAnnoyanceMean,
+                  responseCI_Low=stimDataNoAmb$dAnnoyanceMeanCI_Low,
+                  responseCI_High=stimDataNoAmb$dAnnoyanceMeanCI_High)) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  geom_point(mapping=aes(x=response, y=estimate), size=1.75, shape=4, stroke=0.75, colour=mycolours[1], alpha=0.5) +
+
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate), width=0, colour=mycolours[1], alpha=0.1) +
+  
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=conf.low, ymax=conf.high), width=0, colour=mycolours[1], alpha=0.1) +
+
+  scale_x_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
+  scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
+  
+  labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance") +
+  
+  ggplot2::annotate("text", x=0.1, y=6.75, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=0.1, y=6, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = 0.1, y = 5.25, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
+
+if (saveplots){
+  
+  filename <- "dAnnoyMn_ExpLAEMod_Cal_brmsOb"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4.5, height=4.5,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4.5, height=4.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
 ### visualise posterior draws for population level effects
 
 ```{R}
@@ -8534,6 +8535,21 @@ p_mdA31_bCI_bsc   <- make_group_plot(mdA31_bCI_range, "Between-subjects covariat
                                     "Between-subjects covariates",
                                     fill_palette = mycolours)
 p_mdA31_bCI_bsc
+
+
+(p_mdA31_bCI_wsf | p_mdA31_bCI_wsc) / (p_mdA31_bCI_wscfi | p_mdA31_bCI_bsf | p_mdA31_bCI_bsc)
+
+if (saveplots) {
+  
+  filename <- "dAnnoyMn_ExpLAEMod_CI_brmsOb"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=24, height=12,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=24, height=12, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
 
 ```
 
@@ -8582,6 +8598,463 @@ p_sd_rel <- ggplot(mdA31_sd_draws, aes(x = RelValue, y = Parameter, fill = Param
        y = "Group parameter")
 
 p_sd | (p_sd_rel + theme(axis.title.y = element_blank(), axis.text.y = element_blank()))
+
+if (saveplots){
+  
+  filename <- "PtsABdAnnoyMn_ExpLAEMod_SD_brmsOb"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=12,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=12, height=12, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
+
+### set up marginal grids
+
+```{r}
+
+# ---- Setup ------------------------------------------------------------------
+
+within_vars_all  <- c("AmbientEnvCore", "UASLAEMaxLRScl",
+                       "AmbientVariant", "UASEvents", "UASStart")
+between_vars_all <- c("NationGeo2", "AAM_attitude2", "Home_Area2", "AgeScl",
+                      "Sex", "NoiseSensitivityScl", "Area_soundscape2")
+
+transform_dAnnoy <- \(x) betaTransform(x, -10, 10, direction = 'reverse', squeeze = 'none')
+ 
+env_order <- c("Park", "Residential", "Streetside square", "Highway")
+envvar_order <- c("Park", "Residential", "Park (high)", "Highway (low)", "Streetside square", "Highway")
+
+# ---- full grids -------------------------------------------
+ 
+# grid_marg: LAE varies naturally with each real design cell
+grid_marg <- build_marginal_grid(
+  mdA31, within_vars = within_vars_all, between_vars = between_vars_all,
+  id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
+  n_new = nnew_pred, fixed_at_mean = "TrialNumberScl"
+)
+
+# counterfactual grids
+
+# LAE sweep
+
+lae_sweep <- seq(min(stimDataNoAmb$UASLAEMaxLRScl), max(stimDataNoAmb$UASLAEMaxLRScl), length.out = 11)
+
+grid_marg_lae_sweep <- build_marginal_grid(
+  mdA31, within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"), between_vars = between_vars_all,
+  id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
+  n_new = nnew_pred, fixed_at_mean = "TrialNumberScl",
+  counterfactual_vars=list(UASLAEMaxLRScl=lae_sweep)
+)
+
+# grid_fixed_lae: LAE held at its mean
+grid_fixed_lae <- build_marginal_grid(
+  mdA31,
+  within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"),
+  between_vars = between_vars_all,
+  id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
+  n_new = nnew_pred, fixed_at_mean = c("TrialNumberScl", "UASLAEMaxLRScl")
+)
+
+
+```
+
+### analyse within subjects predictions
+
+```{r}
+
+mdA31predEnv <- avg_predictions_manual(mdA31, newdata=subset(grid_marg_lae_sweep,
+                                                      UASEvents==1),
+                                              by=c("UASLAEMaxLRScl",
+                                                   "AmbientEnvCore",
+                                                   "AmbientVariant",
+                                                   "UASEvents"),
+                                            re_formula = NULL,
+                                            allow_new_levels = TRUE,
+                                              sample_new_levels = "gaussian",
+                                             ndraws=ndraws_pred, seed=999,
+                                            transform=transform_dAnnoy)
+
+mdA31predEnvEvt <- avg_predictions_manual(mdA31, newdata=subset(grid_marg_lae_sweep,
+                                                      AmbientVariant=="Standard"),
+                                              by=c("UASLAEMaxLRScl",
+                                                   "AmbientEnvCore",
+                                                   "UASEvents"),
+                                            re_formula = NULL,
+                                            allow_new_levels = TRUE,
+                                              sample_new_levels = "gaussian",
+                                             ndraws=ndraws_pred, seed=999,
+                                            transform=transform_dAnnoy)
+
+# add column giving AmbientVariant if AmbientVariant != "Standard", and AmbientEnvCore if AmbientVariant == "Standard"
+mdA31predEnv <- mdA31predEnv |>
+  dplyr::mutate(AmbientEnv = ifelse(AmbientVariant == "Standard",
+                                    levels(AmbientEnvCore)[AmbientEnvCore],
+                                    levels(AmbientVariant)[AmbientVariant])) |>
+  dplyr::mutate(AmbientEnv =
+                  forcats::fct_recode(AmbientEnv, "Park (high)" = "ParkHigh",
+                                      "Highway (low)" = "HighwayLow")) |>
+  dplyr::mutate(AmbientEnv = forcats::fct_relevel(AmbientEnv, envvar_order))
+
+
+```
+
+### analyse between-subjects contrasts
+
+```{r}
+
+# contrast analysis for between-subjects variables
+
+contrast_vars <- c("Sex", "NationGeo2", "AAM_attitude2", "Home_Area2",
+                   "Area_soundscape2")
+
+mdA31_between_contrasts <- purrr::map_dfr(contrast_vars, function(v) {
+  res <- avg_comparisons_manual(
+    mdA31, newdata = grid_marg, variable = v, comparison_type = "pairwise",
+    re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+    ndraws = ndraws_pred, seed=999,
+    transform = transform_dAnnoy
+  )
+  res$variable <- v
+  gc()
+  return(res)
+}) |>
+  as.data.frame() |>
+  mutate(
+    variable = factor(variable, levels = rev(contrast_vars)),
+    # Create the text label string
+    y_label = paste(variable, contrast, sep = ": "),
+    
+    # Reorder the y-axis labels using the underlying numeric levels of 'variable'
+    y_label = fct_reorder(y_label, as.numeric(variable))
+  )
+
+slope_vars <- c("AgeScl", "NoiseSensitivityScl")
+
+mdA31_covariate_slopes <- purrr::map_dfr(slope_vars, function(v) {
+  res <- avg_slopes_manual(
+    mdA31, newdata = grid_marg, variable = v,
+    re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+    ndraws = ndraws_pred, seed=999,
+    transform = transform_dAnnoy
+  )
+  gc()
+  return(res)
+}) |>
+  as.data.frame() |>
+  mutate(
+    variable = factor(variable, levels = rev(slope_vars))
+  )
+
+```
+
+### plot predictions
+
+#### within-subjects predictions
+
+```{r}
+
+ggplot(data=subset(mdA31predEnv, UASEvents==1)) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35,
+                    text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_point(data=subset(stimDataNoAmb, UASEvents==1),
+                         aes(x=UASLAEMaxLRScl, y=dAnnoyanceMean,
+                             colour=AmbientEnv, shape=AmbientEnv),
+                         alpha=0.35, size=2) +
+              
+              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=AmbientEnv),
+                          alpha=0.1) +
+              
+              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=AmbientEnv), linewidth=1) +
+              
+              scale_color_viridis(option='magma', direction=-1, discrete=TRUE, begin = 0.1, end = 0.9) +
+              scale_fill_viridis(option='magma', direction=-1, discrete=TRUE, begin = 0.1, end = 0.9) +
+              
+              guides(colour=guide_legend(title="Amb. env.", reverse=FALSE),
+                     fill=guide_legend(title="Amb. env.", reverse=FALSE),
+                     shape=guide_legend(title="Amb. env.", reverse=FALSE)) +
+            
+              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                             stimDataNoAmb$UASLAEMaxLRScl, sep=3) +
+  
+              scale_y_continuous(breaks=seq(-10, 10, by=1)) +
+  
+              coord_cartesian(ylim=c(-2, 8)) +
+  
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
+
+
+if (saveplots){
+  
+  filename <- "dAnnoyMn_ExpLAEModEnv_brmsOb"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=5, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=5, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+
+ggplot(data=mdA31predEnvEvt) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35,
+                    text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_point(data=subset(stimDataNoAmb, AmbientEnv %in% c("Park", "Residential", "Streetside square", "Highway")),
+                         aes(x=UASLAEMaxLRScl, y=dAnnoyanceMean,
+                             colour=AmbientEnv, shape=AmbientEnv),
+                         alpha=0.35, size=2) +
+              
+              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=AmbientEnvCore),
+                          alpha=0.1) +
+              
+              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=AmbientEnvCore), linewidth=1) +
+              
+              scale_color_viridis(option='magma', direction=-1, discrete=TRUE, begin = 0.15, end = 0.85) +
+              scale_fill_viridis(option='magma', direction=-1, discrete=TRUE, begin = 0.15, end = 0.85) +
+              
+              guides(colour=guide_legend(title="Amb. env.", reverse=FALSE),
+                     fill=guide_legend(title="Amb. env.", reverse=FALSE),
+                     shape=guide_legend(title="Amb. env.", reverse=FALSE)) +
+            
+              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
+                             stimDataNoAmb$UASLAEMaxLRScl, sep=6) +
+  
+              scale_y_continuous(breaks=seq(-10, 10, by=1)) +
+  
+              coord_cartesian(ylim=c(-2, 8)) +
+  
+              labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance") +
+  
+              facet_wrap(~UASEvents, ncol=3, labeller = labeller(UASEvents = c("1" = "1 event", "2" = "2 events", "3" = "3 events")))
+
+if (saveplots){
+  
+  filename <- "dAnnoyMn_ExpLAEModEnvEvt_brmsOb"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=14, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=14, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+
+
+```
+
+#### LAE equivalence calculations
+
+```{r}
+
+lae_equivalence_curve <- function(fit, grid, env_vars = c("AmbientEnvCore", "AmbientVariant"),
+                                  lae_var = "UASLAEMaxLRScl", target_levels = c(1, 3.5, 6),
+                                  re_formula = NULL, allow_new_levels = TRUE,
+                                  sample_new_levels = "gaussian",
+                                  ndraws = NULL, seed = NULL, transform = identity) {
+  pred <- brms::posterior_epred(fit, newdata = grid, re_formula = re_formula,
+                                allow_new_levels = allow_new_levels,
+                                sample_new_levels = sample_new_levels,
+                                ndraws = ndraws, seed = seed)
+  pred <- transform(pred)   # ndraws x nrow(grid)
+
+  env_key <- do.call(paste, c(grid[env_vars], sep = " | "))
+  lae_key <- grid[[lae_var]]
+  combos <- unique(data.frame(env = env_key, lae = lae_key))
+
+  # per-draw mean prediction at each unique (env, LAE) grid combination -
+  # collapses over whatever else varies in `grid` (simulated ID/StimID, between-subject covariates)
+  combo_draws <- sapply(seq_len(nrow(combos)), function(i) {
+    idx <- env_key == combos$env[i] & lae_key == combos$lae[i]
+    rowMeans(pred[, idx, drop = FALSE])
+  })   # ndraws x n_combos
+
+  purrr::map_dfr(unique(combos$env), function(e) {
+    cidx <- combos$env == e
+    ord <- order(combos$lae[cidx])
+    lae_vals <- combos$lae[cidx][ord]
+    draws_sub <- combo_draws[, cidx, drop = FALSE][, ord, drop = FALSE]
+
+    monotonic_frac <- mean(apply(draws_sub, 1, function(row) !is.unsorted(row)))
+    if (monotonic_frac < 0.99) {
+      warning(e, ": only ", round(monotonic_frac * 100, 1),
+              "% of draws are monotonic in LAE - inversion is unreliable for the rest.")
+    }
+
+    purrr::map_dfr(target_levels, function(tgt) {
+      lae_at_tgt <- apply(draws_sub, 1, function(y_draw) {
+        if (!is.unsorted(y_draw) && tgt >= min(y_draw) && tgt <= max(y_draw)) {
+          stats::approx(x = y_draw, y = lae_vals, xout = tgt, ties = "ordered")$y
+        } else {
+          NA_real_   # target outside this draw's range, or draw non-monotonic - don't extrapolate
+        }
+      })
+      tibble::tibble(
+        env = e, target_dAnnoyance = tgt,
+        LAE_Estimate = mean(lae_at_tgt, na.rm = TRUE),
+        LAE_Q2.5  = stats::quantile(lae_at_tgt, 0.025, na.rm = TRUE),
+        LAE_Q97.5 = stats::quantile(lae_at_tgt, 0.975, na.rm = TRUE),
+        pct_valid = 100 * mean(!is.na(lae_at_tgt)),
+        draws = list(lae_at_tgt)
+      )
+    })
+  })
+}
+
+lae_shift_between <- function(equivalence_result, ref_env, compare_env) {
+  purrr::map_dfr(unique(equivalence_result$target_dAnnoyance), function(tgt) {
+    ref <- equivalence_result$draws[equivalence_result$env == ref_env &
+                                    equivalence_result$target_dAnnoyance == tgt][[1]]
+    cmp <- equivalence_result$draws[equivalence_result$env == compare_env &
+                                    equivalence_result$target_dAnnoyance == tgt][[1]]
+    shift <- cmp - ref
+    tibble::tibble(
+      comparison = paste(compare_env, "-", ref_env), target_dAnnoyance = tgt,
+      LAE_shift_dB = mean(shift, na.rm = TRUE),
+      Q2.5 = stats::quantile(shift, 0.025, na.rm = TRUE),
+      Q97.5 = stats::quantile(shift, 0.975, na.rm = TRUE),
+      pct_valid = 100 * mean(!is.na(shift))
+    )
+  })
+}
+
+eq_curve <- lae_equivalence_curve(
+  mdA31, grid = subset(grid_marg_lae_sweep, UASEvents == 1),
+  target_levels = 0:6,
+  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+  ndraws = ndraws_pred, seed = 999, transform = transform_dAnnoy
+) |>
+  dplyr::mutate(LAE_Estimate=LAE_Estimate + mean(stimDataNoAmb$UASLAEMaxLR, na.rm=TRUE),
+                LAE_Q2.5=LAE_Q2.5 + mean(stimDataNoAmb$UASLAEMaxLR, na.rm=TRUE),
+                LAE_Q97.5=LAE_Q97.5 + mean(stimDataNoAmb$UASLAEMaxLR, na.rm=TRUE))
+
+mdA31EnvShift <- dplyr::bind_rows(lae_shift_between(eq_curve, ref_env = "Park | Standard", compare_env = "Highway | Standard"),
+                                  lae_shift_between(eq_curve, ref_env = "Park | Standard", compare_env = "Streetside square | Standard"),
+                                  lae_shift_between(eq_curve, ref_env = "Park | Standard", compare_env = "Residential | Standard"),
+                                  lae_shift_between(eq_curve, ref_env = "Park | Standard", compare_env = "Park | ParkHigh"),
+                                  lae_shift_between(eq_curve, ref_env = "Park | Standard", compare_env = "Highway | HighwayLow"),
+                                  lae_shift_between(eq_curve, ref_env = "Residential | Standard", compare_env = "Highway | Standard"),
+                                  lae_shift_between(eq_curve, ref_env = "Residential | Standard", compare_env = "Highway | HighwayLow"),
+                                  lae_shift_between(eq_curve, ref_env = "Residential | Standard", compare_env = "Streetside square | Standard"))
+
+if (savedata) {
+  filename = "dAnnoyMn_ExpLAEMod_EnvdBShift_brmsOb"
+  
+  utils::write.csv(mdA31EnvShift, paste(outDataPath, "\\", filename, ".csv", sep=""))
+  
+}
+
+
+```
+
+#### between-subjects contrasts and covariate slopes
+
+```{r}
+
+# Forest plot: one row per contrast, point = estimate, whiskers = 95% CI,
+# dashed reference line at zero
+p_between_fac <- ggplot(mdA31_between_contrasts, aes(x = estimate,
+                            y = y_label,
+                            colour=variable)) +
+  theme(panel.grid = element_blank(),
+        text = element_text(family = "serif", size = 16),
+        axis.text = element_text(family = "serif", size = 14),
+        legend.position = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  
+  # Add text annotation next to estimate point
+  geom_text(aes(label = paste("pd:",
+                              ifelse(pd > 0.99, ">0.99",
+                                     sprintf("%.2f",
+                                             round(pd, digits = 2))))),
+            nudge_y = 0.25,      
+            hjust = 0.5,  
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
+  geom_text(aes(label = sprintf("%.2f", round(estimate, digits = 2))),
+            nudge_y = -0.25, 
+            hjust = 0.5,  
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
+  geom_text(aes(label = sprintf("[%.2f, %.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
+            nudge_y = -0.25, 
+            nudge_x = 0.075,
+            hjust = 0,
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  scale_colour_manual(values = mycolours) +
+  guides(colour = "none") +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
+  labs(x = expression("Difference in"~bar(A)), y = NULL)
+
+p_between_cov <- ggplot(mdA31_covariate_slopes, aes(x = estimate, y = variable, colour = variable)) +
+  theme(panel.grid = element_blank(),
+        text = element_text(family = "serif", size = 16),
+        axis.text = element_text(family = "serif", size = 14),
+        legend.position = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  
+  # Add text annotation next to estimate point
+  geom_text(aes(label = paste("pd:",
+                              ifelse(pd > 0.99, ">0.99",
+                                     sprintf("%.2f",
+                                             round(pd, digits = 2))))),
+            nudge_y = 0.1,      
+            hjust = 0.5,  
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
+  geom_text(aes(label = sprintf("%.2f", round(estimate, digits = 2))),
+            nudge_y = -0.1, 
+            hjust = 0.5,  
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
+  geom_text(aes(label = sprintf("[%.2f, %.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
+            nudge_y = -0.25,
+            hjust = 0.5,
+            family = "serif", 
+            size = 4, 
+            show.legend = FALSE) +
+  
+  scale_colour_manual(values = mycolours) +
+  guides(colour = "none") +
+  
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
+  labs(x = expression("Slope of"~bar(A)~"per unit increase"), y = NULL)
+
+(p_between_fac | p_between_cov) + plot_layout(widths = c(2, 1))
+
+if (saveplots){
+  
+  filename <- "PtsdABAnnoyMn_ExpLAEMod_PersonMargEff_brmsOb"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=14, height=4,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=14, height=4,
+         path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+
+}
 
 ```
 
