@@ -590,37 +590,30 @@ get_Br2_table(mdA1)
 
 mdA1_bCI_range <- bayestestR::hdi(mdA1, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA1_bCI_wsf   <- make_group_plot(mdA1_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
+make_group_plot(mdA1_bCI_range, "Within-subjects factors",
+                "Within-subjects factors",
                                     fill_palette = mycolours)
-p_mdA1_bCI_wsf
 
-p_mdA1_bCI_wsfi  <- make_group_plot(mdA1_bCI_range, "Within-subjects factor interactions",
-                                    "Within-subjects factor interactions",
-                                    fill_palette = mycolours)
-p_mdA1_bCI_wsfi
+make_group_plot(mdA1_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions",
+                fill_palette = mycolours)
 
-p_mdA1_bCI_wsc   <- make_group_plot(mdA1_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA1_bCI_wsc
+make_group_plot(mdA1_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates",
+                fill_palette = mycolours)
 
-p_mdA1_bCI_wscfi <- make_group_plot(mdA1_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA1_bCI_wscfi
+make_group_plot(mdA1_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA1_bCI_bsf   <- make_group_plot(mdA1_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA1_bCI_bsf
+make_group_plot(mdA1_bCI_range, "Between-subjects factors",
+                "Between-subjects factors",
+                fill_palette = mycolours)
 
-p_mdA1_bCI_bsc   <- make_group_plot(mdA1_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA1_bCI_bsc
-
+make_group_plot(mdA1_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates",
+                fill_palette = mycolours)
 
 ```
 
@@ -800,36 +793,30 @@ loo::loo_compare(mdA1, mdA2, criterion='loo')
 
 mdA2_bCI_range <- bayestestR::hdi(mdA2, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA2_bCI_wsf   <- make_group_plot(mdA2_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA2_bCI_wsf
+make_group_plot(mdA2_bCI_range, "Within-subjects factors",
+                "Within-subjects factors",
+                fill_palette = mycolours)
 
-p_mdA2_bCI_wsfi  <- make_group_plot(mdA2_bCI_range, "Within-subjects factor interactions",
-                                    "Within-subjects factor interactions",
-                                    fill_palette = mycolours)
-p_mdA2_bCI_wsfi
+make_group_plot(mdA2_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions",
+                fill_palette = mycolours)
 
-p_mdA2_bCI_wsc   <- make_group_plot(mdA2_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA2_bCI_wsc
+make_group_plot(mdA2_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates",
+                fill_palette = mycolours)
 
-p_mdA2_bCI_wscfi <- make_group_plot(mdA2_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
+make_group_plot(mdA2_bCI_range,
+                "Within-subjects covariate-factor interactions",
                                     "Within-subjects covariate-factor interactions",
                                     fill_palette = mycolours)
-p_mdA2_bCI_wscfi
 
-p_mdA2_bCI_bsf   <- make_group_plot(mdA2_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA2_bCI_bsf
+make_group_plot(mdA2_bCI_range, "Between-subjects factors",
+                "Between-subjects factors",
+                fill_palette = mycolours)
 
-p_mdA2_bCI_bsc   <- make_group_plot(mdA2_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA2_bCI_bsc
+make_group_plot(mdA2_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates",
+                fill_palette = mycolours)
 
 ```
 
@@ -1011,36 +998,30 @@ loo::loo_compare(mdA1, mdA2, mdA3, criterion='loo')
 
 mdA3_bCI_range <- bayestestR::hdi(mdA3, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA3_bCI_wsf   <- make_group_plot(mdA3_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA3_bCI_wsf
+make_group_plot(mdA3_bCI_range, "Within-subjects factors",
+                "Within-subjects factors",
+                fill_palette = mycolours)
 
-p_mdA3_bCI_wsfi  <- make_group_plot(mdA3_bCI_range, "Within-subjects factor interactions",
-                                    "Within-subjects factor interactions",
-                                    fill_palette = mycolours)
-p_mdA3_bCI_wsfi
+make_group_plot(mdA3_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions",
+                fill_palette = mycolours)
 
-p_mdA3_bCI_wsc   <- make_group_plot(mdA3_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA3_bCI_wsc
+make_group_plot(mdA3_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates",
+                fill_palette = mycolours)
 
-p_mdA3_bCI_wscfi <- make_group_plot(mdA3_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA3_bCI_wscfi
+make_group_plot(mdA3_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA3_bCI_bsf   <- make_group_plot(mdA3_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA3_bCI_bsf
+make_group_plot(mdA3_bCI_range, "Between-subjects factors",
+                "Between-subjects factors",
+                fill_palette = mycolours)
 
-p_mdA3_bCI_bsc   <- make_group_plot(mdA3_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA3_bCI_bsc
+make_group_plot(mdA3_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates",
+                fill_palette = mycolours)
 
 ```
 
@@ -1221,36 +1202,30 @@ loo::loo_compare(mdA1, mdA2, mdA3, mdA4, criterion='loo')
 
 mdA4_bCI_range <- bayestestR::hdi(mdA4, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA4_bCI_wsf   <- make_group_plot(mdA4_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA4_bCI_wsf
+make_group_plot(mdA4_bCI_range, "Within-subjects factors",
+                "Within-subjects factors",
+                fill_palette = mycolours)
 
-p_mdA4_bCI_wsfi  <- make_group_plot(mdA4_bCI_range, "Within-subjects factor interactions",
-                                    "Within-subjects factor interactions",
-                                    fill_palette = mycolours)
-p_mdA4_bCI_wsfi
+make_group_plot(mdA4_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions",
+                fill_palette = mycolours)
 
-p_mdA4_bCI_wsc   <- make_group_plot(mdA4_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA4_bCI_wsc
+make_group_plot(mdA4_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates",
+                fill_palette = mycolours)
 
-p_mdA4_bCI_wscfi <- make_group_plot(mdA4_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA4_bCI_wscfi
+make_group_plot(mdA4_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA4_bCI_bsf   <- make_group_plot(mdA4_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA4_bCI_bsf
+make_group_plot(mdA4_bCI_range, "Between-subjects factors",
+                "Between-subjects factors",
+                fill_palette = mycolours)
 
-p_mdA4_bCI_bsc   <- make_group_plot(mdA4_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA4_bCI_bsc
+make_group_plot(mdA4_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates",
+                fill_palette = mycolours)
 
 ```
 
@@ -1433,36 +1408,30 @@ loo::loo_compare(mdA1, mdA2, mdA3, mdA4, mdA5, criterion='loo')
 
 mdA5_bCI_range <- bayestestR::hdi(mdA5, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA5_bCI_wsf   <- make_group_plot(mdA5_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA5_bCI_wsf
+make_group_plot(mdA5_bCI_range, "Within-subjects factors",
+                "Within-subjects factors",
+                fill_palette = mycolours)
 
-p_mdA5_bCI_wsfi  <- make_group_plot(mdA5_bCI_range, "Within-subjects factor interactions",
-                                    "Within-subjects factor interactions",
-                                    fill_palette = mycolours)
-p_mdA5_bCI_wsfi
+make_group_plot(mdA5_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions",
+                fill_palette = mycolours)
 
-p_mdA5_bCI_wsc   <- make_group_plot(mdA5_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA5_bCI_wsc
+make_group_plot(mdA5_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates",
+                fill_palette = mycolours)
 
-p_mdA5_bCI_wscfi <- make_group_plot(mdA5_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA5_bCI_wscfi
+make_group_plot(mdA5_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA5_bCI_bsf   <- make_group_plot(mdA5_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA5_bCI_bsf
+make_group_plot(mdA5_bCI_range, "Between-subjects factors",
+                "Between-subjects factors",
+                fill_palette = mycolours)
 
-p_mdA5_bCI_bsc   <- make_group_plot(mdA5_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA5_bCI_bsc
+make_group_plot(mdA5_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates",
+                fill_palette = mycolours)
 
 ```
 
@@ -1637,36 +1606,30 @@ loo::loo_compare(mdA1, mdA2, mdA3, mdA4, mdA5, mdA6, criterion='loo')
 
 mdA6_bCI_range <- bayestestR::hdi(mdA6, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA6_bCI_wsf   <- make_group_plot(mdA6_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA6_bCI_wsf
+make_group_plot(mdA6_bCI_range, "Within-subjects factors",
+                "Within-subjects factors",
+                fill_palette = mycolours)
 
-p_mdA6_bCI_wsfi  <- make_group_plot(mdA6_bCI_range, "Within-subjects factor interactions",
-                                    "Within-subjects factor interactions",
-                                    fill_palette = mycolours)
-p_mdA6_bCI_wsfi
+make_group_plot(mdA6_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions",
+                fill_palette = mycolours)
 
-p_mdA6_bCI_wsc   <- make_group_plot(mdA6_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA6_bCI_wsc
+make_group_plot(mdA6_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates",
+                fill_palette = mycolours)
 
-p_mdA6_bCI_wscfi <- make_group_plot(mdA6_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA6_bCI_wscfi
+make_group_plot(mdA6_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA6_bCI_bsf   <- make_group_plot(mdA6_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA6_bCI_bsf
+make_group_plot(mdA6_bCI_range, "Between-subjects factors",
+                "Between-subjects factors",
+                fill_palette = mycolours)
 
-p_mdA6_bCI_bsc   <- make_group_plot(mdA6_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA6_bCI_bsc
+make_group_plot(mdA6_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates",
+                fill_palette = mycolours)
 
 ```
 
@@ -1855,36 +1818,30 @@ loo::loo_compare(mdA1, mdA2, mdA3, mdA4, mdA5, mdA6, mdA7, criterion='loo')
 
 mdA7_bCI_range <- bayestestR::hdi(mdA7, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA7_bCI_wsf   <- make_group_plot(mdA7_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA7_bCI_wsf
+make_group_plot(mdA7_bCI_range, "Within-subjects factors",
+                "Within-subjects factors",
+                fill_palette = mycolours)
 
-p_mdA7_bCI_wsfi  <- make_group_plot(mdA7_bCI_range, "Within-subjects factor interactions",
-                                    "Within-subjects factor interactions",
-                                    fill_palette = mycolours)
-p_mdA7_bCI_wsfi
+make_group_plot(mdA7_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions",
+                fill_palette = mycolours)
 
-p_mdA7_bCI_wsc   <- make_group_plot(mdA7_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA7_bCI_wsc
+make_group_plot(mdA7_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates",
+                fill_palette = mycolours)
 
-p_mdA7_bCI_wscfi <- make_group_plot(mdA7_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA7_bCI_wscfi
+make_group_plot(mdA7_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA7_bCI_bsf   <- make_group_plot(mdA7_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA7_bCI_bsf
+make_group_plot(mdA7_bCI_range, "Between-subjects factors",
+                "Between-subjects factors",
+                fill_palette = mycolours)
 
-p_mdA7_bCI_bsc   <- make_group_plot(mdA7_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA7_bCI_bsc
+make_group_plot(mdA7_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates",
+                fill_palette = mycolours)
 
 ```
 
@@ -2078,36 +2035,29 @@ loo::loo_compare(mdA6, mdA8, criterion='loo')
 
 mdA8_bCI_range <- bayestestR::hdi(mdA8, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA8_bCI_wsf   <- make_group_plot(mdA8_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA8_bCI_wsf
+make_group_plot(mdA8_bCI_range, "Within-subjects factors",
+                "Within-subjects factors",
+                fill_palette = mycolours)
 
-p_mdA8_bCI_wsfi  <- make_group_plot(mdA8_bCI_range, "Within-subjects factor interactions",
-                                    "Within-subjects factor interactions",
-                                    fill_palette = mycolours)
-p_mdA8_bCI_wsfi
+make_group_plot(mdA8_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions",
+                fill_palette = mycolours)
 
-p_mdA8_bCI_wsc   <- make_group_plot(mdA8_bCI_range, "Within-subjects covariates",
+make_group_plot(mdA8_bCI_range, "Within-subjects covariates",
                                     "Within-subjects covariates",
                                     fill_palette = mycolours)
-p_mdA8_bCI_wsc
 
-p_mdA8_bCI_wscfi <- make_group_plot(mdA8_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA8_bCI_wscfi
+make_group_plot(mdA8_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA8_bCI_bsf   <- make_group_plot(mdA8_bCI_range, "Between-subjects factors",
+make_group_plot(mdA8_bCI_range, "Between-subjects factors",
                                     "Between-subjects factors",
                                     fill_palette = mycolours)
-p_mdA8_bCI_bsf
-
-p_mdA8_bCI_bsc   <- make_group_plot(mdA8_bCI_range, "Between-subjects covariates",
+make_group_plot(mdA8_bCI_range, "Between-subjects covariates",
                                     "Between-subjects covariates",
                                     fill_palette = mycolours)
-p_mdA8_bCI_bsc
 
 ```
 
@@ -2374,36 +2324,27 @@ loo::loo_compare(mdA6, mdA8, mdA9, criterion='loo')
 
 mdA9_bCI_range <- bayestestR::hdi(mdA9, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA9_bCI_wsf   <- make_group_plot(mdA9_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA9_bCI_wsf
+make_group_plot(mdA9_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-p_mdA9_bCI_wsfi  <- make_group_plot(mdA9_bCI_range, "Within-subjects factor interactions",
-                                    "Within-subjects factor interactions",
-                                    fill_palette = mycolours)
-p_mdA9_bCI_wsfi
+make_group_plot(mdA9_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions", fill_palette = mycolours)
 
-p_mdA9_bCI_wsc   <- make_group_plot(mdA9_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA9_bCI_wsc
+make_group_plot(mdA9_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-p_mdA9_bCI_wscfi <- make_group_plot(mdA9_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA9_bCI_wscfi
+make_group_plot(mdA9_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA9_bCI_bsf   <- make_group_plot(mdA9_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA9_bCI_bsf
+make_group_plot(mdA9_bCI_range, "Between-subjects factors",
+                "Between-subjects factors",
+                fill_palette = mycolours)
 
-p_mdA9_bCI_bsc   <- make_group_plot(mdA9_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA9_bCI_bsc
+make_group_plot(mdA9_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates",
+                fill_palette = mycolours)
 
 ```
 
@@ -2671,36 +2612,29 @@ loo::loo_compare(mdA6, mdA8, mdA9, mdA10, criterion='loo')
 
 mdA10_bCI_range <- bayestestR::hdi(mdA10, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA10_bCI_wsf   <- make_group_plot(mdA10_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA10_bCI_wsf
+make_group_plot(mdA10_bCI_range, "Within-subjects factors", "Within-subjects factors",
+                fill_palette = mycolours)
 
-p_mdA10_bCI_wsfi  <- make_group_plot(mdA10_bCI_range, "Within-subjects factor interactions",
-                                    "Within-subjects factor interactions",
-                                    fill_palette = mycolours)
-p_mdA10_bCI_wsfi
+make_group_plot(mdA10_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions",
+                fill_palette = mycolours)
 
-p_mdA10_bCI_wsc   <- make_group_plot(mdA10_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA10_bCI_wsc
+make_group_plot(mdA10_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates",
+                fill_palette = mycolours)
 
-p_mdA10_bCI_wscfi <- make_group_plot(mdA10_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA10_bCI_wscfi
+make_group_plot(mdA10_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA10_bCI_bsf   <- make_group_plot(mdA10_bCI_range, "Between-subjects factors",
+make_group_plot(mdA10_bCI_range, "Between-subjects factors",
                                     "Between-subjects factors",
                                     fill_palette = mycolours)
-p_mdA10_bCI_bsf
 
-p_mdA10_bCI_bsc   <- make_group_plot(mdA10_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA10_bCI_bsc
+make_group_plot(mdA10_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates",
+                fill_palette = mycolours)
 
 ```
 
@@ -4836,36 +4770,26 @@ loo::loo_compare(mdA13, mdA15, criterion='loo')
 
 mdA15_bCI_range <- bayestestR::hdi(mdA15, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA15_bCI_wsf   <- make_group_plot(mdA15_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA15_bCI_wsf
+make_group_plot(mdA15_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-p_mdA15_bCI_wsfi  <- make_group_plot(mdA15_bCI_range, "Within-subjects factor interactions",
-                                    "Within-subjects factor interactions",
-                                    fill_palette = mycolours)
-p_mdA15_bCI_wsfi
+make_group_plot(mdA15_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions", fill_palette = mycolours)
 
-p_mdA15_bCI_wsc   <- make_group_plot(mdA15_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA15_bCI_wsc
+make_group_plot(mdA15_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-p_mdA15_bCI_wscfi <- make_group_plot(mdA15_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA15_bCI_wscfi
+make_group_plot(mdA15_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA15_bCI_bsf   <- make_group_plot(mdA15_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA15_bCI_bsf
+make_group_plot(mdA15_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-p_mdA15_bCI_bsc   <- make_group_plot(mdA15_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA15_bCI_bsc
+make_group_plot(mdA15_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
+
 
 ```
 
@@ -5035,36 +4959,25 @@ loo::loo_compare(mdA15, mdA16, criterion='loo')
 
 mdA16_bCI_range <- bayestestR::hdi(mdA16, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA16_bCI_wsf   <- make_group_plot(mdA16_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA16_bCI_wsf
+make_group_plot(mdA16_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-p_mdA16_bCI_wsfi  <- make_group_plot(mdA16_bCI_range, "Within-subjects factor interactions",
-                                    "Within-subjects factor interactions",
-                                    fill_palette = mycolours)
-p_mdA16_bCI_wsfi
+make_group_plot(mdA16_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions", fill_palette = mycolours)
 
-p_mdA16_bCI_wsc   <- make_group_plot(mdA16_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA16_bCI_wsc
+make_group_plot(mdA16_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-p_mdA16_bCI_wscfi <- make_group_plot(mdA16_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA16_bCI_wscfi
+make_group_plot(mdA16_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA16_bCI_bsf   <- make_group_plot(mdA16_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA16_bCI_bsf
+make_group_plot(mdA16_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-p_mdA16_bCI_bsc   <- make_group_plot(mdA16_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA16_bCI_bsc
+make_group_plot(mdA16_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
 ```
 
@@ -5234,36 +5147,26 @@ loo::loo_compare(mdA15, mdA16, mdA17, criterion='loo')
 
 mdA17_bCI_range <- bayestestR::hdi(mdA17, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA17_bCI_wsf   <- make_group_plot(mdA17_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA17_bCI_wsf
+make_group_plot(mdA17_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-p_mdA17_bCI_wsfi  <- make_group_plot(mdA17_bCI_range, "Within-subjects factor interactions",
-                                    "Within-subjects factor interactions",
-                                    fill_palette = mycolours)
-p_mdA17_bCI_wsfi
+make_group_plot(mdA17_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions", fill_palette = mycolours)
 
-p_mdA17_bCI_wsc   <- make_group_plot(mdA17_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA17_bCI_wsc
+make_group_plot(mdA17_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-p_mdA17_bCI_wscfi <- make_group_plot(mdA17_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA17_bCI_wscfi
+make_group_plot(mdA17_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA17_bCI_bsf   <- make_group_plot(mdA17_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA17_bCI_bsf
+make_group_plot(mdA17_bCI_range, "Between-subjects factors",
+                "Between-subjects factors",
+                fill_palette = mycolours)
 
-p_mdA17_bCI_bsc   <- make_group_plot(mdA17_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA17_bCI_bsc
+make_group_plot(mdA17_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
 ```
 
@@ -5433,37 +5336,27 @@ loo::loo_compare(mdA15, mdA16, mdA17, mdA18, criterion='loo')
 
 mdA18_bCI_range <- bayestestR::hdi(mdA18, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA18_bCI_wsf   <- make_group_plot(mdA18_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA18_bCI_wsf
+make_group_plot(mdA18_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-p_mdA18_bCI_wsc   <- make_group_plot(mdA18_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA18_bCI_wsc
+make_group_plot(mdA18_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-p_mdA18_bCI_wscfi <- make_group_plot(mdA18_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA18_bCI_wscfi
+make_group_plot(mdA18_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA18_bCI_wsci <- make_group_plot(mdA18_bCI_range,
-                                    "Within-subjects covariate interactions",
-                                    "Within-subjects covariate interactions",
-                                    fill_palette = mycolours)
-p_mdA18_bCI_wsci
+make_group_plot(mdA18_bCI_range,
+                "Within-subjects covariate interactions",
+                "Within-subjects covariate interactions",
+                fill_palette = mycolours)
 
-p_mdA18_bCI_bsf   <- make_group_plot(mdA18_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA18_bCI_bsf
+make_group_plot(mdA18_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-p_mdA18_bCI_bsc   <- make_group_plot(mdA18_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA18_bCI_bsc
+make_group_plot(mdA18_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
 ```
 
@@ -5632,31 +5525,22 @@ loo::loo_compare(mdA15, mdA16, mdA17, mdA18, mdA19, criterion='loo')
 
 mdA19_bCI_range <- bayestestR::hdi(mdA19, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA19_bCI_wsf   <- make_group_plot(mdA19_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA19_bCI_wsf
+make_group_plot(mdA19_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-p_mdA19_bCI_wsc   <- make_group_plot(mdA19_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA19_bCI_wsc
+make_group_plot(mdA19_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-p_mdA19_bCI_wscfi <- make_group_plot(mdA19_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA19_bCI_wscfi
+make_group_plot(mdA19_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA19_bCI_bsf   <- make_group_plot(mdA19_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA19_bCI_bsf
+make_group_plot(mdA19_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-p_mdA19_bCI_bsc   <- make_group_plot(mdA19_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA19_bCI_bsc
+make_group_plot(mdA19_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
 ```
 
@@ -5825,31 +5709,22 @@ loo::loo_compare(mdA15, mdA16, mdA17, mdA18, mdA19, mdA20, criterion='loo')
 
 mdA20_bCI_range <- bayestestR::hdi(mdA20, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA20_bCI_wsf   <- make_group_plot(mdA20_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA20_bCI_wsf
+make_group_plot(mdA20_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-p_mdA20_bCI_wsc   <- make_group_plot(mdA20_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA20_bCI_wsc
+make_group_plot(mdA20_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-p_mdA20_bCI_wscfi <- make_group_plot(mdA20_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA20_bCI_wscfi
+make_group_plot(mdA20_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA20_bCI_bsf   <- make_group_plot(mdA20_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA20_bCI_bsf
+make_group_plot(mdA20_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-p_mdA20_bCI_bsc   <- make_group_plot(mdA20_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA20_bCI_bsc
+make_group_plot(mdA20_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
 ```
 
@@ -6018,31 +5893,23 @@ loo::loo_compare(mdA15, mdA16, mdA17, mdA18, mdA19, mdA20, mdA21, criterion='loo
 
 mdA21_bCI_range <- bayestestR::hdi(mdA21, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mdA21_bCI_wsf   <- make_group_plot(mdA21_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA21_bCI_wsf
+make_group_plot(mdA21_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-p_mdA21_bCI_wsc   <- make_group_plot(mdA21_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA21_bCI_wsc
+make_group_plot(mdA21_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-p_mdA21_bCI_wscfi <- make_group_plot(mdA21_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mdA21_bCI_wscfi
+make_group_plot(mdA21_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mdA21_bCI_bsf   <- make_group_plot(mdA21_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mdA21_bCI_bsf
+make_group_plot(mdA21_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-p_mdA21_bCI_bsc   <- make_group_plot(mdA21_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mdA21_bCI_bsc
+make_group_plot(mdA21_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
+
 
 ```
 
@@ -8629,6 +8496,10 @@ loo::loo(mdA31)
 get_Br2_table(mdA25, mdA26, mdA27, mdA28, mdA29, mdA30, mdA31)
 
 loo::loo_compare(mdA25, mdA26, mdA27, mdA28, mdA29, mdA30, mdA31, criterion='loo')
+
+get_Br2_table(mdA13, mdA31)
+
+loo::loo_compare(mdA13, mdA31, criterion='loo')
 
 ```
 
