@@ -102,7 +102,7 @@ if (savedata){
 }
 
 # set global number of draws and new subjects for Bayesian model predictions 
-ndraws_pred <- 500
+ndraws_pred <- 1000
 nnew_pred <- 150
 
 # set flag whether to reloo models with Pareto k > 0.7
@@ -4797,6 +4797,11 @@ make_group_plot(mdA15_bCI_range,
                 "Within-subjects covariate-factor interactions",
                 fill_palette = mycolours)
 
+make_group_plot(mdA15_bCI_range,
+                "Within-subjects covariate interactions",
+                "Within-subjects covariate interactions",
+                fill_palette = mycolours)
+
 make_group_plot(mdA15_bCI_range, "Between-subjects factors",
                 "Between-subjects factors", fill_palette = mycolours)
 
@@ -4986,6 +4991,11 @@ make_group_plot(mdA16_bCI_range,
                 "Within-subjects covariate-factor interactions",
                 fill_palette = mycolours)
 
+make_group_plot(mdA16_bCI_range,
+                "Within-subjects covariate interactions",
+                "Within-subjects covariate interactions",
+                fill_palette = mycolours)
+
 make_group_plot(mdA16_bCI_range, "Between-subjects factors",
                 "Between-subjects factors", fill_palette = mycolours)
 
@@ -5172,6 +5182,11 @@ make_group_plot(mdA17_bCI_range, "Within-subjects covariates",
 make_group_plot(mdA17_bCI_range,
                 "Within-subjects covariate-factor interactions",
                 "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
+
+make_group_plot(mdA17_bCI_range,
+                "Within-subjects covariate interactions",
+                "Within-subjects covariate interactions",
                 fill_palette = mycolours)
 
 make_group_plot(mdA17_bCI_range, "Between-subjects factors",
@@ -8853,109 +8868,6 @@ if (saveplots){
 
 ```
 
-#### LAE equivalence calculations
-
-```{r}
-
-lae_equivalence_curve <- function(fit, grid, env_vars = c("AmbientEnvCore", "AmbientVariant"),
-                                  lae_var = "UASLAEMaxLRScl", target_levels = c(1, 3.5, 6),
-                                  re_formula = NULL, allow_new_levels = TRUE,
-                                  sample_new_levels = "gaussian",
-                                  ndraws = NULL, seed = NULL, transform = identity) {
-  pred <- brms::posterior_epred(fit, newdata = grid, re_formula = re_formula,
-                                allow_new_levels = allow_new_levels,
-                                sample_new_levels = sample_new_levels,
-                                ndraws = ndraws, seed = seed)
-  pred <- transform(pred)   # ndraws x nrow(grid)
-
-  env_key <- do.call(paste, c(grid[env_vars], sep = " | "))
-  lae_key <- grid[[lae_var]]
-  combos <- unique(data.frame(env = env_key, lae = lae_key))
-
-  # per-draw mean prediction at each unique (env, LAE) grid combination -
-  # collapses over whatever else varies in `grid` (simulated ID/StimID, between-subject covariates)
-  combo_draws <- sapply(seq_len(nrow(combos)), function(i) {
-    idx <- env_key == combos$env[i] & lae_key == combos$lae[i]
-    rowMeans(pred[, idx, drop = FALSE])
-  })   # ndraws x n_combos
-
-  purrr::map_dfr(unique(combos$env), function(e) {
-    cidx <- combos$env == e
-    ord <- order(combos$lae[cidx])
-    lae_vals <- combos$lae[cidx][ord]
-    draws_sub <- combo_draws[, cidx, drop = FALSE][, ord, drop = FALSE]
-
-    monotonic_frac <- mean(apply(draws_sub, 1, function(row) !is.unsorted(row)))
-    if (monotonic_frac < 0.99) {
-      warning(e, ": only ", round(monotonic_frac * 100, 1),
-              "% of draws are monotonic in LAE - inversion is unreliable for the rest.")
-    }
-
-    purrr::map_dfr(target_levels, function(tgt) {
-      lae_at_tgt <- apply(draws_sub, 1, function(y_draw) {
-        if (!is.unsorted(y_draw) && tgt >= min(y_draw) && tgt <= max(y_draw)) {
-          stats::approx(x = y_draw, y = lae_vals, xout = tgt, ties = "ordered")$y
-        } else {
-          NA_real_   # target outside this draw's range, or draw non-monotonic - don't extrapolate
-        }
-      })
-      tibble::tibble(
-        env = e, target_dAnnoyance = tgt,
-        LAE_Estimate = mean(lae_at_tgt, na.rm = TRUE),
-        LAE_Q2.5  = stats::quantile(lae_at_tgt, 0.025, na.rm = TRUE),
-        LAE_Q97.5 = stats::quantile(lae_at_tgt, 0.975, na.rm = TRUE),
-        pct_valid = 100 * mean(!is.na(lae_at_tgt)),
-        draws = list(lae_at_tgt)
-      )
-    })
-  })
-}
-
-lae_shift_between <- function(equivalence_result, ref_env, compare_env) {
-  purrr::map_dfr(unique(equivalence_result$target_dAnnoyance), function(tgt) {
-    ref <- equivalence_result$draws[equivalence_result$env == ref_env &
-                                    equivalence_result$target_dAnnoyance == tgt][[1]]
-    cmp <- equivalence_result$draws[equivalence_result$env == compare_env &
-                                    equivalence_result$target_dAnnoyance == tgt][[1]]
-    shift <- cmp - ref
-    tibble::tibble(
-      comparison = paste(compare_env, "-", ref_env), target_dAnnoyance = tgt,
-      LAE_shift_dB = mean(shift, na.rm = TRUE),
-      Q2.5 = stats::quantile(shift, 0.025, na.rm = TRUE),
-      Q97.5 = stats::quantile(shift, 0.975, na.rm = TRUE),
-      pct_valid = 100 * mean(!is.na(shift))
-    )
-  })
-}
-
-eq_curve <- lae_equivalence_curve(
-  mdA31, grid = subset(grid_marg_lae_sweep, UASEvents == 1),
-  target_levels = 0:6,
-  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
-  ndraws = ndraws_pred, seed = 999, transform = transform_dAnnoy
-) |>
-  dplyr::mutate(LAE_Estimate=LAE_Estimate + mean(stimDataNoAmb$UASLAEMaxLR, na.rm=TRUE),
-                LAE_Q2.5=LAE_Q2.5 + mean(stimDataNoAmb$UASLAEMaxLR, na.rm=TRUE),
-                LAE_Q97.5=LAE_Q97.5 + mean(stimDataNoAmb$UASLAEMaxLR, na.rm=TRUE))
-
-mdA31EnvShift <- dplyr::bind_rows(lae_shift_between(eq_curve, ref_env = "Park | Standard", compare_env = "Highway | Standard"),
-                                  lae_shift_between(eq_curve, ref_env = "Park | Standard", compare_env = "Streetside square | Standard"),
-                                  lae_shift_between(eq_curve, ref_env = "Park | Standard", compare_env = "Residential | Standard"),
-                                  lae_shift_between(eq_curve, ref_env = "Park | Standard", compare_env = "Park | ParkHigh"),
-                                  lae_shift_between(eq_curve, ref_env = "Park | Standard", compare_env = "Highway | HighwayLow"),
-                                  lae_shift_between(eq_curve, ref_env = "Residential | Standard", compare_env = "Highway | Standard"),
-                                  lae_shift_between(eq_curve, ref_env = "Residential | Standard", compare_env = "Highway | HighwayLow"),
-                                  lae_shift_between(eq_curve, ref_env = "Residential | Standard", compare_env = "Streetside square | Standard"))
-
-if (savedata) {
-  filename = "dAnnoyMn_ExpLAEMod_EnvdBShift_brmsOb"
-  
-  utils::write.csv(mdA31EnvShift, paste(outDataPath, "\\", filename, ".csv", sep=""))
-  
-}
-
-
-```
 
 #### between-subjects contrasts and covariate slopes
 
@@ -9058,6 +8970,111 @@ if (saveplots){
 
 ```
 
+#### LAE equivalence calculations
+
+```{r}
+
+lae_equivalence_curve <- function(fit, grid, env_vars = c("AmbientEnvCore", "AmbientVariant"),
+                                  lae_var = "UASLAEMaxLRScl", target_levels = c(1, 3.5, 6),
+                                  re_formula = NULL, allow_new_levels = TRUE,
+                                  sample_new_levels = "gaussian",
+                                  ndraws = NULL, seed = NULL, transform = identity) {
+  pred <- brms::posterior_epred(fit, newdata = grid, re_formula = re_formula,
+                                allow_new_levels = allow_new_levels,
+                                sample_new_levels = sample_new_levels,
+                                ndraws = ndraws, seed = seed)
+  pred <- transform(pred)   # ndraws x nrow(grid)
+
+  env_key <- do.call(paste, c(grid[env_vars], sep = " | "))
+  lae_key <- grid[[lae_var]]
+  combos <- unique(data.frame(env = env_key, lae = lae_key))
+
+  # per-draw mean prediction at each unique (env, LAE) grid combination -
+  # collapses over whatever else varies in `grid` (simulated ID/StimID, between-subject covariates)
+  combo_draws <- sapply(seq_len(nrow(combos)), function(i) {
+    idx <- env_key == combos$env[i] & lae_key == combos$lae[i]
+    rowMeans(pred[, idx, drop = FALSE])
+  })   # ndraws x n_combos
+
+  purrr::map_dfr(unique(combos$env), function(e) {
+    cidx <- combos$env == e
+    ord <- order(combos$lae[cidx])
+    lae_vals <- combos$lae[cidx][ord]
+    draws_sub <- combo_draws[, cidx, drop = FALSE][, ord, drop = FALSE]
+
+    monotonic_frac <- mean(apply(draws_sub, 1, function(row) !is.unsorted(row)))
+    if (monotonic_frac < 0.99) {
+      warning(e, ": only ", round(monotonic_frac * 100, 1),
+              "% of draws are monotonic in LAE - inversion is unreliable for the rest.")
+    }
+
+    purrr::map_dfr(target_levels, function(tgt) {
+      lae_at_tgt <- apply(draws_sub, 1, function(y_draw) {
+        if (!is.unsorted(y_draw) && tgt >= min(y_draw) && tgt <= max(y_draw)) {
+          stats::approx(x = y_draw, y = lae_vals, xout = tgt, ties = "ordered")$y
+        } else {
+          NA_real_   # target outside this draw's range, or draw non-monotonic - don't extrapolate
+        }
+      })
+      tibble::tibble(
+        env = e, target_dAnnoyance = tgt,
+        LAE_Estimate = mean(lae_at_tgt, na.rm = TRUE),
+        LAE_Q2.5  = stats::quantile(lae_at_tgt, 0.025, na.rm = TRUE),
+        LAE_Q97.5 = stats::quantile(lae_at_tgt, 0.975, na.rm = TRUE),
+        pct_valid = 100 * mean(!is.na(lae_at_tgt)),
+        draws = list(lae_at_tgt)
+      )
+    })
+  })
+}
+
+lae_shift_between <- function(equivalence_result, ref_env, compare_env) {
+  purrr::map_dfr(unique(equivalence_result$target_dAnnoyance), function(tgt) {
+    ref <- equivalence_result$draws[equivalence_result$env == ref_env &
+                                    equivalence_result$target_dAnnoyance == tgt][[1]]
+    cmp <- equivalence_result$draws[equivalence_result$env == compare_env &
+                                    equivalence_result$target_dAnnoyance == tgt][[1]]
+    shift <- cmp - ref
+    tibble::tibble(
+      comparison = paste(compare_env, "-", ref_env), target_dAnnoyance = tgt,
+      LAE_shift_dB = mean(shift, na.rm = TRUE),
+      Q2.5 = stats::quantile(shift, 0.025, na.rm = TRUE),
+      Q97.5 = stats::quantile(shift, 0.975, na.rm = TRUE),
+      pct_valid = 100 * mean(!is.na(shift))
+    )
+  })
+}
+
+eq_curve <- lae_equivalence_curve(
+  mdA31, grid = subset(grid_marg_lae_sweep, UASEvents == 1),
+  target_levels = 0:6,
+  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+  ndraws = ndraws_pred, seed = 999, transform = transform_dAnnoy
+) |>
+  dplyr::mutate(LAE_Estimate=LAE_Estimate + mean(stimDataNoAmb$UASLAEMaxLR, na.rm=TRUE),
+                LAE_Q2.5=LAE_Q2.5 + mean(stimDataNoAmb$UASLAEMaxLR, na.rm=TRUE),
+                LAE_Q97.5=LAE_Q97.5 + mean(stimDataNoAmb$UASLAEMaxLR, na.rm=TRUE))
+
+mdA31EnvShift <- dplyr::bind_rows(lae_shift_between(eq_curve, ref_env = "Park | Standard", compare_env = "Highway | Standard"),
+                                  lae_shift_between(eq_curve, ref_env = "Park | Standard", compare_env = "Streetside square | Standard"),
+                                  lae_shift_between(eq_curve, ref_env = "Park | Standard", compare_env = "Residential | Standard"),
+                                  lae_shift_between(eq_curve, ref_env = "Park | Standard", compare_env = "Park | ParkHigh"),
+                                  lae_shift_between(eq_curve, ref_env = "Park | Standard", compare_env = "Highway | HighwayLow"),
+                                  lae_shift_between(eq_curve, ref_env = "Residential | Standard", compare_env = "Highway | Standard"),
+                                  lae_shift_between(eq_curve, ref_env = "Residential | Standard", compare_env = "Highway | HighwayLow"),
+                                  lae_shift_between(eq_curve, ref_env = "Residential | Standard", compare_env = "Streetside square | Standard"))
+
+mdA31EnvShift[mdA31EnvShift$pct_valid > 95,]
+
+if (savedata) {
+  filename = "dAnnoyMn_ExpLAEMod_EnvdBShift_brmsOb"
+  
+  utils::write.csv(mdA31EnvShift, paste(outDataPath, "\\", filename, ".csv", sep=""))
+  
+}
+
+
+```
 
 # OLD -------------------------------------------------------------------------
 

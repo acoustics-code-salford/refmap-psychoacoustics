@@ -76,10 +76,21 @@ get_Br2_table <- function(...) {
     dplyr::relocate(starts_with("McKelvey&Zavoina Conditional"), .after = Model) |>
     dplyr::relocate(starts_with("McKelvey&Zavoina Marginal"), .after = Model) |>
     dplyr::relocate(starts_with("Conditional"), .after = Model) |>
-    dplyr::relocate(starts_with("Marginal"), .after = Model) |> 
+    dplyr::relocate(starts_with("Marginal"), .after = Model) |>
     
-    # Reorder rows by the marginal R2 Estimate descending
-    dplyr::arrange(desc(Marginal_Estimate))
+    # if any columns are all null, drop them
+    dplyr::select(where(~ !all(is.na(.)))) |>
+    
+    # Reorder rows by the marginal R2 Estimate descending, if it exists, or the MZ marginal R2 Estimate descending if not, or else leave as-is
+    (function(df) {
+      if ("Marginal_Estimate" %in% colnames(df)) {
+        dplyr::arrange(df, dplyr::desc(Marginal_Estimate))
+      } else if ("McKelvey&Zavoina Marginal_Estimate" %in% colnames(df)) {
+        dplyr::arrange(df, dplyr::desc(`McKelvey&Zavoina Marginal_Estimate`))
+      } else {
+        df
+      }
+    })()
 }
 
 

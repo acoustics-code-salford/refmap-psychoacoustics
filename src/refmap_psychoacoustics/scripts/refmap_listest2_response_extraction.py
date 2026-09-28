@@ -199,7 +199,7 @@ for participant in df_endResponse['participant'].unique():
                 # if baseline responses have probHA >= 0.5, skip
                 if (df_baseResponse >= 0.5).all():
                     continue
-                # if baseline probHA < 0.5, and stimulus probHA >= 0.5, then response is the probHA value
+                # if baseline probHA < 0.5, then response is the probHA value
                 df_endResponse.loc[((df_endResponse['participant'] == participant)
                                     & ~(df_endResponse['stimulus'].str.contains("Baseline"))
                                     & (df_endResponse['ambientRef'] == ambient)),

@@ -194,54 +194,61 @@ prune_terms <- function(pop_level, drop, sanitize_fn = identity, respect_hierarc
   
   pop_parsed  <- lapply(pop_level, parse_term)
   drop_parsed <- lapply(drop, parse_term)
+  n_drop <- length(drop)
   
   exact_match <- vapply(drop_parsed, function(dp) {
     hit <- which(vapply(pop_parsed, function(pp) setequal(pp$vars, dp$vars), logical(1)))
     if (length(hit) == 0) NA_integer_ else hit[1]
   }, integer(1))
   
-  subset_match <- lapply(seq_along(drop), function(i) {
-    if (!is.na(exact_match[i])) return(NULL)
-    dp <- drop_parsed[[i]]
-    hit <- which(vapply(pop_parsed, function(pp)
+  subset_hits <- function(dp) {
+    which(vapply(pop_parsed, function(pp)
       pp$notation == "*" && length(dp$vars) < length(pp$vars) && all(dp$vars %in% pp$vars), logical(1)))
-    if (length(hit) == 0) NULL else hit
-  })
+  }
   
   kept <- pop_level
   additions <- character(0)
-  unresolved <- character(0)
+  handled <- !is.na(exact_match)   # tracks which `drop` entries are fully accounted for
   
-  # --- exact-match removals, retaining implied lower-order pieces not covered elsewhere
   remove_idx <- unique(stats::na.omit(exact_match))
   if (length(remove_idx) > 0) {
     kept <- pop_level[-remove_idx]
     kept_parsed <- pop_parsed[-remove_idx]
+    
     for (i in seq_along(drop)) {
       if (is.na(exact_match[i])) next
       pop_term <- pop_parsed[[exact_match[i]]]
       if (pop_term$notation != "*") next
       surgical <- drop_parsed[[i]]$notation != "*"
       exp <- full_expansion(pop_term)
+      
       for (j in seq_along(exp$pieces)) {
-        if (length(exp$sets[[j]]) == length(pop_term$vars)) next
-        if (any(vapply(kept_parsed, term_implies, logical(1), candidate = exp$sets[[j]]))) next
+        piece_set <- exp$sets[[j]]
+        if (length(piece_set) == length(pop_term$vars)) next   # the full term itself
+        
+        # NEW: does another drop request in THIS SAME CALL name this exact piece?
+        other_hit <- which(vapply(seq_len(n_drop), function(k)
+          k != i && is.na(exact_match[k]) && setequal(drop_parsed[[k]]$vars, piece_set), logical(1)))
+        if (length(other_hit) > 0) { handled[other_hit] <- TRUE; next }   # consumed there - don't retain
+        
+        if (any(vapply(kept_parsed, term_implies, logical(1), candidate = piece_set))) next
         if (!surgical) next
         if (!(exp$pieces[j] %in% kept) && !(exp$pieces[j] %in% additions)) additions <- c(additions, exp$pieces[j])
       }
     }
   }
   
-  # --- subset-match (de-bundling) requests
+  unresolved <- character(0)
   for (i in seq_along(drop)) {
-    if (!is.na(exact_match[i]) || is.null(subset_match[[i]])) next
-    if (respect_hierarchy) { unresolved <- c(unresolved, drop[i]); next }
+    if (handled[i]) next
+    hit <- subset_hits(drop_parsed[[i]])
+    if (length(hit) == 0) next   # genuinely not found - falls to truly_missing below
     
-    if (length(subset_match[[i]]) > 1) {
-      warning("'", drop[i], "' matches multiple '*' terms; using the first.")
-    }
-    target_str <- pop_level[subset_match[[i]][1]]
-    exp <- full_expansion(pop_parsed[[subset_match[[i]][1]]])
+    if (respect_hierarchy) { unresolved <- c(unresolved, drop[i]); handled[i] <- TRUE; next }
+    
+    if (length(hit) > 1) warning("'", drop[i], "' matches multiple '*' terms; using the first.")
+    target_str <- pop_level[hit[1]]
+    exp <- full_expansion(pop_parsed[[hit[1]]])
     exclude <- vapply(exp$sets, setequal, logical(1), y = drop_parsed[[i]]$vars)
     remaining_pieces <- exp$pieces[!exclude]
     remaining_sets   <- exp$sets[!exclude]
@@ -251,11 +258,12 @@ prune_terms <- function(pop_level, drop, sanitize_fn = identity, respect_hierarc
       any(vapply(other_terms, term_implies, logical(1), candidate = s)), logical(1))]
     
     kept <- c(kept[kept != target_str], final_pieces)
+    handled[i] <- TRUE
     message("respect_hierarchy = FALSE: de-bundled '", target_str, "' -> kept: ",
             paste(final_pieces, collapse = ", "), " (removed only '", drop[i], "')")
   }
   
-  truly_missing <- drop[is.na(exact_match) & vapply(subset_match, is.null, logical(1))]
+  truly_missing <- drop[!handled]
   if (length(truly_missing) > 0) warning("Not found in pop_level, NOT removed: ", paste(truly_missing, collapse = ", "))
   if (length(unresolved) > 0) {
     warning("Not removed (respect_hierarchy = TRUE, default): ", paste(unresolved, collapse = ", "),
@@ -263,7 +271,7 @@ prune_terms <- function(pop_level, drop, sanitize_fn = identity, respect_hierarc
             "Pass respect_hierarchy = FALSE to allow this explicitly.")
   }
   
-  kept <- c(kept, additions)   # <-- the fix: additions was never reaching the return value before this
+  kept <- c(kept, additions)
   if (length(additions) > 0) message("Auto-retained implied term(s): ", paste(additions, collapse = ", "))
   kept
 }

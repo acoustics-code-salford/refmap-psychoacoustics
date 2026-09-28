@@ -98,11 +98,11 @@ if (savedata){
 }
 
 # set global number of draws and new subjects for Bayesian model predictions 
-ndraws_pred <- 500
+ndraws_pred <- 1000
 nnew_pred <- 150
 
 # set flag whether to reloo models with Pareto k > 0.7
-reloo_flag = TRUE
+reloo_flag = FALSE
 
 
 ```
@@ -191,6 +191,7 @@ subjData$AAM_attitude <- factor(subjData$AAM_attitude)
 subjData$Home_Area <- factor(subjData$Home_Area)
 subjData$Area_soundscape <- factor(subjData$Area_soundscape)
 subjData$NationGeo <- factor(subjData$NationGeo)
+subjData$Sex <- factor(subjData$Sex, levels=c("Female", "Male"))
 
 subjData <- subjData |> dplyr::rename(NoiseSensitivity=NSSTotal)
 
@@ -648,29 +649,35 @@ summary(mA1)
 
 brms::pp_check(mA1, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean annoyance rating category index")
+  labs(x="Annoyance rating category index")
+
+brms::pp_check(mA1, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Annoyance rating category index")
 
 brms::pp_check(mA1, type='bars_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA1, type='bars_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA1, type='bars_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA1, type='bars_grouped', ndraws=100, group='UASOperation') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 ```
 
 ### diagnostics
 
-```{R, fig.width=35, fig.height=35}
+```{R, fig.width=25, fig.height=25}
 
 # collinearity check
 brms_vif(mA1)
@@ -681,25 +688,7 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mA1), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationTakeoff",
                                                            "b_UASTypeM300",
                                                            "b_UASTypeT150",
-                                                           "b_AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:UASTypeM300",
-                                                           "b_UASLAEMaxLRScl:UASTypeT150",
-                                                           "b_UASOperationLanding:UASTypeM300",
-                                                           "b_UASOperationLanding:UASTypeT150",
-                                                           "b_UASOperationTakeoff:UASTypeM300",
-                                                           "b_UASOperationTakeoff:UASTypeT150",
-                                                           "b_AmbientEnvStreet:UASOperationLanding",
-                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_AmbientEnvStreet:UASTypeM300",
-                                                           "b_AmbientEnvStreet:UASTypeT150",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeM300",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeT150"),
+                                                           "b_AmbientEnvStreet"),
                                off_diag_args=list(alpha=0.5, size=0.7))
 
 ```
@@ -716,40 +705,35 @@ get_Br2_table(mA1)
 
 ### visualise posterior draws for population level effects
 
-```{R, fig.width=8, fig.height=6}
+```{R}
 
 mA1_bCI_range <- bayestestR::hdi(mA1, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-p_mA1_bCI_wsf   <- make_group_plot(mA1_bCI_range, "Within-subjects factors",
-                                    "Within-subjects factors",
-                                    fill_palette = mycolours)
-p_mA1_bCI_wsf
+make_group_plot(mA1_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-p_mA1_bCI_wsfi  <- make_group_plot(mA1_bCI_range, "Within-subjects factor interactions",
-                                    "Within-subjects factor interactions",
-                                    fill_palette = mycolours)
-p_mA1_bCI_wsfi
+make_group_plot(mA1_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions", fill_palette = mycolours)
 
-p_mA1_bCI_wsc   <- make_group_plot(mA1_bCI_range, "Within-subjects covariates",
-                                    "Within-subjects covariates",
-                                    fill_palette = mycolours)
-p_mA1_bCI_wsc
+make_group_plot(mA1_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-p_mA1_bCI_wscfi <- make_group_plot(mA1_bCI_range,
-                                    "Within-subjects covariate-factor interactions",
-                                    "Within-subjects covariate-factor interactions",
-                                    fill_palette = mycolours)
-p_mA1_bCI_wscfi
+make_group_plot(mA1_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-p_mA1_bCI_bsf   <- make_group_plot(mA1_bCI_range, "Between-subjects factors",
-                                    "Between-subjects factors",
-                                    fill_palette = mycolours)
-p_mA1_bCI_bsf
+make_group_plot(mA1_bCI_range,
+                "Within-subjects covariate interactions",
+                "Within-subjects covariate interactions",
+                fill_palette = mycolours)
 
-p_mA1_bCI_bsc   <- make_group_plot(mA1_bCI_range, "Between-subjects covariates",
-                                    "Between-subjects covariates",
-                                    fill_palette = mycolours)
-p_mA1_bCI_bsc
+make_group_plot(mA1_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
+
+make_group_plot(mA1_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
+
 
 ```
 
@@ -759,8 +743,9 @@ p_mA1_bCI_bsc
 
 ```{R}
 
-mA2_pop_level <- setdiff(mA1_pop_level, c("UASOperation*UASType", "UASLAEMaxLRScl*AmbientEnv*UASType"))
-mA2_pop_level <- unique(c(mA2_pop_level, "UASLAEMaxLRScl*UASType", "AmbientEnv*UASType"))
+mA2_pop_level <- prune_terms(mA1_pop_level,
+                             c("UASOperation:UASType", "UASLAEMaxLRScl:AmbientEnv:UASType"),
+                             sanitize_fn=sanitize_var_brms)
 
 mA2_grp_level <- mA1_grp_level
 
@@ -838,29 +823,35 @@ summary(mA2)
 
 brms::pp_check(mA2, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean annoyance rating category index")
+  labs(x="Annoyance rating category index")
+
+brms::pp_check(mA2, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Annoyance rating category index")
 
 brms::pp_check(mA2, type='bars_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA2, type='bars_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA2, type='bars_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA2, type='bars_grouped', ndraws=100, group='UASOperation') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 ```
 
 ### diagnostics
 
-```{R, fig.width=35, fig.height=35}
+```{R, fig.width=25, fig.height=25}
 
 # collinearity check
 brms_vif(mA2)
@@ -871,19 +862,7 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mA2), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationTakeoff",
                                                            "b_UASTypeM300",
                                                            "b_UASTypeT150",
-                                                           "b_AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:UASTypeM300",
-                                                           "b_UASLAEMaxLRScl:UASTypeT150",
-                                                           "b_AmbientEnvStreet:UASOperationLanding",
-                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_AmbientEnvStreet:UASTypeM300",
-                                                           "b_AmbientEnvStreet:UASTypeT150",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                                                           "b_AmbientEnvStreet"),
                                off_diag_args=list(alpha=0.5, size=0.7))
 
 ```
@@ -902,94 +881,35 @@ loo::loo_compare(mA1, mA2, criterion='loo')
 
 ### visualise posterior draws for population level effects
 
-```{R, fig.width=8, fig.height=6}
+```{R}
 
-mA2_bCI_range <- bayestestR::hdi(mA2, ci = c(0.5, 0.89, 0.95))
+mA2_bCI_range <- bayestestR::hdi(mA2, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-# plot spi for within-subjects factors only
-mA2_bCI_wsf <- mA2_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASTypeM300", 
-                                 "b_UASTypeT150",
-                                 "b_UASOperationLanding",
-                                 "b_UASOperationTakeoff",
-                                 "b_AmbientEnvStreet"))
-p_mA2_bCI_wsf <- plot(mA2_bCI_wsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA2_bCI_wsf
+make_group_plot(mA2_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-# plot spi for within-subjects factor interactions only
-mA2_bCI_wsfi <- mA2_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AmbientEnvStreet:UASOperationLanding",
-                                 "b_AmbientEnvStreet:UASOperationTakeoff",
-                                 "b_AmbientEnvStreet:UASTypeM300",
-                                 "b_AmbientEnvStreet:UASTypeT150"))
+make_group_plot(mA2_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions", fill_palette = mycolours)
 
-p_mA2_bCI_wsfi <- plot(mA2_bCI_wsfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA2_bCI_wsfi
+make_group_plot(mA2_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-# plot spi for within-subjects covariates only
-mA2_bCI_wsc <- mA2_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_PartTrialNumberScl"))
-p_mA2_bCI_wsc <- plot(mA2_bCI_wsc, show_intercept=F) +
-    theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA2_bCI_wsc
+make_group_plot(mA2_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-# plot spi for within-subjects covariate-factor interactions only
-mA2_bCI_wscfi <- mA2_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                 "b_UASLAEMaxLRScl:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:UASTypeM300",
-                                 "b_UASLAEMaxLRScl:UASTypeT150",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"))
+make_group_plot(mA2_bCI_range,
+                "Within-subjects covariate interactions",
+                "Within-subjects covariate interactions",
+                fill_palette = mycolours)
 
-p_mA2_bCI_wscfi <- plot(mA2_bCI_wscfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariate-factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA2_bCI_wscfi
+make_group_plot(mA2_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-# plot spi for between-subjects factors only
-mA2_bCI_bsf <- mA2_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_NationGeo2UK", "b_AAM_attitude2Ambiv_Concern_Neutral",
-                                 "b_Home_Area2Urban", "b_SexMale", 
-                                 "b_Area_soundscape2Unpleasant"))
-p_mA2_bCI_bsf <- plot(mA2_bCI_bsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA2_bCI_bsf
+make_group_plot(mA2_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
-# plot spi for between-subjects covariates only
-mA2_bCI_bsc <- mA2_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AgeScl", "b_NoiseSensitivityScl"))
-
-p_mA2_bCI_bsc <- plot(mA2_bCI_bsc, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA2_bCI_bsc
 
 ```
 
@@ -999,7 +919,8 @@ p_mA2_bCI_bsc
 
 ```{R}
 
-mA3_pop_level <- setdiff(mA2_pop_level, c("AmbientEnv*UASType"))
+mA3_pop_level <- prune_terms(mA2_pop_level, c("AmbientEnv:UASType"),
+                             sanitize_fn=sanitize_var_brms)
 
 mA3_grp_level <- mA2_grp_level
 
@@ -1077,29 +998,35 @@ summary(mA3)
 
 brms::pp_check(mA3, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean annoyance rating category index")
+  labs(x="Annoyance rating category index")
+
+brms::pp_check(mA3, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Annoyance rating category index")
 
 brms::pp_check(mA3, type='bars_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA3, type='bars_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA3, type='bars_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA3, type='bars_grouped', ndraws=100, group='UASOperation') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 ```
 
 ### diagnostics
 
-```{R, fig.width=35, fig.height=35}
+```{R, fig.width=25, fig.height=25}
 
 # collinearity check
 brms_vif(mA3)
@@ -1110,17 +1037,7 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mA3), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationTakeoff",
                                                            "b_UASTypeM300",
                                                            "b_UASTypeT150",
-                                                           "b_AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:UASTypeM300",
-                                                           "b_UASLAEMaxLRScl:UASTypeT150",
-                                                           "b_AmbientEnvStreet:UASOperationLanding",
-                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                                                           "b_AmbientEnvStreet"),
                                off_diag_args=list(alpha=0.5, size=0.7))
 
 ```
@@ -1139,92 +1056,34 @@ loo::loo_compare(mA1, mA2, mA3, criterion='loo')
 
 ### visualise posterior draws for population level effects
 
-```{R, fig.width=8, fig.height=6}
+```{R}
 
-mA3_bCI_range <- bayestestR::hdi(mA3, ci = c(0.5, 0.89, 0.95))
+mA3_bCI_range <- bayestestR::hdi(mA3, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-# plot spi for within-subjects factors only
-mA3_bCI_wsf <- mA3_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASTypeM300", 
-                                 "b_UASTypeT150",
-                                 "b_UASOperationLanding",
-                                 "b_UASOperationTakeoff",
-                                 "b_AmbientEnvStreet"))
-p_mA3_bCI_wsf <- plot(mA3_bCI_wsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA3_bCI_wsf
+make_group_plot(mA3_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-# plot spi for within-subjects factor interactions only
-mA3_bCI_wsfi <- mA3_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AmbientEnvStreet:UASOperationLanding",
-                                 "b_AmbientEnvStreet:UASOperationTakeoff"))
+make_group_plot(mA3_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions", fill_palette = mycolours)
 
-p_mA3_bCI_wsfi <- plot(mA3_bCI_wsfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA3_bCI_wsfi
+make_group_plot(mA3_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-# plot spi for within-subjects covariates only
-mA3_bCI_wsc <- mA3_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_PartTrialNumberScl"))
-p_mA3_bCI_wsc <- plot(mA3_bCI_wsc, show_intercept=F) +
-    theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA3_bCI_wsc
+make_group_plot(mA3_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-# plot spi for within-subjects covariate-factor interactions only
-mA3_bCI_wscfi <- mA3_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                 "b_UASLAEMaxLRScl:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:UASTypeM300",
-                                 "b_UASLAEMaxLRScl:UASTypeT150",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"))
+make_group_plot(mA3_bCI_range,
+                "Within-subjects covariate interactions",
+                "Within-subjects covariate interactions",
+                fill_palette = mycolours)
 
-p_mA3_bCI_wscfi <- plot(mA3_bCI_wscfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariate-factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA3_bCI_wscfi
+make_group_plot(mA3_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-# plot spi for between-subjects factors only
-mA3_bCI_bsf <- mA3_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_NationGeo2UK", "b_AAM_attitude2Ambiv_Concern_Neutral",
-                                 "b_Home_Area2Urban", "b_SexMale", 
-                                 "b_Area_soundscape2Unpleasant"))
-p_mA3_bCI_bsf <- plot(mA3_bCI_bsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA3_bCI_bsf
-
-# plot spi for between-subjects covariates only
-mA3_bCI_bsc <- mA3_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AgeScl", "b_NoiseSensitivityScl"))
-
-p_mA3_bCI_bsc <- plot(mA3_bCI_bsc, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA3_bCI_bsc
+make_group_plot(mA3_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
 ```
 
@@ -1234,8 +1093,8 @@ p_mA3_bCI_bsc
 
 ```{R}
 
-mA4_pop_level <- setdiff(mA3_pop_level, c("UASLAEMaxLRScl*UASType"))
-mA4_pop_level <- unique(c(mA4_pop_level, "UASType"))
+mA4_pop_level <- prune_terms(mA3_pop_level, c("UASLAEMaxLRScl:UASType"),
+                             sanitize_fn=sanitize_var_brms)
 
 mA4_grp_level <- mA3_grp_level
 
@@ -1313,29 +1172,35 @@ summary(mA4)
 
 brms::pp_check(mA4, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean annoyance rating category index")
+  labs(x="Annoyance rating category index")
+
+brms::pp_check(mA4, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Annoyance rating category index")
 
 brms::pp_check(mA4, type='bars_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA4, type='bars_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA4, type='bars_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA4, type='bars_grouped', ndraws=100, group='UASOperation') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 ```
 
 ### diagnostics
 
-```{R, fig.width=35, fig.height=35}
+```{R, fig.width=25, fig.height=25}
 
 # collinearity check
 brms_vif(mA4)
@@ -1346,15 +1211,7 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mA4), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationTakeoff",
                                                            "b_UASTypeM300",
                                                            "b_UASTypeT150",
-                                                           "b_AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                                           "b_AmbientEnvStreet:UASOperationLanding",
-                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                                                           "b_AmbientEnvStreet"),
                                off_diag_args=list(alpha=0.5, size=0.7))
 
 ```
@@ -1373,90 +1230,34 @@ loo::loo_compare(mA1, mA2, mA3, mA4, criterion='loo')
 
 ### visualise posterior draws for population level effects
 
-```{R, fig.width=8, fig.height=6}
+```{R}
 
-mA4_bCI_range <- bayestestR::hdi(mA4, ci = c(0.5, 0.89, 0.95))
+mA4_bCI_range <- bayestestR::hdi(mA4, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-# plot spi for within-subjects factors only
-mA4_bCI_wsf <- mA4_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASTypeM300", 
-                                 "b_UASTypeT150",
-                                 "b_UASOperationLanding",
-                                 "b_UASOperationTakeoff",
-                                 "b_AmbientEnvStreet"))
-p_mA4_bCI_wsf <- plot(mA4_bCI_wsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA4_bCI_wsf
+make_group_plot(mA4_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-# plot spi for within-subjects factor interactions only
-mA4_bCI_wsfi <- mA4_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AmbientEnvStreet:UASOperationLanding",
-                                 "b_AmbientEnvStreet:UASOperationTakeoff"))
+make_group_plot(mA4_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions", fill_palette = mycolours)
 
-p_mA4_bCI_wsfi <- plot(mA4_bCI_wsfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA4_bCI_wsfi
+make_group_plot(mA4_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-# plot spi for within-subjects covariates only
-mA4_bCI_wsc <- mA4_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_PartTrialNumberScl"))
-p_mA4_bCI_wsc <- plot(mA4_bCI_wsc, show_intercept=F) +
-    theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA4_bCI_wsc
+make_group_plot(mA4_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-# plot spi for within-subjects covariate-factor interactions only
-mA4_bCI_wscfi <- mA4_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                 "b_UASLAEMaxLRScl:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"))
+make_group_plot(mA4_bCI_range,
+                "Within-subjects covariate interactions",
+                "Within-subjects covariate interactions",
+                fill_palette = mycolours)
 
-p_mA4_bCI_wscfi <- plot(mA4_bCI_wscfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariate-factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA4_bCI_wscfi
+make_group_plot(mA4_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-# plot spi for between-subjects factors only
-mA4_bCI_bsf <- mA4_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_NationGeo2UK", "b_AAM_attitude2Ambiv_Concern_Neutral",
-                                 "b_Home_Area2Urban", "b_SexMale", 
-                                 "b_Area_soundscape2Unpleasant"))
-p_mA4_bCI_bsf <- plot(mA4_bCI_bsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA4_bCI_bsf
-
-# plot spi for between-subjects covariates only
-mA4_bCI_bsc <- mA4_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AgeScl", "b_NoiseSensitivityScl"))
-
-p_mA4_bCI_bsc <- plot(mA4_bCI_bsc, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA4_bCI_bsc
+make_group_plot(mA4_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
 ```
 
@@ -1554,29 +1355,35 @@ summary(mA5)
 
 brms::pp_check(mA5, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean annoyance rating category index")
+  labs(x="Annoyance rating category index")
+
+brms::pp_check(mA5, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Annoyance rating category index")
 
 brms::pp_check(mA5, type='bars_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA5, type='bars_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA5, type='bars_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA5, type='bars_grouped', ndraws=100, group='UASOperation') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 ```
 
 ### diagnostics
 
-```{R, fig.width=35, fig.height=35}
+```{R, fig.width=25, fig.height=25}
 
 # collinearity check
 brms_vif(mA5)
@@ -1587,15 +1394,7 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mA5), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationTakeoff",
                                                            "b_UASTypeM300",
                                                            "b_UASTypeT150",
-                                                           "b_AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                                           "b_AmbientEnvStreet:UASOperationLanding",
-                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                                                           "b_AmbientEnvStreet"),
                                off_diag_args=list(alpha=0.5, size=0.7))
 
 ```
@@ -1681,8 +1480,8 @@ if (saveplots){
 
 mA6_pop_level <- mA5_pop_level
 
-mA6_grp_level_id <- setdiff(mA5_grp_level_id, c("UASLAEMaxLRScl*AmbientEnv*UASOperation"))
-mA6_grp_level_id <- unique(c(mA6_grp_level_id, "AmbientEnv*UASOperation", "UASLAEMaxLRScl*UASOperation"))
+mA6_grp_level_id <- prune_terms(mA5_grp_level_id, c("UASLAEMaxLRScl:AmbientEnv:UASOperation"),
+                                sanitize_fn=sanitize_var_brms)
 
 mA6_grp_level <- list(ID = mA6_grp_level_id,
                       StimID = c())
@@ -1762,25 +1561,41 @@ summary(mA6)
 
 brms::pp_check(mA6, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean annoyance rating category index")
+  labs(x="Annoyance rating category index")
+
+brms::pp_check(mA6, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Annoyance rating category index")
 
 brms::pp_check(mA6, type='bars_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA6, type='bars_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA6, type='bars_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA6, type='bars_grouped', ndraws=100, group='UASOperation') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
+
+brms::pp_check(mA6, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    labs(x="Mean posterior predictive error", y = "UASLAEMaxLRScl")
 
 brms::pp_check(mA6, type = "stat_grouped", group = "AmbientEnv",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mA6, type = "stat_grouped", group = "UASEvents",
                stat = "sd", ndraws = 100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Group-level standard deviation")
@@ -2001,25 +1816,41 @@ summary(mA7)
 
 brms::pp_check(mA7, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean annoyance rating category index")
+  labs(x="Annoyance rating category index")
+
+brms::pp_check(mA7, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Annoyance rating category index")
 
 brms::pp_check(mA7, type='bars_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA7, type='bars_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA7, type='bars_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
 
 brms::pp_check(mA7, type='bars_grouped', ndraws=100, group='UASOperation') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance")
+  labs(x="Annoyance rating category index")
+
+brms::pp_check(mA7, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    labs(x="Mean posterior predictive error", y = "UASLAEMaxLRScl")
 
 brms::pp_check(mA7, type = "stat_grouped", group = "AmbientEnv",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mA7, type = "stat_grouped", group = "UASEvents",
                stat = "sd", ndraws = 100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Group-level standard deviation")
@@ -2038,7 +1869,7 @@ brms::pp_check(mA7, type = "stat_grouped", group = "UASType",
 
 ### diagnostics
 
-```{R, fig.width=35, fig.height=35}
+```{R, fig.width=25, fig.height=25}
 
 # collinearity check
 brms_vif(mA7)
@@ -2049,15 +1880,7 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mA7), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationTakeoff",
                                                            "b_UASTypeM300",
                                                            "b_UASTypeT150",
-                                                           "b_AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                                           "b_AmbientEnvStreet:UASOperationLanding",
-                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                                                           "b_AmbientEnvStreet"),
                                off_diag_args=list(alpha=0.5, size=0.7))
 
 ```
@@ -2076,86 +1899,37 @@ loo::loo_compare(mA1, mA2, mA3, mA4, mA5, mA6, mA7, criterion='loo')
 
 ### visualise posterior draws for population level effects
 
-```{R, fig.width=24, fig.height=12}
+```{R}
 
-mA7_bCI_range <- bayestestR::hdi(mA7, ci = c(0.5, 0.89, 0.95))
+mA7_bCI_range <- bayestestR::hdi(mA7, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-# plot spi for within-subjects factors only
-mA7_bCI_wsf <- mA7_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASTypeM300", 
-                                 "b_UASTypeT150",
-                                 "b_UASOperationLanding",
-                                 "b_UASOperationTakeoff",
-                                 "b_AmbientEnvStreet"))
-p_mA7_bCI_wsf <- plot(mA7_bCI_wsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mA7_bCI_wsf <- make_group_plot(mA7_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-# plot spi for within-subjects factor interactions only
-mA7_bCI_wsfi <- mA7_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AmbientEnvStreet:UASOperationLanding",
-                                 "b_AmbientEnvStreet:UASOperationTakeoff"))
+p_mA7_bCI_wsfi <- make_group_plot(mA7_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions", fill_palette = mycolours)
 
-p_mA7_bCI_wsfi <- plot(mA7_bCI_wsfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mA7_bCI_wsc <- make_group_plot(mA7_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-# plot spi for within-subjects covariates only
-mA7_bCI_wsc <- mA7_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_PartTrialNumberScl"))
-p_mA7_bCI_wsc <- plot(mA7_bCI_wsc, show_intercept=F) +
-    theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mA7_bCI_wscfi <- make_group_plot(mA7_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-# plot spi for within-subjects covariate-factor interactions only
-mA7_bCI_wscfi <- mA7_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                 "b_UASLAEMaxLRScl:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"))
+p_mA7_bCI_wsci <- make_group_plot(mA7_bCI_range,
+                "Within-subjects covariate interactions",
+                "Within-subjects covariate interactions",
+                fill_palette = mycolours)
 
-p_mA7_bCI_wscfi <- plot(mA7_bCI_wscfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariate-factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mA7_bCI_bsf <- make_group_plot(mA7_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-# plot spi for between-subjects factors only
-mA7_bCI_bsf <- mA7_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_NationGeo2UK", "b_AAM_attitude2Ambiv_Concern_Neutral",
-                                 "b_Home_Area2Urban", "b_SexMale", 
-                                 "b_Area_soundscape2Unpleasant"))
-p_mA7_bCI_bsf <- plot(mA7_bCI_bsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mA7_bCI_bsc <- make_group_plot(mA7_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
-# plot spi for between-subjects covariates only
-mA7_bCI_bsc <- mA7_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AgeScl", "b_NoiseSensitivityScl"))
 
-p_mA7_bCI_bsc <- plot(mA7_bCI_bsc, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-
-(p_mA7_bCI_wsf | p_mA7_bCI_wsfi | p_mA7_bCI_wsc) / (p_mA7_bCI_wscfi | p_mA7_bCI_bsf | p_mA7_bCI_bsc)
+(p_mA7_bCI_wsf | p_mA7_bCI_wsfi | p_mA7_bCI_wsc | p_mA7_bCI_wsci) / (p_mA7_bCI_wscfi | p_mA7_bCI_bsf | p_mA7_bCI_bsc)
 
 if (saveplots){
   
@@ -2350,35 +2124,47 @@ summary(mA8)
 
 ```{r}
 
-mA8PostCheck <- brms::pp_check(mA8, ndraws=100) +
+brms::pp_check(mA8, ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA8PostCheck
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
 
-mA8PostCheckEnv <- brms::pp_check(mA8, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
-  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA8PostCheckEnv
+brms::pp_check(mA8, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    scale_y_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Annoyance rating")
 
-mA8PostCheckEvt <- brms::pp_check(mA8, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+brms::pp_check(mA8, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA8PostCheckEvt
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
 
-mA8PostCheckType <- brms::pp_check(mA8, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+brms::pp_check(mA8, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA8PostCheckType
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
 
-mA8PostCheckOp <- brms::pp_check(mA8, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+brms::pp_check(mA8, type='dens_overlay_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA8PostCheckOp
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
+
+brms::pp_check(mA8, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
+
+brms::pp_check(mA8, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    labs(x="Mean posterior predictive error", y = "UASLAEMaxLRScl")
+
+brms::pp_check(mA8, type = "stat_grouped", group = "UASEvents",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
 
 brms::pp_check(mA8, type = "stat_grouped", group = "AmbientEnv",
                stat = "sd", ndraws = 100) +
@@ -2399,7 +2185,7 @@ brms::pp_check(mA8, type = "stat_grouped", group = "UASType",
 
 ### diagnostics
 
-```{R, fig.width=35, fig.height=35}
+```{R, fig.width=25, fig.height=25}
 
 # collinearity check
 brms_vif(mA8)
@@ -2410,15 +2196,7 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mA8), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationTakeoff",
                                                            "b_UASTypeM300",
                                                            "b_UASTypeT150",
-                                                           "b_AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                                           "b_AmbientEnvStreet:UASOperationLanding",
-                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                                                           "b_AmbientEnvStreet"),
                                off_diag_args=list(alpha=0.5, size=0.7))
 
 ```
@@ -2525,35 +2303,47 @@ summary(mA9)
 
 ```{r}
 
-mA9PostCheck <- brms::pp_check(mA9, ndraws=100) +
+brms::pp_check(mA9, ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA9PostCheck
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
 
-mA9PostCheckEnv <- brms::pp_check(mA9, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
-  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA9PostCheckEnv
+brms::pp_check(mA9, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    scale_y_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Annoyance rating")
 
-mA9PostCheckEvt <- brms::pp_check(mA9, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+brms::pp_check(mA9, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA9PostCheckEvt
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
 
-mA9PostCheckType <- brms::pp_check(mA9, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+brms::pp_check(mA9, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA9PostCheckType
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
 
-mA9PostCheckOp <- brms::pp_check(mA9, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+brms::pp_check(mA9, type='dens_overlay_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA9PostCheckOp
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
+
+brms::pp_check(mA9, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
+
+brms::pp_check(mA9, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    labs(x="Mean posterior predictive error", y = "UASLAEMaxLRScl")
+
+brms::pp_check(mA9, type = "stat_grouped", group = "UASEvents",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
 
 brms::pp_check(mA9, type = "stat_grouped", group = "AmbientEnv",
                stat = "sd", ndraws = 100) +
@@ -2574,7 +2364,7 @@ brms::pp_check(mA9, type = "stat_grouped", group = "UASType",
 
 ### diagnostics
 
-```{R, fig.width=35, fig.height=35}
+```{R, fig.width=25, fig.height=25}
 
 # collinearity check
 brms_vif(mA9)
@@ -2585,15 +2375,7 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mA9), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationTakeoff",
                                                            "b_UASTypeM300",
                                                            "b_UASTypeT150",
-                                                           "b_AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                                           "b_AmbientEnvStreet:UASOperationLanding",
-                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                                                           "b_AmbientEnvStreet"),
                                off_diag_args=list(alpha=0.5, size=0.7))
 
 ```
@@ -2679,88 +2461,32 @@ if (saveplots){
 
 ```{R, fig.width=24, fig.height=12}
 
-mA9_bCI_range <- bayestestR::hdi(mA9, ci = c(0.5, 0.89, 0.95))
+mA9_bCI_range <- bayestestR::hdi(mA9, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-# plot spi for within-subjects factors only
-mA9_bCI_wsf <- mA9_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASTypeM300", 
-                                 "b_UASTypeT150",
-                                 "b_UASOperationLanding",
-                                 "b_UASOperationTakeoff",
-                                 "b_AmbientEnvStreet"))
-p_mA9_bCI_wsf <- plot(mA9_bCI_wsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA9_bCI_wsf
+p_mA9_bCI_wsf <- make_group_plot(mA9_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-# plot spi for within-subjects factor interactions only
-mA9_bCI_wsfi <- mA9_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AmbientEnvStreet:UASOperationLanding",
-                                 "b_AmbientEnvStreet:UASOperationTakeoff"))
+p_mA9_bCI_wsfi <- make_group_plot(mA9_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions", fill_palette = mycolours)
 
-p_mA9_bCI_wsfi <- plot(mA9_bCI_wsfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA9_bCI_wsfi
+p_mA9_bCI_wsc <- make_group_plot(mA9_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-# plot spi for within-subjects covariates only
-mA9_bCI_wsc <- mA9_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_PartTrialNumberScl"))
-p_mA9_bCI_wsc <- plot(mA9_bCI_wsc, show_intercept=F) +
-    theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA9_bCI_wsc
+p_mA9_bCI_wscfi <- make_group_plot(mA9_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-# plot spi for within-subjects covariate-factor interactions only
-mA9_bCI_wscfi <- mA9_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                 "b_UASLAEMaxLRScl:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"))
+p_mA9_bCI_wsci <- make_group_plot(mA9_bCI_range,
+                "Within-subjects covariate interactions",
+                "Within-subjects covariate interactions",
+                fill_palette = mycolours)
 
-p_mA9_bCI_wscfi <- plot(mA9_bCI_wscfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariate-factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA9_bCI_wscfi
+p_mA9_bCI_bsf <- make_group_plot(mA9_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-# plot spi for between-subjects factors only
-mA9_bCI_bsf <- mA9_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_NationGeo2UK", "b_AAM_attitude2Ambiv_Concern_Neutral",
-                                 "b_Home_Area2Urban", "b_SexMale", 
-                                 "b_Area_soundscape2Unpleasant"))
-p_mA9_bCI_bsf <- plot(mA9_bCI_bsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA9_bCI_bsf
-
-# plot spi for between-subjects covariates only
-mA9_bCI_bsc <- mA9_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AgeScl", "b_NoiseSensitivityScl"))
-
-p_mA9_bCI_bsc <- plot(mA9_bCI_bsc, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mA9_bCI_bsc
+p_mA9_bCI_bsc <- make_group_plot(mA9_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
 (p_mA9_bCI_wsf | p_mA9_bCI_wsfi | p_mA9_bCI_wsc) / (p_mA9_bCI_wscfi | p_mA9_bCI_bsf | p_mA9_bCI_bsc)
 
@@ -3688,35 +3414,47 @@ summary(mA10)
 
 ```{r}
 
-mA10PostCheck <- brms::pp_check(mA10, ndraws=100) +
+brms::pp_check(mA10, ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA10PostCheck
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
 
-mA10PostCheckEnv <- brms::pp_check(mA10, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
-  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA10PostCheckEnv
+brms::pp_check(mA10, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    scale_y_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Annoyance rating")
 
-mA10PostCheckEvt <- brms::pp_check(mA10, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+brms::pp_check(mA10, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA10PostCheckEvt
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
 
-mA10PostCheckType <- brms::pp_check(mA10, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+brms::pp_check(mA10, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA10PostCheckType
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
 
-mA10PostCheckOp <- brms::pp_check(mA10, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+brms::pp_check(mA10, type='dens_overlay_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA10PostCheckOp
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
+
+brms::pp_check(mA10, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
+
+brms::pp_check(mA10, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    labs(x="Mean posterior predictive error", y = "UASLAEMaxLRScl")
+
+brms::pp_check(mA10, type = "stat_grouped", group = "UASEvents",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
 
 brms::pp_check(mA10, type = "stat_grouped", group = "AmbientEnv",
                stat = "sd", ndraws = 100) +
@@ -3737,7 +3475,7 @@ brms::pp_check(mA10, type = "stat_grouped", group = "UASType",
 
 ### diagnostics
 
-```{R, fig.width=35, fig.height=35}
+```{R, fig.width=25, fig.height=25}
 
 # collinearity check
 brms_vif(mA10)
@@ -3748,15 +3486,7 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mA10), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationTakeoff",
                                                            "b_UASTypeM300",
                                                            "b_UASTypeT150",
-                                                           "b_AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                                           "b_AmbientEnvStreet:UASOperationLanding",
-                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                                                           "b_AmbientEnvStreet"),
                                off_diag_args=list(alpha=0.5, size=0.7))
 
 ```
@@ -3860,35 +3590,47 @@ summary(mA11)
 
 ```{r}
 
-mA11PostCheck <- brms::pp_check(mA11, ndraws=100) +
+brms::pp_check(mA11, ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA11PostCheck
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
 
-mA11PostCheckEnv <- brms::pp_check(mA11, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
-  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA11PostCheckEnv
+brms::pp_check(mA11, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    scale_y_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Annoyance rating")
 
-mA11PostCheckEvt <- brms::pp_check(mA11, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+brms::pp_check(mA11, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA11PostCheckEvt
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
 
-mA11PostCheckType <- brms::pp_check(mA11, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+brms::pp_check(mA11, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA11PostCheckType
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
 
-mA11PostCheckOp <- brms::pp_check(mA11, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+brms::pp_check(mA11, type='dens_overlay_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA11PostCheckOp
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
+
+brms::pp_check(mA11, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
+
+brms::pp_check(mA11, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    labs(x="Mean posterior predictive error", y = "UASLAEMaxLRScl")
+
+brms::pp_check(mA11, type = "stat_grouped", group = "UASEvents",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
 
 brms::pp_check(mA11, type = "stat_grouped", group = "AmbientEnv",
                stat = "sd", ndraws = 100) +
@@ -3909,7 +3651,7 @@ brms::pp_check(mA11, type = "stat_grouped", group = "UASType",
 
 ### diagnostics
 
-```{R, fig.width=35, fig.height=35}
+```{R, fig.width=25, fig.height=25}
 
 # collinearity check
 brms_vif(mA11)
@@ -3920,15 +3662,7 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mA11), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationTakeoff",
                                                            "b_UASTypeM300",
                                                            "b_UASTypeT150",
-                                                           "b_AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                                           "b_AmbientEnvStreet:UASOperationLanding",
-                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                                                           "b_AmbientEnvStreet"),
                                off_diag_args=list(alpha=0.5, size=0.7))
 
 ```
@@ -4033,35 +3767,47 @@ summary(mA12)
 
 ```{r}
 
-mA12PostCheck <- brms::pp_check(mA12, ndraws=100) +
+brms::pp_check(mA12, ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA12PostCheck
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
 
-mA12PostCheckEnv <- brms::pp_check(mA12, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
-  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA12PostCheckEnv
+brms::pp_check(mA12, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    scale_y_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Annoyance rating")
 
-mA12PostCheckEvt <- brms::pp_check(mA12, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+brms::pp_check(mA12, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA12PostCheckEvt
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
 
-mA12PostCheckType <- brms::pp_check(mA12, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+brms::pp_check(mA12, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA12PostCheckType
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
 
-mA12PostCheckOp <- brms::pp_check(mA12, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+brms::pp_check(mA12, type='dens_overlay_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.2),labels=seq(0, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean annoyance rating")
-mA12PostCheckOp
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
+
+brms::pp_check(mA12, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(0, 10, by=1), limits=c(0, 1)) +
+  labs(x="Annoyance rating")
+
+brms::pp_check(mA12, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    labs(x="Mean posterior predictive error", y = "UASLAEMaxLRScl")
+
+brms::pp_check(mA12, type = "stat_grouped", group = "UASEvents",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
 
 brms::pp_check(mA12, type = "stat_grouped", group = "AmbientEnv",
                stat = "sd", ndraws = 100) +
@@ -4082,7 +3828,7 @@ brms::pp_check(mA12, type = "stat_grouped", group = "UASType",
 
 ### diagnostics
 
-```{R, fig.width=35, fig.height=35}
+```{R, fig.width=25, fig.height=25}
 
 # collinearity check
 brms_vif(mA12)
@@ -4093,15 +3839,7 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mA12), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationTakeoff",
                                                            "b_UASTypeM300",
                                                            "b_UASTypeT150",
-                                                           "b_AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                                           "b_AmbientEnvStreet:UASOperationLanding",
-                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                                                           "b_AmbientEnvStreet"),
                                off_diag_args=list(alpha=0.5, size=0.7))
 
 ```
@@ -4125,6 +3863,15 @@ loo::loo_compare(mA8, mA9, mA10, mA11, mA12, criterion='loo')
 ### Model dA1 formula
 
 ```{R}
+
+role_lookup <- c(
+  UASType = "wsf", UASOperation = "wsf",
+  AmbientEnv = "wsf",
+  Ilog10UASEvents = "wsc", PartTrialNumberScl = "wsc", UASLAEMaxLRScl = "wsc",
+  NationGeo2 = "bsf", AAM_attitude2 = "bsf", Home_Area2 = "bsf",
+  Sex = "bsf", Area_soundscape2 = "bsf",
+  AgeScl = "bsc", NoiseSensitivityScl = "bsc"
+)
 
 mdA1_pop_level <- c("PartTrialNumberScl",
                    "UASLAEMaxLRScl*I(log10(UASEvents))",
@@ -4228,29 +3975,35 @@ summary(mdA1)
 
 brms::pp_check(mdA1, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
+
+brms::pp_check(mdA1, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA1, type='bars_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA1, type='bars_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA1, type='bars_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA1, type='bars_grouped', ndraws=100, group='UASOperation') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 ```
 
 ### diagnostics
 
-```{R, fig.width=35, fig.height=35}
+```{R, fig.width=25, fig.height=25}
 
 # collinearity check
 brms_vif(mdA1)
@@ -4261,25 +4014,7 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA1), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationTakeoff",
                                                            "b_UASTypeM300",
                                                            "b_UASTypeT150",
-                                                           "b_AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:UASTypeM300",
-                                                           "b_UASLAEMaxLRScl:UASTypeT150",
-                                                           "b_UASOperationLanding:UASTypeM300",
-                                                           "b_UASOperationLanding:UASTypeT150",
-                                                           "b_UASOperationTakeoff:UASTypeM300",
-                                                           "b_UASOperationTakeoff:UASTypeT150",
-                                                           "b_AmbientEnvStreet:UASOperationLanding",
-                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_AmbientEnvStreet:UASTypeM300",
-                                                           "b_AmbientEnvStreet:UASTypeT150",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeM300",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeT150"),
+                                                           "b_AmbientEnvStreet"),
                                off_diag_args=list(alpha=0.5, size=0.7))
 
 ```
@@ -4296,100 +4031,35 @@ get_Br2_table(mdA1)
 
 ### visualise posterior draws for population level effects
 
-```{R, fig.width=8, fig.height=6}
+```{R}
 
-mdA1_bCI_range <- bayestestR::hdi(mdA1, ci = c(0.5, 0.89, 0.95))
+mdA1_bCI_range <- bayestestR::hdi(mdA1, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-# plot spi for within-subjects factors only
-mdA1_bCI_wsf <- mdA1_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASTypeM300", 
-                                 "b_UASTypeT150",
-                                 "b_UASOperationLanding",
-                                 "b_UASOperationTakeoff",
-                                 "b_AmbientEnvStreet"))
-p_mdA1_bCI_wsf <- plot(mdA1_bCI_wsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA1_bCI_wsf
+make_group_plot(mdA1_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-# plot spi for within-subjects factor interactions only
-mdA1_bCI_wsfi <- mdA1_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASOperationLanding:UASTypeM300",
-                                 "b_UASOperationLanding:UASTypeT150",
-                                 "b_UASOperationTakeoff:UASTypeM300",
-                                 "b_UASOperationTakeoff:UASTypeT150",
-                                 "b_AmbientEnvStreet:UASOperationLanding",
-                                 "b_AmbientEnvStreet:UASOperationTakeoff",
-                                 "b_AmbientEnvStreet:UASTypeM300",
-                                 "b_AmbientEnvStreet:UASTypeT150"))
+make_group_plot(mdA1_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions", fill_palette = mycolours)
 
-p_mdA1_bCI_wsfi <- plot(mdA1_bCI_wsfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA1_bCI_wsfi
+make_group_plot(mdA1_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-# plot spi for within-subjects covariates only
-mdA1_bCI_wsc <- mdA1_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_PartTrialNumberScl"))
-p_mdA1_bCI_wsc <- plot(mdA1_bCI_wsc, show_intercept=F) +
-    theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA1_bCI_wsc
+make_group_plot(mdA1_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-# plot spi for within-subjects covariate-factor interactions only
-mdA1_bCI_wscfi <- mdA1_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                 "b_UASLAEMaxLRScl:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:UASTypeM300",
-                                 "b_UASLAEMaxLRScl:UASTypeT150",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeM300",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeT150"))
+make_group_plot(mdA1_bCI_range,
+                "Within-subjects covariate interactions",
+                "Within-subjects covariate interactions",
+                fill_palette = mycolours)
 
-p_mdA1_bCI_wscfi <- plot(mdA1_bCI_wscfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariate-factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA1_bCI_wscfi
+make_group_plot(mdA1_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-# plot spi for between-subjects factors only
-mdA1_bCI_bsf <- mdA1_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_NationGeo2UK", "b_AAM_attitude2Ambiv_Concern_Neutral",
-                                 "b_Home_Area2Urban", "b_SexMale", 
-                                 "b_Area_soundscape2Unpleasant"))
-p_mdA1_bCI_bsf <- plot(mdA1_bCI_bsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA1_bCI_bsf
+make_group_plot(mdA1_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
-# plot spi for between-subjects covariates only
-mdA1_bCI_bsc <- mdA1_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AgeScl", "b_NoiseSensitivityScl"))
-
-p_mdA1_bCI_bsc <- plot(mdA1_bCI_bsc, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA1_bCI_bsc
 
 ```
 
@@ -4399,8 +4069,8 @@ p_mdA1_bCI_bsc
 
 ```{R}
 
-mdA2_pop_level <- setdiff(mdA1_pop_level, c("UASLAEMaxLRScl*AmbientEnv*UASType"))
-mdA2_pop_level <- unique(c(mdA2_pop_level, "UASLAEMaxLRScl*UASType", "AmbientEnv*UASType"))
+mdA2_pop_level <- prune_terms(mdA1_pop_level, c("UASLAEMaxLRScl:AmbientEnv:UASType"),
+                              sanitize_fn=sanitize_var_brms)
 
 mdA2_grp_level <- mdA1_grp_level
 
@@ -4478,29 +4148,35 @@ summary(mdA2)
 
 brms::pp_check(mdA2, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
+
+brms::pp_check(mdA2, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA2, type='bars_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA2, type='bars_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA2, type='bars_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA2, type='bars_grouped', ndraws=100, group='UASOperation') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 ```
 
 ### diagnostics
 
-```{R, fig.width=35, fig.height=35}
+```{R, fig.width=25, fig.height=25}
 
 # collinearity check
 brms_vif(mdA2)
@@ -4511,23 +4187,7 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA2), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationTakeoff",
                                                            "b_UASTypeM300",
                                                            "b_UASTypeT150",
-                                                           "b_AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:UASTypeM300",
-                                                           "b_UASLAEMaxLRScl:UASTypeT150",
-                                                           "b_UASOperationLanding:UASTypeM300",
-                                                           "b_UASOperationLanding:UASTypeT150",
-                                                           "b_UASOperationTakeoff:UASTypeM300",
-                                                           "b_UASOperationTakeoff:UASTypeT150",
-                                                           "b_AmbientEnvStreet:UASOperationLanding",
-                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_AmbientEnvStreet:UASTypeM300",
-                                                           "b_AmbientEnvStreet:UASTypeT150",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                                                           "b_AmbientEnvStreet"),
                                off_diag_args=list(alpha=0.5, size=0.7))
 
 ```
@@ -4546,100 +4206,35 @@ loo::loo_compare(mdA1, mdA2, criterion='loo')
 
 ### visualise posterior draws for population level effects
 
-```{R, fig.width=8, fig.height=6}
+```{R}
 
-mdA2_bCI_range <- bayestestR::hdi(mdA2, ci = c(0.5, 0.89, 0.95))
+mdA2_bCI_range <- bayestestR::hdi(mdA2, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-# plot spi for within-subjects factors only
-mdA2_bCI_wsf <- mdA2_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASTypeM300", 
-                                 "b_UASTypeT150",
-                                 "b_UASOperationLanding",
-                                 "b_UASOperationTakeoff",
-                                 "b_AmbientEnvStreet"))
-p_mdA2_bCI_wsf <- plot(mdA2_bCI_wsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA2_bCI_wsf
+make_group_plot(mdA2_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-# plot spi for within-subjects factor interactions only
-mdA2_bCI_wsfi <- mdA2_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASOperationLanding:UASTypeM300",
-                                 "b_UASOperationLanding:UASTypeT150",
-                                 "b_UASOperationTakeoff:UASTypeM300",
-                                 "b_UASOperationTakeoff:UASTypeT150",
-                                 "b_AmbientEnvStreet:UASOperationLanding",
-                                 "b_AmbientEnvStreet:UASOperationTakeoff",
-                                 "b_AmbientEnvStreet:UASTypeM300",
-                                 "b_AmbientEnvStreet:UASTypeT150"))
+make_group_plot(mdA2_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions", fill_palette = mycolours)
 
-p_mdA2_bCI_wsfi <- plot(mdA2_bCI_wsfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA2_bCI_wsfi
+make_group_plot(mdA2_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-# plot spi for within-subjects covariates only
-mdA2_bCI_wsc <- mdA2_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_PartTrialNumberScl"))
-p_mdA2_bCI_wsc <- plot(mdA2_bCI_wsc, show_intercept=F) +
-    theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA2_bCI_wsc
+make_group_plot(mdA2_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-# plot spi for within-subjects covariate-factor interactions only
-mdA2_bCI_wscfi <- mdA2_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                 "b_UASLAEMaxLRScl:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:UASTypeM300",
-                                 "b_UASLAEMaxLRScl:UASTypeT150",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeM300",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeT150"))
+make_group_plot(mdA2_bCI_range,
+                "Within-subjects covariate interactions",
+                "Within-subjects covariate interactions",
+                fill_palette = mycolours)
 
-p_mdA2_bCI_wscfi <- plot(mdA2_bCI_wscfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariate-factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA2_bCI_wscfi
+make_group_plot(mdA2_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-# plot spi for between-subjects factors only
-mdA2_bCI_bsf <- mdA2_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_NationGeo2UK", "b_AAM_attitude2Ambiv_Concern_Neutral",
-                                 "b_Home_Area2Urban", "b_SexMale", 
-                                 "b_Area_soundscape2Unpleasant"))
-p_mdA2_bCI_bsf <- plot(mdA2_bCI_bsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA2_bCI_bsf
+make_group_plot(mdA2_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
-# plot spi for between-subjects covariates only
-mdA2_bCI_bsc <- mdA2_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AgeScl", "b_NoiseSensitivityScl"))
-
-p_mdA2_bCI_bsc <- plot(mdA2_bCI_bsc, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA2_bCI_bsc
 
 ```
 
@@ -4649,7 +4244,8 @@ p_mdA2_bCI_bsc
 
 ```{R}
 
-mdA3_pop_level <- setdiff(mdA2_pop_level, c("AmbientEnv*UASType"))
+mdA3_pop_level <- prune_terms(mdA2_pop_level, c("AmbientEnv:UASType"),
+                              sanitize_fn=sanitize_var_brms)
 
 mdA3_grp_level <- mdA2_grp_level
 
@@ -4719,6 +4315,7 @@ mdA3$criteria$bayes_R2_MZ_conditional <- as.data.frame(bayes_R2_MZ(mdA3, re_form
 
 summary(mdA3)
 
+
 ```
 
 ### posterior check
@@ -4727,29 +4324,35 @@ summary(mdA3)
 
 brms::pp_check(mdA3, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
+
+brms::pp_check(mdA3, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA3, type='bars_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA3, type='bars_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA3, type='bars_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA3, type='bars_grouped', ndraws=100, group='UASOperation') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 ```
 
 ### diagnostics
 
-```{R, fig.width=35, fig.height=35}
+```{R, fig.width=25, fig.height=25}
 
 # collinearity check
 brms_vif(mdA3)
@@ -4760,21 +4363,7 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA3), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationTakeoff",
                                                            "b_UASTypeM300",
                                                            "b_UASTypeT150",
-                                                           "b_AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:UASTypeM300",
-                                                           "b_UASLAEMaxLRScl:UASTypeT150",
-                                                           "b_UASOperationLanding:UASTypeM300",
-                                                           "b_UASOperationLanding:UASTypeT150",
-                                                           "b_UASOperationTakeoff:UASTypeM300",
-                                                           "b_UASOperationTakeoff:UASTypeT150",
-                                                           "b_AmbientEnvStreet:UASOperationLanding",
-                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                                                           "b_AmbientEnvStreet"),
                                off_diag_args=list(alpha=0.5, size=0.7))
 
 ```
@@ -4793,98 +4382,34 @@ loo::loo_compare(mdA1, mdA2, mdA3, criterion='loo')
 
 ### visualise posterior draws for population level effects
 
-```{R, fig.width=8, fig.height=6}
+```{R}
 
-mdA3_bCI_range <- bayestestR::hdi(mdA3, ci = c(0.5, 0.89, 0.95))
+mdA3_bCI_range <- bayestestR::hdi(mdA3, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-# plot spi for within-subjects factors only
-mdA3_bCI_wsf <- mdA3_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASTypeM300", 
-                                 "b_UASTypeT150",
-                                 "b_UASOperationLanding",
-                                 "b_UASOperationTakeoff",
-                                 "b_AmbientEnvStreet"))
-p_mdA3_bCI_wsf <- plot(mdA3_bCI_wsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA3_bCI_wsf
+make_group_plot(mdA3_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-# plot spi for within-subjects factor interactions only
-mdA3_bCI_wsfi <- mdA3_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASOperationLanding:UASTypeM300",
-                                 "b_UASOperationLanding:UASTypeT150",
-                                 "b_UASOperationTakeoff:UASTypeM300",
-                                 "b_UASOperationTakeoff:UASTypeT150",
-                                 "b_AmbientEnvStreet:UASOperationLanding",
-                                 "b_AmbientEnvStreet:UASOperationTakeoff"))
+make_group_plot(mdA3_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions", fill_palette = mycolours)
 
-p_mdA3_bCI_wsfi <- plot(mdA3_bCI_wsfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA3_bCI_wsfi
+make_group_plot(mdA3_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-# plot spi for within-subjects covariates only
-mdA3_bCI_wsc <- mdA3_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_PartTrialNumberScl"))
-p_mdA3_bCI_wsc <- plot(mdA3_bCI_wsc, show_intercept=F) +
-    theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA3_bCI_wsc
+make_group_plot(mdA3_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-# plot spi for within-subjects covariate-factor interactions only
-mdA3_bCI_wscfi <- mdA3_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                 "b_UASLAEMaxLRScl:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:UASTypeM300",
-                                 "b_UASLAEMaxLRScl:UASTypeT150",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeM300",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeT150"))
+make_group_plot(mdA3_bCI_range,
+                "Within-subjects covariate interactions",
+                "Within-subjects covariate interactions",
+                fill_palette = mycolours)
 
-p_mdA3_bCI_wscfi <- plot(mdA3_bCI_wscfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariate-factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA3_bCI_wscfi
+make_group_plot(mdA3_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-# plot spi for between-subjects factors only
-mdA3_bCI_bsf <- mdA3_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_NationGeo2UK", "b_AAM_attitude2Ambiv_Concern_Neutral",
-                                 "b_Home_Area2Urban", "b_SexMale", 
-                                 "b_Area_soundscape2Unpleasant"))
-p_mdA3_bCI_bsf <- plot(mdA3_bCI_bsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA3_bCI_bsf
-
-# plot spi for between-subjects covariates only
-mdA3_bCI_bsc <- mdA3_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AgeScl", "b_NoiseSensitivityScl"))
-
-p_mdA3_bCI_bsc <- plot(mdA3_bCI_bsc, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA3_bCI_bsc
+make_group_plot(mdA3_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
 ```
 
@@ -4894,8 +4419,8 @@ p_mdA3_bCI_bsc
 
 ```{R}
 
-mdA4_pop_level <- setdiff(mdA2_pop_level, c("UASOperation*UASType"))
-mdA4_pop_level <- unique(c(mdA4_pop_level, "UASType"))
+mdA4_pop_level <- prune_terms(mdA2_pop_level, c("UASOperation:UASType"),
+                              sanitize_fn=sanitize_var_brms)
 
 mdA4_grp_level <- mdA3_grp_level
 
@@ -4973,29 +4498,35 @@ summary(mdA4)
 
 brms::pp_check(mdA4, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
+
+brms::pp_check(mdA4, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA4, type='bars_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA4, type='bars_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA4, type='bars_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA4, type='bars_grouped', ndraws=100, group='UASOperation') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 ```
 
 ### diagnostics
 
-```{R, fig.width=35, fig.height=35}
+```{R, fig.width=25, fig.height=25}
 
 # collinearity check
 brms_vif(mdA4)
@@ -5006,17 +4537,7 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA4), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationTakeoff",
                                                            "b_UASTypeM300",
                                                            "b_UASTypeT150",
-                                                           "b_AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:UASTypeM300",
-                                                           "b_UASLAEMaxLRScl:UASTypeT150",
-                                                           "b_AmbientEnvStreet:UASOperationLanding",
-                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                                                           "b_AmbientEnvStreet"),
                                off_diag_args=list(alpha=0.5, size=0.7))
 
 ```
@@ -5035,96 +4556,34 @@ loo::loo_compare(mdA1, mdA2, mdA3, mdA4, criterion='loo')
 
 ### visualise posterior draws for population level effects
 
-```{R, fig.width=8, fig.height=6}
+```{R}
 
-mdA4_bCI_range <- bayestestR::hdi(mdA4, ci = c(0.5, 0.89, 0.95))
+mdA4_bCI_range <- bayestestR::hdi(mdA4, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-# plot spi for within-subjects factors only
-mdA4_bCI_wsf <- mdA4_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASTypeM300", 
-                                 "b_UASTypeT150",
-                                 "b_UASOperationLanding",
-                                 "b_UASOperationTakeoff",
-                                 "b_AmbientEnvStreet"))
-p_mdA4_bCI_wsf <- plot(mdA4_bCI_wsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA4_bCI_wsf
+make_group_plot(mdA4_bCI_range, "Within-subjects factors",
+                "Within-subjects factors", fill_palette = mycolours)
 
-# plot spi for within-subjects factor interactions only
-mdA4_bCI_wsfi <- mdA4_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AmbientEnvStreet:UASOperationLanding",
-                                 "b_AmbientEnvStreet:UASOperationTakeoff"))
+make_group_plot(mdA4_bCI_range, "Within-subjects factor interactions",
+                "Within-subjects factor interactions", fill_palette = mycolours)
 
-p_mdA4_bCI_wsfi <- plot(mdA4_bCI_wsfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA4_bCI_wsfi
+make_group_plot(mdA4_bCI_range, "Within-subjects covariates",
+                "Within-subjects covariates", fill_palette = mycolours)
 
-filename <- "dAnnoyMnExpMod_wsfiCI_brmsOb_wsfi"
+make_group_plot(mdA4_bCI_range,
+                "Within-subjects covariate-factor interactions",
+                "Within-subjects covariate-factor interactions",
+                fill_palette = mycolours)
 
-# plot spi for within-subjects covariates only
-mdA4_bCI_wsc <- mdA4_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_PartTrialNumberScl"))
-p_mdA4_bCI_wsc <- plot(mdA4_bCI_wsc, show_intercept=F) +
-    theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA4_bCI_wsc
+make_group_plot(mdA4_bCI_range,
+                "Within-subjects covariate interactions",
+                "Within-subjects covariate interactions",
+                fill_palette = mycolours)
 
-# plot spi for within-subjects covariate-factor interactions only
-mdA4_bCI_wscfi <- mdA4_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                 "b_UASLAEMaxLRScl:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:UASTypeM300",
-                                 "b_UASLAEMaxLRScl:UASTypeT150",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeM300",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeT150"))
+make_group_plot(mdA4_bCI_range, "Between-subjects factors",
+                "Between-subjects factors", fill_palette = mycolours)
 
-p_mdA4_bCI_wscfi <- plot(mdA4_bCI_wscfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariate-factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA4_bCI_wscfi
-
-# plot spi for between-subjects factors only
-mdA4_bCI_bsf <- mdA4_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_NationGeo2UK", "b_AAM_attitude2Ambiv_Concern_Neutral",
-                                 "b_Home_Area2Urban", "b_SexMale", 
-                                 "b_Area_soundscape2Unpleasant"))
-p_mdA4_bCI_bsf <- plot(mdA4_bCI_bsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA4_bCI_bsf
-
-# plot spi for between-subjects covariates only
-mdA4_bCI_bsc <- mdA4_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AgeScl", "b_NoiseSensitivityScl"))
-
-p_mdA4_bCI_bsc <- plot(mdA4_bCI_bsc, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-p_mdA4_bCI_bsc
+make_group_plot(mdA4_bCI_range, "Between-subjects covariates",
+                "Between-subjects covariates", fill_palette = mycolours)
 
 ```
 
@@ -5221,29 +4680,35 @@ summary(mdA5)
 
 brms::pp_check(mdA5, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
+
+brms::pp_check(mdA5, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA5, type='bars_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA5, type='bars_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA5, type='bars_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA5, type='bars_grouped', ndraws=100, group='UASOperation') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 ```
 
 ### diagnostics
 
-```{R, fig.width=35, fig.height=35}
+```{R, fig.width=25, fig.height=25}
 
 # collinearity check
 brms_vif(mdA5)
@@ -5254,17 +4719,7 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA5), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationTakeoff",
                                                            "b_UASTypeM300",
                                                            "b_UASTypeT150",
-                                                           "b_AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:UASTypeM300",
-                                                           "b_UASLAEMaxLRScl:UASTypeT150",
-                                                           "b_AmbientEnvStreet:UASOperationLanding",
-                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                                                           "b_AmbientEnvStreet"),
                                off_diag_args=list(alpha=0.5, size=0.7))
 
 ```
@@ -5330,7 +4785,7 @@ p_sd | (p_sd_rel + theme(axis.title.y = element_blank(), axis.text.y = element_b
 
 if (saveplots){
   
-  filename <- "PtsABdAnnoyMnExpMod_MaxSD_brmsCo"
+  filename <- "PtsABdAnnoyMn_ExpMod_MaxSD_brmsCo"
 
   ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=12,
          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
@@ -5350,8 +4805,9 @@ if (saveplots){
 
 mdA6_pop_level <- mdA5_pop_level
 
-mdA6_grp_level_id <- setdiff(mdA5_grp_level_id, c("UASLAEMaxLRScl*AmbientEnv*UASOperation"))
-mdA6_grp_level_id <- unique(c(mdA6_grp_level_id, "AmbientEnv*UASOperation", "UASLAEMaxLRScl*UASOperation"))
+mdA6_grp_level_id <- prune_terms(mdA5_grp_level_id, c("UASLAEMaxLRScl:AmbientEnv:UASOperation",
+                                                      "UASLAEMaxLRScl:AmbientEnv"),
+                                 sanitize_fn=sanitize_var_brms)
 
 mdA6_grp_level <- list(ID = mdA6_grp_level_id,
                       StimID = c())
@@ -5430,29 +4886,35 @@ summary(mdA6)
 
 brms::pp_check(mdA6, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
+
+brms::pp_check(mdA6, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA6, type='bars_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA6, type='bars_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA6, type='bars_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA6, type='bars_grouped', ndraws=100, group='UASOperation') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 ```
 
 ### diagnostics
 
-```{R, fig.width=35, fig.height=35}
+```{R, fig.width=25, fig.height=25}
 
 # collinearity check
 brms_vif(mdA6)
@@ -5463,17 +4925,7 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA6), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationTakeoff",
                                                            "b_UASTypeM300",
                                                            "b_UASTypeT150",
-                                                           "b_AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:UASTypeM300",
-                                                           "b_UASLAEMaxLRScl:UASTypeT150",
-                                                           "b_AmbientEnvStreet:UASOperationLanding",
-                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                                                           "b_AmbientEnvStreet"),
                                off_diag_args=list(alpha=0.5, size=0.7))
 
 ```
@@ -5651,29 +5103,61 @@ summary(mdA7)
 
 brms::pp_check(mdA7, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
+
+brms::pp_check(mdA7, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA7, type='bars_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA7, type='bars_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA7, type='bars_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
 
 brms::pp_check(mdA7, type='bars_grouped', ndraws=100, group='UASOperation') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  labs(x="Mean change in annoyance category index (-7 to 10)")
+  labs(x="Change in annoyance category index (-7 to 10)")
+
+brms::pp_check(mdA7, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    labs(x="Mean posterior predictive error", y = "UASLAEMaxLRScl")
+
+brms::pp_check(mdA7, type = "stat_grouped", group = "AmbientEnv",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA7, type = "stat_grouped", group = "UASEvents",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA7, type = "stat_grouped", group = "UASOperation",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA7, type = "stat_grouped", group = "UASType",
+               stat ="sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
 
 ```
 
 ### diagnostics
 
-```{R, fig.width=35, fig.height=35}
+```{R, fig.width=25, fig.height=25}
 
 # collinearity check
 brms_vif(mdA7)
@@ -5684,17 +5168,7 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA7), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationTakeoff",
                                                            "b_UASTypeM300",
                                                            "b_UASTypeT150",
-                                                           "b_AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:UASTypeM300",
-                                                           "b_UASLAEMaxLRScl:UASTypeT150",
-                                                           "b_AmbientEnvStreet:UASOperationLanding",
-                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                                                           "b_AmbientEnvStreet"),
                                off_diag_args=list(alpha=0.5, size=0.7))
 
 ```
@@ -5713,91 +5187,36 @@ loo::loo_compare(mdA1, mdA2, mdA3, mdA4, mdA5, mdA6, mdA7, criterion='loo')
 
 ### visualise posterior draws for population level effects
 
-```{R, fig.width=8, fig.height=6}
+```{R}
 
-mdA7_bCI_range <- bayestestR::hdi(mdA7, ci = c(0.5, 0.89, 0.95))
+mdA7_bCI_range <- bayestestR::hdi(mdA7, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-# plot spi for within-subjects factors only
-mdA7_bCI_wsf <- mdA7_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASTypeM300", 
-                                 "b_UASTypeT150",
-                                 "b_UASOperationLanding",
-                                 "b_UASOperationTakeoff",
-                                 "b_AmbientEnvStreet"))
-p_mdA7_bCI_wsf <- plot(mdA7_bCI_wsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mdA7_bCI_wsf <- make_group_plot(mdA7_bCI_range, "Within-subjects factors",
+                                "Within-subjects factors", fill_palette = mycolours)
 
-# plot spi for within-subjects factor interactions only
-mdA7_bCI_wsfi <- mdA7_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AmbientEnvStreet:UASOperationLanding",
-                                 "b_AmbientEnvStreet:UASOperationTakeoff"))
+p_mdA7_bCI_wsfi <- make_group_plot(mdA7_bCI_range, "Within-subjects factor interactions",
+                          "Within-subjects factor interactions", fill_palette = mycolours)
 
-p_mdA7_bCI_wsfi <- plot(mdA7_bCI_wsfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mdA7_bCI_wsc <- make_group_plot(mdA7_bCI_range, "Within-subjects covariates",
+                                "Within-subjects covariates", fill_palette = mycolours)
 
-# plot spi for within-subjects covariates only
-mdA7_bCI_wsc <- mdA7_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_PartTrialNumberScl"))
-p_mdA7_bCI_wsc <- plot(mdA7_bCI_wsc, show_intercept=F) +
-    theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mdA7_bCI_wscfi <- make_group_plot(mdA7_bCI_range,
+                                "Within-subjects covariate-factor interactions",
+                                "Within-subjects covariate-factor interactions",
+                                fill_palette = mycolours)
 
-# plot spi for within-subjects covariate-factor interactions only
-mdA7_bCI_wscfi <- mdA7_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                 "b_UASLAEMaxLRScl:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:UASTypeM300",
-                                 "b_UASLAEMaxLRScl:UASTypeT150",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeM300",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeT150"))
+p_mdA7_bCI_wsci <- make_group_plot(mdA7_bCI_range,
+                                  "Within-subjects covariate interactions",
+                                  "Within-subjects covariate interactions",
+                                  fill_palette = mycolours)
 
-p_mdA7_bCI_wscfi <- plot(mdA7_bCI_wscfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariate-factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mdA7_bCI_bsf <- make_group_plot(mdA7_bCI_range, "Between-subjects factors",
+                                  "Between-subjects factors", fill_palette = mycolours)
 
-# plot spi for between-subjects factors only
-mdA7_bCI_bsf <- mdA7_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_NationGeo2UK", "b_AAM_attitude2Ambiv_Concern_Neutral",
-                                 "b_Home_Area2Urban", "b_SexMale", 
-                                 "b_Area_soundscape2Unpleasant"))
-p_mdA7_bCI_bsf <- plot(mdA7_bCI_bsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mdA7_bCI_bsc <- make_group_plot(mdA7_bCI_range, "Between-subjects covariates",
+                                "Between-subjects covariates", fill_palette = mycolours)
 
-# plot spi for between-subjects covariates only
-mdA7_bCI_bsc <- mdA7_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AgeScl", "b_NoiseSensitivityScl"))
-
-p_mdA7_bCI_bsc <- plot(mdA7_bCI_bsc, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
-
-
-(p_mdA7_bCI_wsf | p_mdA7_bCI_wsfi | p_mdA7_bCI_wsc) / (p_mdA7_bCI_wscfi | p_mdA7_bCI_bsf | p_mdA7_bCI_bsc)
+(p_mdA7_bCI_wsf | p_mdA7_bCI_wsfi | p_mdA7_bCI_wsc | p_mdA7_bCI_wsci) / (p_mdA7_bCI_wscfi | p_mdA7_bCI_bsf | p_mdA7_bCI_bsc)
 
 if (saveplots) {
   
@@ -5862,7 +5281,7 @@ p_sd | (p_sd_rel + theme(axis.title.y = element_blank(), axis.text.y = element_b
 
 if (saveplots){
   
-  filename <- "PtsABdAnnoyMnExpMod_SD_brmsCo"
+  filename <- "PtsABdAnnoyMn_ExpMod_SD_brmsCo"
 
   ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=12,
          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
@@ -5871,6 +5290,192 @@ if (saveplots){
   ggsave(filename=paste(filename, ".pdf", sep=""), width=12, height=12, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 }
+
+```
+
+## mdA7.2 add to scale model
+
+### Model dA7.2 formula
+
+```{R}
+
+mdA7.2_pop_level <- mdA7_pop_level
+
+mdA7.2_grp_level <- mdA7_grp_level
+
+mdA7.2_dpar_pop_level <- "I(log10(UASEvents))"
+
+mdA7.2_dpar_grp_level <- list(ID = c())
+
+mdA7.2formula <- build_bf(y = "dAnnoyanceOrd",
+                        fixed = mdA7.2_pop_level,
+                        re = mdA7.2_grp_level,
+                       dpars = list(disc = list(fixed = mdA7.2_dpar_pop_level,
+                                                re = mdA7.2_dpar_grp_level,
+                                                intercept=FALSE)))
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+priorsdA7.2 <- c(
+  # mean model
+  brms::set_prior("normal(0, 1)", class='b', dpar='mu'),
+  brms::set_prior("normal(0, 1)", class = "sd", lb = 0, dpar='mu'),  # half-normal via lb=0
+  brms::prior(normal(0.2, 0.5), class='b', coef='UASLAEMaxLRScl', dpar='mu'),
+  brms::prior(normal(1.5, 1), class='b', coef='Ilog10UASEvents', dpar='mu'),
+  brms::prior(normal(0.1, 0.5), class='b', coef='PartTrialNumberScl', dpar='mu'),
+  brms::prior_string(paste0("normal(", emp_threshdA1,", 16)"), class = "Intercept", coef = 1:length(emp_threshdA1)),
+  # discrimination model
+  brms::set_prior("normal(0, 0.5)", class = "sd", lb = 0, dpar = "disc"),
+  brms::set_prior("normal(0, 1)", class = "b", dpar = "disc")
+)
+
+tic()
+mdA7.2Priors <- brms::brm(mdA7.2formula,
+                 data=mdA1Data,
+                 family=cumulative(link='logit'),
+                 future=TRUE, backend='cmdstanr',
+                 prior=priorsdA7.2, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA7.2_ppd <- ppd_ridgeplot(mdA7.2Priors, ndraws = 100)
+mdA7.2_ppd
+
+mdA7.2PriorCheck <- brms::pp_check(mdA7.2Priors, type='bars', ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Mean annoyance rating category index")
+
+mdA7.2PriorCheck
+
+tic()
+mdA7.2 <- brms::brm(mdA7.2formula,
+                 data=mdA1Data,
+                 family=cumulative(link='logit'),
+                 future=TRUE, backend='cmdstanr',
+                 prior=priorsdA7.2, control=list(adapt_delta=0.95),
+                 threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+                 seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA7.2 <- brms::add_criterion(mdA7.2, criterion=c('loo', 'loo_R2'),
+                           cores=n_cores,
+                           reloo=reloo_flag,
+                           overwrite=TRUE,
+                           chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                           backend='cmdstanr',
+                           future_args=list(future.seed=TRUE))
+toc()
+
+mdA7.2$criteria$bayes_R2_MZ_marginal <- as.data.frame(bayes_R2_MZ(mdA7.2, re_formula=NA))
+mdA7.2$criteria$bayes_R2_MZ_conditional <- as.data.frame(bayes_R2_MZ(mdA7.2, re_formula=NULL))
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA7.2)
+
+```
+
+### posterior check
+
+```{r}
+
+brms::pp_check(mdA7.2, type='bars', ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Change in annoyance category index (-7 to 10)")
+
+brms::pp_check(mdA7.2, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Change in annoyance category index (-7 to 10)")
+
+brms::pp_check(mdA7.2, type='bars_grouped', ndraws=100, group='AmbientEnv') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Change in annoyance category index (-7 to 10)")
+
+brms::pp_check(mdA7.2, type='bars_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Change in annoyance category index (-7 to 10)")
+
+brms::pp_check(mdA7.2, type='bars_grouped', ndraws=100, group='UASType') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Change in annoyance category index (-7 to 10)")
+
+brms::pp_check(mdA7.2, type='bars_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Change in annoyance category index (-7 to 10)")
+
+brms::pp_check(mdA7.2, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    labs(x="Mean posterior predictive error", y = "UASLAEMaxLRScl")
+
+brms::pp_check(mdA7.2, type = "stat_grouped", group = "AmbientEnv",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA7.2, type = "stat_grouped", group = "UASEvents",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA7.2, type = "stat_grouped", group = "UASOperation",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA7.2, type = "stat_grouped", group = "UASType",
+               stat ="sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+
+```
+
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA7.2)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA7.2), pars = c("b_UASLAEMaxLRScl",
+                                                           "b_Ilog10UASEvents",
+                                                           "b_UASOperationLanding",
+                                                           "b_UASOperationTakeoff",
+                                                           "b_UASTypeM300",
+                                                           "b_UASTypeT150",
+                                                           "b_AmbientEnvStreet"),
+                               off_diag_args=list(alpha=0.5, size=0.7))
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA7.2)
+
+get_Br2_table(mdA1, mdA2, mdA3, mdA4, mdA5, mdA6, mdA7, mdA7.2)
+
+loo::loo_compare(mdA1, mdA2, mdA3, mdA4, mdA5, mdA6, mdA7, mdA7.2, criterion='loo')
 
 ```
 
@@ -5997,35 +5602,47 @@ summary(mdA8)
 
 ```{r}
 
-mdA8PostCheck <- brms::pp_check(mdA8, ndraws=100) +
+brms::pp_check(mdA8, ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean change in annoyance")
-mdA8PostCheck
+  labs(x="Change in annoyance")
 
-mdA8PostCheckEnv <- brms::pp_check(mdA8, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
-  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
-  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean change in annoyance")
-mdA8PostCheckEnv
+brms::pp_check(mdA8, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    scale_y_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Change in annoyance")
 
-mdA8PostCheckEvt <- brms::pp_check(mdA8, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+brms::pp_check(mdA8, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean change in annoyance")
-mdA8PostCheckEvt
+  labs(x="Change in annoyance")
 
-mdA8PostCheckType <- brms::pp_check(mdA8, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+brms::pp_check(mdA8, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean change in annoyance")
-mdA8PostCheckType
+  labs(x="Change in annoyance")
 
-mdA8PostCheckOp <- brms::pp_check(mdA8, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+brms::pp_check(mdA8, type='dens_overlay_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean change in annoyance")
-mdA8PostCheckOp
+  labs(x="Change in annoyance")
+
+brms::pp_check(mdA8, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+  labs(x="Change in annoyance")
+
+brms::pp_check(mdA8, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    labs(x="Mean posterior predictive error", y = "UASLAEMaxLRScl")
+
+brms::pp_check(mdA8, type = "stat_grouped", group = "UASEvents",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
 
 brms::pp_check(mdA8, type = "stat_grouped", group = "AmbientEnv",
                stat = "sd", ndraws = 100) +
@@ -6046,7 +5663,7 @@ brms::pp_check(mdA8, type = "stat_grouped", group = "UASType",
 
 ### diagnostics
 
-```{R, fig.width=35, fig.height=35}
+```{R, fig.width=25, fig.height=25}
 
 # collinearity check
 brms_vif(mdA8)
@@ -6057,15 +5674,7 @@ bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA8), pars = c("b_UASLAEMaxLRScl",
                                                            "b_UASOperationTakeoff",
                                                            "b_UASTypeM300",
                                                            "b_UASTypeT150",
-                                                           "b_AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                                           "b_UASLAEMaxLRScl:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                                           "b_AmbientEnvStreet:UASOperationLanding",
-                                                           "b_AmbientEnvStreet:UASOperationTakeoff",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                                           "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff"),
+                                                           "b_AmbientEnvStreet"),
                                off_diag_args=list(alpha=0.5, size=0.7))
 
 ```
@@ -6090,7 +5699,7 @@ mdA9_pop_level <- mdA8_pop_level
 
 mdA9_grp_level <- mdA8_grp_level
 
-mdA9_dpar_pop_level <- c("AmbientEnv", "UASOperation")
+mdA9_dpar_pop_level <- c("AmbientEnv")
 
 mdA9_dpar_grp_level <- list(ID = c())
 
@@ -6178,6 +5787,14 @@ mdA9PostCheck <- brms::pp_check(mdA9, ndraws=100) +
   labs(x="Mean change in annoyance")
 mdA9PostCheck
 
+mdA9PostCheckLAE <- brms::pp_check(mdA9, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    scale_y_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Change in annoyance")
+mdA9PostCheckLAE
+
 mdA9PostCheckEnv <- brms::pp_check(mdA9, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
@@ -6202,6 +5819,16 @@ mdA9PostCheckOp <- brms::pp_check(mdA9, type='dens_overlay_grouped', ndraws=100,
   labs(x="Mean change in annoyance")
 mdA9PostCheckOp
 
+brms::pp_check(mdA9, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    labs(x="Mean posterior predictive error", y = "UASLAEMaxLRScl")
+
+brms::pp_check(mdA9, type = "stat_grouped", group = "UASEvents",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
 brms::pp_check(mdA9, type = "stat_grouped", group = "AmbientEnv",
                stat = "sd", ndraws = 100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
@@ -6219,6 +5846,24 @@ brms::pp_check(mdA9, type = "stat_grouped", group = "UASType",
 
 ```
 
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA9)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA9), pars = c("b_UASLAEMaxLRScl",
+                                                           "b_Ilog10UASEvents",
+                                                           "b_UASOperationLanding",
+                                                           "b_UASOperationTakeoff",
+                                                           "b_UASTypeM300",
+                                                           "b_UASTypeT150",
+                                                           "b_AmbientEnvStreet"),
+                               off_diag_args=list(alpha=0.5, size=0.7))
+
+```
+
 ### compare
 
 ```{R}
@@ -6231,15 +5876,197 @@ loo::loo_compare(mdA8, mdA9, criterion='loo')
 
 ```
 
+## mdA10 add to scale model
+
+### model dA10 formula
+
+```{r}
+
+mdA10_pop_level <- mdA9_pop_level
+
+mdA10_grp_level <- mdA9_grp_level
+
+mdA10_dpar_pop_level <- c(mdA9_dpar_pop_level, "UASOperation")
+
+mdA10_dpar_grp_level <- list(ID = "UASOperation")
+
+mdA10formula <- build_bf(y = "dAnnoyanceOrdBetaScl",
+                        fixed = mdA10_pop_level,
+                        re = mdA10_grp_level,
+                       dpars = list(phi = list(fixed=mdA10_dpar_pop_level,
+                                               re = mdA10_dpar_grp_level)))
+
+```
+
+### run model
+
+```{r}
+
+chains <- 4
+
+future::plan(future::multisession, workers = chains)
+
+tic()
+mdA10Priors <- brms::brm(mdA10formula,
+                 data=mdA8Data,
+                 family=ordbeta(link='log it'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA9, control=list(adapt_delta=0.95),
+                 sample_prior='only', seed=808,
+                 chains=chains, iter=2000, warmup=1000)
+toc()
+
+mdA10PriorCheck <- brms::pp_check(mdA10Priors, type='dens_overlay', ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+
+mdA10PriorCheck + ggplot2::coord_cartesian(ylim=c(0, 5))
+
+tic()
+mdA10 <- brms::brm(mdA10formula,
+                 data=mdA8Data,
+                 family=ordbeta(link='logit'),
+                 future=TRUE, backend='cmdstanr', init=0,
+                 prior=priorsdA9, control=list(adapt_delta=0.95),
+                 threads=threading(threads=3, static=TRUE),  # check threads*chains = n_cores
+                 seed=808, chains=chains, iter=2000, warmup=1000)
+toc()
+
+future::plan(future::multisession, workers = 6)
+
+tic()
+mdA10 <- brms::add_criterion(mdA10, criterion=c('loo', 'loo_R2'),
+                           cores=n_cores,
+                           reloo=reloo_flag,
+                           overwrite=TRUE,
+                           chains=2, iter=1500, warmup=750,  # check workers*chains = n_cores
+                           backend='cmdstanr',
+                           future_args=list(future.seed=TRUE))
+toc()
+
+mdA10$criteria$loo_R2_summary <- as.data.frame(brms::loo_R2(mdA10))
+mdA10$criteria$bayes_R2_marginal <- as.data.frame(brms::bayes_R2(mdA10, re_formula=NA))
+mdA10$criteria$bayes_R2_conditional <- as.data.frame(brms::bayes_R2(mdA10, re_formula=NULL))
+
+```
+
+### summarise
+
+```{r}
+
+summary(mdA10)
+
+```
+
+### posterior check
+
+```{r}
+
+mdA10PostCheck <- brms::pp_check(mdA10, ndraws=100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+mdA10PostCheck
+
+mdA10PostCheckLAE <- brms::pp_check(mdA10, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    scale_y_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+    labs(x = expression(UAS~italic(L)[AE]~", dB"),
+         y = "Change in annoyance")
+mdA10PostCheckLAE
+
+mdA10PostCheckEnv <- brms::pp_check(mdA10, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+mdA10PostCheckEnv
+
+mdA10PostCheckEvt <- brms::pp_check(mdA10, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+mdA10PostCheckEvt
+
+mdA10PostCheckType <- brms::pp_check(mdA10, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+mdA10PostCheckType
+
+mdA10PostCheckOp <- brms::pp_check(mdA10, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
+  labs(x="Mean change in annoyance")
+mdA10PostCheckOp
+
+brms::pp_check(mdA10, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
+    rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
+    theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
+    labs(x="Mean posterior predictive error", y = "UASLAEMaxLRScl")
+
+brms::pp_check(mdA10, type = "stat_grouped", group = "UASEvents",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA10, type = "stat_grouped", group = "AmbientEnv",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA10, type = "stat_grouped", group = "UASOperation",
+               stat = "sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+brms::pp_check(mdA10, type = "stat_grouped", group = "UASType",
+               stat ="sd", ndraws = 100) +
+  theme(panel.grid=element_blank(), text=element_text(family='serif')) +
+  labs(x="Group-level standard deviation")
+
+```
+
+### diagnostics
+
+```{R, fig.width=25, fig.height=25}
+
+# collinearity check
+brms_vif(mdA10)
+
+bayesplot::mcmc_pairs(brms::as_draws_matrix(mdA10), pars = c("b_UASLAEMaxLRScl",
+                                                           "b_Ilog10UASEvents",
+                                                           "b_UASOperationLanding",
+                                                           "b_UASOperationTakeoff",
+                                                           "b_UASTypeM300",
+                                                           "b_UASTypeT150",
+                                                           "b_AmbientEnvStreet"),
+                               off_diag_args=list(alpha=0.5, size=0.7))
+
+```
+
+### compare
+
+```{R}
+
+loo::loo(mdA10)
+
+get_Br2_table(mdA8, mdA9, mdA10)
+
+loo::loo_compare(mdA8, mdA9, mdA10, criterion='loo')
+
+```
+
 ### plot calibration
 
 ```{r}
 
 # create base datagrid
-mdA9DataFit <- insight::get_data(mdA9)
+mdA10DataFit <- insight::get_data(mdA10)
 
 set.seed(999)
-mdA9predMeans <- marginaleffects::avg_predictions(mdA9, na.omit(mdA9DataFit),
+mdA10predMeans <- marginaleffects::avg_predictions(mdA10, na.omit(mdA10DataFit),
                                                   by=c("StimID"),
                                                 re_formula = NULL,
                                                 transform=\(x) betaTransform(x, -10, 10,
@@ -6249,14 +6076,14 @@ mdA9predMeans <- marginaleffects::avg_predictions(mdA9, na.omit(mdA9DataFit),
 
 gc()
 
-R2means <- 1 - sum((stimDataNoAmb$dAnnoyMean - mdA9predMeans$estimate)^2)/sum((stimDataNoAmb$dAnnoyMean - mean(stimDataNoAmb$dAnnoyMean))^2)
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyMean - mdA10predMeans$estimate)^2)/sum((stimDataNoAmb$dAnnoyMean - mean(stimDataNoAmb$dAnnoyMean))^2)
 
-eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=mdA9predMeans,
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=mdA10predMeans,
                      measured_target='dAnnoyMean', measured_ci_low='dAnnoyMeanCI_Low',
                      measured_ci_high='dAnnoyMeanCI_High', fitted='estimate')
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
-ggplot(data=cbind(mdA9predMeans,
+ggplot(data=cbind(mdA10predMeans,
                   response=stimDataNoAmb$dAnnoyMean,
                   responseCI_Low=stimDataNoAmb$dAnnoyMeanCI_Low,
                   responseCI_High=stimDataNoAmb$dAnnoyMeanCI_High)) +
@@ -6298,91 +6125,42 @@ if (saveplots){
 
 ### visualise posterior draws for population level effects
 
-```{R, fig.width=8, fig.height=6}
+```{R}
 
-mdA9_bCI_range <- bayestestR::hdi(mdA9, ci = c(0.5, 0.89, 0.95))
+mdA10_bCI_range <- bayestestR::hdi(mdA10, ci = c(0.5, 0.89, 0.95)) |> build_coef_groups(role_lookup)
 
-# plot spi for within-subjects factors only
-mdA9_bCI_wsf <- mdA9_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASTypeM300", 
-                                 "b_UASTypeT150",
-                                 "b_UASOperationLanding",
-                                 "b_UASOperationTakeoff",
-                                 "b_AmbientEnvStreet"))
-p_mdA9_bCI_wsf <- plot(mdA9_bCI_wsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mdA10_bCI_wsf   <- make_group_plot(mdA10_bCI_range, "Within-subjects factors",
+                                    "Within-subjects factors",
+                                    fill_palette = mycolours)
 
-# plot spi for within-subjects factor interactions only
-mdA9_bCI_wsfi <- mdA9_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AmbientEnvStreet:UASOperationLanding",
-                                 "b_AmbientEnvStreet:UASOperationTakeoff"))
+p_mdA10_bCI_wsc   <- make_group_plot(mdA10_bCI_range, "Within-subjects covariates",
+                                    "Within-subjects covariates",
+                                    fill_palette = mycolours)
 
-p_mdA9_bCI_wsfi <- plot(mdA9_bCI_wsfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mdA10_bCI_wscfi <- make_group_plot(mdA10_bCI_range,
+                                    "Within-subjects covariate-factor interactions",
+                                    "Within-subjects covariate-factor interactions",
+                                    fill_palette = mycolours)
 
-# plot spi for within-subjects covariates only
-mdA9_bCI_wsc <- mdA9_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl", "b_Ilog10UASEvents", "b_PartTrialNumberScl"))
-p_mdA9_bCI_wsc <- plot(mdA9_bCI_wsc, show_intercept=F) +
-    theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mdA10_bCI_wsci   <- make_group_plot(mdA10_bCI_range, "Within-subjects covariate interactions",
+                                    "Within-subjects covariate interactions",
+                                    fill_palette = mycolours)
 
-# plot spi for within-subjects covariate-factor interactions only
-mdA9_bCI_wscfi <- mdA9_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_UASLAEMaxLRScl:Ilog10UASEvents",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet",
-                                 "b_UASLAEMaxLRScl:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:UASTypeM300",
-                                 "b_UASLAEMaxLRScl:UASTypeT150",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationLanding",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASOperationTakeoff",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeM300",
-                                 "b_UASLAEMaxLRScl:AmbientEnvStreet:UASTypeT150"))
+p_mdA10_bCI_wsfi <- make_group_plot(mdA10_bCI_range,
+                                    "Within-subjects factor interactions",
+                                    "Within-subjects factor interactions",
+                                    fill_palette = mycolours)
 
-p_mdA9_bCI_wscfi <- plot(mdA9_bCI_wscfi, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Within-subjects covariate-factor interactions",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mdA10_bCI_bsf   <- make_group_plot(mdA10_bCI_range, "Between-subjects factors",
+                                    "Between-subjects factors",
+                                    fill_palette = mycolours)
 
-# plot spi for between-subjects factors only
-mdA9_bCI_bsf <- mdA9_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_NationGeo2UK", "b_AAM_attitude2Ambiv_Concern_Neutral",
-                                 "b_Home_Area2Urban", "b_SexMale", 
-                                 "b_Area_soundscape2Unpleasant"))
-p_mdA9_bCI_bsf <- plot(mdA9_bCI_bsf, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects factors",
-       x="Coefficient posterior distribution",
-       y=NULL)
-
-# plot spi for between-subjects covariates only
-mdA9_bCI_bsc <- mdA9_bCI_range |>
-  dplyr::filter(Parameter %in% c("b_AgeScl", "b_NoiseSensitivityScl"))
-
-p_mdA9_bCI_bsc <- plot(mdA9_bCI_bsc, show_intercept=F) +
-  theme(panel.grid=element_blank(), text=element_text(family='serif', size=16)) +
-  scale_fill_manual(values=mycolours) +
-  labs(title="Between-subjects covariates",
-       x="Coefficient posterior distribution",
-       y=NULL)
+p_mdA10_bCI_bsc   <- make_group_plot(mdA10_bCI_range, "Between-subjects covariates",
+                                    "Between-subjects covariates",
+                                    fill_palette = mycolours)
 
 
-(p_mdA9_bCI_wsf | p_mdA9_bCI_wsfi | p_mdA9_bCI_wsc) / (p_mdA9_bCI_wscfi | p_mdA9_bCI_bsf | p_mdA9_bCI_bsc)
+(p_mdA10_bCI_wsf | p_mdA10_bCI_wsfi | p_mdA10_bCI_wsc | p_mdA10_bCI_wsci) / (p_mdA10_bCI_wscfi | p_mdA10_bCI_bsf | p_mdA10_bCI_bsc)
 
 if (saveplots) {
   
@@ -6402,7 +6180,7 @@ if (saveplots) {
 
 ```{r}
 
-mdA9_sd_draws <- as.data.frame(mdA9) |>
+mdA10_sd_draws <- as.data.frame(mdA10) |>
     dplyr::select(starts_with("sd_")) |>
     tidyr::pivot_longer(cols = everything(), names_to = "Parameter", values_to = "Value") |>
     dplyr::mutate(Parameter = gsub("sd_", "", Parameter)) |>  # Clean up label names
@@ -6411,7 +6189,7 @@ mdA9_sd_draws <- as.data.frame(mdA9) |>
     dplyr::ungroup()
 
 # 2. Plot using ridges with a shared x-axis and normalized curve heights
-p_sd <- ggplot(mdA9_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
+p_sd <- ggplot(mdA10_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
      theme(legend.position = "none",
             panel.grid.major.y = element_blank(),
             text = element_text(family = "serif", size=16)) +
@@ -6428,7 +6206,7 @@ p_sd <- ggplot(mdA9_sd_draws, aes(x = Value, y = Parameter, fill = Parameter)) +
     labs(x = "Estimated variation (sd scale)",
          y = "Group parameter")
 
-p_sd_rel <- ggplot(mdA9_sd_draws, aes(x = RelValue, y = Parameter, fill = Parameter)) +
+p_sd_rel <- ggplot(mdA10_sd_draws, aes(x = RelValue, y = Parameter, fill = Parameter)) +
   theme(legend.position = "none", panel.grid.major.y = element_blank(),
         text = element_text(family = "serif", size = 16)) +
   geom_vline(xintercept = 1, linetype = "dashed", colour = "grey50") +
@@ -6474,7 +6252,7 @@ transform_dAnnoy <- \(x) betaTransform(x, -10, 10, direction = 'reverse', squeez
  
 # grid_marg: LAE varies naturally with each real design cell
 grid_marg <- build_marginal_grid(
-  mdA9, within_vars = within_vars_all, between_vars = between_vars_all,
+  mdA10, within_vars = within_vars_all, between_vars = between_vars_all,
   id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
   n_new = nnew_pred, fixed_at_mean = "PartTrialNumberScl"
 )
@@ -6483,7 +6261,7 @@ grid_marg <- build_marginal_grid(
 lae_sweep <- seq(min(stimDataNoAmb$UASLAEMaxLRScl), max(stimDataNoAmb$UASLAEMaxLRScl), length.out = 11)
 
 grid_marg_lae_sweep <- build_marginal_grid(
-  mdA9, within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"), between_vars = between_vars_all,
+  mdA10, within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"), between_vars = between_vars_all,
   id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
   n_new = nnew_pred, fixed_at_mean = "PartTrialNumberScl",
   counterfactual_vars=list(UASLAEMaxLRScl=lae_sweep)
@@ -6495,7 +6273,7 @@ grid_evts_lae_sweep <- subset(grid_marg_lae_sweep,
 
 lae_step <- c(6, 12)
 grid_marg_lae_step <- build_marginal_grid(
-  mdA9, within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"), between_vars = between_vars_all,
+  mdA10, within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"), between_vars = between_vars_all,
   id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
   n_new = nnew_pred, fixed_at_mean = "PartTrialNumberScl",
   counterfactual_vars=list(UASLAEMaxLRScl=lae_step)
@@ -6507,7 +6285,7 @@ grid_evts_lae_step <- subset(grid_marg_lae_step,
 
 # grid_fixed_lae: LAE held at its mean
 grid_fixed_lae <- build_marginal_grid(
-  mdA9,
+  mdA10,
   within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"),
   between_vars = between_vars_all,
   id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
@@ -6520,7 +6298,7 @@ grid_fixed_lae <- build_marginal_grid(
 
 ```{r}
 
-mdA9predType <- avg_predictions_manual(mdA9, newdata=subset(grid_marg_lae_sweep,
+mdA10predType <- avg_predictions_manual(mdA10, newdata=subset(grid_marg_lae_sweep,
                                                          UASEvents==1),
                                               by=c("UASLAEMaxLRScl",
                                                    "UASType",
@@ -6532,7 +6310,7 @@ mdA9predType <- avg_predictions_manual(mdA9, newdata=subset(grid_marg_lae_sweep,
                                            ndraws=ndraws_pred, seed=999,
                                             transform=transform_dAnnoy)
 
-mdA9predOp <- avg_predictions_manual(mdA9, newdata=subset(grid_marg_lae_sweep,
+mdA10predOp <- avg_predictions_manual(mdA10, newdata=subset(grid_marg_lae_sweep,
                                                         UASEvents==1),
                                                 by=c("UASLAEMaxLRScl",
                                                      "UASOperation",
@@ -6544,7 +6322,7 @@ mdA9predOp <- avg_predictions_manual(mdA9, newdata=subset(grid_marg_lae_sweep,
                                                ndraws=ndraws_pred, seed=999,
                                               transform=transform_dAnnoy)
 
-mdA9predEnv <- avg_predictions_manual(mdA9, newdata=subset(grid_marg_lae_sweep,
+mdA10predEnv <- avg_predictions_manual(mdA10, newdata=subset(grid_marg_lae_sweep,
                                                       UASEvents==1),
                                               by=c("UASLAEMaxLRScl",
                                                    "AmbientEnv",
@@ -6556,7 +6334,7 @@ mdA9predEnv <- avg_predictions_manual(mdA9, newdata=subset(grid_marg_lae_sweep,
                                             transform=transform_dAnnoy)
 
 
-mdA9predEvt <- avg_predictions_manual(mdA9, newdata=subset(grid_marg_lae_sweep,
+mdA10predEvt <- avg_predictions_manual(mdA10, newdata=subset(grid_marg_lae_sweep,
                                                          AmbientEnv=="Park" &
                                                          UASOperation=="Overflight"),
                                     by=c("UASLAEMaxLRScl",
@@ -6569,7 +6347,7 @@ mdA9predEvt <- avg_predictions_manual(mdA9, newdata=subset(grid_marg_lae_sweep,
                                        ndraws=ndraws_pred, seed=999,
                                   transform=transform_dAnnoy)
 
-mdA9predEvt_step <- avg_predictions_manual(mdA9, newdata=subset(grid_marg_lae_step,
+mdA10predEvt_step <- avg_predictions_manual(mdA10, newdata=subset(grid_marg_lae_step,
                                                               AmbientEnv=="Park" &
                                                               UASOperation=="Overflight" &
                                                                 UASType %in% c("H520", "T150")),
@@ -6583,7 +6361,7 @@ mdA9predEvt_step <- avg_predictions_manual(mdA9, newdata=subset(grid_marg_lae_st
                                            ndraws=ndraws_pred, seed=999,
                                         transform=transform_dAnnoy)
 
-mdA9predAtt <- avg_predictions_adjusted_by(mdA9, newdata=grid_marg_lae_sweep,
+mdA10predAtt <- avg_predictions_adjusted_by(mdA10, newdata=grid_marg_lae_sweep,
                                      counterfactual_var="UASLAEMaxLRScl",
                                      adjust_var="AAM_attitude2",
                                       re_formula = NULL,
@@ -6592,7 +6370,7 @@ mdA9predAtt <- avg_predictions_adjusted_by(mdA9, newdata=grid_marg_lae_sweep,
                                        ndraws=ndraws_pred, seed=999,
                                      transform=transform_dAnnoy)
 
-mdA9predAoR <- avg_predictions_adjusted_by(mdA9, newdata=grid_marg_lae_sweep,
+mdA10predAoR <- avg_predictions_adjusted_by(mdA10, newdata=grid_marg_lae_sweep,
                                      counterfactual_var="UASLAEMaxLRScl",
                                         adjust_var="Home_Area2",
                                       re_formula = NULL,
@@ -6601,7 +6379,7 @@ mdA9predAoR <- avg_predictions_adjusted_by(mdA9, newdata=grid_marg_lae_sweep,
                                        ndraws=ndraws_pred, seed=999,
                                      transform=transform_dAnnoy)
 
-mdA9predScp <- avg_predictions_adjusted_by(mdA9, newdata=grid_marg_lae_sweep,
+mdA10predScp <- avg_predictions_adjusted_by(mdA10, newdata=grid_marg_lae_sweep,
                                      counterfactual_var="UASLAEMaxLRScl",
                                      adjust_var="Area_soundscape2",
                                       re_formula = NULL,
@@ -6610,15 +6388,15 @@ mdA9predScp <- avg_predictions_adjusted_by(mdA9, newdata=grid_marg_lae_sweep,
                                      ndraws=ndraws_pred, seed=999,
                                      transform=transform_dAnnoy)
 
-mdA9_op_fixed_lae <- avg_comparisons_manual(
-  mdA9, grid_fixed_lae, variable = "UASOperation", auto_orient=TRUE,
+mdA10_op_fixed_lae <- avg_comparisons_manual(
+  mdA10, grid_fixed_lae, variable = "UASOperation", auto_orient=TRUE,
   re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
   ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm',
   transform = transform_dAnnoy
 )
 
-mdA9_type_fixed_lae <- avg_comparisons_manual(
-  mdA9, grid_fixed_lae, variable = "UASType", auto_orient=TRUE,
+mdA10_type_fixed_lae <- avg_comparisons_manual(
+  mdA10, grid_fixed_lae, variable = "UASType", auto_orient=TRUE,
   re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
   ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm',
   transform = transform_dAnnoy
@@ -6635,9 +6413,9 @@ mdA9_type_fixed_lae <- avg_comparisons_manual(
 contrast_vars <- c("Sex", "NationGeo2", "AAM_attitude2", "Home_Area2",
                     "Area_soundscape2")
 
-mdA9_between_contrasts <- purrr::map_dfr(contrast_vars, function(v) {
+mdA10_between_contrasts <- purrr::map_dfr(contrast_vars, function(v) {
   res <- avg_comparisons_manual(
-    mdA9, newdata = grid_marg, variable = v, comparison_type = "pairwise",
+    mdA10, newdata = grid_marg, variable = v, comparison_type = "pairwise",
     re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
     ndraws = ndraws_pred, seed=999,
     transform = transform_dAnnoy
@@ -6658,9 +6436,9 @@ mdA9_between_contrasts <- purrr::map_dfr(contrast_vars, function(v) {
 
 slope_vars <- c("AgeScl", "NoiseSensitivityScl")
 
-mdA9_covariate_slopes <- purrr::map_dfr(slope_vars, function(v) {
+mdA10_covariate_slopes <- purrr::map_dfr(slope_vars, function(v) {
   res <- avg_slopes_manual(
-    mdA9, newdata = grid_marg, variable = v,
+    mdA10, newdata = grid_marg, variable = v,
     re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
     ndraws = ndraws_pred, seed=999,
     transform = transform_dAnnoy
@@ -6682,7 +6460,7 @@ mdA9_covariate_slopes <- purrr::map_dfr(slope_vars, function(v) {
 ```{r}
 
 
-p1 <- ggplot(data=subset(mdA9predType, UASEvents==1)) +
+p1 <- ggplot(data=subset(mdA10predType, UASEvents==1)) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
@@ -6715,7 +6493,7 @@ p1 <- ggplot(data=subset(mdA9predType, UASEvents==1)) +
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance") +
               facet_grid(rows = vars(AmbientEnv))
 
-p2 <- ggplot(data=subset(mdA9predOp, UASEvents==1)) +
+p2 <- ggplot(data=subset(mdA10predOp, UASEvents==1)) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
@@ -6748,7 +6526,7 @@ p2 <- ggplot(data=subset(mdA9predOp, UASEvents==1)) +
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance") +
               facet_grid(rows = vars(AmbientEnv))
 
-p3 <- ggplot(data=subset(mdA9predEnv, UASEvents==1)) +
+p3 <- ggplot(data=subset(mdA10predEnv, UASEvents==1)) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14),
@@ -6784,7 +6562,7 @@ p3 <- ggplot(data=subset(mdA9predEnv, UASEvents==1)) +
               labs(y="Mean change in annoyance")
 
 
-p4 <- ggplot(data=subset(mdA9predEvt, AmbientEnv=='Park' & UASOperation=='Overflight')) +
+p4 <- ggplot(data=subset(mdA10predEvt, AmbientEnv=='Park' & UASOperation=='Overflight')) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
@@ -6872,7 +6650,7 @@ if (saveplots){
   unlink(paste(filename, ".pdf", sep=""))
 }
 
-p5 <- ggplot(data=subset(mdA9predEvt_step, UASOperation=="Overflight" & AmbientEnv=="Park")) +
+p5 <- ggplot(data=subset(mdA10predEvt_step, UASOperation=="Overflight" & AmbientEnv=="Park")) +
               theme(panel.grid = element_blank(), aspect.ratio=0.8,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
@@ -6932,7 +6710,7 @@ if (saveplots){
   unlink(paste(filename, ".pdf", sep=""))
 }
 
-p6 <- ggplot(data=mdA9predAtt) +
+p6 <- ggplot(data=mdA10predAtt) +
               theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
                     panel.grid.minor = element_blank(),
                     aspect.ratio=1.35, text = element_text(family = "serif", size=16),
@@ -6956,7 +6734,7 @@ p6 <- ggplot(data=mdA9predAtt) +
               
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
 
-p7 <- ggplot(data=mdA9predAoR) +
+p7 <- ggplot(data=mdA10predAoR) +
               theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
                     panel.grid.minor = element_blank(),
                     aspect.ratio=1.35, text = element_text(family = "serif", size=16),
@@ -6981,7 +6759,7 @@ p7 <- ggplot(data=mdA9predAoR) +
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y="Mean change in annoyance")
 
 
-p8 <- ggplot(data=mdA9predScp) +
+p8 <- ggplot(data=mdA10predScp) +
               theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
                     panel.grid.minor = element_blank(),
                     aspect.ratio=1.35, text = element_text(family = "serif", size=16),
@@ -7026,7 +6804,7 @@ if (saveplots){
 
 ```{r}
 
-p_type <- ggplot(data=mdA9_type_fixed_lae,
+p_type <- ggplot(data=mdA10_type_fixed_lae,
                            aes(x = contrast, y = estimate, colour=contrast)) +
   theme(panel.grid = element_blank(),
         panel.grid.major.y = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
@@ -7063,9 +6841,9 @@ p_type <- ggplot(data=mdA9_type_fixed_lae,
   scale_colour_manual(values = mycolours) +
   guides(colour = "none") +
   coord_cartesian(ylim=c(-0.2, 1)) +
-  labs(x = NULL, y = expression("Difference in"~bar(Delta*A)))
+  labs(x = NULL, y = expression("Difference in"~Delta*A))
 
-p_op <- ggplot(data=mdA9_op_fixed_lae,
+p_op <- ggplot(data=mdA10_op_fixed_lae,
                            aes(x = contrast, y = estimate, colour=contrast)) +
   theme(panel.grid = element_blank(),
         panel.grid.major.y = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
@@ -7101,7 +6879,7 @@ p_op <- ggplot(data=mdA9_op_fixed_lae,
   scale_colour_manual(values = mycolours) +
   guides(colour = "none") +
   coord_cartesian(ylim=c(-0.2, 1)) +
-  labs(x = NULL, y = expression("Difference in"~bar(Delta*A)))
+  labs(x = NULL, y = expression("Difference in"~Delta*A))
 
 (p_type | p_op) + patchwork::plot_layout(axis_titles='collect', axes='collect_y', widths=c(1.5, 2))
 
@@ -7127,7 +6905,7 @@ if (saveplots) {
 
 # Forest plot: one row per contrast, point = estimate, whiskers = 95% CI,
 # dashed reference line at zero
-p_between_fac <- ggplot(mdA9_between_contrasts, aes(x = estimate,
+p_between_fac <- ggplot(mdA10_between_contrasts, aes(x = estimate,
                             y = y_label,
                             colour=variable)) +
   theme(panel.grid = element_blank(),
@@ -7165,9 +6943,9 @@ p_between_fac <- ggplot(mdA9_between_contrasts, aes(x = estimate,
   guides(colour = "none") +
   
   geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
-  labs(x = expression("Difference in"~bar(A)), y = NULL)
+  labs(x = expression("Difference in"~Delta*A), y = NULL)
 
-p_between_cov <- ggplot(mdA9_covariate_slopes, aes(x = estimate, y = variable, colour = variable)) +
+p_between_cov <- ggplot(mdA10_covariate_slopes, aes(x = estimate, y = variable, colour = variable)) +
   theme(panel.grid = element_blank(),
         text = element_text(family = "serif", size = 16),
         axis.text = element_text(family = "serif", size = 14),
@@ -7204,7 +6982,7 @@ p_between_cov <- ggplot(mdA9_covariate_slopes, aes(x = estimate, y = variable, c
   guides(colour = "none") +
   
   geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
-  labs(x = expression("Slope of"~bar(A)~"per unit increase"), y = NULL)
+  labs(x = expression("Slope of"~Delta*A~"per unit increase"), y = NULL)
 
 (p_between_fac | p_between_cov) + plot_layout(widths = c(2, 1))
 
