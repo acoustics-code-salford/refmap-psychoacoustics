@@ -3,7 +3,7 @@ require(broom)
 require(tidyverse)
 
 ## Compare GEE correlation structures by model performance
-geeCorStr <- function(formula, data, family, id,
+geeCorStr <- function(formula, data, family, id, waves=NULL,
                       corstr = c("Exchangeable", "AR-M-dependent", "Stationary-M-dependent",
                                  "Independence", "Unstructured", "Non-Stationary-M-dependent"),
                       m_lag = 1, ..., verbose = FALSE) {
@@ -11,8 +11,17 @@ geeCorStr <- function(formula, data, family, id,
   # Resolve id and inject it into data under a fixed name, so glmgee's
   # internal eval(id, envir = data, ...) finds it regardless of environment
   id_vec <- eval(substitute(id), data, parent.frame())
-  data <- data
   data[[".geeCorStr_id"]] <- id_vec
+  
+  # Resolve waves the same way as id, since glmgee does its own NSE lookup
+  # on this argument too - forwarding it unevaluated through ... breaks
+  # once geeCorStr is itself called from inside another function layer
+  waves_sym <- substitute(waves)
+  has_waves <- !is.null(waves_sym) && !identical(waves_sym, quote(NULL))
+  if (has_waves) {
+    waves_vec <- eval(waves_sym, data, parent.frame())
+    data[[".geeCorStr_waves"]] <- waves_vec
+  }
   
   corstr_choices <- match.arg(corstr, several.ok = TRUE)
   corstr_formatted <- ifelse(grepl("M-dependent", corstr_choices),
@@ -29,8 +38,14 @@ geeCorStr <- function(formula, data, family, id,
       warn_msgs <- character(0)
       
       fit <- withCallingHandlers({
-        glmtoolbox::glmgee(formula = formula, data = data, family = family,
-                           id = .geeCorStr_id, corstr = cs, ...)
+        if (has_waves && cs != "Independence") {
+          glmtoolbox::glmgee(formula = formula, data = data, family = family,
+                             id = .geeCorStr_id, waves = .geeCorStr_waves,
+                             corstr = cs, ...)
+        } else {
+          glmtoolbox::glmgee(formula = formula, data = data, family = family,
+                             id = .geeCorStr_id, corstr = cs, ...)
+        }
       }, warning = function(w) {
         warn_msgs <<- c(warn_msgs, conditionMessage(w))
         invokeRestart("muffleWarning")

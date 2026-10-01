@@ -11,7 +11,7 @@ require(glmtoolbox)
 # copy from an earlier session. Update the date string whenever you save a
 # new version of this file.
 # ============================================================================
-message("cv_glmmTMB.R loaded -- version 2026-07-23")
+message("cv_glmm_gee.R loaded -- build 7")
 
 # ============================================================================
 # cv_glmmTMB(): grouped K-fold cross-validation for glmmTMB models, returning
@@ -245,7 +245,11 @@ cv_glmmTMB <- function(model,
     fit_err <- NULL
     fit <- tryCatch(do.call(glmmTMB::glmmTMB, fit_args),
                     error = function(e) { fit_err <<- conditionMessage(e); NULL })
-    if (is.null(fit)) return(list(.failed = TRUE, .error = paste("fit:", fit_err)))
+    
+    held_out <- paste(unique(val[[id_col]]), collapse = ", ")
+    if (is.null(fit)) return(list(.failed = TRUE, .fold = k,
+                                  .error = paste0("fold ", k, " (held-out ", id_col, ": ", held_out,
+                                                  ") fit: ", fit_err)))
     
     # population-averaged (marginal) predictions -- see .default_predict_fn
     # above, or your own predict_fn, for exactly what this computes.
@@ -253,7 +257,9 @@ cv_glmmTMB <- function(model,
     pred_err <- NULL
     mu <- tryCatch(pred_fn(fit, val),
                    error = function(e) { pred_err <<- conditionMessage(e); NULL })
-    if (is.null(mu)) return(list(.failed = TRUE, .error = paste("predict:", pred_err)))
+    if (is.null(mu)) return(list(.failed = TRUE, .fold = k,
+                                 .error = paste0("fold ", k, " (held-out ", id_col, ": ", held_out,
+                                                 ") predict: ", pred_err)))
     
     y <- val[[resp]]
     
@@ -267,16 +273,73 @@ cv_glmmTMB <- function(model,
     out
   }, future.seed = TRUE)
   
-  is_failure  <- vapply(fold_out, function(f) isTRUE(f$.failed), logical(1))
-  fold_errors <- lapply(fold_out[is_failure], function(f) f$.error)
-  fold_out    <- fold_out[!is_failure]
-  n_fail      <- sum(is_failure)
-  if (n_fail > 0) {
-    message(n_fail, " of ", K, " folds failed to fit/predict and were dropped.")
-    if (length(fold_errors) > 0) message("First error: ", fold_errors[[1]])
+  is_failure <- vapply(fold_out, function(f) isTRUE(f$.failed), logical(1))
+  failed_out <- fold_out[is_failure]
+  fold_out   <- fold_out[!is_failure]
+  still_failed <- list()
+  
+  # SERIAL RESCUE. Motivated by a real case: with future.seed = TRUE, an
+  # occasional fold fails inside a parallel worker with a TMB-internal "Hash
+  # code collision !" error. Which fold fails is NOT a property of that
+  # fold's data: it changed from run to run (fold 13 under one master seed,
+  # fold 33 under another), and the same folds all fit cleanly when run
+  # serially in the main session. The cause is not understood, so any failed
+  # fold is simply refitted here in the main R session, using the same
+  # logic as the worker code above. Rescued folds are reported, never
+  # silent. If a fold also fails here, it is dropped and reported.
+  if (length(failed_out) > 0) {
+    message(length(failed_out), " of ", K, " folds failed in a parallel worker; refitting serially in the main session:")
+    for (f in failed_out) message("  ", f$.error)
+    
+    rescue_fold <- function(k) {
+      train <- clean_data[data_folds != k, ]
+      val   <- clean_data[data_folds == k, ]
+      held_out <- paste(unique(val[[id_col]]), collapse = ", ")
+      
+      fit_args <- list(formula = form, data = train, family = family(model),
+                       dispformula = disp_form, ziformula = zi_form, se = FALSE)
+      if (!is.null(weight_col)) fit_args$weights <- train[[weight_col]]
+      if (!is.null(control))    fit_args$control <- control
+      
+      fit_err <- NULL
+      fit <- tryCatch(do.call(glmmTMB::glmmTMB, fit_args),
+                      error = function(e) { fit_err <<- conditionMessage(e); NULL })
+      if (is.null(fit)) return(list(.failed = TRUE, .fold = k,
+                                    .error = paste0("fold ", k, " (held-out ", id_col, ": ", held_out, ") serial refit: ", fit_err)))
+      
+      pred_fn  <- if (is.null(predict_fn)) .default_predict_fn else predict_fn
+      pred_err <- NULL
+      mu <- tryCatch(pred_fn(fit, val), error = function(e) { pred_err <<- conditionMessage(e); NULL })
+      if (is.null(mu)) return(list(.failed = TRUE, .fold = k,
+                                   .error = paste0("fold ", k, " (held-out ", id_col, ": ", held_out, ") serial predict: ", pred_err)))
+      
+      y   <- val[[resp]]
+      out <- list(y = y, mu = mu, .failed = FALSE)
+      if (!is.null(agg_cols)) out$agg <- val[, agg_cols, drop = FALSE]
+      if ("elpd" %in% metrics) {
+        out$ll <- tryCatch(loglik_fun(y, mu, fit, val), error = function(e) rep(NA_real_, length(y)))
+      }
+      out
+    }
+    
+    rescued_k <- numeric(0)
+    for (f in failed_out) {
+      r <- rescue_fold(f$.fold)
+      if (isTRUE(r$.failed)) {
+        still_failed[[length(still_failed) + 1]] <- r
+      } else {
+        fold_out[[length(fold_out) + 1]] <- r
+        rescued_k <- c(rescued_k, f$.fold)
+      }
+    }
+    if (length(rescued_k) > 0) message("  rescued by serial refit: fold(s) ", paste(rescued_k, collapse = ", "))
+    if (length(still_failed) > 0) {
+      message("  ", length(still_failed), " fold(s) also failed serially and were dropped:")
+      for (r in still_failed) message("    ", r$.error)
+    }
   }
   if (length(fold_out) == 0) stop("All folds failed.",
-                                  if (length(fold_errors) > 0) paste0(" First error: ", fold_errors[[1]]) else "")
+                                  if (length(still_failed) > 0) paste0(" First error: ", still_failed[[1]]$.error) else "")
   
   # ---- pool observation-level results across folds --------------------------
   y_all  <- unlist(lapply(fold_out, `[[`, "y"),  use.names = FALSE)
@@ -1232,12 +1295,15 @@ cluster_boot_avg_predictions <- function(model, full_data, by, id_col,
 cluster_boot_avg_predictions_gee <- function(model, full_data, by, id_col,
                                              R = 100, level = 0.95, seed = NULL,
                                              return_raw = FALSE, return_fixef = FALSE,
-                                             workers = NULL) {
+                                             workers = NULL, waves_col = NULL,
+                                             weights_col = NULL) {
   
-  ids  <- unique(full_data[[id_col]])
   form <- tryCatch(model$formula, error = function(e) stats::formula(model))
   fam  <- tryCatch(model$family,  error = function(e) NULL)
   if (is.null(fam)) stop("Could not extract `family` from `model`.")
+  spec      <- .glmgee_refit_spec(model, full_data, id_col, waves_col, weights_col)
+  full_data <- spec$data
+  ids       <- unique(full_data[[id_col]])
   
   model_corstr <- tryCatch(model$corstr, error = function(e) NULL)
   if (is.null(model_corstr)) {
@@ -1267,9 +1333,7 @@ cluster_boot_avg_predictions_gee <- function(model, full_data, by, id_col,
     
     fit_err <- NULL
     fit_r <- tryCatch(
-      do.call(glmtoolbox::glmgee,
-              list(formula = form, id = as.name(id_col), family = fam,
-                   corstr = model_corstr, data = boot_data)),
+      .glmgee_refit(form, id_col, fam, boot_data, spec),
       error = function(e) { fit_err <<- conditionMessage(e); NULL }
     )
     if (is.null(fit_r)) return(list(.failed = TRUE, .error = paste("fit:", fit_err)))
@@ -1598,6 +1662,227 @@ cluster_boot_counterfactual <- function(model, full_data, id_col, cf_variables,
 }
 
 # ----------------------------------------------------------------------------
+# `waves` handling for every glmgee REFIT in this file.
+#
+# glmgee()'s `waves` argument identifies the order/time of observations
+# within each cluster, and is needed for the AR-M-dependent, stationary-M-
+# dependent, non-stationary-M-dependent and unstructured working correlations.
+# Like `id`, it is evaluated by glmgee() against `data` via non-standard
+# evaluation, so it must reach the refit as a SYMBOL (as.name), not as a
+# pre-extracted vector. Two things follow:
+#   1. the column must survive the data-cleaning step (see keep_cols in each
+#      caller) even though it is not a formula variable;
+#   2. if a model was fitted WITH waves but a fold refit is run WITHOUT it,
+#      glmgee() silently falls back to its default (order of rows within each
+#      cluster) -- the same silent-fallback class of bug as the corstr one
+#      fixed earlier. That is why waves_col is resolved from the model by
+#      default rather than left for the caller to remember.
+#
+# .glmgee_resolve_waves(): returns a single column NAME (string) or NULL.
+#   - waves_col given explicitly: validated and used as-is.
+#   - waves_col = NULL: looked up from model$call$waves. UNVERIFIED accessor --
+#     confirm with `your_model$call$waves` once. Only a bare column name is
+#     auto-resolved; if the model was fitted with an expression (e.g.
+#     waves = rank(t)) this stops and asks for an explicit waves_col rather
+#     than guessing. If the model was fitted without waves, returns NULL and
+#     refits behave exactly as before.
+# ----------------------------------------------------------------------------
+.glmgee_resolve_waves <- function(model, waves_col = NULL, data, id_col = NULL) {
+  auto <- FALSE
+  if (is.null(waves_col)) {
+    w <- tryCatch(model$call$waves, error = function(e) NULL)
+    if (is.null(w)) return(NULL)
+    if (!is.name(w)) {
+      stop("The model was fitted with a `waves` argument that is not a bare column name (",
+           paste(deparse(w), collapse = ""), "), so it cannot be resolved automatically. ",
+           "Add that variable as a column of your data and pass its name via waves_col = \"...\".")
+    }
+    waves_col <- as.character(w)
+    auto <- TRUE
+  }
+  if (!is.character(waves_col) || length(waves_col) != 1 || is.na(waves_col)) {
+    stop("`waves_col` must be a single column name (a string), like `id_col` -- not the waves values themselves.")
+  }
+  if (!waves_col %in% names(data)) {
+    stop("waves column '", waves_col, "' not found in the data supplied",
+         if (auto) " (it was detected from model$call$waves, but it is not a formula variable, so it is not in the data reconstructed from the model)" else "",
+         ". Pass a data frame that contains it, e.g. data = your_full_data_with_", waves_col, ".")
+  }
+  
+  # Integrity check, run BEFORE any folds are launched: glmgee() needs waves to
+  # be positive integers identifying the position of each observation within
+  # its cluster, unique within each participant (gaps are fine -- that is the
+  # point of waves). A violation would otherwise surface as every fold failing
+  # with an error that does not point at the cause.
+  if (!is.null(id_col) && id_col %in% names(data)) {
+    wv <- data[[waves_col]]
+    if (!is.numeric(wv)) {
+      stop("waves column '", waves_col, "' must be numeric (positive integers), but is of class ",
+           class(wv)[1], ".")
+    }
+    ok <- !is.na(wv)
+    if (any(wv[ok] < 1) || any(wv[ok] != round(wv[ok]))) {
+      stop("waves column '", waves_col, "' must contain positive integers only.")
+    }
+    dup <- duplicated(data.frame(.id = data[[id_col]][ok], .w = wv[ok]))
+    if (any(dup)) {
+      bad <- unique(as.character(data[[id_col]][ok][dup]))
+      stop("waves column '", waves_col, "' has repeated values within a single ", id_col, " (",
+           length(bad), " affected: ", paste(utils::head(bad, 5), collapse = ", "),
+           if (length(bad) > 5) ", ..." else "",
+           "). waves must identify each observation's position within its cluster.")
+    }
+  }
+  
+  if (auto) message("Using waves column '", waves_col, "' (detected from model$call$waves) in every refit.")
+  waves_col
+}
+
+# ----------------------------------------------------------------------------
+# Everything a glmgee() REFIT must inherit from the ORIGINAL model, gathered
+# once in the main session (so nothing is evaluated inside a worker).
+# Written after reading glmtoolbox's glmgee() source. What it found:
+#   * glmgee() has NO `offset` argument. Offsets come only from offset() terms
+#     in the formula, which the CV code already carries (all.vars() includes
+#     them). An `offset = ` argument is silently swallowed by `...`, i.e. it
+#     would have had no effect on the original fit -- so we WARN if the
+#     model's call contains any argument glmgee() does not use.
+#   * `weights` and `waves` are evaluated against `data` like `id`, so they
+#     must travel as columns and be passed as symbols.
+#   * `subset` is an expression evaluated against `data`; it is applied ONCE
+#     to the data here, up front, rather than passed to each refit.
+#   * the stored model$corstr drops the lag: "AR-M-dependent(2)" is stored as
+#     "AR-M-dependent" with attr(, "M") = 2, and glmgee() does NOT read that
+#     attribute on input -- re-passing the stored string silently refits with
+#     lag 1. The lag is re-attached here.
+#   * maxit / toler / scale.fix / scale.value (and corr for "User-defined")
+#     are carried over from the original call, so refits cannot silently
+#     differ in convergence settings or scale handling.
+# Deliberately NOT carried: `start` (specific to the original data) and
+# `trace` (cosmetic).
+# Returns list(data, corstr, waves_col, weights_col, opts).
+# ----------------------------------------------------------------------------
+.glmgee_refit_spec <- function(model, data, id_col, waves_col = NULL, weights_col = NULL) {
+  
+  cl <- tryCatch(model$call, error = function(e) NULL)
+  arg <- function(nm) if (is.null(cl)) NULL else cl[[nm]]   # exact matching, unlike `$`
+  
+  # 1. arguments glmgee() silently swallows via `...` (offset =, typos, ...)
+  if (!is.null(cl)) {
+    extra <- setdiff(names(cl)[-1], c(names(formals(glmtoolbox::glmgee)), ""))
+    if (length(extra) > 0) {
+      warning("The model's glmgee() call contains argument(s) glmgee() does not use: ",
+              paste(extra, collapse = ", "), ". glmgee() silently swallows these via `...`, so ",
+              "they had NO effect on the original fit and are not applied to refits either.",
+              if ("offset" %in% extra) " glmgee() has no `offset` argument -- use offset() in the formula." else "",
+              call. = FALSE)
+    }
+  }
+  
+  # 2. subset: apply once, here
+  sub <- arg("subset")
+  if (!is.null(sub)) {
+    keep <- tryCatch(eval(sub, data, globalenv()), error = function(e) NULL)
+    if (!is.logical(keep) || length(keep) != nrow(data)) {
+      stop("The model was fitted with subset = ", paste(deparse(sub), collapse = ""),
+           ", which could not be re-evaluated against `data` as a logical condition of length nrow(data). ",
+           "Pass `data` already restricted to the rows the model used (and refit the model on that data).")
+    }
+    keep[is.na(keep)] <- FALSE
+    data <- data[keep, , drop = FALSE]
+    message("Applied the model's subset = ", paste(deparse(sub), collapse = ""), " to `data` (",
+            sum(!keep), " row(s) removed) before cross-validation.")
+  }
+  
+  # 3. corstr, with its lag re-attached
+  cs <- tryCatch(model$corstr, error = function(e) NULL)
+  if (is.null(cs)) stop("Could not extract `corstr` from `model` via model$corstr.")
+  corstr_full <- as.character(cs)
+  M <- attr(cs, "M")
+  if (!is.null(M)) corstr_full <- paste0(corstr_full, "(", M, ")")
+  
+  # 4. waves (checked against what the model actually used)
+  if (!is.null(waves_col) && is.null(arg("waves"))) {
+    warning("The model was fitted WITHOUT `waves`, but waves_col = '", waves_col, "' was supplied: refits ",
+            "will use it, which changes the working-correlation structure relative to the original model.",
+            call. = FALSE)
+  }
+  waves_col <- .glmgee_resolve_waves(model, waves_col, data, id_col)
+  
+  # 5. weights: same mechanism as waves
+  w_call <- arg("weights")
+  if (is.null(weights_col)) {
+    if (!is.null(w_call)) {
+      if (!is.name(w_call)) {
+        stop("The model was fitted with `weights` that is not a bare column name (",
+             paste(deparse(w_call), collapse = ""), "), so it cannot be resolved automatically. ",
+             "Add it as a column of your data and pass its name via weights_col = \"...\".")
+      }
+      weights_col <- as.character(w_call)
+      message("Using weights column '", weights_col, "' (detected from model$call$weights) in every refit.")
+    }
+  } else if (is.null(w_call)) {
+    warning("The model was fitted WITHOUT `weights`, but weights_col = '", weights_col, "' was supplied: ",
+            "refits will be weighted, which differs from the original model.", call. = FALSE)
+  }
+  if (!is.null(weights_col)) {
+    if (!is.character(weights_col) || length(weights_col) != 1 || !weights_col %in% names(data)) {
+      stop("weights column '", paste(weights_col, collapse = ","), "' not found in the data supplied. ",
+           "Pass a data frame that contains it.")
+    }
+    wv <- data[[weights_col]]
+    if (!is.numeric(wv) || any(wv <= 0, na.rm = TRUE)) {
+      stop("weights column '", weights_col, "' must be numeric and strictly positive (glmgee() stops otherwise).")
+    }
+  }
+  
+  # 6. fitting options carried over from the original call
+  opts <- list()
+  for (nm in c("maxit", "toler", "scale.fix", "scale.value")) {
+    a <- arg(nm)
+    if (!is.null(a)) {
+      v <- tryCatch(eval(a, globalenv()), error = function(e) NULL)
+      if (is.null(v)) {
+        stop("Could not evaluate `", nm, " = ", paste(deparse(a), collapse = ""),
+             "` from the model's original call, so refits cannot reproduce it.")
+      }
+      opts[[nm]] <- v
+    }
+  }
+  if (identical(as.character(cs), "User-defined")) opts$corr <- model$corr
+  
+  list(data = data, corstr = corstr_full, waves_col = waves_col,
+       weights_col = weights_col, opts = opts)
+}
+
+# glmgee() reads the response from the formula, but the CV code reads it as the
+# data column named by the FIRST formula variable. If the left-hand side is an
+# expression (score/3.6, cbind(successes, failures), ...) those differ silently.
+.glmgee_check_response <- function(form) {
+  lhs <- form[[2]]
+  if (!is.name(lhs)) {
+    stop("The model's response is an expression (", paste(deparse(lhs), collapse = ""),
+         "), but the CV code reads the response as the data column '", all.vars(form)[1],
+         "', which would not match what the model was fitted to. Create the transformed ",
+         "response as a column in your data and refit the model using that column.")
+  }
+  invisible(TRUE)
+}
+
+# Single place that builds the glmgee() refit call, so id, waves and weights
+# are all passed as symbols in exactly the same way for every caller.
+# Deliberately self-contained (base/stats + glmtoolbox:: only) so it exports
+# cleanly to future workers with no helper-of-helper dependencies. `spec` is
+# the list returned by .glmgee_refit_spec().
+.glmgee_refit <- function(form, id_col, fam, data, spec) {
+  args <- c(list(formula = form, id = as.name(id_col), family = fam,
+                 corstr = spec$corstr, data = data), spec$opts)
+  if (!is.null(spec$waves_col))   args$waves   <- as.name(spec$waves_col)
+  if (!is.null(spec$weights_col)) args$weights <- as.name(spec$weights_col)
+  do.call(glmtoolbox::glmgee, args)
+}
+
+# ----------------------------------------------------------------------------
 # Out-of-sample Gaussian pseudo-log-likelihood for GEE, evaluated per CLUSTER
 # on held-out data -- the elpd-style predictive score glmgee models otherwise
 # lack. Built from the same per-cluster fit term AGPC/SGPC use internally
@@ -1759,7 +2044,8 @@ cv_glmgee_pseudo_loglik_sanity_check <- function(model, id_col, corstr = c("exch
 # ----------------------------------------------------------------------------
 cv_glmgee_pseudo_loglik <- function(model, id_col, K = 6, seed = 123,
                                     corstr = c("exchangeable", "independence"),
-                                    data = NULL, workers = NULL) {
+                                    data = NULL, workers = NULL,
+                                    waves_col = NULL, weights_col = NULL) {
   corstr <- match.arg(corstr)
   form <- tryCatch(model$formula, error = function(e) stats::formula(model))
   fam  <- tryCatch(model$family,  error = function(e) NULL)
@@ -1788,7 +2074,14 @@ cv_glmgee_pseudo_loglik <- function(model, id_col, K = 6, seed = 123,
   if (is.null(data)) stop("insight::get_data() could not extract data; pass `data` directly.")
   resp <- all.vars(form)[1]
   
-  clean_data <- stats::na.omit(data[, unique(c(all.vars(form), id_col))])
+  .glmgee_check_response(form)
+  spec       <- .glmgee_refit_spec(model, data, id_col, waves_col, weights_col)
+  if (!is.null(spec$weights_col)) {
+    stop("cv_glmgee_pseudo_loglik() does not support models with prior weights: gee_pseudo_loglik() ",
+         "builds the working covariance without them, so the scores would not correspond to the model fitted.")
+  }
+  data       <- spec$data
+  clean_data <- stats::na.omit(data[, unique(c(all.vars(form), id_col, spec$waves_col))])
   
   set.seed(seed)
   unique_ids <- unique(clean_data[[id_col]])
@@ -1807,8 +2100,7 @@ cv_glmgee_pseudo_loglik <- function(model, id_col, K = 6, seed = 123,
     val   <- clean_data[data_folds == k, ]
     
     fit <- tryCatch(
-      do.call(glmtoolbox::glmgee,
-              list(formula = form, id = as.name(id_col), family = fam, corstr = model_corstr, data = train)),
+      .glmgee_refit(form, id_col, fam, train, spec),
       error = function(e) NULL
     )
     if (is.null(fit)) return(NULL)
@@ -1856,7 +2148,9 @@ cv_glmgee <- function(model,
                       return_predictions = FALSE,
                       predict_fn   = NULL,
                       agg_cols     = NULL,
-                      data         = NULL) {
+                      data         = NULL,
+                      waves_col    = NULL,
+                      weights_col  = NULL) {
   
   stopifnot(inherits(model, "glmgee"))
   
@@ -1888,7 +2182,10 @@ cv_glmgee <- function(model,
          "label), pass your own data frame via cv_glmgee(..., data = your_full_data_with_StimID).")
   }
   
-  keep_cols  <- unique(c(all.vars(form), id_col, agg_cols))
+  .glmgee_check_response(form)
+  spec       <- .glmgee_refit_spec(model, data, id_col, waves_col, weights_col)
+  data       <- spec$data
+  keep_cols  <- unique(c(all.vars(form), id_col, agg_cols, spec$waves_col, spec$weights_col))
   clean_data <- stats::na.omit(data[, keep_cols])
   
   set.seed(seed)
@@ -1912,10 +2209,10 @@ cv_glmgee <- function(model,
     # own working call uses id = ID, a bare column reference, not a string or
     # vector). do.call() with as.name(id_col) reproduces that correctly,
     # generalized to whatever id_col actually is.
+    # (id and waves both go through .glmgee_refit(), as symbols)
     fit_err <- NULL
     fit <- tryCatch(
-      do.call(glmtoolbox::glmgee,
-              list(formula = form, id = as.name(id_col), family = fam, corstr = cs, data = train)),
+      .glmgee_refit(form, id_col, fam, train, spec),
       error = function(e) { fit_err <<- conditionMessage(e); NULL }
     )
     if (is.null(fit)) return(list(.failed = TRUE, .error = paste("fit:", fit_err)))

@@ -90,7 +90,7 @@ cols.insert(cols.index('ambientRef') + 1, cols.pop(cols.index('sourceMode')))
 cols.insert(cols.index('ambientRef') + 1, cols.pop(cols.index('sourceType')))
 df = df.reindex(columns=cols)
 
-# create separate DataFrame for  end responses
+# create separate DataFrame for end responses
 df_endAnnoy = df[df['response'] == "EndAnnoyance"]
 df_endAnnoy = df_endAnnoy.loc[:, ~df_endAnnoy.columns.str.contains('^Unnamed')]
 df_endAnnoy.rename(columns={"rating" : "Annoyance"}, inplace=True)
@@ -242,6 +242,10 @@ for ii, col in enumerate(df_momentAnnoy.columns[df_momentAnnoy.columns.get_loc('
 df_momentAnnoy.rename(columns={"rating" : "t_0"}, inplace=True)
 df_momentAnnoy.rename(columns=time_cols, inplace=True)
 
+# drop participants from momentary annoyance analysis
+drop_IDs = [26, 48, 50, 55]
+df_momentAnnoy = df_momentAnnoy[~df_momentAnnoy['participant'].isin(drop_IDs)]
+
 # save compiled data to file
 
 # check/open QApplication instance
@@ -259,7 +263,6 @@ df_endResponse.to_csv(endOutFile, index=False)
 # save momentary annoyance data
 momentOutFile = os.path.join(outFilePath, "refmap_listest2_momentaryAnnoyance.csv")
 df_momentAnnoy.to_csv(momentOutFile, index=False)
-
 
 # questionnaire data
 

@@ -137,9 +137,7 @@ epsilonRMSE <- function(measured_data, predicted_data, measured_target=NULL,
   
   # calculate residuals and set to 0 for predictions within the confidence interval
   epsilon_error <- pmax(0, pmax(lower - pred, pred - upper))
-  
-  n <- sum(!is.na(epsilon_error))
-  
+
   # calculate epsilon-insensitive RMSE
   epsilon_rmse <- sqrt(mean(epsilon_error^2, na.rm = TRUE))
   

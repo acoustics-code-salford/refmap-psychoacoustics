@@ -25,6 +25,7 @@ library(caret)
 library(viridis)
 library(cowplot)
 library(permimp)
+library(here)
 # set package parameters
 theme_set(theme_bw())
 
@@ -67,6 +68,16 @@ if (savedata){
   outDataPath <- utils::choose.dir(caption="Select output folder to save data '03 Experiment\\Experiment 1\\Analysis\\R'")
 }
  
+
+```
+
+# Random forest functions
+
+
+
+```{r}
+
+source(here("src/R/random_forest_utilities.R"))
 
 ```
 
@@ -187,306 +198,6 @@ if (loadExisting){
 
 ```
 
-# Random forest functions
-
-Write a function to train a conditional-inference random forest (crf) model on input data according to input formula, iterate over input random seeds, average error and variable importance metrics, and output metrics with plotted
-
-## Averaging over multiple random seeds
-
-```{r}
-
-multi_crfReg <- function(dataIn, iVars, dVar, seeds, ntree, mtry, permImpCondThres=0.95, minsplit=20, minbucket=7, nperm=1){
-  # initialise variables
-  crfOOBErrAll <- 0
-  crfOOBRMSE <- 0
-  crfOOBMAE <- 0
-  crfOOBErrR2 <- 0
-  crfMarPermImpVals <- 0
-  crfConPermImpVals <- 0
-  crfMarPermImpValsPerTree <- data.frame()
-  crfConPermImpValsPerTree <- data.frame()
-  
-  for (iters in 1:length(seeds)){
-    
-    # formula for regression
-    formVars <- reformulate(iVars, dVar)
-    
-    # set random seed
-    set.seed(seeds[iters])
-    # train crf model
-    crfModel <- party::cforest(formVars, data=dataIn,
-                               controls=party::cforest_unbiased(ntree=ntree,
-                                                                mtry=mtry,
-                                                                minsplit=minsplit,
-                                                                minbucket=minbucket))
-    
-    # get OOB predictions
-    crfModelOOB <- predict(crfModel, OOB=TRUE, type='response')
-    
-    # get OOB error
-    crfModelOOBErr <- as.numeric(as.matrix(as.numeric(as.matrix(crfModelOOB))
-                                           - as.numeric(as.matrix(crfModel@data@env$response[[names(crfModel@data@env$response)]]))))
-
-    # OOB RMSE, MAE and Rsquared
-    crfOOBRMSE <- crfOOBRMSE + sqrt(mean(crfModelOOBErr^2))
-    crfOOBMAE <- crfOOBMAE + mean(abs(crfModelOOBErr))
-    crfOOBErrR2 <- crfOOBErrR2 + cor(as.numeric(as.matrix(crfModelOOB)),
-                                     as.numeric(as.matrix(crfModel@data@env$response[[names(crfModel@data@env$response)]])))^2
-
-    # set random seed
-    set.seed(seeds[iters])
-
-    # set random seed
-    set.seed(seeds[iters])
-    # conditional variable permutation importance
-    crfConPermImp <- permimp::permimp(crfModel, nperm=nperm, conditional=TRUE, threshold=permImpCondThres, progressBar=FALSE)
-    
-    crfConPermImpVals <- crfConPermImpVals + crfConPermImp$values
-    crfConPermImpValsPerTree <- rbind(crfConPermImpValsPerTree, crfConPermImp$perTree)
-  }
-  
-  # average metrics
-  crfOOBErrAll <- crfOOBErrAll/length(seeds)
-  crfOOBRMSE <- crfOOBRMSE/length(seeds)
-  crfOOBMAE <- crfOOBMAE/length(seeds)
-  crfOOBErrR2 <- crfOOBErrR2/length(seeds)
-  crfConPermImpVals <- data.frame(CondPermImp=sort(crfConPermImpVals/length(seeds), decreasing=TRUE))
-  crfConPermImpValsQtl <- data.frame(apply(crfConPermImpValsPerTree, 2, quantile, probs=c(0.25, 0.50, 0.75)))
-  
-  resultsOut <- list('OOB_RMSE'=crfOOBRMSE, 'OOB_MAE'=crfOOBMAE, 'Rsquared'=crfOOBErrR2, 'conditional_permimp'=crfConPermImpVals,                      'conditional_permimp_perTree'=crfConPermImpValsPerTree, 'conditional_permimp_qtl'=crfConPermImpValsQtl)
-  return(resultsOut)
-}
-
-```
-
-## Comparing rankings from two seeds 
-
-```{r}
-
-crfReg <- function(dataIn, iVars, dVar, seeds, ntree, mtry, permImpCondThres=0.95, minsplit=20, minbucket=7, nperm=1){
-  # initialise variables
-  crfOOBErrAll <- 0
-  crfOOBRMSE <- 0
-  crfOOBMAE <- 0
-  crfOOBErrR2 <- 0
-  crfMarPermImpVals <- 0
-  crfConPermImpVals <- 0
-  crfMarPermImpValsPerTree <- data.frame()
-  crfConPermImpValsPerTree <- data.frame()
-
-  # formula for regression
-  formVars <- reformulate(iVars, dVar)
-  
-  for (iters in 1:length(seeds)){
-  
-    # set random seed
-    set.seed(seeds[iters])
-    # train crf model
-    crfModel <- party::cforest(formVars, data=dataIn,
-                               controls=party::cforest_unbiased(ntree=ntree,
-                                                                mtry=mtry,
-                                                                minsplit=minsplit,
-                                                                minbucket=minbucket))
-    
-    # conditional variable permutation importance
-    crfConPermImp <- permimp::permimp(crfModel, nperm=nperm, conditional=TRUE, threshold=permImpCondThres, progressBar=FALSE)
-    
-    crfConPermImpVals <- crfConPermImp$values
-    
-    if (iters == 1){
-      crfConPermImpVals1 <- data.frame(CondPermImp=sort(crfConPermImpVals, decreasing=TRUE))
-      crfConPermImpValsPerTree1 <- crfConPermImp$perTree
-      crfConPermImpValsQtl1 <- data.frame(apply(crfConPermImpValsPerTree1, 2, quantile, probs=c(0.25, 0.50, 0.75)))
-      
-      # get OOB predictions
-      crfModelOOB <- predict(crfModel, OOB=TRUE, type='response')
-      
-      # get OOB error
-      crfModelOOBErr <- as.numeric(as.matrix(as.numeric(as.matrix(crfModelOOB))
-                                              - as.numeric(as.matrix(crfModel@data@env$response[[names(crfModel@data@env$response)]]))))
-      
-      # OOB RMSE, error quartiles and Rsquared
-      crfOOBRMSE <- sqrt(mean(crfModelOOBErr^2))
-      crfOOBMAE <- crfOOBMAE + mean(abs(crfModelOOBErr))
-      crfOOBErrR2 <- cor(as.numeric(as.matrix(crfModelOOB)),
-                                    as.numeric(as.matrix(crfModel@data@env$response[[names(crfModel@data@env$response)]])))^2
-
-      }
-    
-    else{
-      crfConPermImpValsN <- data.frame(CondPermImp=sort(crfConPermImpVals, decreasing=TRUE))
-      
-      nVarImpChecks <- min(max(sum(crfConPermImpVals1 >= crfConPermImpVals1$CondPermImp[1]*0.1),
-                               sum(crfConPermImpValsN >= crfConPermImpValsN$CondPermImp[1]*0.1)), 4)  # number of variable importance values with a value at least 10% of the highest importance
-      if (sum(rownames(crfConPermImpVals1)[1:nVarImpChecks] != rownames(crfConPermImpValsN)[1:nVarImpChecks]) > 0){
-        warning("Permutation importance rank order within 10% of max differs between seeds: increase number of trees ('ntree') or number of permutations ('nperm'), or subsample of features ('mtry')")
-      }
-      else{
-        resultsOut <- list('OOB_errors'=crfModelOOBErr, 'OOB_RMSE'=crfOOBRMSE, 'OOB_MAE'=crfOOBMAE, 'Rsquared'=crfOOBErrR2, 'conditional_permimp'=crfConPermImpVals1, 'conditional_permimp_perTree'=crfConPermImpValsPerTree1, 'conditional_permpimp_qtl'=crfConPermImpValsQtl1)
-        return(resultsOut)
-      }
-      
-    }
-    
-  }
-
-}
-
-```
-
-## Hyperparameter tuning
-
-```{r, fig.width=12, fig.height=4}
-mtryTune <- function(dataIn, iVars, dVar, seeds, ntrees, minsplit=20, minbucket=7){
-
-  formVars <- reformulate(iVars, dVar)
-  
-  # set mtry values and corresponding iVars/mtry ratios
-  if (length(iVars) > 9){
-    iVars_mtrys <- c(10.5, 5.25, 3.5, 2.75, 2.25, 1.75, 1.5, 1.25)
-    mtrys <- as.integer(length(iVars)/iVars_mtrys)
-  }
-  else{
-    mtrys <- seq(2, length(iVars) - 3, by=1)
-    iVars_mtrys <- length(iVars)/mtrys
-  }
-  iVars_mtrys <- iVars_mtrys[mtrys >= 2]  # remove 0 or 1 values
-  mtrys <- mtrys[mtrys >= 2]  # remove 0 or 1 values
-  
-  # remove any duplicated values
-  iVars_mtrys <- iVars_mtrys[!(duplicated(mtrys) | duplicated(mtrys, fromLast = TRUE))]
-  mtrys <- mtrys[!(duplicated(mtrys) | duplicated(mtrys, fromLast = TRUE))]
-
-  # ensure mtrys is less than length(iVars)
-  iVars_mtrys <- iVars_mtrys[mtrys < length(iVars)]
-  mtrys <- mtrys[mtrys < length(iVars)]
-
-  resRMSEMap = matrix(data=0, nrow=length(mtrys), ncol=length(ntrees))
-  resRsquaredMap = matrix(data=0, nrow=length(mtrys), ncol=length(ntrees))
-  resMAEMap = matrix(data=0, nrow=length(mtrys), ncol=length(ntrees))
-  
-  
-  for (ii in seq(1, length(ntrees))){
-    
-    tuneMod.results <- data.frame(RMSE=numeric(length(mtrys)),
-                                Rsquared=numeric(length(mtrys)),
-                                MAE=numeric(length(mtrys)))
-    
-    for (seed in seeds){
-      set.seed(seed)
-      ntree = ntrees[ii]
-      tuneMod <- caret::train(formVars,
-                              data=dataIn,
-                              method='cforest',
-                              controls=party::cforest_unbiased(ntree=ntree,
-                                                               minsplit=minsplit,
-                                                               minbucket=minbucket),
-                              tuneGrid=data.frame(.mtry=mtrys),
-                              trControl = trainControl(method = "oob"))
-      
-      
-      
-      # accumulate results
-      resRMSEMap[, ii] <- resRMSEMap[, ii] + tuneMod$results$RMSE
-      resRsquaredMap[, ii] <- resRsquaredMap[, ii] + tuneMod$results$Rsquared
-      resMAEMap[, ii] <- resMAEMap[, ii] + tuneMod$results$MAE
-      
-      tuneMod.results <- tuneMod.results + tuneMod$results[, which(names(tuneMod$results) != 'mtry')]
-    }
-
-    # average results
-    tuneMod.results <- tuneMod.results/length(seeds)
-    tuneMod.results <- cbind(tuneMod.results, data.frame(mtry=mtrys), data.frame(iVars_mtry=iVars_mtrys))
-
-    print(tuneMod.results)
-
-  }
-  
-  # average results
-  resRMSEMap <- resRMSEMap/length(seeds)
-  resRsquaredMap <- resRsquaredMap/length(seeds)
-  resMAEMap <- resMAEMap/length(seeds)
-  
-  
-  # convert to data frames with mtry as row names and ntree as column names, and convert to long format using tidyverse
-  resdfRMSEMap <- as.data.frame(resRMSEMap)
-  rownames(resdfRMSEMap) <- mtrys
-  colnames(resdfRMSEMap) <- ntrees
-  resdfRsquaredMap <- as.data.frame(resRsquaredMap)
-  rownames(resdfRsquaredMap) <- mtrys
-  colnames(resdfRsquaredMap) <- ntrees
-  resdfMAEMap <- as.data.frame(resMAEMap)
-  rownames(resdfMAEMap) <- mtrys
-  colnames(resdfMAEMap) <- ntrees
-  
-  
-  # convert dataframes to long format using tidyverse
-  resdfRMSEMap <- resdfRMSEMap |>
-                      rownames_to_column('mtry') |>
-                          gather(key='ntree', value='RMSE', -mtry)
-  
-  resdfRsquaredMap <- resdfRsquaredMap |>
-                          rownames_to_column('mtry') |>
-                              gather(key='ntree', value='Rsquared', -mtry)
-  
-  resdfMAEMap <- resdfMAEMap |>
-                    rownames_to_column('mtry') |>
-                        gather(key='ntree', value='MAE', -mtry)
-  
-  # ensure ntree and mtry columns are ordered factors
-  resdfRMSEMap$ntree <- factor(resdfRMSEMap$ntree, levels=as.character(ntrees))
-  resdfRMSEMap$mtry <- factor(resdfRMSEMap$mtry, levels=as.character(mtrys))
-  
-  resdfRsquaredMap$ntree <- factor(resdfRsquaredMap$ntree, levels=as.character(ntrees))
-  resdfRsquaredMap$mtry <- factor(resdfRsquaredMap$mtry, levels=as.character(mtrys))
-  
-  resdfMAEMap$ntree <- factor(resdfMAEMap$ntree, levels=as.character(ntrees))
-  resdfMAEMap$mtry <- factor(resdfMAEMap$mtry, levels=as.character(mtrys))
-  
-  # plot heatmaps using ggplot, with extreme (min or max) value plotted as overlaid point using annotate and colourbar scale reversed
-  pHeatmapRMSE <- ggplot(resdfRMSEMap) +
-                    geom_tile(aes(x=ntree, y=mtry, fill=RMSE)) +
-                        scale_fill_viridis(option="viridis", direction=-1) +
-                          geom_point(data=resdfRMSEMap[which(resdfRMSEMap$RMSE
-                                                             == min(resdfRMSEMap$RMSE),
-                                                             arr.ind = TRUE),],
-                                     aes(x=ntree, y=mtry), colour="red", size=2) +
-                            guides(colour = guide_colourbar(reverse=TRUE)) +
-                              labs(x="ntree", y="mtry", fill="RMSE") +
-                                theme(text = element_text(family = "serif"))
-  
-  pHeatmapRsquared <- ggplot(resdfRsquaredMap) +
-                        geom_tile(aes(x=ntree, y=mtry, fill=Rsquared)) +
-                            scale_fill_viridis(option="viridis", direction=1) +
-                              geom_point(data=resdfRsquaredMap[which(resdfRsquaredMap$Rsquared
-                                                                     == max(resdfRsquaredMap$Rsquared),
-                                                                     arr.ind = TRUE),],
-                                         aes(x=ntree, y=mtry), colour="red", size=2) +
-                                guides(colour = guide_colourbar(reverse=TRUE)) +
-                                  labs(x="ntree", y="mtry", fill="Rsquared") +
-                                    theme(text = element_text(family = "serif"))
-  
-  pHeatmapMAE <- ggplot(resdfMAEMap) +
-                    geom_tile(aes(x=ntree, y=mtry, fill=MAE)) +
-                        scale_fill_viridis(option="viridis", direction=-1) +
-                          geom_point(data=resdfMAEMap[which(resdfMAEMap$MAE
-                                                            == min(resdfMAEMap$MAE),
-                                                            arr.ind = TRUE),],
-                                     aes(x=ntree, y=mtry), colour="red", size=2) +
-                            guides(colour = guide_colourbar(reverse=TRUE)) +
-                              labs(x="ntree", y="mtry", fill="MAE") +
-                                theme(text = element_text(family = "serif"))
-  
-  p <-  cowplot::plot_grid(pHeatmapRMSE,
-                           pHeatmapRsquared,
-                           pHeatmapMAE,
-                           ncol=3, nrow=1)
-  
-  return(p)
-
-}  # end of function
-
-```
 
 
 # Parts A & B analysis
@@ -547,12 +258,16 @@ p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2],
 p
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAbsVarsHyperTune.svg", width=12, height=4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAbsVarsHyperTune.svg")
-
-  ggsave(filename="PtsABdAnnoyMnAbsVarsHyperTune.pdf", width=12, height=4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAbsVarsHyperTune.pdf")
+  
+  filename <- "PtsABdAnnoyMnAbsVarsHyperTune"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=12, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
+
 
 ```
 
@@ -619,12 +334,16 @@ pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOut
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp.svg", width=8, height=15, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAbsVarsConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp.pdf", width=8, height=15, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAbsVarsConPermimp.pdf")
+  filename <- "PtsABdAnnoyMnAbsVarsConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=15, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=15, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
+
 ```
 
 
@@ -641,11 +360,14 @@ pBar <- ggplot(resultsOutAbs.conimpPtv) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimpPtv.svg", width=8, height=10, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAbsVarsConPermimpPtv.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimpPtv.pdf", width=8, height=10, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAbsVarsConPermimpPtv.pdf")
+  filename <- "PtsABdAnnoyMnAbsVarsConPermimpPtv"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=10, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=10, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -663,12 +385,16 @@ pBar <- ggplot(resultsOutAbs.conimp1pc) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp1pc.svg", width=8, height=2.5, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAbsVarsConPermimp1pc.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAbsVarsConPermimp1pc.pdf", width=8, height=2.5, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAbsVarsConPermimp1pc.pdf")
+  filename <- "PtsABdAnnoyMnAbsVarsConPermimp1pc"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=2.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
+
 
 ```
 
@@ -769,11 +495,14 @@ pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnSharpConPermimp.svg", width=8, height=4.9, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnSharpConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnSharpConPermimp.pdf", width=8, height=4.9, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnSharpConPermimp.pdf")
+  filename <- "PtsABdAnnoyMnSharpConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4.9, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4.9, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 
@@ -873,12 +602,16 @@ pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnTonalLdConPermimp.svg", width=8, height=5, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnTonalLdConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnTonalLdConPermimp.pdf", width=8, height=5, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnTonalLdConPermimp.pdf")
+  filename <- "PtsABdAnnoyMnTonalLdConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
+
 
 ```
 
@@ -976,14 +709,17 @@ resultsOutTonal2.conimp <- arrange(resultsOutTonal2$conditional_permimp, desc(ro
 pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("Tonality w/o tonal loudness/sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 1.4))
 pBar
 
-if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnTonalConPermimp.svg", width=8, height=4.4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnTonalConPermimp.svg")
-  
-  ggsave(filename="PtsABdAnnoyMnTonalConPermimp.pdf", width=8, height=4.4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnTonalConPermimp.pdf")
-}
 
+if (saveplots){
+  
+  filename <- "PtsABdAnnoyMnTonalConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4.4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4.4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
 
 ```
 
@@ -1081,12 +817,16 @@ resultsOutFluct.conimp <- arrange(resultsOutFluct$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=CondPermImp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
+
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnFluctConPermimp.svg", width=8, height=3.5, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnFluctConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnFluctConPermimp.pdf", width=8, height=3.5, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnFluctConPermimp.pdf")
+  filename <- "PtsABdAnnoyMnFluctConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=3.5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=3.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -1183,13 +923,15 @@ pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnRoughConPermimp.svg", width=8, height=2.9, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnRoughConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnRoughConPermimp.pdf", width=8, height=2.9, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnRoughConPermimp.pdf")
+  filename <- "PtsABdAnnoyMnRoughConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.9, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=2.9, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
-
 
 ```
 
@@ -1286,11 +1028,14 @@ pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnImpulsConPermimp.svg", width=8, height=3.8, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnImpulsConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnImpulsConPermimp.pdf", width=8, height=3.8, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnImpulsConPermimp.pdf")
+  filename <- "PtsABdAnnoyMnImpulsConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=3.8, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=3.8, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -1391,11 +1136,14 @@ pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAbsSQMsTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAbsSQMsTonLdConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAbsSQMsTonLdConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAbsSQMsTonLdConPermimp.pdf")
+  filename <- "PtsABdAnnoyMnAbsSQMsTonLdConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -1484,11 +1232,14 @@ pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAbsSQMsNoTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAbsSQMsNoTonLdConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAbsSQMsNoTonLdConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAbsSQMsNoTonLdConPermimp.pdf")
+  filename <- "PtsABdAnnoyMnAbsSQMsNoTonLdConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -1522,7 +1273,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 501
+ntree <- 5501
 mtry <- as.integer(length(iVars)/1.75)
 
 ```
@@ -1579,11 +1330,14 @@ pBar <- ggplot(resultsOutPA.conimp) + geom_col(aes(x=factor(rownames(resultsOutP
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAbsPAConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAbsPAConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAbsPAConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAbsPAConPermimp.pdf")
+  filename <- "PtsABdAnnoyMnAbsPAConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -1611,11 +1365,14 @@ p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2],
 p
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAllVarsHyperTune.svg", width=12, height=4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAllVarsHyperTune.svg")
-
-  ggsave(filename="PtsABdAnnoyMnAllVarsHyperTune.pdf", width=12, height=4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAllVarsHyperTune.pdf")
+  
+  filename <- "PtsABdAnnoyMnAllVarsHyperTune"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=12, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -1625,7 +1382,7 @@ Selected hyperparameters
 ```{r}
 
 ntree <- 2501
-mtry <- as.integer(length(iVars)/2.75)
+mtry <- as.integer(length(iVars)/1.5)
 
 ```
 
@@ -1635,7 +1392,7 @@ Train preliminary model
 
 ```{r}
 
-nperm <- 10
+nperm <- 5
 
 resultsOutAbsDiffs <- crfReg(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
 
@@ -1679,11 +1436,14 @@ pBar <- ggplot(resultsOutAbsDiffs.conimp) + geom_col(aes(x=factor(rownames(resul
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp.svg", width=8, height=33, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAllVarsConPermimp.svg")
-
-  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp.pdf", width=8, height=33, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAllVarsConPermimp.pdf")
+  
+  filename <- "PtsABdAnnoyMnAllVarsConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=33, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=33, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -1701,12 +1461,16 @@ pBar <- ggplot(resultsOutAbsDiffs.conimpPtv) + geom_col(aes(x=factor(rownames(re
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimpPtv.svg", width=8, height=18, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAllVarsConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimpPtv.pdf", width=8, height=18, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAllVarsConPermimp.pdf")
+  filename <- "PtsABdAnnoyMnAllVarsConPermimpPtv"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=18, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=18, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
+
 
 ```
 
@@ -1723,11 +1487,14 @@ pBar <- ggplot(resultsOutAbsDiffs.conimp1pc) + geom_col(aes(x=factor(rownames(re
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp1pc.svg", width=8, height=6, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAllVarsConPermimp1pc.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAllVarsConPermimp1pc.pdf", width=8, height=6, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAllVarsConPermimp1pc.pdf")
+  filename <- "PtsABdAnnoyMnAllVarsConPermimp1pc"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=6, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=6, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -1827,6 +1594,7 @@ resdAnnoyMnPermImpAB$AllSharp <- resultsOutSharp$conditional_permimp
 ###### Plot results
 
 ```{r, fig.width=8,fig.height=7.4}
+
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -1836,13 +1604,15 @@ pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAllSharpConPermimp.svg", width=8, height=7.4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAllSharpConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAllSharpConPermimp.pdf", width=8, height=7.4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAllSharpConPermimp.pdf")
+  filename <- "PtsABdAnnoyMnAllSharpConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=8, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=8, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
-
 
 ```
 
@@ -1944,11 +1714,14 @@ pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAllTonalLdConPermimp.svg", width=8, height=7, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAllTonalLdConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAllTonalLdConPermimp.pdf", width=8, height=7, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAllTonalLdConPermimp.pdf")
+  filename <- "PtsABdAnnoyMnAllTonalLdConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=7, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=7, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -2049,11 +1822,14 @@ pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAllTonalConPermimp.svg", width=8, height=5.8, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAllTonalConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAllTonalConPermimp.pdf", width=8, height=5.8, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAllTonalConPermimp.pdf")
+  filename <- "PtsABdAnnoyMnAllTonalConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=5.8, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=5.8, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 
@@ -2153,11 +1929,14 @@ pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAllFluctConPermimp.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAllFluctConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAllFluctConPermimp.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAllFluctConPermimp.pdf")
+  filename <- "PtsABdAnnoyMnAllFluctConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -2255,13 +2034,15 @@ pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAllRoughConPermimp.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAllRoughConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAllRoughConPermimp.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAllRoughConPermimp.pdf")
+  filename <- "PtsABdAnnoyMnAllRoughConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
-
 
 ```
 
@@ -2350,6 +2131,7 @@ resdAnnoyMnPermImpAB$AllImpuls <- resultsOutImpuls$conditional_permimp
 ###### Plot results
 
 ```{r, fig.width=8,fig.height=5.6}
+
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -2359,11 +2141,14 @@ pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAllImpulsConPermimp.svg", width=8, height=5.6, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAllImpulsConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAllImpulsConPermimp.pdf", width=8, height=5.6, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAllImpulsConPermimp.pdf")
+  filename <- "PtsABdAnnoyMnAllImpulsConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=5.6, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=5.6, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -2464,11 +2249,14 @@ pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAllSQMsTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAllSQMsTonLdConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAllSQMsTonLdConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAllSQMsTonLdConPermimp.pdf")
+  filename <- "PtsABdAnnoyMnAllSQMsTonLdConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -2558,11 +2346,14 @@ pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAllSQMsNoTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAllSQMsNoTonLdConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAllSQMsNoTonLdConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAllSQMsNoTonLdConPermimp.pdf")
+  filename <- "PtsABdAnnoyMnAllSQMsNoTonLdConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -2596,7 +2387,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 4001
+ntree <- 1001
 mtry <-  as.integer(length(iVars)/1.25)
 
 ```
@@ -2653,11 +2444,14 @@ pBar <- ggplot(resultsOutPA.conimp) + geom_col(aes(x=factor(rownames(resultsOutP
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdAnnoyMnAllPAConPermimp.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdAnnoyMnAllPAConPermimp.svg")
   
-  ggsave(filename="PtsABdAnnoyMnAllPAConPermimp.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdAnnoyMnAllPAConPermimp.pdf")
+  filename <- "PtsABdAnnoyMnAllPAConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -2721,11 +2515,14 @@ p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2],
 p
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAbsVarsHyperTune.svg", width=12, height=4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyAbsVarsHyperTune.svg")
-
-  ggsave(filename="PtsABdHiAnnoyAbsVarsHyperTune.pdf", width=12, height=4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyAbsVarsHyperTune.pdf")
+  
+  filename <- "PtsABdHiAnnoyAbsVarsHyperTune"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=12, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -2792,12 +2589,16 @@ pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOut
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimp.svg", width=8, height=14, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyAbsVarsConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimp.pdf", width=8, height=14, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyAbsVarsConPermimp.pdf")
+  filename <- "PtsABdHiAnnoyAbsVarsConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=14, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=14, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
+
 ```
 
 ```{r, fig.width=8,fig.height=10}
@@ -2812,11 +2613,14 @@ pBar <- ggplot(resultsOutAbs.conimpPtv,) + geom_col(aes(x=factor(rownames(result
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimpPtv.svg", width=8, height=10, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyAbsVarsConPermimpPtv.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimpPtv.pdf", width=8, height=10, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyAbsVarsConPermimpPtv.pdf")
+  filename <- "PtsABdHiAnnoyAbsVarsConPermimpPtv"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=10, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=10, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -2834,11 +2638,14 @@ pBar <- ggplot(resultsOutAbs.conimp1pc,) + geom_col(aes(x=factor(rownames(result
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimp1pc.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyAbsVarsConPermimp1pc.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAbsVarsConPermimp1pc.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyAbsVarsConPermimp1pc.pdf")
+  filename <- "PtsABdHiAnnoyAbsVarsConPermimp1pc"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -2876,7 +2683,6 @@ seeds <- c(418502, 8496, 514, 23, 365)
 p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
-
 
 ```
 
@@ -2942,11 +2748,14 @@ pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoySharpConPermimp.svg", width=8, height=4.9, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoySharpConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoySharpConPermimp.pdf", width=8, height=4.9, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoySharpConPermimp.pdf")
+  filename <- "PtsABdHiAnnoySharpConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4.9, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4.9, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -3046,11 +2855,14 @@ pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyTonalLdConPermimp.svg", width=8, height=4.4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyTonalLdConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyTonalLdConPermimp.pdf", width=8, height=4.4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyTonalLdConPermimp.pdf")
+  filename <- "PtsABdHiAnnoyTonalLdConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4.4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4.4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -3154,12 +2966,16 @@ pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyTonalConPermimp.svg", width=8, height=3.8, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyTonalConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyTonalConPermimp.pdf", width=8, height=3.8, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyTonalConPermimp.pdf")
+  filename <- "PtsABdHiAnnoyTonalConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=3.8, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=3.8, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
+
 
 ```
 
@@ -3258,11 +3074,14 @@ pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyFluctConPermimp.svg", width=8, height=2.9, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyFluctConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyFluctConPermimp.pdf", width=8, height=2.9, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyFluctConPermimp.pdf")
+  filename <- "PtsABdHiAnnoyFluctConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.9, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=2.9, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -3360,13 +3179,15 @@ pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyRoughConPermimp.svg", width=8, height=2.9, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyRoughConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyRoughConPermimp.pdf", width=8, height=2.9, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyRoughConPermimp.pdf")
+  filename <- "PtsABdHiAnnoyRoughConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.9, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=2.9, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
-
 
 ```
 
@@ -3464,11 +3285,14 @@ pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyImpulsConPermimp.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyImpulsConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyImpulsConPermimp.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyImpulsConPermimp.pdf")
+  filename <- "PtsABdHiAnnoyImpulsConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -3570,11 +3394,14 @@ pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAbsSQMsTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyAbsSQMsTonLdConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAbsSQMsTonLdConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyAbsSQMsTonLdConPermimp.pdf")
+  filename <- "PtsABdHiAnnoyAbsSQMsTonLdConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -3664,11 +3491,14 @@ pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAbsSQMsNoTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyAbsSQMsNoTonLdConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAbsSQMsNoTonLdConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyAbsSQMsNoTonLdConPermimp.pdf")
+  filename <- "PtsABdHiAnnoyAbsSQMsNoTonLdConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -3759,11 +3589,14 @@ pBar <- ggplot(resultsOutPA.conimp) + geom_col(aes(x=factor(rownames(resultsOutP
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAbsPAConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyAbsPAConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAbsPAConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyAbsPAConPermimp.pdf")
+  filename <- "PtsABdHiAnnoyAbsPAConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -3799,7 +3632,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 2501
+ntree <- 1001
 mtry <- as.integer(length(iVars)/2.25)
 
 ```
@@ -3854,11 +3687,14 @@ pBar <- ggplot(resultsOutAbsDiffs.conimp) + geom_col(aes(x=factor(rownames(resul
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimp.svg", width=8, height=30, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyAllVarsConPermimp.svg")
-
-  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimp.pdf", width=8, height=30, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyAllVarsConPermimp.pdf")
+  
+  filename <- "PtsABdHiAnnoyAllVarsConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=30, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=30, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -3876,11 +3712,14 @@ pBar <- ggplot(resultsOutAbsDiffs.conimpPtv) + geom_col(aes(x=factor(rownames(re
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimpPtv.svg", width=8, height=26, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyAllVarsConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimpPtv.pdf", width=8, height=26, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyAllVarsConPermimp.pdf")
+  filename <- "PtsABdHiAnnoyAllVarsConPermimpPtv"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=26, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=26, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -3899,11 +3738,14 @@ pBar <- ggplot(resultsOutAbsDiffs.conimp1pc) + geom_col(aes(x=factor(rownames(re
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimp1pc.svg", width=8, height=6, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyAllVarsConPermimp1pc.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAllVarsConPermimp1pc.pdf", width=8, height=6, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyAllVarsConPermimp1pc.pdf")
+  filename <- "PtsABdHiAnnoyAllVarsConPermimp1pc"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=6, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=6, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -4011,11 +3853,14 @@ pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAllSharpConPermimp.svg", width=8, height=7, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyAllSharpConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAllSharpConPermimp.pdf", width=8, height=7, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyAllSharpConPermimp.pdf")
+  filename <- "PtsABdHiAnnoyAllSharpConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=7, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=7, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 
@@ -4115,13 +3960,18 @@ resultsOutTonal1.conimp <- arrange(resultsOutTonal1$conditional_permimp, desc(ro
 pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("All tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 80))
 pBar
 
+
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAllTonalLdConPermimp.svg", width=8, height=6, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyAllTonalLdConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAllTonalLdConPermimp.pdf", width=8, height=6, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyAllTonalLdConPermimp.pdf")
+  filename <- "PtsABdHiAnnoyAllTonalLdConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=7, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=7, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
+
 
 ```
 
@@ -4160,7 +4010,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 501
+ntree <- 2501
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -4221,11 +4071,14 @@ pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAllTonalConPermimp.svg", width=8, height=4.8, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyAllTonalConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAllTonalConPermimp.pdf", width=8, height=4.8, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyAllTonalConPermimp.pdf")
+  filename <- "PtsABdHiAnnoyAllTonalConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4.8, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4.8, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 
@@ -4326,11 +4179,14 @@ pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAllFluctConPermimp.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyAllFluctConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAllFluctConPermimp.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyAllFluctConPermimp.pdf")
+  filename <- "PtsABdHiAnnoyAllFluctConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -4427,11 +4283,14 @@ pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAllRoughConPermimp.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyAllRoughConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAllRoughConPermimp.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyAllRoughConPermimp.pdf")
+  filename <- "PtsABdHiAnnoyAllRoughConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 
@@ -4532,12 +4391,16 @@ pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAllImpulsConPermimp.svg", width=8, height=5.6, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyAllImpulsConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAllImpulsConPermimp.pdf", width=8, height=5.6, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyAllImpulsConPermimp.pdf")
+  filename <- "PtsABdHiAnnoyAllImpulsConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=5.6, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=5.6, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
+
 
 ```
 
@@ -4638,11 +4501,14 @@ pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAllSQMsTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyAllSQMsTonLdConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAllSQMsTonLdConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyAllSQMsTonLdConPermimp.pdf")
+  filename <- "PtsABdHiAnnoyAllSQMsTonLdConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -4731,11 +4597,14 @@ pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsO
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAllSQMsNoTonLdConPermimp.svg", width=8, height=2.4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyAllSQMsNoTonLdConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAllSQMsNoTonLdConPermimp.pdf", width=8, height=2.4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyAllSQMsNoTonLdConPermimp.pdf")
+  filename <- "PtsABdHiAnnoyAllSQMsNoTonLdConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=2.4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -4769,8 +4638,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
-mtry <-  as.integer(length(iVars)/1.5)
+ntree <- 501
+mtry <-  as.integer(length(iVars)/1.25)
 
 ```
 
@@ -4826,11 +4695,14 @@ pBar <- ggplot(resultsOutPA.conimp) + geom_col(aes(x=factor(rownames(resultsOutP
 pBar
 
 if (saveplots){
-  ggsave(filename="PtsABdHiAnnoyAllPAConPermimp.svg", width=8, height=4.4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABdHiAnnoyAllPAConPermimp.svg")
   
-  ggsave(filename="PtsABdHiAnnoyAllPAConPermimp.pdf", width=8, height=4.4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABdHiAnnoyAllPAConPermimp.pdf")
+  filename <- "PtsABdHiAnnoyAllPAConPermimp"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4.4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4.4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -4898,11 +4770,14 @@ pBar <- ggplot(resAbsAB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='g
 pBar + scale_y_continuous(breaks=seq(0, 1, by=0.5))
 
 if (saveplots){
-  ggsave(filename="PtsABcrfAbsSQMsSummary.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABcrfAbsSQMsSummary.svg")
-
-  ggsave(filename="PtsABcrfAbsSQMsSummary.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABcrfAbsSQMsSummary.pdf")
+  
+  filename <- "PtsABcrfAbsSQMsSummary"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -4913,11 +4788,14 @@ pBar <- ggplot(resAbsAB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='g
 pBar + scale_y_continuous(breaks=seq(0, 1, by=0.5))
 
 if (saveplots){
-  ggsave(filename="PtsABcrfAbsSQMsSummaryNw.svg", width=4, height=4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABcrfAbsSQMsSummary.svg")
-
-  ggsave(filename="PtsABcrfAbsSQMsSummaryNw.pdf", width=4, height=4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABcrfAbsSQMsSummary.pdf")
+  
+  filename <- "PtsABcrfAbsSQMsSummaryNw"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -4958,11 +4836,14 @@ pBar <- ggplot(resAllAB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='g
 pBar + scale_y_continuous(breaks=seq(0, 1, by=0.5))
 
 if (saveplots){
-  ggsave(filename="PtsABcrfAllSQMsSummary.svg", width=8, height=4, path=file.path(outFigPath, "svg"))
-  unlink("PtsABcrfAllSQMsSummary.svg")
   
-  ggsave(filename="PtsABcrfAllSQMsSummary.pdf", width=8, height=4, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABcrfAllSQMsSummary.pdf")
+  filename <- "PtsABcrfAllSQMsSummary"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -5005,11 +4886,14 @@ pBar <- ggplot(resAbsNoTonLdAB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), co
 pBar + scale_y_continuous(breaks=seq(0, 1, by=0.5))
 
 if (saveplots){
-  ggsave(filename="PtsABcrfAbsSQMsNoTonLdSummary.svg", width=8, height=3, path=file.path(outFigPath, "svg"))
-  unlink("PtsABcrfAbsSQMsNoTonLdSummary.svg")
   
-  ggsave(filename="PtsABcrfAbsSQMsNoTonLdSummary.pdf", width=8, height=3, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABcrfAbsSQMsNoTonLdSummary.pdf")
+  filename <- "PtsABcrfAbsSQMsNoTonLdSummary"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=3, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=3, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -5050,11 +4934,14 @@ pBar <- ggplot(resAllNoTonLdAB) + geom_col(aes(fill=Outcome, y=Imp, x=Order), co
 pBar + scale_y_continuous(breaks=seq(0, 1, by=0.5))
 
 if (saveplots){
-  ggsave(filename="PtsABcrfAllSQMsNoTonLdSummary.svg", width=8, height=3, path=file.path(outFigPath, "svg"))
-  unlink("PtsABcrfAllSQMsNoTonLdSummary.svg")
   
-  ggsave(filename="PtsABcrfAllSQMsNoTonLdSummary.pdf", width=8, height=3, path=file.path(outFigPath, "pdf"))
-  unlink("PtsABcrfAllSQMsNoTonLdSummary.pdf")
+  filename <- "PtsABcrfAllSQMsNoTonLdSummary"
+  
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+  
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
@@ -5083,8 +4970,9 @@ if (savedata){
 #### Save the workspace to file
 
 ```{r}
+
 if (savedata){
-  save.image(file.path(outDataPath, "PtsABCRFWorkspace.RData"))
+  save.image(file.path(outDataPath, "refmap_listest1_analysis_cforest_PtsAB_R1.RData"))
 }
 
 ```

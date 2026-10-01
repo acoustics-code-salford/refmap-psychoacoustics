@@ -334,7 +334,7 @@ out <- standardise_list(list(subjData, subjDataNoAmb),
 subjData <- out[[1]]
 subjDataNoAmb <- out[[2]]
 
-centre_stim_vars = c("UASLAeqMaxLR", "UASLAEMaxLR", "UASEPNLMaxLR", "UASLAF50ExMaxLR")
+centre_stim_vars = setdiff(centre_vars, c("Age", "NoiseSensitivity"))
 
 out <- standardise_list(list(stimData, stimDataNoAmb),
                         vars = centre_stim_vars,
@@ -13037,3 +13037,12 @@ ggplot(data=cbind(m0kpredMeans,
 
 ```
 
+
+#### Save the workspace to file
+
+```{r}
+if (savedata){
+  save.image(file.path(outDataPath, "refmap_listest2_analysis_Bayesian_models_rev1.RData"))
+}
+
+```

@@ -74,7 +74,7 @@ if (savedata){
 
 ```{r}
 
-source(here("src/R/random_forest_tools.R"))
+source(here("src/R/random_forest_utilities.R"))
 
 ```
 
@@ -218,11 +218,14 @@ p <- mtryTune(dataIn=stimDataAmb, iVars=iVars, dVar=dVar, seeds=seeds[1:2],
 p
 
 if (saveplots){
-  ggsave(filename="AnnoyMnAmbVarsHyperTune.svg", width=12, height=4, path=file.path(outFigPath, "svg"))
-  unlink("AnnoyMnAmbVarsHyperTune.svg")
+  
+  filename <- "AnnoyMnAmbVarsHyperTune"
+  
+  ggsave(filename=paste(filename, ".svg", sep = ""), width=12, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep = ""))
 
-  ggsave(filename="AnnoyMnAmbVarsHyperTune.pdf", width=12, height=4, path=file.path(outFigPath, "pdf"))
-  unlink("AnnoyMnAmbVarsHyperTune.pdf")
+  ggsave(filename=paste(filename, ".pdf", sep = ""), width=12, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep = ""))
 }
 
 ```
@@ -289,15 +292,18 @@ pBar <- ggplot(resultsOutAmb.conimp) + geom_col(aes(x=factor(rownames(resultsOut
   coord_flip(ylim=c(0, 0.5))
 pBar
 
-filename <- "AnnoyMnAmbVarsConPermimp"
 
 if (saveplots){
+  
+  filename <- "AnnoyMnAmbVarsConPermimp"
+  
   ggsave(filename=paste(filename, ".svg", sep = ""), width=8, height=15, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep = ""))
   
   ggsave(filename=paste(filename, ".pdf", sep = ""), width=8, height=15, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep = ""))
 }
+
 ```
 ## >>>Bind ambient env variable
 
@@ -364,9 +370,11 @@ p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2],
               ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
-filename <- "dAnnoyMnAbsVarsHyperTune"
 
 if (saveplots){
+  
+  filename <- "dAnnoyMnAbsVarsHyperTune"
+  
   ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
 
@@ -380,7 +388,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1501
+ntree <- 2501
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -438,9 +446,10 @@ pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOut
   coord_flip()
 pBar
 
-filename <- "dAnnoyMnAbsVarsConPermimp"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnAbsVarsConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=15, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -464,9 +473,11 @@ pBar <- ggplot(resultsOutAbs.conimpPtv) + geom_col(aes(x=factor(rownames(results
 pBar
 
 
-filename <- "dAnnoyMnAbsVarsConPermimpPtv"
 
 if (saveplots){
+  
+  filename <- "dAnnoyMnAbsVarsConPermimpPtv"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=12, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -488,9 +499,10 @@ resultsOutAbs.conimp1pc <- resultsOutAbs.conimp |>
 pBar <- ggplot(resultsOutAbs.conimp1pc) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimp1pc), levels=rownames(resultsOutAbs.conimp1pc)), y=CondPermImp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dAnnoyMnAbsVarsConPermimp1pc"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnAbsVarsConPermimp1pc"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.5, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -596,9 +608,10 @@ resultsOutSharp.conimp <- arrange(resultsOutSharp$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=CondPermImp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dAnnoyMnSharpConPermimp"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnSharpConPermimp"
+  
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4.9, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -644,7 +657,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
+ntree <- 501
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -702,15 +715,17 @@ resultsOutTonal1.conimp <- arrange(resultsOutTonal1$conditional_permimp, desc(ro
 pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dAnnoyMnTonalLdConPermimp"
-
 if (saveplots){
+
+  filename <- "dAnnoyMnTonalLdConPermimp"
+  
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=5, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
   ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=5, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 }
+
 ```
 
 Selected metric
@@ -807,9 +822,10 @@ resultsOutTonal2.conimp <- arrange(resultsOutTonal2$conditional_permimp, desc(ro
 pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("Tonality w/o tonal loudness/sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 2.5))
 pBar
 
-filename <- "dAnnoyMnTonalConPermimp"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnTonalConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4.4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -913,9 +929,10 @@ resultsOutFluct.conimp <- arrange(resultsOutFluct$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=CondPermImp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dAnnoyMnFluctConPermimp"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnFluctConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=3.5, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -961,7 +978,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1001
+ntree <- 5501
 mtry <- as.integer(length(iVars)/1.5)
 
 ```
@@ -1016,9 +1033,11 @@ resultsOutRough.conimp <- arrange(resultsOutRough$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=CondPermImp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dAnnoyMnRoughConPermimp"
 
 if (saveplots){
+  
+  filename <- "dAnnoyMnRoughConPermimp"
+  
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.9, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -1120,9 +1139,10 @@ resultsOutImpuls.conimp <- arrange(resultsOutImpuls$conditional_permimp, desc(ro
 pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=CondPermImp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dAnnoyMnImpulsConPermimp"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnImpulsConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=3.8, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -1227,9 +1247,10 @@ resultsOutSQMs1.conimp <- arrange(resultsOutSQMs1$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dAnnoyMnAbsSQMsTonLdConPermimp"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnAbsSQMsTonLdConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -1266,7 +1287,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 2501
+ntree <- 4001
 mtry <- as.integer(length(iVars)/1.6)
 
 ```
@@ -1322,9 +1343,10 @@ resultsOutSQMs2.conimp <- arrange(resultsOutSQMs2$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dAnnoyMnAbsSQMsNoTonLdConPermimp"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnAbsSQMsNoTonLdConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -1363,7 +1385,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
+ntree <- 5501
 mtry <- as.integer(length(iVars)/1.75)
 
 ```
@@ -1420,9 +1442,10 @@ pBar <- ggplot(resultsOutPA.conimp) + geom_col(aes(x=factor(rownames(resultsOutP
 pBar
 
 
-filename <- "dAnnoyMnAbsPAConPermimp"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnAbsPAConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -1456,9 +1479,10 @@ p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2],
               ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
-filename <- "dAnnoyMnAllVarsHyperTune"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnAllVarsHyperTune"
+  
   ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -1472,7 +1496,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1001
+ntree <- 1501
 mtry <- as.integer(length(iVars)/2.75)
 
 ```
@@ -1526,10 +1550,10 @@ resultsOutAbsDiffs.conimp <- arrange(resultsOutAbsDiffs$conditional_permimp, des
 pBar <- ggplot(resultsOutAbsDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbsDiffs.conimp), levels=rownames(resultsOutAbsDiffs.conimp)), y=CondPermImp), fill=mycolours[9], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-
-filename <- "dAnnoyMnAllVarsConPermimp"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnAllVarsConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=33, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -1551,9 +1575,10 @@ resultsOutAbsDiffs.conimpPtv <- resultsOutAbsDiffs.conimp |>
 pBar <- ggplot(resultsOutAbsDiffs.conimpPtv) + geom_col(aes(x=factor(rownames(resultsOutAbsDiffs.conimpPtv), levels=rownames(resultsOutAbsDiffs.conimpPtv)), y=CondPermImp), fill=mycolours[9], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dAnnoyMnAllVarsConPermimpPtv"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnAllVarsConPermimpPtv"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=22, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -1576,9 +1601,10 @@ resultsOutAbsDiffs.conimp1pc <- resultsOutAbsDiffs.conimp |>
 pBar <- ggplot(resultsOutAbsDiffs.conimp1pc) + geom_col(aes(x=factor(rownames(resultsOutAbsDiffs.conimp1pc), levels=rownames(resultsOutAbsDiffs.conimp1pc)), y=CondPermImp), fill=mycolours[9], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dAnnoyMnAllVarsConPermimp1pc"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnAllVarsConPermimp1pc"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=8, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -1690,10 +1716,10 @@ resultsOutSharp.conimp <- arrange(resultsOutSharp$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=CondPermImp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("All sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-
-filename <- "dAnnoyMnAllSharpConPermimp"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnAllSharpConPermimp"
+  
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=7.4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -1743,7 +1769,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
+ntree <- 501
 mtry <- as.integer(length(iVars)/1.5)
 
 ```
@@ -1801,10 +1827,10 @@ resultsOutTonal1.conimp <- arrange(resultsOutTonal1$conditional_permimp, desc(ro
 pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("All tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 2.2))
 pBar
 
-
-filename <- "dAnnoyMnAllTonalLdConPermimp"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnAllTonalLdConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=7, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -1849,7 +1875,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 4001
+ntree <- 1501
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -1909,9 +1935,10 @@ resultsOutTonal2.conimp <- arrange(resultsOutTonal2$conditional_permimp, desc(ro
 pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("All tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 3))
 pBar
 
-filename <- "dAnnoyMnAllTonalConPermimp"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnAllTonalConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=5.8, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -2015,9 +2042,10 @@ resultsOutFluct.conimp <- arrange(resultsOutFluct$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=CondPermImp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("All fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dAnnoyMnAllFluctConPermimp"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnAllFluctConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -2119,9 +2147,10 @@ resultsOutRough.conimp <- arrange(resultsOutRough$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=CondPermImp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + ggtitle("All roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dAnnoyMnAllRoughConPermimp"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnAllRoughConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -2225,9 +2254,10 @@ pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(results
 pBar
 
 
-filename <- "dAnnoyMnAllImpulsConPermimp"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnAllImpulsConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=5.6, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -2332,10 +2362,10 @@ resultsOutSQMs1.conimp <- arrange(resultsOutSQMs1$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 1.5))
 pBar
 
-
-filename <- "dAnnoyMnAllSQMsTonLdConPermimp"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnAllSQMsTonLdConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -2429,9 +2459,10 @@ resultsOutSQMs2.conimp <- arrange(resultsOutSQMs2$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 1.5))
 pBar
 
-filename <- "dAnnoyMnAllSQMsNoTonLdConPermimp"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnAllSQMsNoTonLdConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -2470,7 +2501,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
+ntree <- 2501
 mtry <-  as.integer(length(iVars)/2.25)
 
 ```
@@ -2526,9 +2557,10 @@ resultsOutPA.conimp <- arrange(resultsOutPA$conditional_permimp, desc(row_number
 pBar <- ggplot(resultsOutPA.conimp) + geom_col(aes(x=factor(rownames(resultsOutPA.conimp), levels=rownames(resultsOutPA.conimp)), y=CondPermImp), fill=mycolours[10], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (mean change in annoyance)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 1))
 pBar
 
-filename <- "dAnnoyMnAllPAConPermimp"
-
 if (saveplots){
+  
+  filename <- "dAnnoyMnAllPAConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -2596,15 +2628,17 @@ p <- mtryTune(dataIn=stimDataNum, iVars=iVars, dVar=dVar, seeds=seeds[1:2],
              ntrees=ntrees, minsplit=minsplit, minbucket=minbucket)
 p
 
-filename <- "dHiAnnoyAbsVarsHyperTune"
-
 if (saveplots){
+  
+  filename <- "dHiAnnoyAbsVarsHyperTune"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
   ggsave(filename=paste(filename, ".pdf", sep=""), width=12, height=4, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 }
+
 ```
 
 Selected hyperparameters
@@ -2668,9 +2702,10 @@ pBar <- ggplot(resultsOutAbs.conimp) + geom_col(aes(x=factor(rownames(resultsOut
   coord_flip()
 pBar
 
-filename <- "dHiAnnoyAbsVarsConPermimp"
-
 if (saveplots){
+  
+  filename <- "dHiAnnoyAbsVarsConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=16, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -2691,9 +2726,10 @@ resultsOutAbs.conimpPtv <- resultsOutAbs.conimp |>
 pBar <- ggplot(resultsOutAbs.conimpPtv,) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimpPtv), levels=rownames(resultsOutAbs.conimpPtv)), y=CondPermImp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dHiAnnoyAbsVarsConPermimpPtv"
-
 if (saveplots){
+  
+  filename <- "dHiAnnoyAbsVarsConPermimpPtv"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=14, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -2716,9 +2752,10 @@ resultsOutAbs.conimp1pc <- resultsOutAbs.conimp |>
 pBar <- ggplot(resultsOutAbs.conimp1pc,) + geom_col(aes(x=factor(rownames(resultsOutAbs.conimp1pc), levels=rownames(resultsOutAbs.conimp1pc)), y=CondPermImp), fill=mycolours[1], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dHiAnnoyAbsVarsConPermimp1pc"
-
 if (saveplots){
+  
+  filename <- "dHiAnnoyAbsVarsConPermimp1pc"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -2826,9 +2863,10 @@ resultsOutSharp.conimp <- arrange(resultsOutSharp$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=CondPermImp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("Sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dHiAnnoySharpConPermimp"
-
 if (saveplots){
+  
+  filename <- "dHiAnnoySharpConPermimp"
+  
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4.9, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -2933,9 +2971,10 @@ resultsOutTonal1.conimp <- arrange(resultsOutTonal1$conditional_permimp, desc(ro
 pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("Tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 400))
 pBar
 
-filename <- "dHiAnnoyTonalLdConPermimp"
-
 if (saveplots){
+  
+  filename <- "dHiAnnoyTonalLdConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4.4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -3043,9 +3082,10 @@ resultsOutTonal2.conimp <- arrange(resultsOutTonal2$conditional_permimp, desc(ro
 pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("Tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 400))
 pBar
 
-filename <- "dHiAnnoyTonalConPermimp"
-
 if (saveplots){
+  
+  filename <- "dHiAnnoyTonalConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=3.8, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -3149,9 +3189,10 @@ resultsOutFluct.conimp <- arrange(resultsOutFluct$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=CondPermImp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("Fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dHiAnnoyFluctConPermimp"
-
 if (saveplots){
+  
+  filename <- "dHiAnnoyFluctConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.9, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -3197,7 +3238,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
+ntree <- 501
 mtry <- as.integer(length(iVars)/1.5)
 
 ```
@@ -3253,9 +3294,10 @@ resultsOutRough.conimp <- arrange(resultsOutRough$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=CondPermImp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("Roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dHiAnnoyRoughConPermimp"
-
 if (saveplots){
+  
+  filename <- "dHiAnnoyRoughConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.9, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -3269,7 +3311,7 @@ Selected metric
 
 ```{r}
 
-roughVar <- "UASRoughDW05Ex"
+roughVar <- "UASRoughDW10Ex"
 
 ```
 
@@ -3358,9 +3400,10 @@ resultsOutImpuls.conimp <- arrange(resultsOutImpuls$conditional_permimp, desc(ro
 pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=CondPermImp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("Impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dHiAnnoyImpulsConPermimp"
-
 if (saveplots){
+  
+  filename <- "dHiAnnoyImpulsConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -3466,10 +3509,10 @@ resultsOutSQMs1.conimp <- arrange(resultsOutSQMs1$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 120))
 pBar
 
-
-filename <- "dHiAnnoyAbsSQMsTonLdConPermimp"
-
 if (saveplots){
+  
+  filename <- "dHiAnnoyAbsSQMsTonLdConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -3506,7 +3549,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
+ntree <- 1001
 mtry <- as.integer(length(iVars)/1.6)
 
 ```
@@ -3563,9 +3606,10 @@ resultsOutSQMs2.conimp <- arrange(resultsOutSQMs2$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 120))
 pBar
 
-filename <- "dHiAnnoyAbsSQMsNoTonLdConPermimp"
-
 if (saveplots){
+  
+  filename <- "dHiAnnoyAbsSQMsNoTonLdConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -3660,10 +3704,10 @@ resultsOutPA.conimp <- arrange(resultsOutPA$conditional_permimp, desc(row_number
 pBar <- ggplot(resultsOutPA.conimp) + geom_col(aes(x=factor(rownames(resultsOutPA.conimp), levels=rownames(resultsOutPA.conimp)), y=CondPermImp), fill=mycolours[10], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 150))
 pBar
 
-
-filename <- "dHiAnnoyAbsPAConPermimp"
-
 if (saveplots){
+  
+  filename <- "dHiAnnoyAbsPAConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -3757,9 +3801,10 @@ resultsOutAbsDiffs.conimp <- arrange(resultsOutAbsDiffs$conditional_permimp, des
 pBar <- ggplot(resultsOutAbsDiffs.conimp) + geom_col(aes(x=factor(rownames(resultsOutAbsDiffs.conimp), levels=rownames(resultsOutAbsDiffs.conimp)), y=CondPermImp), fill=mycolours[9], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dHiAnnoyAllVarsConPermimp"
-
 if (saveplots){
+
+  filename <- "dHiAnnoyAllVarsConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=33, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -3781,9 +3826,10 @@ resultsOutAbsDiffs.conimpPtv <- resultsOutAbsDiffs.conimp |>
 pBar <- ggplot(resultsOutAbsDiffs.conimpPtv) + geom_col(aes(x=factor(rownames(resultsOutAbsDiffs.conimpPtv), levels=rownames(resultsOutAbsDiffs.conimpPtv)), y=CondPermImp), fill=mycolours[9], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dHiAnnoyAllVarsConPermimpPtv"
-
 if (saveplots){
+
+  filename <- "dHiAnnoyAllVarsConPermimpPtv"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=24, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -3806,10 +3852,10 @@ resultsOutAbsDiffs.conimp1pc <- resultsOutAbsDiffs.conimp |>
 pBar <- ggplot(resultsOutAbsDiffs.conimp1pc) + geom_col(aes(x=factor(rownames(resultsOutAbsDiffs.conimp1pc), levels=rownames(resultsOutAbsDiffs.conimp1pc)), y=CondPermImp), fill=mycolours[9], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-
-filename <- "dHiAnnoyAllVarsConPermimp1pc"
-
 if (saveplots){
+
+  filename <- "dHiAnnoyAllVarsConPermimp1pc"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=6.5, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -3921,9 +3967,10 @@ resultsOutSharp.conimp <- arrange(resultsOutSharp$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutSharp.conimp) + geom_col(aes(x=factor(rownames(resultsOutSharp.conimp), levels=rownames(resultsOutSharp.conimp)), y=CondPermImp), fill=mycolours[2], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("All sharpness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dHiAnnoyAllSharpConPermimp"
-
 if (saveplots){
+
+  filename <- "dHiAnnoyAllSharpConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=8, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -3970,7 +4017,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1501
+ntree <- 1001
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -4028,9 +4075,10 @@ resultsOutTonal1.conimp <- arrange(resultsOutTonal1$conditional_permimp, desc(ro
 pBar <- ggplot(resultsOutTonal1.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal1.conimp), levels=rownames(resultsOutTonal1.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("All tonality inc. tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 350))
 pBar
 
-filename <- "dHiAnnoyAllTonalLdConPermimp"
-
 if (saveplots){
+
+  filename <- "dHiAnnoyAllTonalLdConPermimp"
+  
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=7, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -4044,7 +4092,7 @@ Selected metric
 
 ```{r}
 
-allTonLdVar <- "PartTonLdSHMPowAvg"
+allTonLdVar <- "UASTonShpAurSHM05Ex"
 
 ```
 
@@ -4075,7 +4123,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 5501
+ntree <- 1001
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -4135,10 +4183,10 @@ resultsOutTonal2.conimp <- arrange(resultsOutTonal2$conditional_permimp, desc(ro
 pBar <- ggplot(resultsOutTonal2.conimp) + geom_col(aes(x=factor(rownames(resultsOutTonal2.conimp), levels=rownames(resultsOutTonal2.conimp)), y=CondPermImp), fill=mycolours[3], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("All tonality w/o tonal loudness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 400))
 pBar
 
-
-filename <- "dHiAnnoyAllTonalConPermimp"
-
 if (saveplots){
+
+  filename <- "dHiAnnoyAllTonalConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=5, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -4152,7 +4200,7 @@ Selected metric
 
 ```{r}
 
-allTonalVar <- "UASTonalAurAvg"
+allTonalVar <- "dTonalAwSHM05Ex"
 
 ```
 
@@ -4242,9 +4290,10 @@ resultsOutFluct.conimp <- arrange(resultsOutFluct$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutFluct.conimp) + geom_col(aes(x=factor(rownames(resultsOutFluct.conimp), levels=rownames(resultsOutFluct.conimp)), y=CondPermImp), fill=mycolours[4], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("All fluctuation strength") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dHiAnnoyAllFluctConPermimp"
-
 if (saveplots){
+
+  filename <- "dHiAnnoyAllFluctConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -4290,7 +4339,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
+ntree <- 501
 mtry <- as.integer(length(iVars)/1.25)
 
 ```
@@ -4345,9 +4394,10 @@ resultsOutRough.conimp <- arrange(resultsOutRough$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutRough.conimp) + geom_col(aes(x=factor(rownames(resultsOutRough.conimp), levels=rownames(resultsOutRough.conimp)), y=CondPermImp), fill=mycolours[5], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("All roughness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dHiAnnoyAllRoughConPermimp"
-
 if (saveplots){
+
+  filename <- "dHiAnnoyAllRoughConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -4361,7 +4411,7 @@ Selected metric
 
 ```{r}
 
-allRoughVar <- "UASRoughDW05Ex"
+allRoughVar <- "UASRoughDW10Ex"
 
 ```
 
@@ -4451,9 +4501,10 @@ resultsOutImpuls.conimp <- arrange(resultsOutImpuls$conditional_permimp, desc(ro
 pBar <- ggplot(resultsOutImpuls.conimp) + geom_col(aes(x=factor(rownames(resultsOutImpuls.conimp), levels=rownames(resultsOutImpuls.conimp)), y=CondPermImp), fill=mycolours[6], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + ggtitle("All impulsiveness") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dHiAnnoyAllImpulsConPermimp"
-
 if (saveplots){
+
+  filename <- "dHiAnnoyAllImpulsConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=5.6, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -4502,7 +4553,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
+ntree <- 4001
 mtry <- as.integer(length(iVars)/1.6)
 
 ```
@@ -4559,10 +4610,10 @@ resultsOutSQMs1.conimp <- arrange(resultsOutSQMs1$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutSQMs1.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs1.conimp), levels=rownames(resultsOutSQMs1.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 200))
 pBar
 
-
-filename <- "dHiAnnoyAllSQMsTonLdConPermimp"
-
 if (saveplots){
+
+  filename <- "dHiAnnoyAllSQMsTonLdConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -4599,7 +4650,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 4001
+ntree <- 1001
 mtry <- as.integer(length(iVars)/1.6)
 
 ```
@@ -4655,10 +4706,10 @@ resultsOutSQMs2.conimp <- arrange(resultsOutSQMs2$conditional_permimp, desc(row_
 pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 200))
 pBar
 
-
-filename <- "dHiAnnoyAllSQMsNoTonLdConPermimp"
-
 if (saveplots){
+
+  filename <- "dHiAnnoyAllSQMsNoTonLdConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -4697,8 +4748,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 501
-mtry <-  as.integer(length(iVars)/1.5)
+ntree <- 251
+mtry <-  as.integer(length(iVars)/1.25)
 
 ```
 
@@ -4753,9 +4804,10 @@ resultsOutPA.conimp <- arrange(resultsOutPA$conditional_permimp, desc(row_number
 pBar <- ggplot(resultsOutPA.conimp) + geom_col(aes(x=factor(rownames(resultsOutPA.conimp), levels=rownames(resultsOutPA.conimp)), y=CondPermImp), fill=mycolours[10], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip()
 pBar
 
-filename <- "dHiAnnoyAllPAConPermimp"
-
 if (saveplots){
+
+  filename <- "dHiAnnoyAllPAConPermimp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4.4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
@@ -4833,9 +4885,10 @@ pBar <- ggplot(resAbs) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='gre
 
 pBar + scale_y_continuous(breaks=seq(0, 1, by=0.5))
 
-filename <- "crfAbsSQMsSummary"
-
 if (saveplots){
+  
+  filename <- "crfAbsSQMsSummary"
+
   ggsave(filename=paste(filename, ".svg"), width=8, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg"))
 
@@ -4857,9 +4910,10 @@ pBar <- ggplot(resAbs) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='gre
 
 pBar + scale_y_continuous(breaks=seq(0, 1, by=0.5))
 
-filename <- "crfAbsSQMsSummaryNw"
-
 if (saveplots){
+  
+  filename <- "crfAbsSQMsSummaryNw"
+
   ggsave(filename=paste(filename, ".svg"), width=4, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg"))
 
@@ -4909,9 +4963,10 @@ pBar <- ggplot(resAll) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colour='gre
 
 pBar + scale_y_continuous(breaks=seq(0, 1, by=0.5))
 
-filename <- "crfAllSQMsSummary"
-
 if (saveplots){
+
+  filename <- "crfAllSQMsSummary"
+
   ggsave(filename=paste(filename, ".svg"), width=8, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg"))
 
@@ -4964,10 +5019,10 @@ pBar <- ggplot(resAbsNoTonLd) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colo
 
 pBar + scale_y_continuous(breaks=seq(0, 1, by=0.5))
 
-
-filename <- "crfAbsSQMsNoTonLdSummary"
-
 if (saveplots){
+  
+  filename <- "crfAbsSQMsNoTonLdSummary"
+
   ggsave(filename=paste(filename, ".svg"), width=8, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg"))
 
@@ -5017,10 +5072,10 @@ pBar <- ggplot(resAllNoTonLd) + geom_col(aes(fill=Outcome, y=Imp, x=Order), colo
 
 pBar + scale_y_continuous(breaks=seq(0, 1, by=0.5))
 
-
-filename <- "crfAllSQMsNoTonLdSummary"
-
 if (saveplots){
+  
+  filename <- "crfAllSQMsNoTonLdSummary"
+
   ggsave(filename=paste(filename, ".svg"), width=8, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg"))
 
@@ -5047,6 +5102,16 @@ if (savedata){
   openxlsx2::write_xlsx(temp, paste(outDataPath, "\\CRFSummary.xlsx",
                                    sep=""),
                        rowNames=TRUE)
+}
+
+```
+
+
+#### Save the workspace to file
+
+```{r}
+if (savedata){
+  save.image(file.path(outDataPath, "refmap_listest2_analysis_cforest.RData"))
 }
 
 ```
