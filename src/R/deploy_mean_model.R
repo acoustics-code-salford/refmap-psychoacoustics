@@ -1,11 +1,70 @@
+require(reformulas)
+require(lme4)
+require(brms)
+require(glmmTMB)
+
 # =============================================================================
-# deploy_mean_model.R  (v13)
+# deploy_mean_model.R  (v15)
 #
 # A model-type-agnostic "deployment" toolkit that extracts the FIXED-EFFECTS
 # MEAN STRUCTURE of a fitted model (glmtoolbox::glmgee, glmmTMB, or brms) and
 # turns it into a standalone R function of the predictor variables.
 #
-# CHANGE LOG vs v12 (this version):
+# CHANGE LOG vs v14 (this version):
+#   - Addressed a structural issue, not just a tuning issue: m11's default
+#     run gave individual coefficients only accurate to 2-3 decimal places
+#     (e.g. 1/22 = 0.04545 vs the true 0.04468) even though the AGGREGATE
+#     mu-based tolerance (1%) was satisfied. Root cause: with ~10 terms
+#     across ~4000 observations, individual coefficient errors can partly
+#     cancel out in the aggregate prediction error, letting the search stop
+#     early on an aggregate basis while some individual coefficients are far
+#     less precise than that number suggests. Tightening the default
+#     tolerance alone would only have band-aided this specific case — the
+#     same failure mode could recur for any tolerance given enough terms/
+#     cancellation.
+#   - Fixed structurally: added a direct per-coefficient relative-precision
+#     constraint (new coef_tolerance argument, default 0.001 = 0.1%),
+#     checked independently of the aggregate tolerance. The denominator
+#     search now continues until EVERY coefficient (intercept included) is
+#     individually within coef_tolerance of its original value, AND the
+#     aggregate tolerance is met, AND no originally-nonzero coefficient has
+#     been zeroed — stopping only once all three hold, or at max_denominator
+#     (with a warning naming which coefficients, if any, couldn't reach the
+#     required precision within that cap). The printed report and
+#     deployed_coef_precision() accessor now show the worst individual
+#     coefficient's achieved relative error directly, not just the
+#     aggregate prediction deviation, so this is visible going forward
+#     rather than silently assumed.
+#   - Removed allow_zero_coefficients entirely, per your observation that
+#     there's no real use case for permitting it — zeroing an originally-
+#     nonzero coefficient is now unconditionally disallowed (within the
+#     denominator budget available).
+#   - Tightened defaults given the above: tolerance 0.01 -> 0.001,
+#     max_denominator 500 -> 2000. These are no longer the ONLY thing
+#     standing between you and an imprecise result (coef_tolerance now
+#     does the real work), but the looser previous defaults were themselves
+#     part of what made the problem easy to hit.
+#
+# CHANGE LOG vs v13:
+#   - Fixed a real simplification flaw flagged on m11: a small coefficient
+#     (0.04468 for dTonalSHMIntAvgMaxLRScl) was rounded all the way to
+#     exactly 0 at the shared denominator (11) the search stopped at —
+#     silently deleting that main-effect term from the model while its
+#     interaction with the same variable was kept — even though the
+#     AGGREGATE mu-based tolerance was satisfied (a small coefficient has a
+#     small effect on the aggregate deviation even when zeroed entirely).
+#     This is a structural change to the model, not a numeric approximation,
+#     and could happen silently. Fixed in .simplify_reduced(): by default
+#     (allow_zero_coefficients = FALSE, new argument on deploy_mean_model())
+#     the denominator search now continues past the point where aggregate
+#     tolerance is met, until EVERY originally-nonzero coefficient also has
+#     a nonzero approximation, stopping only at max_denominator — with an
+#     explicit warning naming any term(s) that still couldn't get a nonzero
+#     fraction within that cap, rather than silently dropping them. Pass
+#     allow_zero_coefficients = TRUE to opt back into the old, more lenient
+#     behaviour if deliberately dropping negligible terms is desired.
+#
+# CHANGE LOG vs v12:
 #   - Fixed a real bug (not a false alarm): the internal reduced-equation-
 #     vs-model.matrix cross-check compared .eval_eta(spec, cc_data) — the
 #     FULL model using the REAL values of every variable in the training
@@ -212,9 +271,10 @@
 
 deploy_mean_model <- function(model, ...,
                               coef_simplify = FALSE,
-                              tolerance = 0.01,
+                              tolerance = 0.0001,
                               tolerance_type = c("relative", "absolute"),
-                              max_denominator = 500,
+                              max_denominator = 5000,
+                              coef_tolerance = 0.0001,
                               validation_data = NULL,
                               verbose = TRUE) {
   UseMethod("deploy_mean_model")
@@ -229,37 +289,42 @@ deploy_mean_model.default <- function(model, ...) {
 
 deploy_mean_model.glmgee <- function(model, ...,
                                      coef_simplify = FALSE,
-                                     tolerance = 0.01,
+                                     tolerance = 0.0001,
                                      tolerance_type = c("relative", "absolute"),
-                                     max_denominator = 500,
+                                     max_denominator = 5000,
+                                     coef_tolerance = 0.0001,
                                      validation_data = NULL,
                                      verbose = TRUE) {
   spec <- .extract_spec_glmgee(model)
   .deploy_from_spec(spec, ...,
                     coef_simplify = coef_simplify, tolerance = tolerance,
                     tolerance_type = tolerance_type, max_denominator = max_denominator,
+                    coef_tolerance = coef_tolerance,
                     validation_data = validation_data, verbose = verbose)
 }
 
 deploy_mean_model.glmmTMB <- function(model, ...,
                                       coef_simplify = FALSE,
-                                      tolerance = 0.01,
+                                      tolerance = 0.0001,
                                       tolerance_type = c("relative", "absolute"),
-                                      max_denominator = 500,
+                                      max_denominator = 5000,
+                                      coef_tolerance = 0.0001,
                                       validation_data = NULL,
                                       verbose = TRUE) {
   spec <- .extract_spec_glmmTMB(model)
   .deploy_from_spec(spec, ...,
                     coef_simplify = coef_simplify, tolerance = tolerance,
                     tolerance_type = tolerance_type, max_denominator = max_denominator,
+                    coef_tolerance = coef_tolerance,
                     validation_data = validation_data, verbose = verbose)
 }
 
 deploy_mean_model.brmsfit <- function(model, ...,
                                       coef_simplify = FALSE,
-                                      tolerance = 0.01,
+                                      tolerance = 0.0001,
                                       tolerance_type = c("relative", "absolute"),
-                                      max_denominator = 500,
+                                      max_denominator = 5000,
+                                      coef_tolerance = 0.0001,
                                       validation_data = NULL,
                                       verbose = TRUE,
                                       point_estimate = c("mean", "median")) {
@@ -268,6 +333,7 @@ deploy_mean_model.brmsfit <- function(model, ...,
   .deploy_from_spec(spec, ...,
                     coef_simplify = coef_simplify, tolerance = tolerance,
                     tolerance_type = tolerance_type, max_denominator = max_denominator,
+                    coef_tolerance = coef_tolerance,
                     validation_data = validation_data, verbose = verbose)
 }
 
@@ -819,11 +885,14 @@ deploy_mean_model.brmsfit <- function(model, ...,
 }
 
 .simplify_reduced <- function(beta0, reduced_terms, data, link, original_mu,
-                              tolerance, tolerance_type, max_denominator) {
+                              tolerance, tolerance_type, max_denominator,
+                              coef_tolerance) {
   denom_bound <- 1
   deviation <- Inf
   approx_beta0 <- NULL
   approx_terms <- NULL
+  zeroed_labels <- character(0)
+  imprecise_labels <- character(0)
   
   repeat {
     denom_bound <- denom_bound + 1
@@ -844,14 +913,65 @@ deploy_mean_model.brmsfit <- function(model, ...,
               "Stopping simplification search at the current denominator bound; treat the result with caution.")
       break
     }
-    if (deviation <= tolerance || denom_bound >= max_denominator) break
+    
+    # Two per-coefficient checks, independent of the aggregate mu-based
+    # tolerance above. The aggregate check alone is not a reliable proxy
+    # for "each coefficient is a good approximation" — with many terms,
+    # individual coefficient errors can partially cancel in aggregate,
+    # letting the search stop early with some coefficients only accurate
+    # to 2-3 decimal places even when the overall prediction looks fine.
+    # (1) Never silently zero an originally-nonzero coefficient — that
+    #     deletes a real term from the model, a structural change rather
+    #     than a numeric approximation, regardless of tolerance.
+    # (2) Every originally-nonzero coefficient (and the intercept) must
+    #     individually be within coef_tolerance relative error of its own
+    #     original value — a direct, aggregate-proof precision guarantee.
+    zeroed_idx <- which(vapply(seq_along(reduced_terms), function(i) {
+      reduced_terms[[i]]$coef != 0 && approx_terms[[i]]$num == 0
+    }, logical(1)))
+    zeroed_labels <- vapply(reduced_terms[zeroed_idx], function(t) {
+      paste(vapply(t$pieces, .format_piece_display, character(1)), collapse = "*")
+    }, character(1))
+    
+    beta0_rel_err <- if (beta0 != 0) abs(approx_beta0$value - beta0) / abs(beta0) else 0
+    term_rel_err <- vapply(seq_along(reduced_terms), function(i) {
+      orig <- reduced_terms[[i]]$coef
+      if (orig == 0) return(0)
+      abs(approx_terms[[i]]$coef - orig) / abs(orig)
+    }, numeric(1))
+    imprecise_idx <- which(term_rel_err > coef_tolerance)
+    imprecise_labels <- vapply(reduced_terms[imprecise_idx], function(t) {
+      paste(vapply(t$pieces, .format_piece_display, character(1)), collapse = "*")
+    }, character(1))
+    
+    tolerance_met <- deviation <= tolerance
+    no_bad_zeros <- length(zeroed_labels) == 0
+    coefs_precise <- beta0_rel_err <= coef_tolerance && length(imprecise_labels) == 0
+    if ((tolerance_met && no_bad_zeros && coefs_precise) || denom_bound >= max_denominator) break
   }
   
+  if (length(zeroed_labels) > 0) {
+    warning(sprintf(
+      "Reached max_denominator = %d while %d originally-nonzero coefficient(s) still round to exactly 0: ",
+      max_denominator, length(zeroed_labels)),
+      paste(zeroed_labels, collapse = ", "),
+      ". No nonzero whole-number-ratio approximation was found for these within the allowed denominator, so ",
+      "they are left at 0 in this output — effectively DROPPED from the deployed equation. Increase ",
+      "max_denominator if you need them retained with a genuine nonzero ratio.")
+  }
+  if (length(imprecise_labels) > 0) {
+    warning(sprintf(
+      "Reached max_denominator = %d with %d coefficient(s) still more than %.3g%% relative error from their original value: ",
+      max_denominator, length(imprecise_labels), coef_tolerance * 100),
+      paste(imprecise_labels, collapse = ", "),
+      ". Increase max_denominator for tighter individual coefficients, or raise coef_tolerance to accept this.")
+  }
   if (is.na(deviation) || deviation > tolerance) {
-    warning(sprintf("Simplification did not reach tolerance %.4g within max_denominator = %d; achieved deviation = %.4g.",
+    warning(sprintf("Simplification did not reach the aggregate tolerance %.4g within max_denominator = %d; achieved deviation = %.4g.",
                     tolerance, max_denominator, deviation))
   }
-  list(beta0 = approx_beta0, terms = approx_terms, deviation = deviation, denom_bound = denom_bound)
+  list(beta0 = approx_beta0, terms = approx_terms, deviation = deviation, denom_bound = denom_bound,
+       max_coef_rel_err = max(c(beta0_rel_err, term_rel_err)))
 }
 
 # ---- Validation against the model's own fitted values ---------------------
@@ -946,7 +1066,7 @@ deploy_mean_model.brmsfit <- function(model, ...,
 
 # ---- Orchestrator ---------------------------------------------------------
 .deploy_from_spec <- function(spec, ..., coef_simplify, tolerance, tolerance_type,
-                              max_denominator, validation_data, verbose) {
+                              max_denominator, coef_tolerance, validation_data, verbose) {
   constants <- list(...)
   tolerance_type <- match.arg(tolerance_type, c("relative", "absolute"))
   
@@ -1047,7 +1167,7 @@ deploy_mean_model.brmsfit <- function(model, ...,
       for (v in names(constants)) full_val[[v]] <- constants[[v]]
       original_mu <- inv_link(.eval_eta(spec, full_val))
       simp <- .simplify_reduced(beta0, reduced_terms, val_data, spec$link, original_mu,
-                                tolerance, tolerance_type, max_denominator)
+                                tolerance, tolerance_type, max_denominator, coef_tolerance)
     }
   } else if (coef_simplify) {
     stop("coef_simplify = TRUE requires the reduced/printable equation, which could not be built for this model (see warning above).")
@@ -1070,6 +1190,7 @@ deploy_mean_model.brmsfit <- function(model, ...,
       attr(f, "simplification") <- list(
         deviation = simp$deviation, denom_bound = simp$denom_bound,
         tolerance = tolerance, tolerance_type = tolerance_type,
+        max_coef_rel_err = simp$max_coef_rel_err, coef_tolerance = coef_tolerance,
         raw_beta0 = beta0, raw_terms = reduced_terms
       )
     }
@@ -1125,8 +1246,10 @@ print.deployed_mean_model <- function(x, ...) {
   s <- attr(x, "simplification")
   if (!is.null(s)) {
     cat(sprintf("\nCoefficients simplified as ratios of whole numbers (denominator <= %d)\n", s$denom_bound))
-    cat(sprintf("Deviation vs original (unsimplified) model: %.4g (%s tolerance requested: %.4g)\n",
+    cat(sprintf("Aggregate prediction deviation vs original (unsimplified) model: %.4g (%s tolerance requested: %.4g)\n",
                 s$deviation, s$tolerance_type, s$tolerance))
+    cat(sprintf("Worst individual coefficient's relative error from its original value: %.4g (tolerance requested: %.4g)\n",
+                s$max_coef_rel_err, s$coef_tolerance))
   }
   invisible(x)
 }
@@ -1146,6 +1269,10 @@ deployed_equation  <- function(x) attr(x, "equation")
 deployed_deviation <- function(x) {
   s <- attr(x, "simplification")
   if (is.null(s)) NA_real_ else s$deviation
+}
+deployed_coef_precision <- function(x) {
+  s <- attr(x, "simplification")
+  if (is.null(s)) NA_real_ else s$max_coef_rel_err
 }
 deployed_fit_check <- function(x) attr(x, "fitted_validation")
 

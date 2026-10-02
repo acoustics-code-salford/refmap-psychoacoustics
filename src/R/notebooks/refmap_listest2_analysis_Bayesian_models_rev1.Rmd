@@ -46,7 +46,7 @@ theme_set(theme_bw())
 # parallelised processing settings would need to be amended throughout the notebook if
 # a different number of cores are available
 n_cores <- max(1, parallelly::availableCores() - 4)
-future::plan(future::multisession, workers = n_cores)
+future::plan(future::multisession, workers = n_cores, maxSizeOfObjects = 10e9)
 
 options(marginaleffects_parallel_inferences = TRUE)
 options(marginaleffects_parallel = TRUE)
