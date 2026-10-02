@@ -2868,7 +2868,7 @@ transform_dAnnoy <- \(x) betaTransform(x, -10, 10, direction = 'reverse', squeez
 grid_marg <- build_marginal_grid(
   mdA10, within_vars = within_vars_all, between_vars = between_vars_all,
   id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
-  n_new = nnew_pred, fixed_at_mean = "PartTrialNumberScl"
+  n_new = nnew_pred, empirical_vars = "PartTrialNumberScl"
 )
 
 
@@ -2877,7 +2877,7 @@ lae_sweep <- seq(min(stimDataNoAmb$UASLAEMaxLRScl), max(stimDataNoAmb$UASLAEMaxL
 grid_marg_lae_sweep <- build_marginal_grid(
   mdA10, within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"), between_vars = between_vars_all,
   id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
-  n_new = nnew_pred, fixed_at_mean = "PartTrialNumberScl",
+  n_new = nnew_pred, empirical_vars = "PartTrialNumberScl",
   counterfactual_vars=list(UASLAEMaxLRScl=lae_sweep)
 )
 
@@ -2889,7 +2889,7 @@ lae_step <- c(6, 12)
 grid_marg_lae_step <- build_marginal_grid(
   mdA10, within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"), between_vars = between_vars_all,
   id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
-  n_new = nnew_pred, fixed_at_mean = "PartTrialNumberScl",
+  n_new = nnew_pred, empirical_vars = "PartTrialNumberScl",
   counterfactual_vars=list(UASLAEMaxLRScl=lae_step)
 )
 
@@ -2903,7 +2903,8 @@ grid_fixed_lae <- build_marginal_grid(
   within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"),
   between_vars = between_vars_all,
   id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE,
-  n_new = nnew_pred, fixed_at_mean = c("PartTrialNumberScl", "UASLAEMaxLRScl")
+  n_new = nnew_pred, empirical_vars = "PartTrialNumberScl",
+  fixed_at_mean = "UASLAEMaxLRScl"
 )
 
 ```
@@ -2982,7 +2983,8 @@ mdA10predAtt <- avg_predictions_adjusted_by(mdA10, newdata=grid_marg_lae_sweep,
                                       allow_new_levels = TRUE,
                                         sample_new_levels = "gaussian",
                                        ndraws=ndraws_pred, seed=999,
-                                     transform=transform_dAnnoy)
+                                     transform=transform_dAnnoy,
+                                     size_warn_gb=6)
 
 mdA10predAoR <- avg_predictions_adjusted_by(mdA10, newdata=grid_marg_lae_sweep,
                                      counterfactual_var="UASLAEMaxLRScl",
@@ -2991,7 +2993,8 @@ mdA10predAoR <- avg_predictions_adjusted_by(mdA10, newdata=grid_marg_lae_sweep,
                                       allow_new_levels = TRUE,
                                         sample_new_levels = "gaussian",
                                        ndraws=ndraws_pred, seed=999,
-                                     transform=transform_dAnnoy)
+                                     transform=transform_dAnnoy,
+                                     size_warn_gb=6)
 
 mdA10predScp <- avg_predictions_adjusted_by(mdA10, newdata=grid_marg_lae_sweep,
                                      counterfactual_var="UASLAEMaxLRScl",
@@ -3000,7 +3003,8 @@ mdA10predScp <- avg_predictions_adjusted_by(mdA10, newdata=grid_marg_lae_sweep,
                                       allow_new_levels = TRUE,
                                         sample_new_levels = "gaussian",
                                      ndraws=ndraws_pred, seed=999,
-                                     transform=transform_dAnnoy)
+                                     transform=transform_dAnnoy,
+                                     size_warn_gb=6)
 
 mdA10_op_fixed_lae <- avg_comparisons_manual(
   mdA10, grid_fixed_lae, variable = "UASOperation", auto_orient=TRUE,
@@ -5730,7 +5734,7 @@ if (saveplots){
 <!-- grid_marg <- build_marginal_grid( -->
 <!--   mA9, within_vars = within_vars_all, between_vars = between_vars_all, -->
 <!--   id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE, -->
-<!--   n_new = nnew_pred, fixed_at_mean = "PartTrialNumberScl" -->
+<!--   n_new = nnew_pred, empirical_vars = "PartTrialNumberScl" -->
 <!-- ) -->
 
 
@@ -5739,7 +5743,7 @@ if (saveplots){
 <!-- grid_marg_lae_sweep <- build_marginal_grid( -->
 <!--   mA9, within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"), between_vars = between_vars_all, -->
 <!--   id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE, -->
-<!--   n_new = nnew_pred, fixed_at_mean = "PartTrialNumberScl", -->
+<!--   n_new = nnew_pred, empirical_vars = "PartTrialNumberScl", -->
 <!--   counterfactual_vars=list(UASLAEMaxLRScl=lae_sweep) -->
 <!-- ) -->
 
@@ -5751,7 +5755,7 @@ if (saveplots){
 <!-- grid_marg_lae_step <- build_marginal_grid( -->
 <!--   mA9, within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"), between_vars = between_vars_all, -->
 <!--   id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE, -->
-<!--   n_new = nnew_pred, fixed_at_mean = "PartTrialNumberScl", -->
+<!--   n_new = nnew_pred, empirical_vars = "PartTrialNumberScl", -->
 <!--   counterfactual_vars=list(UASLAEMaxLRScl=lae_step) -->
 <!-- ) -->
 
@@ -5765,7 +5769,8 @@ if (saveplots){
 <!--   within_vars = setdiff(within_vars_all, "UASLAEMaxLRScl"), -->
 <!--   between_vars = between_vars_all, -->
 <!--   id_var = "ID", stim_var = "StimID", simulate_id = TRUE, simulate_stim = TRUE, -->
-<!--   n_new = nnew_pred, fixed_at_mean = c("PartTrialNumberScl", "UASLAEMaxLRScl") -->
+<!--   n_new = nnew_pred, empirical_vars = "PartTrialNumberScl", -->
+<!--   fixed_at_mean = "UASLAEMaxLRScl" -->
 <!-- ) -->
 
 <!-- ``` -->
@@ -5844,7 +5849,8 @@ if (saveplots){
 <!--                                       allow_new_levels = TRUE, -->
 <!--                                         sample_new_levels = "gaussian", -->
 <!--                                        ndraws=ndraws_pred, seed=999, -->
-<!--                                      transform=transform_Annoy) -->
+<!--                                      transform=transform_Annoy, -->
+                                     <!-- size_warn_gb=6) -->
 
 <!-- mA9predAoR <- avg_predictions_adjusted_by(mA9, newdata=grid_marg_lae_sweep, -->
 <!--                                      counterfactual_var="UASLAEMaxLRScl", -->
@@ -5853,7 +5859,8 @@ if (saveplots){
 <!--                                       allow_new_levels = TRUE, -->
 <!--                                         sample_new_levels = "gaussian", -->
 <!--                                        ndraws=ndraws_pred, seed=999, -->
-<!--                                      transform=transform_Annoy) -->
+<!--                                      transform=transform_Annoy, -->
+                                     <!-- size_warn_gb=6) -->
 
 <!-- mA9predScp <- avg_predictions_adjusted_by(mA9, newdata=grid_marg_lae_sweep, -->
 <!--                                      counterfactual_var="UASLAEMaxLRScl", -->
@@ -5862,7 +5869,8 @@ if (saveplots){
 <!--                                       allow_new_levels = TRUE, -->
 <!--                                         sample_new_levels = "gaussian", -->
 <!--                                      ndraws=ndraws_pred, seed=999, -->
-<!--                                      transform=transform_Annoy) -->
+                                     <!-- transform=transform_Annoy, -->
+                                     <!-- size_warn_gb=6) -->
 
 <!-- mA9_op_fixed_lae <- avg_comparisons_manual( -->
 <!--   mA9, grid_fixed_lae, variable = "UASOperation", auto_orient=TRUE, -->
@@ -7003,7 +7011,7 @@ if (saveplots){
 
 <!-- ``` -->
 
-#### Save the workspace to file
+# Save the workspace to file
 
 ```{r}
 if (savedata){
@@ -7011,42 +7019,4 @@ if (savedata){
 }
 
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

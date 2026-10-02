@@ -1,3 +1,8 @@
+require(parallel)
+require(MASS)
+require(bayestestR)
+require(ggpubr)
+
 # =============================================================================
 # avg_comparisons_slopes.R
 #
@@ -660,6 +665,55 @@
 #         two "looked fine" un-adjusted - their apparent agreement wasn't
 #         validation of the by= mechanism, just weaker correlation with
 #         other between-subjects traits in that particular sample.
+#   v0.35 Added a proactive warning for high-cardinality within_vars columns,
+#         after the same mistake recurred a THIRD time with a third
+#         different variable (UASLAEMaxLRScl, then TrialNumberScl, then
+#         PartTrialNumberScl) - each initially misread as some kind of
+#         counterfactual-sweep behavior, when it was actually just
+#         within_vars' ordinary joint-deduplication semantics applied to a
+#         column with far more distinct values than any genuine categorical
+#         design factor in this project has ever had (max ~6). No existing
+#         call is affected - every within_vars column used throughout this
+#         project for a genuine categorical factor has well under 10
+#         distinct values, so the new warning() stays silent for all of
+#         them; it only fires for the exact class of mistake already made
+#         three times.
+#   v0.36 Added empirical_vars to build_marginal_grid(): cycles a
+#         continuous/high-cardinality covariate's real, full (frequency-
+#         preserving) observed values through the n_new synthetic
+#         profiles, rather than fixing it at a constant (fixed_at_mean) or
+#         combinatorially crossing it (within_vars, confirmed wrong for
+#         this class of variable - v0.35). Motivated by comparing against
+#         marginaleffects::datagrid(grid_type="counterfactual") on a
+#         frequentist GEE model: leaving a variable unspecified there
+#         preserves its true empirical distribution (every real row kept
+#         as-is), which this now matches for the brms side without
+#         combinatorial explosion - grid size stays design_cells x n_new,
+#         unaffected by this argument. Also clarified (in docs and in a
+#         user conversation) that fixed_at_mean is NOT generally
+#         equivalent to this for a nonlinear link - a real, if often
+#         small, Jensen's-inequality gap exists between evaluating at one
+#         representative point versus genuinely averaging over the true
+#         distribution, the same distinction already established for
+#         re_formula=NA vs sample_new_levels="gaussian" with random
+#         effects, now confirmed to apply to fixed covariates too.
+#   v0.37 v0.36's empirical_vars cycled a covariate's pooled values through
+#         n_new slots INDEPENDENTLY of which real participant supplied the
+#         demographic profile in that same slot - a real, named limitation
+#         at the time (two separate cycles sharing only a loop index, not
+#         an underlying real unit). Fixed at no extra cost: empirical_vars
+#         now reuses the SAME per-slot real-participant assignment (`idx`)
+#         already computed for demog_profiles, so a slot's covariate value
+#         is drawn from THAT SAME real person's own observed values -
+#         cycling through that person's own repeated measurements across
+#         their multiple synthetic copies (a per-participant occurrence
+#         counter, not the same value repeated for every copy of them).
+#         This preserves true within-participant joint structure between
+#         the covariate and that person's other traits/random effects,
+#         removing the independence assumption entirely rather than just
+#         documenting it. Grid size unaffected - still design_cells x
+#         n_new. simulate_id=FALSE (no `idx` built at all) falls back to
+#         each real participant's own first observed value.
 # =============================================================================
 
 
@@ -925,6 +979,30 @@ make_prediction_cluster <- function(model, n_workers = parallel::detectCores() -
 #'   hold at their sample mean (e.g. "TrialNumberScl").
 #' @param fixed_at_mode Character vector of categorical covariate names to
 #'   hold at their sample mode (most frequent observed level).
+#' @param empirical_vars Character vector of continuous/high-cardinality
+#'   within-subject covariate names (e.g. "TrialNumberScl") whose TRUE
+#'   empirical distribution should be preserved in the marginal average,
+#'   rather than fixed at a single representative value. Unlike
+#'   within_vars (a joint deduplication key - full combinatorial crossing,
+#'   the wrong tool here, confirmed to explode grid size for exactly this
+#'   class of variable - see v0.35), this CYCLES the variable's real
+#'   observed values through the n_new synthetic profiles - grid size
+#'   stays design_cells x n_new, unaffected by this argument.
+#'   LINKED, not independent: each synthetic slot already has a specific
+#'   real participant assigned to it for the demographic profile (via
+#'   simulate_id's deterministic cycling) - empirical_vars reuses that
+#'   SAME assignment, so a slot's covariate value is drawn from the SAME
+#'   real person's own observed values (cycling through that person's own
+#'   repeated measurements across their multiple synthetic copies), not
+#'   from an unrelated pooled set cycled on its own, independent schedule.
+#'   This preserves the TRUE within-participant joint structure between
+#'   the covariate and that person's other traits/random effects, which a
+#'   naively independent cycling would not.
+#'   fixed_at_mean evaluates the model at one representative point, which
+#'   is NOT generally equivalent to this for a nonlinear link (Jensen's
+#'   inequality - the same re_formula=NA vs sample_new_levels="gaussian"
+#'   distinction already established for random effects applies here too,
+#'   confirmed in practice to produce a small but real, nonzero gap).
 #' @param newdata Optional data.frame to use instead of
 #'   insight::get_data(model) - e.g. a pre-filtered subset.
 #' @param verbose If TRUE (default), prints a short summary of what was
@@ -943,6 +1021,7 @@ build_marginal_grid <- function(model, within_vars, between_vars,
                                 simulate_id = TRUE, simulate_stim = TRUE,
                                 n_new = 150, counterfactual_vars = NULL,
                                 fixed_at_mean = NULL, fixed_at_mode = NULL,
+                                empirical_vars = NULL,
                                 newdata = NULL, verbose = TRUE, ...) {
   dots <- list(...)
   if ("seed" %in% names(dots)) {
@@ -960,7 +1039,8 @@ build_marginal_grid <- function(model, within_vars, between_vars,
                         counterfactual_vars, fixed_at_mean, fixed_at_mode, n_new, simulate_id)
   
   all_named <- unique(c(within_vars, between_vars, id_var, stim_var,
-                        names(counterfactual_vars), fixed_at_mean, fixed_at_mode))
+                        names(counterfactual_vars), fixed_at_mean, fixed_at_mode,
+                        empirical_vars))
   missing_from_data <- setdiff(all_named, names(model_data))
   if (length(missing_from_data) > 0) {
     stop("The following variables are not present in the model's data: ",
@@ -976,7 +1056,8 @@ build_marginal_grid <- function(model, within_vars, between_vars,
     if (length(still_missing) > 0) {
       stop(
         "The model requires the following predictor(s), not accounted for by any of ",
-        "within_vars/between_vars/id_var/stim_var/counterfactual_vars/fixed_at_mean/fixed_at_mode: ",
+        "within_vars/between_vars/id_var/stim_var/counterfactual_vars/fixed_at_mean/",
+        "fixed_at_mode/empirical_vars: ",
         paste(sQuote(still_missing), collapse = ", "),
         ".\nEvery variable the model actually uses must be covered by one of these arguments, ",
         "or prediction will fail (or silently fall back to some default you didn't intend).",
@@ -993,6 +1074,36 @@ build_marginal_grid <- function(model, within_vars, between_vars,
   }
   
   # ---- Design cells (within-subject / stimulus-level variables) ---------
+  # within_vars is a joint deduplication key (distinct() across ALL listed
+  # columns together), not a sweep - a near-continuous or high-cardinality
+  # column included here (LAE, trial number, anything like them) causes
+  # nearly every real row to survive deduplication as its own distinct
+  # "design cell", since few rows share the exact same value in combination
+  # with the same other design factors. Confirmed in practice 3 times now
+  # with 3 different variables (UASLAEMaxLRScl, TrialNumberScl,
+  # PartTrialNumberScl) - each produced an order-of-magnitude-plus grid
+  # size jump that was initially mistaken for a different mechanism
+  # (counterfactual sweeping) entirely. fixed_at_mean/counterfactual_vars
+  # are the correct tools for such variables; within_vars is only for
+  # genuinely categorical, low-cardinality design factors.
+  high_card <- within_vars[vapply(within_vars, function(v) {
+    length(unique(model_data[[v]])) > 10
+  }, logical(1))]
+  if (length(high_card) > 0) {
+    warning(
+      "build_marginal_grid(): within_vars contains column(s) with more than ",
+      "10 distinct values (", paste(sQuote(high_card), collapse = ", "), ") - ",
+      "within_vars is a joint deduplication key, not a sweep, so a high-",
+      "cardinality column here typically causes nearly every real row to ",
+      "survive as its own design cell, inflating the grid far more than ",
+      "intended. If this column is continuous or near-continuous (e.g. a ",
+      "sound-level or trial-order measurement), use fixed_at_mean or ",
+      "counterfactual_vars instead - within_vars is for categorical, ",
+      "low-cardinality design factors only.",
+      call. = FALSE
+    )
+  }
+  
   design_cells <- model_data[!duplicated(model_data[within_vars]),
                              c(within_vars, stim_var), drop = FALSE]
   if (simulate_stim) {
@@ -1031,6 +1142,56 @@ build_marginal_grid <- function(model, within_vars, between_vars,
     demog_assignment[[id_var]] <- paste0("new_id_", seq_len(n_new))
   } else {
     demog_assignment <- demog_profiles
+  }
+  
+  # ---- Empirical-distribution variables (cycled, LINKED to the same real
+  # participant as the demographic profile) ---------------------------------
+  # For a continuous/high-cardinality within-subject covariate (trial
+  # number, anything like it) you often want its TRUE empirical
+  # distribution preserved in the marginal average - fixing it at a
+  # constant (fixed_at_mean) evaluates a nonlinear-link model at one
+  # representative point rather than genuinely averaging over the real
+  # distribution (the same re_formula=NA-vs-sample_new_levels="gaussian"
+  # distinction already established for random effects, via Jensen's
+  # inequality on the inverse link - confirmed to matter here too, if only
+  # slightly). within_vars is the wrong tool for this (full combinatorial
+  # crossing - exactly the explosion already seen 3 times with this class
+  # of variable, v0.35).
+  #
+  # LINKED cycling, not independent: each synthetic slot k already has a
+  # specific REAL participant assigned to it (`idx`, built above for the
+  # demographic profile) - reused here so empirical_vars draws from THAT
+  # SAME real person's own observed values, not an unrelated pooled set
+  # cycled on its own schedule. A real participant typically supplies many
+  # n_new slots (n_new >> number of real profiles); each of their own
+  # repeated appearances draws a DIFFERENT one of that person's own real
+  # values in turn (per-participant occurrence counter, deterministic
+  # cycling - not the same value repeated for every copy of them), so both
+  # between- and within-participant variation in the covariate are
+  # represented. Grid size is unaffected either way - design_cells x
+  # n_new, nothing crossed combinatorially.
+  for (v in empirical_vars) {
+    if (v %in% c(within_vars, between_vars, names(counterfactual_vars), fixed_at_mean, fixed_at_mode)) {
+      stop(
+        "empirical_vars: '", v, "' also appears in within_vars/between_vars/counterfactual_vars/",
+        "fixed_at_mean/fixed_at_mode - a variable should be handled by exactly one mechanism.",
+        call. = FALSE
+      )
+    }
+    # simulate_id=FALSE never builds `idx` (no cycling/duplication happens
+    # at all in that case, demog_assignment IS demog_profiles) - fall back
+    # to an identity mapping, equivalent to "each real participant gets
+    # their own first observed value".
+    slot_idx <- if (exists("idx", inherits = FALSE)) idx else seq_len(nrow(demog_profiles))
+    
+    real_ids_per_slot <- demog_profiles[[id_var]][slot_idx]
+    id_val_list <- split(model_data[[v]], model_data[[id_var]])
+    occurrence_num <- stats::ave(seq_along(real_ids_per_slot), real_ids_per_slot, FUN = seq_along)
+    
+    demog_assignment[[v]] <- mapply(function(rid, occ) {
+      vals <- id_val_list[[as.character(rid)]]
+      vals[((occ - 1) %% length(vals)) + 1]
+    }, real_ids_per_slot, occurrence_num)
   }
   
   # ---- Cross design cells x demographic assignment ------------------------

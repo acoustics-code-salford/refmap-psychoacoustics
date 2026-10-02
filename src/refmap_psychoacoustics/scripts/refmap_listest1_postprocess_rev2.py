@@ -264,15 +264,18 @@ for ii, file in enumerate(filelist):
     dataByStim.loc[stemNames[ii], 'LASmaxMaxLR'] = signalLASmax.max()
 
     # calculate intermittency ratio for test sounds
-    C = [2, 3, 5]  # define threshold constant (dB)
-
+    
     if (stemNames[ii].find("A1") != -1 or stemNames[ii].find("A2") != -1
         or stemNames[ii].find("B2") != -1):
 
+        C = [2, 3, 5]  # define threshold constant (dB)
+        
         # 1-second LAeq
-        signalLAeq1s = 20*np.log10(np.sqrt(pd.DataFrame(signalA[start_skips:-end_skips]**2).rolling(window=sampleRatein,
-                                                                                                    step=sampleRatein,
-                                                                                                    closed='left').mean())/2e-5)
+        signalASqSlice = pd.DataFrame(signalA**2).iloc[start_skips:-end_skips, :].reset_index(drop=True)
+        # 1-second LAeq
+        signalLAeq1s = 20*np.log10(np.sqrt((signalASqSlice).groupby(signalASqSlice.index
+                                                                    // sampleRatein).mean())/2e-5)
+
         intermitRatioAll = np.zeros((len(C), 2))
         for jj, jjC in enumerate(C):
             intermitRatioK = signalLAeq + jjC  # IR threshold

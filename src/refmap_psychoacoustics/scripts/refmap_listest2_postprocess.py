@@ -28,6 +28,14 @@ simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 # enable copy-on-write mode for Pandas (will be default from Pandas 3.0)
 pd.options.mode.copy_on_write = True
 
+# check/open QApplication instance
+if not QApplication.instance():
+    app = QApplication(sys.argv)
+else:
+    app = QApplication.instance() 
+
+outFilePath = QFileDialog.getExistingDirectory(caption="Choose output folder to save processed files in '03 Experiment\Experiment 2\Analysis\PostProcess'")
+
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Initialise data frame for metric calculations and results
 # ---------------------------------------------------------
@@ -136,6 +144,10 @@ dataByStim = pd.concat([dataByStim, pd.DataFrame(index=dataByStim.index,
                                                  columns=indicesAcoustic,
                                                  dtype=float)], axis=1)
 
+LAeqCols = "LAeq100ms_" + np.arange(0, 30, 0.1).astype(str)
+dataByStimLAeqL = pd.DataFrame(index=dataByStim.index[~dataByStim.index.str.contains("Background")], columns=LAeqCols, dtype=float)
+dataByStimLAeqR = pd.DataFrame(index=dataByStim.index[~dataByStim.index.str.contains("Background")], columns=LAeqCols, dtype=float)
+
 # Acoustic metrics calculations
 # -----------------------------
 
@@ -198,15 +210,17 @@ for ii, file in enumerate(filelist):
     dataByStim.loc[stemNames[ii], 'LAF95ExMaxLR'] = signalLAF95.max()
     dataByStim.loc[stemNames[ii], 'LASmaxMaxLR'] = signalLASmax.max()
 
-    # calculate intermittency ratio for test sounds
-    C = [2, 3, 5]  # define threshold constant (dB)
+    signalASq = pd.DataFrame(signalA**2)
 
+    # calculate intermittency ratio for test sounds
     if dataByStim.loc[stemNames[ii], 'AmbientEnv'] != "UAS only":
 
+        signalASqSlice = signalASq.iloc[start_skips:-end_skips, :].reset_index(drop=True)
         # 1-second LAeq
-        signalLAeq1s = 20*np.log10(np.sqrt(pd.DataFrame(signalA[start_skips:-end_skips]**2).rolling(window=sampleRatein,
-                                                                                                    step=sampleRatein,
-                                                                                                    closed='left').mean())/2e-5)
+        signalLAeq1s = 20*np.log10(np.sqrt((signalASqSlice).groupby(signalASqSlice.index
+                                                                    // sampleRatein).mean())/2e-5)
+        
+        C = [2, 3, 5]  # define threshold constant (dB)
         
         intermitRatioAll = np.zeros((len(C), 2))
         for jj, jjC in enumerate(C):
@@ -224,9 +238,28 @@ for ii, file in enumerate(filelist):
             
             dataByStim.loc[stemNames[ii], ('IntermitRatioC' + str(jjC) + 'MaxLR')] = intermitRatioAll[jj, :].max()
 
+    if "Background" not in stemNames[ii]:
+        # 100-millisecond LAeq
+
+        signalLAeq100ms = 20*np.log10(np.sqrt((signalASq).groupby(signalASq.index
+                                                                  // (sampleRatein
+                                                                  // 10)).mean())/2e-5)
+
+        dataByStimLAeqL.loc[stemNames[ii], :] = signalLAeq100ms.iloc[:, 0].values
+        dataByStimLAeqR.loc[stemNames[ii], :] = signalLAeq100ms.iloc[:, 1].values
+
+dataByStimLAeqMaxLR = pd.DataFrame(index=dataByStimLAeqL.index, columns=dataByStimLAeqL.columns,
+                                   data=np.maximum(dataByStimLAeqL, dataByStimLAeqR))
 
 # end of for loop over HATS signal wav files
 
+# save data to csv
+dataByStimLAeqMaxLR.to_csv(os.path.join(outFilePath,
+                                        "refmap_listest2_dataByStimLAeqMaxLR.csv"))
+dataByStimLAeqL.to_csv(os.path.join(outFilePath,
+                                    "refmap_listest2_dataByStimLAeqL.csv"))
+dataByStimLAeqR.to_csv(os.path.join(outFilePath,
+                                    "refmap_listest2_dataByStimLAeqR.csv"))
 
 # -----------------------------------
 # %% PNL and detection metrics import
@@ -2363,7 +2396,7 @@ else:
 
 fileExts = "*.csv"
 filepath = QFileDialog.getOpenFileName(filter=fileExts,
-                                       caption=r"Select test end response data file in '03 Experiment\Experiment 2\Test_files\Response_data\Compiled'")[0]
+                                       caption=r"Select test end response data file refmap_listest2_endResponses.csv in '03 Experiment\Experiment 2\Test_files\Response_data\Compiled'")[0]
 
 # read in data and add column indicating the stimulus recording file
 testResponses = pd.read_csv(filepath, header=0)
@@ -2373,6 +2406,12 @@ testResponses['HighlyAnnoyed'] = testResponses['HighlyAnnoyed'].astype(pd.Int64D
 
 # sort stimulus names
 stimSorted = np.sort(testResponses['stimulus'].unique())
+
+# open momentary data
+filepath1 = QFileDialog.getOpenFileName(filter=fileExts,
+                                       caption=r"Select test momentary annoyance data file refmap_listest2_momentaryAnnoyance.csv in '03 Experiment\Experiment 2\Test_files\Response_data\Compiled'")[0]
+
+momentAnnoyance = pd.read_csv(filepath1, header=0)
 
 def dataAggregation(testResponseData, responses, stimuliNames, randomState):
     # loop over stimuli recording names, extract corresponding response data and
@@ -2406,6 +2445,8 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
                     if "Baseline" in file and "d" in response:
                         medianCI_Low = 0
                         medianCI_High = 0
+                        quartile25 = 0
+                        quartile75 = 0
                         meanCI_Low = 0
                         meanCI_High = 0
                         
@@ -2415,20 +2456,24 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
                         responseMeanBoot = stats.bootstrap(responseData.values, statistic=np.nanmean, confidence_level=0.95,
                                                            method='BCa', n_resamples=20000, random_state=randomState)
                         
+                        quartile25 = np.nanpercentile(responseData.values, q=25, axis=1, method='median_unbiased')[0]
+                        quartile75 = np.nanpercentile(responseData.values, q=75, axis=1, method='median_unbiased')[0]
+
                         medianCI_Low = responseMedianBoot.confidence_interval.low
                         medianCI_High = responseMedianBoot.confidence_interval.high
                         meanCI_Low = responseMeanBoot.confidence_interval.low
                         meanCI_High = responseMeanBoot.confidence_interval.high
 
-                    responseAgg = pd.DataFrame(data=np.vstack([np.nanpercentile(responseData.values,
-                                                                                q=50, axis=1,
-                                                                                method='median_unbiased')[0],
+                    responseAgg = pd.DataFrame(data=np.vstack([np.nanmedian(responseData.values, axis=1)[0],
                                                                medianCI_Low, medianCI_High,
+                                                               quartile25, quartile75,
                                                                np.nanmean(responseData.values, axis=1)[0],
                                                                meanCI_Low, meanCI_High]),
                                                index=[response + 'Median',
                                                       response + 'MedianCI_Low',
                                                       response + 'MedianCI_High',
+                                                      response + 'Quartile25',
+                                                      response + 'Quartile75',
                                                       response + 'Mean',
                                                       response + 'MeanCI_Low',
                                                       response + 'MeanCI_High'],
@@ -2439,6 +2484,8 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
                                                index=[response + 'Median',
                                                       response + 'MedianCI_Low',
                                                       response + 'MedianCI_High',
+                                                      response + 'Quartile25',
+                                                      response + 'Quartile75',
                                                       response + 'Mean',
                                                       response + 'MeanCI_Low',
                                                       response + 'MeanCI_High'],
@@ -2452,6 +2499,8 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
                     testData.loc[file, response + 'Median'] = responseAgg.loc[file, response + 'Median']
                     testData.loc[file, response + 'MedianCI_Low'] = responseAgg.loc[file, response + 'MedianCI_Low']
                     testData.loc[file, response + 'MedianCI_High'] = responseAgg.loc[file, response + 'MedianCI_High']
+                    testData.loc[file, response + 'Quartile25'] = responseAgg.loc[file, response + 'Quartile25']
+                    testData.loc[file, response + 'Quartile75'] = responseAgg.loc[file, response + 'Quartile75']
                     testData.loc[file, response + 'Mean'] = responseAgg.loc[file, response + 'Mean']
                     testData.loc[file, response + 'MeanCI_Low'] = responseAgg.loc[file, response + 'MeanCI_Low']
                     testData.loc[file, response + 'MeanCI_High'] = responseAgg.loc[file, response + 'MeanCI_High']
@@ -2572,6 +2621,8 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
                 if not (col.endswith('Median')
                         or col.endswith('MedianCI_Low')
                         or col.endswith('MedianCI_High')
+                        or col.endswith('Quartile25')
+                        or col.endswith('Quartile75')
                         or col.endswith('Mean')
                         or col.endswith('MeanCI_Low')
                         or col.endswith('MeanCI_High')
@@ -2615,6 +2666,9 @@ testDataCombi = dataAggregation(testResponsesCombi, ["Pleasantness", "Eventfulne
 # %%%%%%%%%%%%%%%%%%
 # Merge the datasets
 # ------------------
+
+# take a pre-merge copy of dataByStim
+dataByStimFiltered = dataByStim.copy()
 
 # merge testData into dataByStim, matching on the index
 dataByStim = dataByStim.merge(testData, how='outer', left_index=True,
@@ -2663,14 +2717,6 @@ dataByStimAux = dataByStim.loc[(dataByStim.index.str.contains("Background"))
 dataByStimAuxCombi = dataByStimCombi.loc[(dataByStimCombi.index.str.contains("Background"))
                                           | (dataByStimCombi['AmbientRef'] == "UAS only"), :].dropna(axis=1, how='all')
 
-# check/open QApplication instance
-if not QApplication.instance():
-    app = QApplication(sys.argv)
-else:
-    app = QApplication.instance() 
-
-outFilePath = QFileDialog.getExistingDirectory(caption="Choose output folder to save processed files in '03 Experiment\Experiment 2\Analysis\PostProcess'")
-
 dataByStim.to_csv(os.path.join(outFilePath,
                                "refmap_listest2_alldata_ByStim.csv"))
 
@@ -2706,8 +2752,6 @@ testResponsesCombiMiss49['trial'] = np.nan
 
 # set all responses to NaN for these missing stimuli
 testResponsesCombiMiss49.loc[:, 'Annoyance':'dProbHA10k'] = np.nan
-
-# 
 testResponsesMiss49 = testResponsesCombiMiss49.copy()
 testResponsesMiss49['sourceStart'] = "Baseline"
 # move sourceStart column to after sourceProximity column using insert
@@ -2757,7 +2801,89 @@ testDataBySubj.to_csv(os.path.join(outFilePath,
                                   "refmap_listest2_testdata_BySubj.csv"),
                       index=False)
 
-# form wide format datasets for each outcome
+# %% momentary annoyance data by participant
+
+# add missing columns to testResponseMiss from momentAnnoyance DataFrame
+momentAnnoyanceMiss = testResponsesMiss49.copy()
+momentAnnoyanceMiss.drop(columns=['Pleasantness',
+                                  'Eventfulness',
+                                  'dPleasantness',
+                                  'dEventfulness'], inplace=True)
+for col in momentAnnoyance.columns:
+    if col not in momentAnnoyanceMiss.columns:
+        momentAnnoyanceMiss[col] = np.nan
+
+for col in momentAnnoyanceMiss.columns:
+    if col not in momentAnnoyance.columns:
+        momentAnnoyance[col] = np.nan
+
+# concatenate and update momentAnnoyance with values from testResponses for the columns 'Annoyance', 'dAnnoyance', 'HighlyAnnoyed', 'dHighlyAnnoyed', 'ProbHA20k', 'ProbHA10k', 'dProbHA20k', and 'dProbHA10k'
+# remembering that further participants were excluded from the momentary annoyance task
+# check which participant IDs are present in momentAnnoyance and testResponses
+momentAnnoyanceParticipants = momentAnnoyance['participant'].unique()
+testResponsesParticipants = testResponses['participant'].unique()
+
+excludedParticipants = np.setdiff1d(testResponsesParticipants, momentAnnoyanceParticipants)
+
+momentAnnoyance = pd.concat([momentAnnoyance, momentAnnoyanceMiss], axis=0, ignore_index=True)
+momentAnnoyance.sort_values(by=['participant', 'trial'], axis=0, inplace=True)
+testResponses.sort_values(by=['participant', 'trial'], axis=0, inplace=True)
+annoyResponseCols = ['Annoyance', 'HighlyAnnoyed', 'ProbHA20k', 'ProbHA10k', 'dAnnoyance', 'dHighlyAnnoyed', 'dProbHA10k', 'dProbHA20k']
+for col in annoyResponseCols:
+    if col in testResponses.columns:
+        momentAnnoyance[col] = testResponses.loc[~testResponses['participant'].isin(excludedParticipants), col]
+
+# move the columns 'Annoyance', 'dAnnoyance', 'HighlyAnnoyed', 'dHighlyAnnoyed', 'ProbHA20k', 'ProbHA10k', 'dProbHA20k', and 'dProbHA10k' to after the column 'sourceInterval'
+for col in reversed(annoyResponseCols):
+    if col in momentAnnoyance.columns:
+        col_data = momentAnnoyance.pop(col)
+        momentAnnoyance.insert(momentAnnoyance.columns.get_loc('sourceInterval') + 1, col, col_data)
+
+momentAnnoyDataBySubj = pd.merge(left=momentAnnoyance.drop(columns=['ambientRef', 'sourceType',
+                                                               'sourceMode', 'sourceProximity',
+                                                               'sourceStart', 'sourceEvents', 'sourceInterval']),
+                          right=dataByStimTest.loc[:, :dataByStimTest.columns[dataByStimTest.columns.get_loc('Annoyance_1') - 1]],
+                          how='outer', left_on='stimulus', right_index=True)
+
+momentAnnoyDataBySubj = pd.merge(left=momentAnnoyDataBySubj,
+                          right=questResponses, how='left',
+                          left_on='participant', right_on='ParticipantID')
+
+# rename participant column to ID
+momentAnnoyDataBySubj.rename(columns={'participant': 'ID', 'trial': 'Trial', 'stimulus': 'Stimulus'}, inplace=True)
+momentAnnoyDataBySubj.drop(columns=['ParticipantID'], inplace=True)
+momentAnnoyDataBySubj.sort_values(by=['ID', 'Trial'], axis=0, inplace=True)
+
+# add a column that gives the stimulus string without the part up the first underscore, apart from stimulus values containing the word "Baseline", which should just have "Baseline" inserted
+# and rejoin the remaining parts of the stimulus string with underscores
+momentAnnoyDataBySubj['StimulusUAS'] = momentAnnoyDataBySubj['Stimulus'].apply(lambda x:
+                                           "Baseline" if "Baseline"
+                                           in x else "_".join(x.split("_")[1:]))
+# now move to after the Stimulus column
+cols = list(momentAnnoyDataBySubj.columns)
+cols.insert(cols.index('Stimulus') + 1, cols.pop(cols.index('StimulusUAS')))
+momentAnnoyDataBySubj = momentAnnoyDataBySubj[cols]
+
+momentAnnoyDataBySubj.to_csv(os.path.join(outFilePath,
+                                  "refmap_listest2_momentAnnoyData_BySubj.csv"),
+                      index=False)
+
+# save another version of dataByStim omitting the excluded participants
+testResponsesFiltered = testResponses.loc[~testResponses['participant'].isin(excludedParticipants), :]
+testDataFiltered = dataAggregation(testResponsesFiltered, ["Pleasantness", "Eventfulness", "Annoyance",
+                                           "dPleasantness", "dEventfulness", "dAnnoyance",
+                                           "HighlyAnnoyed", "dHighlyAnnoyed",
+                                           "ProbHA20k", "ProbHA10k",
+                                           "dProbHA20k", "dProbHA10k"],
+                           stimuliNames=stimSorted, randomState=rng)
+# merge testData into dataByStim, matching on the index
+dataByStimFiltered = dataByStimFiltered.merge(testDataFiltered, how='outer', left_index=True,
+                              right_index=True)
+dataByStimTestFiltered = dataByStimFiltered.loc[~np.isnan(dataByStim['StimID']), :]
+dataByStimTestFiltered.to_csv(os.path.join(outFilePath,
+                                            "refmap_listest2_testdata_ByStimForMomentary.csv"))
+
+# %% form wide format datasets for each outcome
 testAnnoyDataBySubjWide = testDataBySubj.pivot(index='ID',
                                                columns='Stimulus',
                                                values='Annoyance')

@@ -728,10 +728,9 @@ pHALAEUASRangeAllAdj <- rbind(
 
 ```{r}
 
-# NOTE: the GLMM formula has been reduced from the Bayesian version to what the TMB solver can handle
+# NOTE: the GLMM re formula has been reduced from the Bayesian version to what the TMB solver can handle
 m1formula <- dAnnoyanceOrdBetaScl ~ 1 + PartTrialNumberScl + UASLAEMaxLRScl*I(log10(UASEvents)) +
-  UASLAEMaxLRScl*AmbientEnv*UASOperation + UASLAEMaxLRScl*UASType +
-  AmbientEnv*UASType + UASType +
+  UASLAEMaxLRScl*AmbientEnv*UASOperation + UASLAEMaxLRScl*UASType + AmbientEnv*UASType +
   (1 + PartTrialNumberScl + UASLAEMaxLRScl + I(log10(UASEvents)) + AmbientEnv | ID)
 
 # extract only fixed effects from m1formula
@@ -769,7 +768,7 @@ geeCorStr(m1cformula, data=m1cData, family=quasibinomial(link='logit'),
 
 set.seed(999)
 m1 <- glmmTMB::glmmTMB(formula=m1formula, dispformula= ~ UASOperation, data=m1Data,
-                       family=ordbeta(link='logit'),
+                       family=glmmTMB::ordbeta(link='logit'),
                        control=glmmTMBctrl)
 
 parameters::model_parameters(m1, ci=95, exponentiate=TRUE, varest='robust', verbose=TRUE)
@@ -1743,7 +1742,7 @@ coef(m3b, s = "lambda.1se")
 
 ```
 
-```{r, fig.width=10, fig.height=5}
+```{r}
 
 # 1. Turn the glmnet path data into a clean data frame
 coefficient_paths <- broom::tidy(m3b$glmnet.fit, return_zeros=TRUE) |>
@@ -2178,7 +2177,7 @@ coef(m5b, s = "lambda.1se")
 
 ```
 
-```{r, fig.width=10, fig.height=5}
+```{r}
 
 # 1. Turn the glmnet path data into a clean data frame
 coefficient_paths <- broom::tidy(m5b$glmnet.fit, return_zeros=TRUE) |>
@@ -2764,7 +2763,7 @@ coef(m7c, s = "lambda.1se")
 
 ```
 
-```{r, fig.width=10, fig.height=5}
+```{r}
 
 # 1. Turn the glmnet path data into a clean data frame
 coefficient_paths <- broom::tidy(m7c$glmnet.fit, return_zeros=TRUE) |>
@@ -3314,7 +3313,7 @@ coef(m9c, s = "lambda.1se")
 
 ```
 
-```{r, fig.width=10, fig.height=5}
+```{r}
 
 # 1. Turn the glmnet path data into a clean data frame
 coefficient_paths <- broom::tidy(m9c$glmnet.fit, return_zeros=TRUE) |>
@@ -3680,7 +3679,7 @@ coef(m10c, s = "lambda.1se")
 
 ```
 
-```{r, fig.width=10, fig.height=5}
+```{r}
 
 # 1. Turn the glmnet path data into a clean data frame
 coefficient_paths <- broom::tidy(m10c$glmnet.fit, return_zeros=TRUE) |>
@@ -4393,7 +4392,7 @@ coef(m11c, s = "lambda.1se")
 
 ```
 
-```{r, fig.width=10, fig.height=5}
+```{r}
 
 # 1. Turn the glmnet path data into a clean data frame
 coefficient_paths <- broom::tidy(m11c$glmnet.fit, return_zeros=TRUE) |>
@@ -4878,16 +4877,16 @@ set.seed(808)
 # benchmark timing
 testdAm <- microbenchmark::microbenchmark(
   
-    'LMM_model' = {m0LMM <- lme4::lmer(dAnnoyance ~ UASLAEMaxLRScl + I(log10(UASEvents))
-                                              + TrialNumberScl +
-                                             (1 + UASLAEMaxLRScl  + I(log10(UASEvents)) | ID),
+    'LMM_model' = {m0LMM <- lme4::lmer(dAnnoyance ~ UASLAEMaxLRScl +
+                                         I(log10(UASEvents)) + PartTrialNumberScl +
+                                         (1 + UASLAEMaxLRScl  + I(log10(UASEvents)) | ID),
                                                   data=subjDataNoAmb, REML=FALSE,
                                            control=lmerctrl)},
     
-    'GEE-LM_model' = {m0GEELM <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl + I(log10(UASEvents))
-                                              + TrialNumberScl,
+    'GEE-LM_model' = {m0GEELM <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl +
+                                                      I(log10(UASEvents)) + PartTrialNumberScl,
                                                 data=subjDataNoAmb, family=gaussian(link='identity'),
-                                                id=ID, corstr='exchangeable')},
+                                                id=ID, waves=TrialNumber, corstr='exchangeable')},
     
     'LMM_metrics' = {performance::model_performance(m0LMM, metrics=c("MSE",
                                                                      "RMSE","MAE",
@@ -4900,14 +4899,14 @@ testdAm <- microbenchmark::microbenchmark(
     'LMM_prediction' = {m0LMMpred <- ggeffects::predict_response(m0LMM,
                                                       terms=c("UASLAEMaxLRScl [all]",
                                                               "UASEvents [1]",
-                                                              "TrialNumberScl [0]"),
+                                                              "PartTrialNumberScl [0]"),
                                                        type='fixed', margin='marginalmeans',
                                                        bias_correction=FALSE)},
     
     'GEE-LM_prediction' = {m0GEELMpred <- ggeffects::predict_response(m0GEELM,
                                                       terms=c("UASLAEMaxLRScl [all]",
                                                               "UASEvents [1]",
-                                                              "TrialNumberScl [0]"),
+                                                              "PartTrialNumberScl [0]"),
                                                        type='fixed', margin='marginalmeans',
                                                       vcov=vcov(m0GEELM, type="bias-corrected"))},
     times=10, unit='s', control=list(order='inorder'))
@@ -4938,11 +4937,11 @@ microbenchmark:::boxplot.microbenchmark(testdAm)
 set.seed(808)
 
 mLMM <- lme4::lmer(dAnnoyance ~ UASLAEMaxLRScl + I(log10(UASEvents)) +
-                             TrialNumberScl + (1 + UASLAEMaxLRScl + I(log10(UASEvents)) | ID),
+                             PartTrialNumberScl + (1 + UASLAEMaxLRScl + I(log10(UASEvents)) | ID),
                             data=subjDataNoAmb, control=lmerctrl)
 
 mGEELM <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl + I(log10(UASEvents)) +
-                                 TrialNumberScl,
+                                 PartTrialNumberScl,
                                   data=subjDataNoAmb, REML=FALSE,
                                family=gaussian(link='identity'),
                                   id=ID, corstr='exchangeable')
@@ -4951,7 +4950,7 @@ mABLAElgQSq.LAEpred <- modelbased::estimate_expectation(mLMM,
                                                         data = data.frame(
                                                           UASLAEMaxLRScl=seq(-12, 13, by=1),
                                                           UASEvents=1,
-                                                          TrialNumberScl=0),
+                                                          PartTrialNumberScl=0),
                                                         predict = "expectation",
                                                         ci = 0.95,
                                                         keep_iterations = FALSE,
@@ -4960,7 +4959,7 @@ mABLAElgQSq.LAEpred <- modelbased::estimate_expectation(mLMM,
 mABLAElgQSq.GEEpred <- ggeffects::predict_response(mGEELM,
                                                       terms=c("UASLAEMaxLRScl [-12:13]",
                                                               "UASEvents [1]",
-                                                              "TrialNumberScl [0]"),
+                                                              "PartTrialNumberScl [0]"),
                                                        type='fixed', margin='empirical',
                                                       vcov=vcov(mGEELM, type="bias-corrected"))
 
@@ -4968,7 +4967,7 @@ mABLAElgQSq.LAEpredAll <- ggeffects::predict_response(mLMM,
                                                       terms=c("UASLAEMaxLRScl [-12:13]",
                                                               "ID [all]",
                                                               "UASEvents [1]",
-                                                              "TrialNumberScl [0]"),
+                                                              "PartTrialNumberScl [0]"),
                                                        type='random',
                                                        bias_correction=FALSE)
 
@@ -5016,9 +5015,10 @@ p <- p +
 
 p
 
-filename <- "PtsABdAnnoyLMMVsGEELM_emp"
-
 if (saveplots){
+  
+  filename <- "PtsABdAnnoyLMMVsGEELM_emp"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=4.5, height=4,
          path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
@@ -5043,14 +5043,14 @@ UASLAEMaxLRDummy <- seq(-12, 33, by=1) + (max(stimDataNoAmb$UASLAEMaxLR) -
 
 newData <- data.frame(UASLAEMaxLR=UASLAEMaxLRDummy,
                       UASLAEMaxLRScl=seq(-12, 33, by=1), UASEvents=1,
-                      TrialNumberScl=0)
+                      PartTrialNumberScl=0)
 
 mGLMM_Ob <- glmmTMB::glmmTMB(dAnnoyanceOrdBetaScl ~ UASLAEMaxLRScl + I(log10(UASEvents)) +
-                             TrialNumberScl + (1 + UASLAEMaxLRScl + I(log10(UASEvents)) | ID),
-                            data=subjDataNoAmb, family=ordbeta(link='logit'), control=glmmTMBctrl)
+                             PartTrialNumberScl + (1 + UASLAEMaxLRScl + I(log10(UASEvents)) | ID),
+                            data=subjDataNoAmb, family=glmmTMB::ordbeta(link='logit'), control=glmmTMBctrl)
 
 mGEEGLM_Qb <- glmtoolbox::glmgee(dAnnoyanceOrdBetaScl ~ UASLAEMaxLRScl + I(log10(UASEvents)) +
-                                 TrialNumberScl,
+                                 PartTrialNumberScl,
                                   data=subjDataNoAmb, REML=FALSE,
                                family=quasibinomial(link='logit'),
                                   id=ID, corstr='exchangeable')
@@ -5065,7 +5065,7 @@ mGLMM_Ob.LAEpred <- modelbased::estimate_prediction(mGLMM_Ob,
 
 mGEEGLM_Qb.LAEpred <- ggeffects::predict_response(mGEEGLM_Qb, terms=c("UASLAEMaxLRScl [-12:33]",
                                                               "UASEvents [1]",
-                                                              "TrialNumberScl [0]"),
+                                                              "PartTrialNumberScl [0]"),
                                                        type='fixed', margin='empirical',
                                                       vcov=vcov(mGEEGLM_Qb, type="bias-corrected")) |>
   as.data.frame() |>
@@ -5075,7 +5075,7 @@ mGEEGLM_Qb.LAEpred <- ggeffects::predict_response(mGEEGLM_Qb, terms=c("UASLAEMax
 mGLMM_Ob.LAElgQmarginal <- ggeffects::predict_response(mGLMM_Ob,
                                                        terms=c("UASLAEMaxLRScl [-12:33]",
                                                               "UASEvents [1]",
-                                                              "TrialNumberScl [0]"),
+                                                              "PartTrialNumberScl [0]"),
                                                        type='fixed', margin='empirical',
                                                        bias_correction=TRUE) |>
   as.data.frame() |>
@@ -5086,7 +5086,7 @@ mGLMM_Ob.LAElgQpredAll <- ggeffects::predict_response(mGLMM_Ob,
                                                 terms=c("UASLAEMaxLRScl [-12:33]",
                                                         "ID [all]",
                                                         "UASEvents [1]",
-                                                        "TrialNumberScl [0]"),
+                                                        "PartTrialNumberScl [0]"),
                                              type='random',
                                              bias_correction=TRUE) |>
   as.data.frame() |>
@@ -5150,9 +5150,10 @@ p1 <- p +
 p1
 
 
-filename <- "PtsABdAnnoyGLMM_ObVsGEEGLM_Qb"
-
 if (saveplots){
+  
+  filename <- "PtsABdAnnoyGLMM_ObVsGEEGLM_Qb"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=4.5, height=4,
          path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
@@ -5172,27 +5173,23 @@ if (saveplots){
 
 ```{r}
 
-m12formula <- dHighAnnoy ~ 1 + SessionPart + TrialNumberScl +
-                    UASLAEMaxLRScl*I(log10(UASEvents)) +
-                   UASLAEMaxLRScl*AmbientEnv*UASOperation +
-                   UASLAEMaxLRScl*UASType +
-                   AmbientEnv*UASType
+m12formula <- dHighAnnoy ~ 1 + PartTrialNumberScl +
+  UASLAEMaxLRScl*I(log10(UASEvents)) + UASLAEMaxLRScl*AmbientEnv*UASOperation +
+  UASLAEMaxLRScl*UASType + AmbientEnv*UASType
 
-m12Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', all.vars(m12formula)), drop=FALSE]
+m12Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                 all.vars(m12formula)), drop=FALSE]
 
 m12bformula <- update(m12formula, . ~ . +
                         NationGeo2 + AAM_attitude2 + Home_Area2 +
-                      Age + Sex + NSSTotal + Area_soundscape2)
+                      AgeScl + Sex + NoiseSensitivityScl + Area_soundscape2)
 
-m12bData <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', all.vars(m12bformula)), drop=FALSE]
+m12bData <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                  all.vars(m12bformula)), drop=FALSE]
 
 m12cformula <- update(m12formula, . ~ . +
                         Home_Area2 +
                       Sex)
-
-m12dformula <- update(m12formula, . ~ . - SessionPart)
-
-m12eformula <- update(m12formula, . ~ . - UASLAEMaxLRScl*I(log10(UASEvents)))
 
 ```
 
@@ -5203,19 +5200,13 @@ m12eformula <- update(m12formula, . ~ . - UASLAEMaxLRScl*I(log10(UASEvents)))
 ```{r}
 
 geeCorStr(m12formula, data=m12Data, family=binomial(link='logit'),
-                 id=ID, maxit=2e3, verbose=FALSE)
+                 id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
 
 geeCorStr(m12bformula, data=m12bData, family=binomial(link='logit'),
-                 id=ID, maxit=2e3, verbose=FALSE)
+                 id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
 
 geeCorStr(m12cformula, data=m12bData, family=binomial(link='logit'),
-                 id=ID, maxit=2e3, verbose=FALSE)
-
-geeCorStr(m12dformula, data=m12Data, family=binomial(link='logit'),
-                 id=ID, maxit=2e3, verbose=FALSE)
-
-geeCorStr(m12eformula, data=m12Data, family=binomial(link='logit'),
-                 id=ID, maxit=2e3, verbose=FALSE)
+                 id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
 
 ```
 
@@ -5225,42 +5216,35 @@ geeCorStr(m12eformula, data=m12Data, family=binomial(link='logit'),
 
 
 m12 <- glmtoolbox::glmgee(formula=m12formula, data=m12Data,
-                          id=ID, family=binomial(link='logit'),
+                          id=ID, waves=TrialNumber, family=binomial(link='logit'),
                           corstr='exchangeable')
-
-m12_ind <- glmtoolbox::glmgee(formula=m12formula, data=m12Data,
-                          id=ID, family=binomial(link='logit'),
-                          corstr='independence')
 
 m12b <- glmtoolbox::glmgee(formula=m12bformula, data=m12bData,
-                          id=ID, family=binomial(link='logit'),
-                          corstr='independence')
-
-m12b_exch <- glmtoolbox::glmgee(formula=m12bformula, data=m12bData,
-                          id=ID, family=binomial(link='logit'),
+                          id=ID, waves=TrialNumber, family=binomial(link='logit'),
                           corstr='exchangeable')
+
+m12b_ar1 <- glmtoolbox::glmgee(formula=m12bformula, data=m12bData,
+                          id=ID, waves=TrialNumber, family=binomial(link='logit'),
+                          corstr='AR-M-dependent(1)')
+
+m12b_ar2 <- glmtoolbox::glmgee(formula=m12bformula, data=m12bData,
+                          id=ID, waves=TrialNumber, family=binomial(link='logit'),
+                          corstr='AR-M-dependent(2)')
+
+m12b_ar3 <- glmtoolbox::glmgee(formula=m12bformula, data=m12bData,
+                          id=ID, waves=TrialNumber, family=binomial(link='logit'),
+                          corstr='AR-M-dependent(3)')
 
 m12c <- glmtoolbox::glmgee(formula=m12cformula, data=m12bData,
-                          id=ID, family=binomial(link='logit'),
+                          id=ID, waves=TrialNumber, family=binomial(link='logit'),
                           corstr='exchangeable')
-
-m12c_ind <- glmtoolbox::glmgee(formula=m12cformula, data=m12bData,
-                          id=ID, family=binomial(link='logit'),
-                          corstr='independence')
-
-m12d <- glmtoolbox::glmgee(formula=m12dformula, data=m12Data,
-                           id=ID, family=binomial(link='logit'),
-                           corstr='exchangeable')
-
-m12e <- glmtoolbox::glmgee(formula=m12eformula, data=m12Data,
-                           id=ID, family=binomial(link='logit'),
-                           corstr='exchangeable')
 
 geeParams(m12, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 geeParams(m12b, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m12b_ar1, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m12b_ar2, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m12b_ar3, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 geeParams(m12c, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
-geeParams(m12d, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
-geeParams(m12e, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 
 
 ```
@@ -5269,71 +5253,45 @@ geeParams(m12e, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FAL
 
 ```{r}
 
-geeModelPerformance(m12, m12b, m12c, m12d, m12e)
+geeModelPerformance(m12, m12b, m12b_ar1, m12b_ar2, m12b_ar3, m12c)
 
 nd <- na.omit(m12Data)
 ndb <- na.omit(m12bData)
 
-m12_cv <- cv_glmgee(m12, id_col="ID", K=cv_folds, seed=cv_seed,
-                      data=nd, agg_cols="StimID",
-                      return_predictions=TRUE,
-                      workers=n_cores) |>
+m12_cv <- cv_glmgee(m12, id_col="ID", waves_col="TrialNumber", K=cv_folds,
+                    seed=cv_seed, data=nd, agg_cols="StimID",
+                      return_predictions=TRUE, workers=n_cores) |>
           cv_aggregated_metrics() |>
   cv_binary_metrics()
 
-m12_ind_cv <- cv_glmgee(m12_ind, id_col="ID", K=cv_folds, seed=cv_seed,
-                      data=nd, agg_cols="StimID",
-                      return_predictions=TRUE,
-                      workers=n_cores) |>
+m12b_cv <- cv_glmgee(m12b, id_col="ID", waves_col="TrialNumber", K=cv_folds,
+                     seed=cv_seed, data=ndb, agg_cols="StimID",
+                     return_predictions=TRUE, workers=n_cores) |>
           cv_aggregated_metrics() |>
   cv_binary_metrics()
 
-m12b_cv <- cv_glmgee(m12b, id_col="ID", K=cv_folds, seed=cv_seed,
-                                data=ndb, agg_cols="StimID",
-                                return_predictions=TRUE,
-                                workers=n_cores) |>
+m12b_ar1_cv <- cv_glmgee(m12b_ar1, id_col="ID", waves_col="TrialNumber", K=cv_folds,
+                      seed=cv_seed, data=ndb, agg_cols="StimID",
+                      return_predictions=TRUE, workers=n_cores) |>
           cv_aggregated_metrics() |>
   cv_binary_metrics()
 
-m12b_exch_cv <- cv_glmgee(m12b_exch, id_col="ID", K=cv_folds, seed=cv_seed,
-                                data=ndb, agg_cols="StimID",
-                                return_predictions=TRUE,
-                                workers=n_cores) |>
+m12b_ar2_cv <- cv_glmgee(m12b_ar2, id_col="ID", waves_col="TrialNumber", K=cv_folds,
+                      seed=cv_seed, data=ndb, agg_cols="StimID",
+                      return_predictions=TRUE, workers=n_cores) |>
           cv_aggregated_metrics() |>
   cv_binary_metrics()
 
-m12c_cv <- cv_glmgee(m12c, id_col="ID", K=cv_folds, seed=cv_seed,
-                      data=ndb, agg_cols="StimID",
-                      return_predictions=TRUE,
-                      workers=n_cores) |>
-          cv_aggregated_metrics() |>
-  cv_binary_metrics()
-
-m12c_ind_cv <- cv_glmgee(m12c_ind, id_col="ID", K=cv_folds, seed=cv_seed,
-                      data=ndb, agg_cols="StimID",
-                      return_predictions=TRUE,
-                      workers=n_cores) |>
-          cv_aggregated_metrics() |>
-  cv_binary_metrics()
-
-m12d_cv <- cv_glmgee(m12d, id_col="ID", K=cv_folds, seed=cv_seed,
-                      data=nd, agg_cols="StimID",
-                      return_predictions=TRUE,
-                      workers=n_cores) |>
-          cv_aggregated_metrics() |>
-  cv_binary_metrics()
-
-m12e_cv <- cv_glmgee(m12e, id_col="ID", K=cv_folds, seed=cv_seed,
-                      data=nd, agg_cols="StimID",
-                      return_predictions=TRUE,
-                      workers=n_cores) |>
+m12b_ar3_cv <- cv_glmgee(m12b_ar3, id_col="ID", waves_col="TrialNumber", K=cv_folds,
+                      seed=cv_seed, data=ndb, agg_cols="StimID",
+                      return_predictions=TRUE, workers=n_cores) |>
           cv_aggregated_metrics() |>
   cv_binary_metrics()
 
 compare_cv_results(list(m12=m12_cv, m12b=m12b_cv,
-                        m12_ind=m12_ind_cv, m12b_exch=m12b_exch_cv,
-                        m12c=m12c_cv, m12c_ind=m12c_ind_cv,
-                        m12d=m12d_cv, m12e=m12e_cv))
+                        m12_b_ar1=m12b_ar1_cv,
+                        m12_b_ar2=m12b_ar2_cv,
+                        m12_b_ar3=m12b_ar3_cv))
 
 ```
 
@@ -5350,7 +5308,7 @@ arm::binnedplot(m12Data$UASLAEMaxLRScl[used], residuals(m12, type = "pearson"),
                  xlab = "UASLAEMaxLRScl")
 arm::binnedplot(m12Data$UASEvents[used], residuals(m12, type = "pearson"),
                  xlab = "UASEvents")
-arm::binnedplot(m12Data$TrialNumberScl[used], residuals(m12, type = "pearson"),
+arm::binnedplot(m12Data$PartTrialNumberScl[used], residuals(m12, type = "pearson"),
                  xlab = "TrialNumberScl")
 
 m12.resM <- residuals(m12, type="mahalanobis", plot.it=FALSE)
@@ -5390,6 +5348,70 @@ modelStep <- glmtoolbox::stepCriterion(model=m12,
 
 m12formula
 modelStep$final
+
+```
+
+#### regularised version of model with glmnet
+
+```{r}
+
+mf <- model.frame(m12formula, data = m12Data)      # na.omit happens here
+kept_rows <- as.integer(rownames(mf))               # original row indices actually retained
+
+y_matrix <- model.response(mf)
+X_matrix <- model.matrix(m12formula, data=m12Data)[,-1]
+
+StimID_kept <- m12Data$StimID[kept_rows]
+
+stim_folds <- setNames(
+  sample(rep(1:10, length.out = length(unique(StimID_kept)))),
+  unique(StimID_kept)
+)
+foldid <- stim_folds[as.character(StimID_kept)]
+
+stopifnot(length(foldid) == nrow(X_matrix), length(y_matrix) == nrow(X_matrix))
+
+
+set.seed(808)
+m12c <- glmnet::cv.glmnet(x=X_matrix, y=y_matrix, family=binomial(link='logit'),
+                          alpha=0.5, foldid=foldid, type.measure='deviance',
+                          standardize=TRUE, lambda.min.ratio = 1e-320, nlambda = 50000)
+
+coef(m12c, s = "lambda.min")
+coef(m12c, s = "lambda.1se")
+
+```
+
+```{r}
+
+# 1. Turn the glmnet path data into a clean data frame
+coefficient_paths <- broom::tidy(m12c$glmnet.fit, return_zeros=TRUE) |>
+  dplyr::filter(term != "(Intercept)") # Exclude intercept to keep scale clean
+
+# 3. Create the ggplot
+ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
+  geom_line(linewidth = 0.4, alpha=0.6) +
+  # # Use your custom colour palette mycolours as colour scale
+  # scale_color_manual(values = mycolours) +
+  scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
+  # scale_y_log10() +
+  geom_vline(xintercept = m12c$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
+  ggplot2::annotate("text", x = m12c$lambda.min*1.25, y = max(coefficient_paths$estimate) * 0.5, 
+           label = expression(paste("Minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+  geom_vline(xintercept = m12c$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
+  ggplot2::annotate("text", x = m12c$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
+           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+  labs(x = expression(log[10]*(lambda)),
+      y = "Coefficient estimate",
+      color = "Predictors"
+  ) +
+  theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+        panel.grid.minor = element_blank(),
+        aspect.ratio=1,
+        text = element_text(family = "serif", size=14),
+        axis.text=element_text(family = "serif", size=14),
+        legend.text=element_text(family = "serif", size=12),
+        legend.position='right')
 
 ```
 
@@ -5434,14 +5456,15 @@ ggplot(data=cbind(m12predMeans,
   
   labs(x=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb]~"("~test~")")), y=expression(paste(Predicted~"%"~highly~annoyed~"|"~HA~"'"[amb]))) +
   
-  ggplot2::annotate("text", x=0.01, y=0.6, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=0.01, y=0.6, label=deparse(bquote(Brier~skill == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
   ggplot2::annotate("text", x=0.01, y=0.55, label=paste0("RMSE = ", sprintf("%.2f", round(eRMSE$rmse*100, 2)), "%"), family="serif", size=4, hjust = 0) +
   ggplot2::annotate("text", x = 0.01, y = 0.5, label = paste0("RMSE[epsilon] == ", sprintf("%.2f", round(eRMSE$epsilon_rmse*100, 2)), "*'%'"), 
   family = "serif", size = 4, hjust = 0, parse = TRUE)
 
-filename <- "PtsABdHiAnnoyCatModCal_gee"
-
 if (saveplots){
+  
+  filename <- "PtsABdHiAnnoy_PredMod_BlineCal_gee"
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
 
@@ -5454,6 +5477,7 @@ if (saveplots){
 ### analyse population-average predictions
 
 ```{r}
+
 m12DataFit <- insight::get_data(m12)
 m12predType <- avg_predictions_hybrid(m12, newdata=subset(m12DataFit,
                                                              UASEvents==1),
@@ -6744,7 +6768,7 @@ coef(m14d, s = "lambda.1se")
 
 ```
 
-```{r, fig.width=10, fig.height=5}
+```{r}
 
 # 1. Turn the glmnet path data into a clean data frame
 coefficient_paths <- broom::tidy(m14d$glmnet.fit, return_zeros=TRUE) |>
@@ -7258,7 +7282,7 @@ coef(m16c, s = "lambda.1se")
 
 ```
 
-```{r, fig.width=10, fig.height=5}
+```{r}
 
 # 1. Turn the glmnet path data into a clean data frame
 coefficient_paths <- broom::tidy(m16c$glmnet.fit, return_zeros=TRUE) |>
@@ -7942,7 +7966,7 @@ coef(m18b, s = "lambda.1se")
 
 ```
 
-```{r, fig.width=10, fig.height=5}
+```{r}
 
 # 1. Turn the glmnet path data into a clean data frame
 coefficient_paths <- broom::tidy(m18b$glmnet.fit, return_zeros=TRUE) |>
@@ -8814,7 +8838,7 @@ coef(m19b, s = "lambda.1se")
 
 ```
 
-```{r, fig.width=10, fig.height=5}
+```{r}
 
 # 1. Turn the glmnet path data into a clean data frame
 coefficient_paths <- broom::tidy(m19b$glmnet.fit, return_zeros=TRUE) |>
