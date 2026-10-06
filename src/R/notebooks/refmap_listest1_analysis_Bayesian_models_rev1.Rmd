@@ -340,8 +340,8 @@ stimData <- stimData |>
                                                      direction='forward', squeeze='none'))
 
 # omit ambient-only stimuli
-subjDataNoAmb <- subjData |> dplyr::filter(UASLAeq != "Baseline")
-stimDataNoAmb <- stimData |> dplyr::filter(UASLAeq != "Baseline")
+subjDataNoAmb <- subjData |> dplyr::filter(UASLAeq != "Baseline") |> droplevels()
+stimDataNoAmb <- stimData |> dplyr::filter(UASLAeq != "Baseline") |> droplevels()
 
 ```
 
@@ -396,76 +396,60 @@ centre_vars <- c("UASLAeqMaxLR", "UASLAEMaxLR", "Age", "NoiseSensitivity")
 
 out <- standardise_list(list(subjData, subjDataNoAmb, subjDataNoAmb.cc,
                              subjDataNoAmb.med),
-                        vars = centre_vars,
-                        scale = FALSE)
+                        vars = list(standardise="TrialNumber",
+                                    centre=centre_vars),
+                        append="Scl")
 
-subjData <- out[[1]]
-subjDataNoAmb <- out[[2]]
-subjDataNoAmb.cc <- out[[3]]
-subjDataNoAmb.med <- out[[4]]
+subjData <- out$data$subjData
+subjDataNoAmb <- out$data$subjDataNoAmb
+subjDataNoAmb.cc <- out$data$subjDataNoAmb.cc
+subjDataNoAmb.med <- out$data$subjDataNoAmb.med
 
-centre_stim_vars <- setdiff(centre_vars, c(, "Age", "NoiseSensitivity"))
+subjDataScaling <- subset(out$params, df_name=='subjData')
+subjDataNoAmbScaling <- subset(out$params, df_name=='subjDataNoAmb')
+subjDataNoAmb.ccScaling <- subset(out$params, df_name=='subjDataNoAmb.cc')
+subjDataNoAmb.medScaling <- subset(out$params, df_name=='subjDataNoAmb.med')
+
+centre_stim_vars <- setdiff(centre_vars, c("Age", "NoiseSensitivity"))
 
 out <- standardise_list(list(stimData, stimDataNoAmb),
                         vars = centre_stim_vars,
                         scale = FALSE)
 
-stimData <- out[[1]]
-stimDataNoAmb <- out[[2]]
+stimData <- out$data$stimData
+stimDataNoAmb <- out$data$stimDataNoAmb
 
-
-out <- standardise_list(list(subjData, subjDataNoAmb, subjDataNoAmb.cc, subjDataNoAmb.med),
-                        vars = c("TrialNumber"),
-                        scale = TRUE)
-
-subjData <- out[[1]]
-subjDataNoAmb <- out[[2]]
-subjDataNoAmb.cc <- out[[3]]
-subjDataNoAmb.med <- out[[4]]
+stimDataScaling <- subset(out$params, df_name=='stimData')
+stimDataNoAmbScaling <- subset(out$params, df_name=='stimDataNoAmb')
 
 # rescale trial number variables separately for each session part
 subjData <- rbind(subjData[subjData$SessionPart == "A", ] |>
-                    dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)),
+                    dplyr::mutate(PartTrialNumberStd = datawizard::standardise(PartTrialNumber, scale=TRUE)),
                     subjData[subjData$SessionPart == "B", ] |>
-                    dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE))) |>
-  droplevels()
+                    dplyr::mutate(PartTrialNumberStd = datawizard::standardise(PartTrialNumber, scale=TRUE))) |>
+  droplevels() |>
+  arrange(ID, TrialNumber)
 
 subjDataNoAmb <- rbind(subjDataNoAmb[subjDataNoAmb$SessionPart == "A", ] |>
-                         dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)),
+                         dplyr::mutate(PartTrialNumberStd = datawizard::standardise(PartTrialNumber, scale=TRUE)),
                     subjDataNoAmb[subjDataNoAmb$SessionPart == "B", ] |>
-                      dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE))) |>
-  droplevels()
+                      dplyr::mutate(PartTrialNumberStd = datawizard::standardise(PartTrialNumber, scale=TRUE))) |>
+  droplevels() |>
+  arrange(ID, TrialNumber)
 
 subjDataNoAmb.cc <- rbind(subjDataNoAmb.cc[subjDataNoAmb.cc$SessionPart == "A", ] |>
-                            dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)),
+                            dplyr::mutate(PartTrialNumberStd = datawizard::standardise(PartTrialNumber, scale=TRUE)),
                     subjDataNoAmb.cc[subjDataNoAmb.cc$SessionPart == "B", ] |>
-                      dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE))) |>
-  droplevels()
+                      dplyr::mutate(PartTrialNumberStd = datawizard::standardise(PartTrialNumber, scale=TRUE))) |>
+  droplevels() |>
+  arrange(ID, TrialNumber)
 
 subjDataNoAmb.med <- rbind(subjDataNoAmb.med[subjDataNoAmb.med$SessionPart == "A", ] |>
-                             dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)),
+                             dplyr::mutate(PartTrialNumberStd = datawizard::standardise(PartTrialNumber, scale=TRUE)),
                     subjDataNoAmb.med[subjDataNoAmb.med$SessionPart == "B", ] |>
-                      dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE))) |>
-  droplevels()
-
-
-
-subjDataNoAmb.imp <- standardise_list(subjDataNoAmb.imp,
-                                    vars = centre_vars,
-                                    scale = FALSE)
-
-for (i in seq_along(subjDataNoAmb.imp)) {
-
-  subjDataNoAmb.imp[[i]] <- subjDataNoAmb.imp[[i]] |>
-    dplyr::mutate(TrialNumberScl = datawizard::standardise(TrialNumber, scale=TRUE))
-
-  subjDataNoAmb.imp[[i]] <- rbind(subjDataNoAmb.imp[[i]][subjDataNoAmb.imp[[i]]$SessionPart == "A", ] |>
-                             dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE)),
-                    subjDataNoAmb.imp[[i]][subjDataNoAmb.imp[[i]]$SessionPart == "B", ] |>
-                      dplyr::mutate(PartTrialNumberScl = datawizard::standardise(PartTrialNumber, scale=TRUE))) |>
-  droplevels()
-}
-
+                      dplyr::mutate(PartTrialNumberStd = datawizard::standardise(PartTrialNumber, scale=TRUE))) |>
+  droplevels() |>
+  arrange(ID, TrialNumber)
 
 ```
 

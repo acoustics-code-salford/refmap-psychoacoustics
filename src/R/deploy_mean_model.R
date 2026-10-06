@@ -4,13 +4,46 @@ require(brms)
 require(glmmTMB)
 
 # =============================================================================
-# deploy_mean_model.R  (v15)
+# deploy_mean_model.R  (v16)
 #
 # A model-type-agnostic "deployment" toolkit that extracts the FIXED-EFFECTS
 # MEAN STRUCTURE of a fitted model (glmtoolbox::glmgee, glmmTMB, or brms) and
 # turns it into a standalone R function of the predictor variables.
 #
-# CHANGE LOG vs v14 (this version):
+# CHANGE LOG vs v15 (this version):
+#   - NEW: un-centring / un-standardising. New arguments centred_vars,
+#     stdised_vars (model variables that were centred, or centred AND
+#     divided by a scale factor), scaling_data, scaling_values,
+#     scaled_suffix. The deployed function then takes the RAW variable as
+#     input, and the printed equation is written in raw units.
+#       * A scaled column alone cannot reveal its shift/scale (a
+#         standardised column always has mean 0, SD 1), so these are
+#         recovered from, in priority order: scaling_values (explicit
+#         numbers); an exact linear fit between the scaled column and its
+#         raw column (in scaling_data, else the model's data), which is
+#         verified to be linear and also gives the exact values used even
+#         if they were computed on a different subset of rows; or
+#         base::scale() "scaled:center"/"scaled:scale" attributes.
+#       * Raw column names: a named vector c(ModelVar = "RawCol"), or, for
+#         unnamed entries, the model variable name minus scaled_suffix
+#         (default "Scl", matching your naming, e.g. TrialNumberScl ->
+#         TrialNumber). The matched names are printed so you can check.
+#       * Bare scaled terms and interactions are expanded algebraically
+#         (z = (x - c)/k  =>  coefficient/k on x and -coefficient*c/k folded
+#         into the lower-order terms / intercept, merged with existing
+#         terms). Transformed terms such as I(exp(0.03*z)) cannot be
+#         absorbed into one coefficient, so z is substituted inside the
+#         expression instead.
+#       * Constants may be given on either scale: a raw variable name
+#         (raw units) or the model variable name (model units); raw ones are
+#         translated before absorption.
+#       * Declaring a variable "centred" is checked: if its recovered scale
+#         factor is not 1 it is rejected (list it in stdised_vars).
+#       * The internal cross-check now verifies the un-scaled equation
+#         against the model.matrix() path end to end.
+#       * deployed_scaling() returns the recovered shift/scale as a table.
+#
+# CHANGE LOG vs v14:
 #   - Addressed a structural issue, not just a tuning issue: m11's default
 #     run gave individual coefficients only accurate to 2-3 decimal places
 #     (e.g. 1/22 = 0.04545 vs the true 0.04468) even though the AGGREGATE
@@ -271,10 +304,15 @@ require(glmmTMB)
 
 deploy_mean_model <- function(model, ...,
                               coef_simplify = FALSE,
-                              tolerance = 0.0001,
+                              tolerance = 0.001,
                               tolerance_type = c("relative", "absolute"),
-                              max_denominator = 5000,
-                              coef_tolerance = 0.0001,
+                              max_denominator = 2000,
+                              coef_tolerance = 0.001,
+                              centred_vars = NULL,
+                              stdised_vars = NULL,
+                              scaling_data = NULL,
+                              scaling_values = NULL,
+                              scaled_suffix = "Scl",
                               validation_data = NULL,
                               verbose = TRUE) {
   UseMethod("deploy_mean_model")
@@ -289,10 +327,15 @@ deploy_mean_model.default <- function(model, ...) {
 
 deploy_mean_model.glmgee <- function(model, ...,
                                      coef_simplify = FALSE,
-                                     tolerance = 0.0001,
+                                     tolerance = 0.001,
                                      tolerance_type = c("relative", "absolute"),
-                                     max_denominator = 5000,
-                                     coef_tolerance = 0.0001,
+                                     max_denominator = 2000,
+                                     coef_tolerance = 0.001,
+                                     centred_vars = NULL,
+                                     stdised_vars = NULL,
+                                     scaling_data = NULL,
+                                     scaling_values = NULL,
+                                     scaled_suffix = "Scl",
                                      validation_data = NULL,
                                      verbose = TRUE) {
   spec <- .extract_spec_glmgee(model)
@@ -300,15 +343,23 @@ deploy_mean_model.glmgee <- function(model, ...,
                     coef_simplify = coef_simplify, tolerance = tolerance,
                     tolerance_type = tolerance_type, max_denominator = max_denominator,
                     coef_tolerance = coef_tolerance,
+                    centred_vars = centred_vars, stdised_vars = stdised_vars,
+                    scaling_data = scaling_data, scaling_values = scaling_values,
+                    scaled_suffix = scaled_suffix,
                     validation_data = validation_data, verbose = verbose)
 }
 
 deploy_mean_model.glmmTMB <- function(model, ...,
                                       coef_simplify = FALSE,
-                                      tolerance = 0.0001,
+                                      tolerance = 0.001,
                                       tolerance_type = c("relative", "absolute"),
-                                      max_denominator = 5000,
-                                      coef_tolerance = 0.0001,
+                                      max_denominator = 2000,
+                                      coef_tolerance = 0.001,
+                                      centred_vars = NULL,
+                                      stdised_vars = NULL,
+                                      scaling_data = NULL,
+                                      scaling_values = NULL,
+                                      scaled_suffix = "Scl",
                                       validation_data = NULL,
                                       verbose = TRUE) {
   spec <- .extract_spec_glmmTMB(model)
@@ -316,15 +367,23 @@ deploy_mean_model.glmmTMB <- function(model, ...,
                     coef_simplify = coef_simplify, tolerance = tolerance,
                     tolerance_type = tolerance_type, max_denominator = max_denominator,
                     coef_tolerance = coef_tolerance,
+                    centred_vars = centred_vars, stdised_vars = stdised_vars,
+                    scaling_data = scaling_data, scaling_values = scaling_values,
+                    scaled_suffix = scaled_suffix,
                     validation_data = validation_data, verbose = verbose)
 }
 
 deploy_mean_model.brmsfit <- function(model, ...,
                                       coef_simplify = FALSE,
-                                      tolerance = 0.0001,
+                                      tolerance = 0.001,
                                       tolerance_type = c("relative", "absolute"),
-                                      max_denominator = 5000,
-                                      coef_tolerance = 0.0001,
+                                      max_denominator = 2000,
+                                      coef_tolerance = 0.001,
+                                      centred_vars = NULL,
+                                      stdised_vars = NULL,
+                                      scaling_data = NULL,
+                                      scaling_values = NULL,
+                                      scaled_suffix = "Scl",
                                       validation_data = NULL,
                                       verbose = TRUE,
                                       point_estimate = c("mean", "median")) {
@@ -334,6 +393,9 @@ deploy_mean_model.brmsfit <- function(model, ...,
                     coef_simplify = coef_simplify, tolerance = tolerance,
                     tolerance_type = tolerance_type, max_denominator = max_denominator,
                     coef_tolerance = coef_tolerance,
+                    centred_vars = centred_vars, stdised_vars = stdised_vars,
+                    scaling_data = scaling_data, scaling_values = scaling_values,
+                    scaled_suffix = scaled_suffix,
                     validation_data = validation_data, verbose = verbose)
 }
 
@@ -1015,11 +1077,23 @@ deploy_mean_model.brmsfit <- function(model, ...,
 
 
 # ---- Equation formatting -------------------------------------------------
+# Display only: numeric literals with 8+ decimals (as produced when a shift/
+# scale is substituted inside a transformed expression) are shown to 6
+# significant digits. The expression actually EVALUATED keeps full precision.
+.round_numerics_in_expr <- function(txt, digits = 6) {
+  m <- gregexpr("[0-9]+\\.[0-9]{8,}([eE][+-]?[0-9]+)?", txt)
+  toks <- regmatches(txt, m)[[1]]
+  if (length(toks) == 0) return(txt)
+  rounded <- vapply(toks, function(tk) as.character(signif(as.numeric(tk), digits)), character(1))
+  regmatches(txt, m) <- list(unname(rounded))
+  txt
+}
+
 .format_piece_display <- function(p) {
   if (p$type == "continuous") {
     expr <- p$expr
     if (grepl("^I\\(.*\\)$", expr)) expr <- sub("^I\\((.*)\\)$", "\\1", expr)
-    expr
+    .round_numerics_in_expr(expr)
   } else {
     sprintf('[%s=="%s"]', p$raw_var, p$level)
   }
@@ -1064,9 +1138,304 @@ deploy_mean_model.brmsfit <- function(model, ...,
   sprintf("mu = %s", rhs)
 }
 
+# ---- Un-centring / un-standardising ----------------------------------------
+# A model fitted on z = (x_raw - center)/scale can be re-expressed in terms of
+# x_raw by substituting that relation into the linear predictor and
+# collecting terms:
+#   * a bare z piece becomes (1/scale)*x_raw + (-center/scale)*1, so every
+#     term containing z expands into 2 sub-terms (3-way interactions of two
+#     scaled variables expand into 4, etc.). The pieces that now carry no
+#     variable fold into lower-order terms or the intercept, and terms with
+#     identical remaining pieces are merged (summed).
+#   * a TRANSFORMED piece such as I(exp(0.03*z)) or I(log10(z)) cannot in
+#     general be absorbed into a coefficient, so z is substituted textually
+#     by ((x_raw - center)/scale) inside the expression instead.
+# The shift/scale themselves cannot be read off a scaled column alone (a
+# standardised column always has mean 0 / SD 1), so they are recovered, in
+# priority order, from (1) user-supplied values, (2) an exact linear fit
+# between the scaled column and its raw column, (3) base::scale() attributes.
+
+.fit_linear_relation <- function(z, x, v, raw) {
+  z <- as.numeric(z); x <- as.numeric(x)
+  ok <- is.finite(z) & is.finite(x)
+  if (sum(ok) < 3) {
+    stop(sprintf("Too few complete rows (%d) pairing '%s' with raw column '%s' to recover its shift/scale.",
+                 sum(ok), v, raw))
+  }
+  zo <- z[ok]; xo <- x[ok]
+  if (stats::sd(xo) == 0) {
+    stop(sprintf("Raw column '%s' is constant, so the shift/scale for '%s' cannot be recovered from it.", raw, v))
+  }
+  fit <- stats::lm.fit(cbind(1, xo), zo)
+  a <- unname(fit$coefficients[1]); b <- unname(fit$coefficients[2])
+  if (!is.finite(a) || !is.finite(b) || b == 0) {
+    stop(sprintf("Could not fit a usable linear relation between '%s' and raw column '%s'.", v, raw))
+  }
+  resid <- zo - (a + b * xo)
+  max_resid <- max(abs(resid))
+  zsd <- stats::sd(zo)
+  rel <- if (zsd > 0) max_resid / zsd else max_resid
+  if (rel > 1e-2) {
+    stop(sprintf(paste0("'%s' is not an exact linear (centred/standardised) transformation of raw column '%s': ",
+                        "largest residual %.3g (%.3g of its SD). Check that '%s' really is the raw version of '%s' ",
+                        "(supply a named vector such as c(%s = \"<raw column>\") if not), and that no other ",
+                        "transformation (log, rank, winsorising...) was applied."),
+                 v, raw, max_resid, rel, raw, v, v))
+  }
+  if (rel > 1e-6) {
+    warning(sprintf(paste0("'%s' deviates slightly from an exact linear transformation of '%s' (largest residual ",
+                           "%.3g). If the scaled column was rounded before model fitting, the recovered shift/scale ",
+                           "are approximate."), v, raw, max_resid))
+  }
+  list(center = -a / b, scale = 1 / b, max_resid = max_resid,
+       raw_mean = mean(xo), raw_sd = stats::sd(xo))
+}
+
+.resolve_scaling <- function(centred_vars, stdised_vars, scaled_suffix,
+                             scaling_data, scaling_values, model_data, model_vars) {
+  norm_spec <- function(x, arg) {
+    if (is.null(x) || length(x) == 0) return(list(vars = character(0), raw = character(0)))
+    x <- unlist(x)
+    if (!is.character(x)) {
+      stop(sprintf(paste0("'%s' must be a character vector (or list of strings) of model variable names. To map a ",
+                          "model variable to a differently-named raw column use a named vector, ",
+                          "c(modelvar = \"rawcolumn\")."), arg))
+    }
+    nm <- names(x)
+    if (is.null(nm)) nm <- rep("", length(x))
+    list(vars = unname(ifelse(nzchar(nm), nm, x)),
+         raw  = unname(ifelse(nzchar(nm), x, NA_character_)))
+  }
+  cs <- norm_spec(centred_vars, "centred_vars")
+  ss <- norm_spec(stdised_vars, "stdised_vars")
+  all_vars <- c(cs$vars, ss$vars)
+  if (length(all_vars) == 0) return(list())
+  
+  dup <- unique(all_vars[duplicated(all_vars)])
+  if (length(dup) > 0) {
+    stop(sprintf("Variable(s) listed more than once across centred_vars / stdised_vars: %s", paste(dup, collapse = ", ")))
+  }
+  not_in_model <- setdiff(all_vars, model_vars)
+  if (length(not_in_model) > 0) {
+    stop(sprintf("centred_vars / stdised_vars contain name(s) that are not variables in this model: %s. Model variables are: %s",
+                 paste(not_in_model, collapse = ", "), paste(model_vars, collapse = ", ")))
+  }
+  kinds <- c(rep("centred", length(cs$vars)), rep("standardised", length(ss$vars)))
+  raws  <- c(cs$raw, ss$raw)
+  
+  frames <- list(scaling_data = scaling_data, model_data = model_data)
+  frames <- frames[!vapply(frames, is.null, logical(1))]
+  frame_label <- c(scaling_data = "scaling_data", model_data = "the model's data")
+  
+  scaling <- list()
+  for (i in seq_along(all_vars)) {
+    v <- all_vars[i]; kind <- kinds[i]; raw <- raws[i]
+    if (is.na(raw)) {
+      if (!is.null(scaled_suffix) && nzchar(scaled_suffix) && endsWith(v, scaled_suffix) &&
+          nchar(v) > nchar(scaled_suffix)) {
+        raw <- substr(v, 1, nchar(v) - nchar(scaled_suffix))
+      } else {
+        stop(sprintf(paste0("Cannot infer the raw variable name for '%s' (it does not end in scaled_suffix = \"%s\"). ",
+                            "Give it explicitly with a named vector, e.g. stdised_vars = c(%s = \"<raw column>\")."),
+                     v, if (is.null(scaled_suffix)) "" else scaled_suffix, v))
+      }
+    }
+    if (raw %in% model_vars) {
+      stop(sprintf("Raw variable '%s' (for '%s') is itself a variable in the model formula; this is not supported.", raw, v))
+    }
+    
+    center <- NA_real_; scale <- NA_real_; source <- NA_character_
+    max_resid <- NA_real_; raw_mean <- NA_real_; raw_sd <- NA_real_
+    found <- FALSE
+    
+    if (!is.null(scaling_values) && v %in% names(scaling_values)) {
+      vals <- scaling_values[[v]]
+      if (is.null(names(vals))) {
+        if (length(vals) == 1) vals <- c(center = vals, scale = 1)
+        else if (length(vals) == 2) names(vals) <- c("center", "scale")
+        else stop(sprintf("scaling_values[['%s']] must be c(center=, scale=) or a single centre value.", v))
+      }
+      center <- if ("center" %in% names(vals)) as.numeric(vals[["center"]]) else 0
+      scale  <- if ("scale"  %in% names(vals)) as.numeric(vals[["scale"]])  else 1
+      source <- "user-supplied scaling_values"
+      found <- TRUE
+    }
+    if (!found) {
+      for (fn in names(frames)) {
+        f <- frames[[fn]]
+        if (is.data.frame(f) && raw %in% names(f) && v %in% names(f)) {
+          fit <- .fit_linear_relation(f[[v]], f[[raw]], v, raw)
+          center <- fit$center; scale <- fit$scale; max_resid <- fit$max_resid
+          raw_mean <- fit$raw_mean; raw_sd <- fit$raw_sd
+          source <- sprintf("exact linear fit of '%s' against raw column '%s' in %s", v, raw, frame_label[[fn]])
+          found <- TRUE
+          break
+        }
+      }
+    }
+    if (!found) {
+      for (fn in names(frames)) {
+        f <- frames[[fn]]
+        if (is.data.frame(f) && v %in% names(f)) {
+          ctr <- attr(f[[v]], "scaled:center"); scl <- attr(f[[v]], "scaled:scale")
+          if (!is.null(ctr) || !is.null(scl)) {
+            center <- if (!is.null(ctr)) as.numeric(ctr)[1] else 0
+            scale  <- if (!is.null(scl)) as.numeric(scl)[1] else 1
+            source <- sprintf("base::scale() attributes on '%s' in %s", v, frame_label[[fn]])
+            found <- TRUE
+            break
+          }
+        }
+      }
+    }
+    if (!found) {
+      stop(sprintf(paste0("Could not recover the shift/scale for '%s'. A scaled column alone does not determine them. ",
+                          "Provide ONE of: (a) the raw column '%s' alongside '%s' in scaling_data (e.g. the full source ",
+                          "data frame the model data was taken from) or in the model data; (b) explicit values via ",
+                          "scaling_values = list(%s = c(center = <value>, scale = <value>)); (c) a scaled column ",
+                          "created with base::scale(), which carries the needed attributes."),
+                   v, raw, v, v))
+    }
+    if (!is.finite(center) || !is.finite(scale) || scale == 0) {
+      stop(sprintf("Recovered an unusable shift/scale for '%s' (center = %s, scale = %s).", v, center, scale))
+    }
+    if (kind == "centred") {
+      if (abs(scale - 1) > 1e-6) {
+        stop(sprintf(paste0("'%s' was declared as centred (shift only), but the recovered scale factor is %.6g rather than 1. ",
+                            "If it was also divided by a factor (standardised), list it in stdised_vars instead."),
+                     v, scale))
+      }
+      scale <- 1
+    }
+    scaling[[v]] <- list(kind = kind, raw_name = raw, center = center, scale = scale, source = source,
+                         max_resid = max_resid, raw_mean = raw_mean, raw_sd = raw_sd)
+  }
+  raw_names <- vapply(scaling, function(s) s$raw_name, character(1))
+  if (anyDuplicated(raw_names) > 0) {
+    stop("Two different model variables map to the same raw variable; each scaled variable needs its own raw column.")
+  }
+  scaling
+}
+
+# Model-scale columns (z) computed from raw inputs; leaves z untouched if the
+# raw column is absent.
+.apply_scaling <- function(data, scaling) {
+  for (v in names(scaling)) {
+    s <- scaling[[v]]
+    if (s$raw_name %in% names(data)) {
+      data[[v]] <- (as.numeric(data[[s$raw_name]]) - s$center) / s$scale
+    }
+  }
+  data
+}
+
+# Raw columns reconstructed from z (x = center + scale*z) when only the
+# model-scale column is present, so validation can run on the model's own rows.
+.ensure_raw_columns <- function(data, scaling) {
+  for (v in names(scaling)) {
+    s <- scaling[[v]]
+    if (!(s$raw_name %in% names(data)) && v %in% names(data)) {
+      data[[s$raw_name]] <- s$center + s$scale * as.numeric(data[[v]])
+    }
+  }
+  data
+}
+
+.term_key <- function(pieces) {
+  paste(sort(vapply(pieces, function(p)
+    if (p$type == "continuous") p$expr else paste0(p$raw_var, "==", p$level),
+    character(1))), collapse = " : ")
+}
+
+.substitute_scaled_expr <- function(expr_str, v, raw, center, scale) {
+  repl <- as.name(raw)
+  if (center != 0) {
+    repl <- call("(", if (center > 0) call("-", as.name(raw), center) else call("+", as.name(raw), -center))
+  }
+  if (scale != 1) repl <- call("(", call("/", repl, scale))
+  e <- do.call("substitute", list(str2lang(expr_str), stats::setNames(list(repl), v)))
+  paste(trimws(deparse(e, width.cutoff = 500L)), collapse = " ")
+}
+
+.unscale_reduced <- function(beta0, reduced_terms, scaling) {
+  out <- list()
+  beta0_new <- beta0
+  add_term <- function(coef, pieces) {
+    if (coef == 0) return(invisible(NULL))
+    if (length(pieces) == 0) {
+      beta0_new <<- beta0_new + coef
+      return(invisible(NULL))
+    }
+    key <- .term_key(pieces)
+    if (is.null(out[[key]])) {
+      out[[key]] <<- list(coef = coef, pieces = pieces)
+    } else {
+      out[[key]]$coef <<- out[[key]]$coef + coef
+    }
+    invisible(NULL)
+  }
+  
+  for (term in reduced_terms) {
+    kept <- list()      # pieces carried over unchanged (or with z substituted inside an expression)
+    lin <- list()       # bare scaled pieces, which expand into (x term) + (constant term)
+    for (p in term$pieces) {
+      if (p$type == "continuous" && p$raw_var %in% names(scaling)) {
+        s <- scaling[[p$raw_var]]
+        if (identical(p$expr, p$raw_var)) {
+          lin[[length(lin) + 1]] <- s
+        } else {
+          kept[[length(kept) + 1]] <- list(
+            type = "continuous", raw_var = s$raw_name,
+            expr = .substitute_scaled_expr(p$expr, p$raw_var, s$raw_name, s$center, s$scale))
+        }
+      } else {
+        kept[[length(kept) + 1]] <- p
+      }
+    }
+    m <- length(lin)
+    for (mask in 0:(2^m - 1)) {
+      coef <- term$coef
+      pieces <- kept
+      for (j in seq_len(m)) {
+        s <- lin[[j]]
+        if (bitwAnd(mask, 2^(j - 1)) != 0) {
+          coef <- coef / s$scale
+          pieces[[length(pieces) + 1]] <- list(type = "continuous", raw_var = s$raw_name, expr = s$raw_name)
+        } else {
+          coef <- coef * (-s$center / s$scale)
+        }
+      }
+      add_term(coef, pieces)
+    }
+  }
+  
+  # Drop terms that cancelled to numerical noise (e.g. 1e-17 from coefficients
+  # that sum to zero mathematically), which would otherwise be treated as
+  # genuine nonzero coefficients downstream.
+  if (length(out) > 0) {
+    cmax <- max(abs(c(beta0_new, vapply(out, function(t) t$coef, numeric(1)))))
+    keep <- vapply(out, function(t) abs(t$coef) > 1e-12 * cmax, logical(1))
+    out <- out[keep]
+  }
+  list(beta0 = beta0_new, terms = out)
+}
+
+.scaling_formula_string <- function(s, digits = 6) {
+  num <- if (s$center == 0) {
+    s$raw_name
+  } else if (s$center > 0) {
+    sprintf("%s - %s", s$raw_name, format(signif(s$center, digits)))
+  } else {
+    sprintf("%s + %s", s$raw_name, format(signif(-s$center, digits)))
+  }
+  if (s$scale == 1) num else sprintf("(%s)/%s", num, format(signif(s$scale, digits)))
+}
+
 # ---- Orchestrator ---------------------------------------------------------
 .deploy_from_spec <- function(spec, ..., coef_simplify, tolerance, tolerance_type,
-                              max_denominator, coef_tolerance, validation_data, verbose) {
+                              max_denominator, coef_tolerance, validation_data, verbose,
+                              centred_vars = NULL, stdised_vars = NULL, scaling_data = NULL,
+                              scaling_values = NULL, scaled_suffix = "Scl") {
   constants <- list(...)
   tolerance_type <- match.arg(tolerance_type, c("relative", "absolute"))
   
@@ -1076,26 +1445,57 @@ deploy_mean_model.brmsfit <- function(model, ...,
   }
   
   all_raw_vars <- all.vars(stats::formula(spec$terms))
-  unknown_constants <- setdiff(names(constants), all_raw_vars)
+  
+  # ---- Optional un-centring / un-standardising ----
+  scaling <- .resolve_scaling(centred_vars, stdised_vars, scaled_suffix,
+                              scaling_data, scaling_values, spec$data, all_raw_vars)
+  scaling_raw_names <- unname(vapply(scaling, function(s) s$raw_name, character(1)))
+  
+  # Constants may be given for a model variable (on the model's own, scaled
+  # scale — as before) or for the raw variable behind it (on the raw scale,
+  # which is what the deployed function takes as input). Raw-scale constants
+  # are translated to the model scale here, so absorption into the equation
+  # always happens on the scale the coefficients were estimated on.
+  constants_user <- constants
+  unknown_constants <- setdiff(names(constants_user), c(all_raw_vars, scaling_raw_names))
   if (length(unknown_constants) > 0) {
     stop(sprintf("Variable(s) not found among model fixed-effect terms: %s", paste(unknown_constants, collapse = ", ")))
   }
-  free_vars <- setdiff(all_raw_vars, names(constants))
+  constants_model <- list()
+  for (nm in names(constants_user)) {
+    val <- constants_user[[nm]]
+    owner <- names(scaling)[scaling_raw_names == nm]
+    if (length(owner) == 1) {
+      if (owner %in% names(constants_user)) {
+        stop(sprintf("Constants were supplied for both '%s' and its raw variable '%s'; supply only one.", owner, nm))
+      }
+      s <- scaling[[owner]]
+      constants_model[[owner]] <- (val - s$center) / s$scale
+    } else {
+      constants_model[[nm]] <- val
+    }
+  }
+  free_model_vars <- setdiff(all_raw_vars, names(constants_model))
+  required_inputs <- unname(vapply(free_model_vars, function(v) {
+    if (v %in% names(scaling)) scaling[[v]]$raw_name else v
+  }, character(1)))
   
   # ---- Unconditional self-check against the model's own fitted values ----
   fitted_check <- .validate_against_fitted(spec)
   
   # ---- Robust prediction function (authoritative) ----
-  force(spec); force(constants); force(free_vars)
+  # Takes RAW variables for any centred/standardised model variable, converts
+  # them to the model's scale internally, then evaluates via model.matrix().
+  force(spec); force(constants_model); force(scaling); force(required_inputs)
   inv_link <- .get_inverse_link(spec$link)
   predict_fn <- function(newdata) {
     stopifnot(is.data.frame(newdata))
-    missing_vars <- setdiff(free_vars, names(newdata))
+    missing_vars <- setdiff(required_inputs, names(newdata))
     if (length(missing_vars) > 0) {
       stop(sprintf("newdata is missing required column(s): %s", paste(missing_vars, collapse = ", ")))
     }
-    full_data <- newdata
-    for (v in names(constants)) full_data[[v]] <- constants[[v]]
+    full_data <- .apply_scaling(newdata, scaling)
+    for (v in names(constants_model)) full_data[[v]] <- constants_model[[v]]
     eta <- .eval_eta(spec, full_data)
     inv_link(eta)
   }
@@ -1106,9 +1506,16 @@ deploy_mean_model.brmsfit <- function(model, ...,
   beta0 <- unname(cf[["(Intercept)"]])
   tryCatch({
     column_map <- .build_column_map(spec$terms, names(cf), spec$data)
-    red <- .reduce_columns(cf, column_map, constants, spec$data)
+    red <- .reduce_columns(cf, column_map, constants_model, spec$data)
     beta0 <- red$beta0
     reduced_terms <- red$terms
+    # Constants are absorbed first (on the model scale); the remaining free
+    # centred/standardised variables are then re-expressed in raw units.
+    if (length(scaling) > 0) {
+      un <- .unscale_reduced(beta0, reduced_terms, scaling)
+      beta0 <- un$beta0
+      reduced_terms <- un$terms
+    }
   }, error = function(e) {
     reduced_ok <<- FALSE
     warning(sprintf(
@@ -1126,17 +1533,19 @@ deploy_mean_model.brmsfit <- function(model, ...,
               "'validation_data' with raw columns.")
     } else {
       cc_data <- if (!is.null(validation_data)) validation_data else spec$data
-      cc_data <- .complete_cases_for(cc_data, all_raw_vars)
+      cc_data <- .ensure_raw_columns(cc_data, scaling)
+      cc_data <- .complete_cases_for(cc_data, c(all_raw_vars, scaling_raw_names))
       # The reduced/printable equation (beta0, reduced_terms) already has
-      # any requested constants folded in. For a fair comparison, the
-      # "robust" side must evaluate the SAME (constants-substituted)
-      # scenario, not the raw training data's real values for those
-      # variables — otherwise this check compares two different models
-      # whenever constants are supplied, and will spuriously "disagree".
-      cc_data_with_constants <- cc_data
-      for (v in names(constants)) cc_data_with_constants[[v]] <- constants[[v]]
+      # any requested constants folded in, and (if scaling was requested) is
+      # written in RAW units. For a fair comparison, the "robust" side must
+      # evaluate the SAME scenario: model-scale columns derived from the raw
+      # ones, with the same constants substituted — otherwise this check
+      # compares two different models and will spuriously "disagree". With
+      # scaling, this also verifies the algebraic un-scaling end to end.
+      cc_data_model <- .apply_scaling(cc_data, scaling)
+      for (v in names(constants_model)) cc_data_model[[v]] <- constants_model[[v]]
       check_ok <- tryCatch({
-        check_mu_robust  <- inv_link(.eval_eta(spec, cc_data_with_constants))
+        check_mu_robust  <- inv_link(.eval_eta(spec, cc_data_model))
         check_mu_reduced <- .eval_reduced_mu(beta0, reduced_terms, cc_data, spec$link)
         max(abs(check_mu_robust - check_mu_reduced)) <= 1e-6
       }, error = function(e) NA)
@@ -1157,14 +1566,16 @@ deploy_mean_model.brmsfit <- function(model, ...,
              "the 'validation_data' argument.")
       }
       val_data <- if (!is.null(validation_data)) validation_data else spec$data
-      required_vars <- unique(unlist(lapply(reduced_terms, function(t) vapply(t$pieces, `[[`, character(1), "raw_var"))))
+      val_data <- .ensure_raw_columns(val_data, scaling)
+      required_vars <- unique(c(required_inputs,
+                                unlist(lapply(reduced_terms, function(t) vapply(t$pieces, `[[`, character(1), "raw_var")))))
       missing_cols <- setdiff(required_vars, names(val_data))
       if (length(missing_cols) > 0) {
         stop(sprintf("Validation data is missing required column(s): %s", paste(missing_cols, collapse = ", ")))
       }
       val_data <- .complete_cases_for(val_data, required_vars)
-      full_val <- val_data
-      for (v in names(constants)) full_val[[v]] <- constants[[v]]
+      full_val <- .apply_scaling(val_data, scaling)
+      for (v in names(constants_model)) full_val[[v]] <- constants_model[[v]]
       original_mu <- inv_link(.eval_eta(spec, full_val))
       simp <- .simplify_reduced(beta0, reduced_terms, val_data, spec$link, original_mu,
                                 tolerance, tolerance_type, max_denominator, coef_tolerance)
@@ -1175,8 +1586,10 @@ deploy_mean_model.brmsfit <- function(model, ...,
   
   f <- predict_fn
   attr(f, "link") <- spec$link
-  attr(f, "constants") <- constants
-  attr(f, "free_vars") <- free_vars
+  attr(f, "constants") <- constants_user
+  attr(f, "constants_model") <- constants_model
+  attr(f, "free_vars") <- required_inputs
+  attr(f, "scaling") <- scaling
   attr(f, "fitted_validation") <- fitted_check
   if (reduced_ok) {
     disp_beta0 <- if (!is.null(simp)) simp$beta0$value else beta0
@@ -1210,10 +1623,36 @@ print.deployed_mean_model <- function(x, ...) {
   cat("link:", attr(x, "link"), "\n")
   cat("required input columns:", paste(attr(x, "free_vars"), collapse = ", "), "\n")
   
+  sc <- attr(x, "scaling")
+  cm <- attr(x, "constants_model")
   co <- attr(x, "constants")
   if (length(co) > 0) {
     cat("\nConstants absorbed:\n")
-    for (nm in names(co)) cat(sprintf("  %s = %s\n", nm, co[[nm]]))
+    for (nm in names(co)) {
+      owner <- if (length(sc) > 0) {
+        names(sc)[vapply(sc, function(s) identical(s$raw_name, nm), logical(1))]
+      } else character(0)
+      note <- if (length(owner) == 1) {
+        sprintf("   (raw scale; i.e. model variable %s = %s)", owner, format(signif(cm[[owner]], 6)))
+      } else ""
+      cat(sprintf("  %s = %s%s\n", nm, co[[nm]], note))
+    }
+  }
+  
+  if (length(sc) > 0) {
+    cat("\nCentred / standardised variables un-scaled (the deployed function takes the RAW variable):\n")
+    for (v in names(sc)) {
+      s <- sc[[v]]
+      fixed_note <- if (v %in% names(cm)) "  [fixed as a constant; absorbed into the equation]" else ""
+      cat(sprintf("  %s  [%s]:  %s = %s%s\n", v, s$kind, v, .scaling_formula_string(s), fixed_note))
+      cat(sprintf("      shift (centre) = %s, scale factor = %s\n",
+                  format(signif(s$center, 6)), format(signif(s$scale, 6))))
+      cat(sprintf("      source: %s\n", s$source))
+      if (is.finite(s$raw_mean)) {
+        cat(sprintf("      fit check: max|residual| = %.3g; raw column mean = %s, SD = %s\n",
+                    s$max_resid, format(signif(s$raw_mean, 6)), format(signif(s$raw_sd, 6))))
+      }
+    }
   }
   
   fc <- attr(x, "fitted_validation")
@@ -1275,6 +1714,19 @@ deployed_coef_precision <- function(x) {
   if (is.null(s)) NA_real_ else s$max_coef_rel_err
 }
 deployed_fit_check <- function(x) attr(x, "fitted_validation")
+deployed_scaling <- function(x) {
+  sc <- attr(x, "scaling")
+  if (length(sc) == 0) return(NULL)
+  data.frame(
+    model_variable = names(sc),
+    kind           = vapply(sc, function(s) s$kind, character(1)),
+    raw_variable   = vapply(sc, function(s) s$raw_name, character(1)),
+    center         = vapply(sc, function(s) s$center, numeric(1)),
+    scale          = vapply(sc, function(s) s$scale, numeric(1)),
+    source         = vapply(sc, function(s) s$source, character(1)),
+    row.names = NULL, stringsAsFactors = FALSE
+  )
+}
 
 # =============================================================================
 # NOTES / VERIFICATION STATUS (2026-07-28, v7 — fixes the phi_Intercept

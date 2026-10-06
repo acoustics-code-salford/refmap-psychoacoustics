@@ -147,6 +147,8 @@ dataByStim = pd.concat([dataByStim, pd.DataFrame(index=dataByStim.index,
 LAeqCols = "LAeq100ms_" + np.arange(0, 30, 0.1).astype(str)
 dataByStimLAeqL = pd.DataFrame(index=dataByStim.index[~dataByStim.index.str.contains("Background")], columns=LAeqCols, dtype=float)
 dataByStimLAeqR = pd.DataFrame(index=dataByStim.index[~dataByStim.index.str.contains("Background")], columns=LAeqCols, dtype=float)
+dataByStimLAeqMic = pd.DataFrame(index=dataByStim.index[~dataByStim.index.str.contains("Background")], columns=LAeqCols, dtype=float)
+
 
 # Acoustic metrics calculations
 # -----------------------------
@@ -260,6 +262,49 @@ dataByStimLAeqL.to_csv(os.path.join(outFilePath,
                                     "refmap_listest2_dataByStimLAeqL.csv"))
 dataByStimLAeqR.to_csv(os.path.join(outFilePath,
                                     "refmap_listest2_dataByStimLAeqR.csv"))
+
+
+# open wav file selection dialog and assign filepaths to list
+# PROJECT NOTE: the calibrated HATS files are stored in
+# https://testlivesalfordac.sharepoint.com/:f:/r/sites/REFMAP/Shared%20Documents/General/03%20Experiment/Experiment%202/Stimuli/Calibrated_recordings/RecordHATS?csf=1&web=1&e=WNwAvH
+# check/open QApplication instance
+if not QApplication.instance():
+    app = QApplication(sys.argv)
+else:
+    app = QApplication.instance()
+
+fileExts = "*.wav"
+filelist = list(QFileDialog.getOpenFileNames(caption="Open recording files in '03 Experiment\Experiment 2\Stimuli\Calibrated_recordings\RecordMA220Mic'",
+                                             filter=fileExts))[0]
+filelist.sort()
+filenames = [filepath.split('/')[-1] for filepath in filelist]
+stemNames = [filename.replace("_MA220_Pa.wav", "") for filename in filenames]
+
+for ii, file in enumerate(filelist):
+    if ii == 0:
+        print("Processing acoustic metrics...\n")
+    print(file.split('/')[-1])
+    # load recording
+    signal, sampleRatein = librosa.load(file, sr=None, mono=True)
+    signal = np.transpose(signal)
+
+    # apply weighting filters
+    signalA = filter_funcs.A_weight_T(signal, sampleRatein)
+    signalASq = pd.DataFrame(signalA**2)
+
+    if "Background" not in stemNames[ii]:
+        # 100-millisecond LAeq
+
+        signalLAeq100ms = 20*np.log10(np.sqrt((signalASq).groupby(signalASq.index
+                                                                    // (sampleRatein
+                                                                    // 10)).mean())/2e-5)
+
+        dataByStimLAeqMic.loc[stemNames[ii], :] = signalLAeq100ms.iloc[:, 0].values
+
+dataByStimLAeqMic.to_csv(os.path.join(outFilePath,
+                                      "refmap_listest2_dataByStimLAeqMic.csv"))
+
+
 
 # -----------------------------------
 # %% PNL and detection metrics import

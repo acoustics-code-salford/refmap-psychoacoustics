@@ -177,7 +177,8 @@ stimData <- read.csv(stimDataPath, header=TRUE, row.names=1)
 ```{r}
 
 # rename variables for ease
-subjData <- subjData |> dplyr::rename(TrialNumber = Trial)
+subjData <- subjData |> dplyr::rename(TrialNumber = Trial) |>
+  arrange(ID, TrialNumber)
 
 subjData$AmbientEnvCore <- subjData$AmbientEnv |>
   dplyr::recode("Park (high)" = "Park",
@@ -313,8 +314,8 @@ stimData <- stimData |>
                                                      direction='forward', squeeze='none'))
 
 # omit ambient-only stimuli
-subjDataNoAmb <- subjData |> dplyr::filter(UASStart != "Baseline")
-stimDataNoAmb <- stimData |> dplyr::filter(UASStart != "Baseline")
+subjDataNoAmb <- subjData |> dplyr::filter(UASStart != "Baseline") |> droplevels()
+stimDataNoAmb <- stimData |> dplyr::filter(UASStart != "Baseline") |> droplevels()
 
 ```
 
@@ -328,11 +329,15 @@ centre_vars = c("UASLAeqMaxLR", "UASLAEMaxLR", "UASEPNLMaxLR", "UASLAF50ExMaxLR"
                 "Age", "NoiseSensitivity")
 
 out <- standardise_list(list(subjData, subjDataNoAmb),
-                        vars = centre_vars,
-                        scale = FALSE)
+                        vars = list(standardise="TrialNumber",
+                                    centre=centre_vars),#
+                        append="Scl")
 
-subjData <- out[[1]]
-subjDataNoAmb <- out[[2]]
+subjData <- out$data$subjData
+subjDataNoAmb <- out$data$subjDataNoAmb
+
+subjDataScaling <- subset(out$params, df_name=='subjData')
+subjDataNoAmbScaling <- subset(out$params, df_name=='subjDataNoAmb')
 
 centre_stim_vars = setdiff(centre_vars, c("Age", "NoiseSensitivity"))
 
@@ -340,26 +345,11 @@ out <- standardise_list(list(stimData, stimDataNoAmb),
                         vars = centre_stim_vars,
                         scale = FALSE)
 
-stimData <- out[[1]]
-stimDataNoAmb <- out[[2]]
+stimData <- out$data$stimData
+stimDataNoAmb <- out$data$stimDataNoAmb
 
-
-out <- standardise_list(list(subjData, subjDataNoAmb),
-                        vars = c("TrialNumber"),
-                        scale = TRUE)
-
-subjData <- out[[1]]
-subjDataNoAmb <- out[[2]]
-
-# rescale trial number variables
-subjData <- rbind(subjData |>
-                    dplyr::mutate(TrialNumberScl = datawizard::standardise(TrialNumber, scale=TRUE))) |>
-  droplevels()
-
-subjDataNoAmb <- rbind(subjDataNoAmb |>
-                         dplyr::mutate(TrialNumberScl = datawizard::standardise(TrialNumber, scale=TRUE))) |>
-  droplevels()
-
+stimDataScaling <- subset(out$params, df_name=='stimData')
+stimDataNoAmbScaling <- subset(out$params, df_name=='stimDataNoAmb')
 
 ```
 
