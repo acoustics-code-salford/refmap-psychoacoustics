@@ -119,7 +119,8 @@ arguments (Input)
                                                '5PcEx'})} = 'PowAvg'
         method (1, :) string {mustBeMember(method,...
                                            {'ECMA-418-2',...
-                                            'ISO 532-1'})} = 'ECMA-418-2'
+                                            'ISO 532-1', ...
+                                            'ISO 532-1 S'})} = 'ECMA-418-2'
         binaural (1, 1) {mustBeNumericOrLogical} = true
         precision (1, 1) double {mustBePositive, mustBeLessThan(precision, 1)} = 0.05
         timeLimitX (1, 1) double {mustBePositive} = 10
@@ -175,7 +176,7 @@ timeLimit = size(p, 1)/sampleRateIn*timeLimitX;
 
 %% Signal processing
 
-if (~binaural && chansIn == 2) || strcmp(method, 'ISO 532-1')
+if (~binaural && chansIn == 2) || ismember(method, ['ISO 532-1', 'ISO 532-1 S'])
     N = runLoudness(p, aggregate, method);
     [~, whichChan] = max(N, [], 2);
     % use only the higher loudness signal to calculate the loudness
@@ -289,6 +290,11 @@ end
                     case '5PcEx'
                         N = prctile(loudness(startSkipIdx:end, :), 95, 1);
                 end  % end of switch for aggregate
+            case 'ISO 532-1 S'
+                N = acousticLoudness(signal, sampleRateIn, 1,...
+                                     'Method', 'ISO 532-1',...
+                                     'TimeVarying', false,...
+                                     'SoundField', soundFieldKey);
         end  % end of switch for method
     end
 
