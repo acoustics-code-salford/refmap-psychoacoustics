@@ -62,11 +62,14 @@ Date last checked:
 # %% imports
 
 import numpy as np
+import matplotlib as mpl#; mpl.use("Agg")
 import matplotlib.pyplot as plt
 from cycler import cycler
 import seaborn as sns
 import pandas as pd
 from scipy import stats
+from scipy.stats import gaussian_kde
+
 
 # %% spiderplot
 def spiderplot(df, *, id_column, categories=None, ax=None,
@@ -921,3 +924,68 @@ def violin_facet(data, plot_func, facet_col=None, facet_row=None,
 
     return fig, axes
 
+
+def sscpy_kde_peak(df, x, y, bw_adjust=1.2, lim=(-1, 1), gridsize=200):
+    """Location of the highest KDE density, using seaborn's KDE settings
+    (scott's rule x bw_adjust; soundscapy's default bw_adjust is 1.2)."""
+    pts = df[[x, y]].dropna().to_numpy().T
+    kde = gaussian_kde(pts)
+    kde.set_bandwidth(kde.factor * bw_adjust)
+    g = np.linspace(*lim, gridsize)
+    xx, yy = np.meshgrid(g, g)
+    z = kde(np.vstack([xx.ravel(), yy.ravel()])).reshape(xx.shape)
+    i = np.unravel_index(z.argmax(), z.shape)
+    return float(xx[i]), float(yy[i])
+
+
+def sscpy_annotate_peak_shift(ax, df, x, y, hue, frm, to, label=None, bw_adjust=1.2,
+                        label_pos=0.5, label_offset=6, side=1,
+                        arrow_kw=None, text_kw=None):
+    """Arrow from the density peak of hue value `frm` to that of `to`.
+ 
+    The label is placed `label_pos` of the way along the arrow (0=tail, 1=head) and
+    pushed sideways, perpendicular to the arrow, by half of its own measured extent
+    in that direction plus `label_offset` points, so its nearest edge always clears
+    the line by `label_offset` points whatever the arrow's angle or the label's size.
+    side=1 puts it on the upper side of the arrow, side=-1 on the lower side.
+    (The label is centre-aligned; don't pass ha/va in text_kw.)
+    """
+    p0 = sscpy_kde_peak(df[df[hue] == frm], x, y, bw_adjust)
+    p1 = sscpy_kde_peak(df[df[hue] == to], x, y, bw_adjust)
+    arrow = dict(arrowstyle="->", color="black", lw=1.5, shrinkA=0, shrinkB=0,
+                 mutation_scale=15)
+    arrow.update(arrow_kw or {})
+    ax.annotate("", xy=p1, xytext=p0, arrowprops=arrow, zorder=10)
+    if label is None:
+        label = f"$\\Delta$ = ({p1[0]-p0[0]:+.2f}, {p1[1]-p0[1]:+.2f})"
+ 
+    # unit normal to the arrow in *screen* space, so it is right whatever the axis scaling
+    d0, d1 = ax.transData.transform([p0, p1])
+    v = d1 - d0
+    length = np.hypot(*v)
+    n = np.array([-v[1], v[0]]) / length if length > 0 else np.array([0.0, 1.0])
+    if n[1] < 0:
+        n = -n               # default: the upper side of the arrow
+    n = n * side
+ 
+    anchor = (p0[0] + label_pos * (p1[0] - p0[0]), p0[1] + label_pos * (p1[1] - p0[1]))
+    kw = dict(ha="center", va="center", fontsize=10, zorder=11,
+              textcoords="offset points",
+              bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="none", alpha=0.7))
+    kw.update(text_kw or {})
+    t = ax.annotate(label, xy=anchor, xytext=(0, 0), **kw)
+ 
+    # measure the label, then move its centre out along the normal
+    fig = ax.figure
+    try:
+        renderer = fig.canvas.get_renderer()
+    except AttributeError:
+        renderer = fig._get_renderer()
+    bb = t.get_window_extent(renderer)
+    px_to_pt = 72.0 / fig.dpi
+    pad_pt = 0.2 * t.get_fontsize()              # the bbox pad around the text
+    half_w = bb.width * px_to_pt / 2 + pad_pt
+    half_h = bb.height * px_to_pt / 2 + pad_pt
+    support = half_w * abs(n[0]) + half_h * abs(n[1])
+    t.set_position((n[0] * (support + label_offset), n[1] * (support + label_offset)))
+    return p0, p1

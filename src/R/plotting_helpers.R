@@ -131,13 +131,93 @@ check_grid <- function(variables, newdata, max_rows = Inf) {
 # Direct replacement for rescaleTicks(): keeps the data on the model scale but
 # labels the axis in original units, using the stored centre/scale rather than
 # recomputing mean()/sd(). Prefer add_original_units() when you can.
-scale_orig <- function(var, params, ax = c("x", "y"), digits = 2, n = 5, ...) {
+scale_orig <- function(var, params, ax = c("x", "y"), digits = 2, n = 5, by = NULL, ...) {
   ax <- match.arg(ax)
   s  <- get_scaling(params, var)
   breaks_fn <- function(lims) {
-    (pretty(lims * s$scale + s$center, n = n) - s$center) / s$scale
+    raw <- lims * s$scale + s$center
+    tk  <- if (is.null(by)) pretty(raw, n = n) else
+      seq(ceiling(min(raw) / by) * by, floor(max(raw) / by) * by, by = by)
+    (tk - s$center) / s$scale
   }
   labels_fn <- function(b) fmt_num(b * s$scale + s$center, digits)
   f <- if (ax == "x") ggplot2::scale_x_continuous else ggplot2::scale_y_continuous
   f(breaks = breaks_fn, labels = labels_fn, ...)
+}
+
+# to_model_cols ----------------
+to_model_cols <- function(data, params) {
+  for (v in intersect(params$new_variable, names(data))) {
+    s <- get_scaling(params, v)
+    if (s$variable %in% names(data)) data[[v]] <- (data[[s$variable]] - s$center) / s$scale
+  }
+  data
+}
+
+# hi_lo ------------
+# Median split of the raw data, labelled by the 10% / 90% quantile values
+hi_lo <- function(x, q) {
+  if (length(q) != 2 || any(q < 0 | q > 1) || q[1] >= q[2]) {
+    stop("`q` must be a numeric vector of length 2 with 0 <= q[1] < q[2] <= 1")
+  }
+  
+  q <- quantile(x, c(q[1], q[2]), na.rm = TRUE)
+  num_factor(ifelse(x <= median(x, na.rm = TRUE), q[[1]], q[[2]]))
+}
+
+
+# plot_slice ---------------------------
+# Plot a slice of the prediction data
+plot_slice <- function(pred, data, x, y, colour_v, facet_v, facet_labeller,
+                       q = c(0.3, 0.9),
+                       option = "viridis",
+                       colour_title = colour_v,
+                       colour_breaks = ggplot2::waiver()) {
+  pts <- data
+  pts[[facet_v]] <- hi_lo(pts[[facet_v]], q)
+  
+  stopifnot(
+    "facet levels in `data` not found in `pred`; check `q` and `num_factor` digits" =
+      all(levels(pts[[facet_v]]) %in% levels(pred[[facet_v]]))
+  )
+  
+  ggplot(pred) +
+    
+    geom_point(data = pts,
+               aes(x = .data[[x]], y = .data[[y]], colour = .data[[colour_v]]),
+               alpha = 0.55, size = 2) +
+    scale_color_viridis(option = option, discrete = FALSE, begin = 0.2, end = 0.8,
+                        breaks = colour_breaks, labels = fmt_num,
+                        guide = guide_legend(title = colour_title, reverse = TRUE)) +
+    ggnewscale::new_scale_colour() +
+    
+    geom_ribbon(aes(x = .data[[x]], ymin = .data[["conf.low"]], ymax = .data[["conf.high"]],
+                    fill = .data[[colour_v]]), alpha = 0.15) +
+    geom_line(aes(x = .data[[x]], y = .data[["estimate"]], colour = .data[[colour_v]]),
+              linewidth = 1) +
+    scale_color_viridis(option = option, discrete = TRUE, begin = 0.2, end = 0.8,
+                        guide = guide_legend(title = colour_title, reverse = TRUE)) +
+    scale_fill_viridis(option = option, discrete = TRUE, begin = 0.2, end = 0.8,
+                       guide = guide_legend(title = colour_title, reverse = TRUE)) +
+
+    facet_grid(rows = vars(.data[[facet_v]]), labeller = facet_labeller)
+}
+
+
+# save_fig ----------------
+# Save to file (only if `saveplots` is TRUE). `plot` defaults to the last plot,
+# ggplot2::get_last_plot(), exactly as in ggsave().
+save_fig <- function(file_name, width, height, out_path, sub_ext = TRUE, extensions = c('svg', 'pdf'), plot = NULL) {
+
+  if (is.null(plot)) plot <- ggplot2::get_last_plot()
+  if (is.null(plot)) stop("No `plot` supplied and no last plot available.")
+  for (ext in extensions) {
+    if (sub_ext) {
+      if (!dir.exists(file.path(out_path, ext))){dir.create(file.path(outFigPath, ext))}
+      sub_folder <- ext
+    }
+    ggsave(filename = paste0(file_name, ".", ext), plot = plot, width = width, height = height,
+           path = file.path(out_path, sub_folder))
+  }
+  invisible(plot)
 }
