@@ -2490,10 +2490,12 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
                     if "Baseline" in file and "d" in response:
                         medianCI_Low = 0
                         medianCI_High = 0
+                        medianSE = 0
                         quartile25 = 0
                         quartile75 = 0
                         meanCI_Low = 0
                         meanCI_High = 0
+                        meanSE = 0
                         
                     else:
                         responseMedianBoot = stats.bootstrap(responseData.values, statistic=np.nanmedian, confidence_level=0.95,
@@ -2506,34 +2508,41 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
 
                         medianCI_Low = responseMedianBoot.confidence_interval.low
                         medianCI_High = responseMedianBoot.confidence_interval.high
+                        medianSE = responseMedianBoot.standard_error
                         meanCI_Low = responseMeanBoot.confidence_interval.low
                         meanCI_High = responseMeanBoot.confidence_interval.high
+                        meanSE = responseMeanBoot.standard_error
 
                     responseAgg = pd.DataFrame(data=np.vstack([np.nanmedian(responseData.values, axis=1)[0],
-                                                               medianCI_Low, medianCI_High,
+                                                               medianCI_Low, medianCI_High, medianSE,
                                                                quartile25, quartile75,
                                                                np.nanmean(responseData.values, axis=1)[0],
-                                                               meanCI_Low, meanCI_High]),
+                                                               meanCI_Low, meanCI_High, meanSE]),
                                                index=[response + 'Median',
                                                       response + 'MedianCI_Low',
                                                       response + 'MedianCI_High',
+                                                      response + 'MedianSE',
                                                       response + 'Quartile25',
                                                       response + 'Quartile75',
                                                       response + 'Mean',
                                                       response + 'MeanCI_Low',
-                                                      response + 'MeanCI_High'],
+                                                      response + 'MeanCI_High',
+                                                      response + 'MeanSE'],
                                                columns=[file]).transpose()
                 else:
                     responseAgg = pd.DataFrame(data=np.vstack([np.nan, np.nan, np.nan,
-                                                               np.nan, np.nan, np.nan]),
+                                                               np.nan, np.nan, np.nan,
+                                                               np.nan, np.nan, np.nan, np.nan]),
                                                index=[response + 'Median',
                                                       response + 'MedianCI_Low',
                                                       response + 'MedianCI_High',
+                                                      response + 'MedianSE',
                                                       response + 'Quartile25',
                                                       response + 'Quartile75',
                                                       response + 'Mean',
                                                       response + 'MeanCI_Low',
-                                                      response + 'MeanCI_High'],
+                                                      response + 'MeanCI_High',
+                                                      response + 'MeanSE'],
                                                columns=[file]).transpose()
 
                 # add to testData DataFrame
@@ -2544,12 +2553,13 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
                     testData.loc[file, response + 'Median'] = responseAgg.loc[file, response + 'Median']
                     testData.loc[file, response + 'MedianCI_Low'] = responseAgg.loc[file, response + 'MedianCI_Low']
                     testData.loc[file, response + 'MedianCI_High'] = responseAgg.loc[file, response + 'MedianCI_High']
+                    testData.loc[file, response + 'MedianSE'] = responseAgg.loc[file, response + 'MedianSE']
                     testData.loc[file, response + 'Quartile25'] = responseAgg.loc[file, response + 'Quartile25']
                     testData.loc[file, response + 'Quartile75'] = responseAgg.loc[file, response + 'Quartile75']
                     testData.loc[file, response + 'Mean'] = responseAgg.loc[file, response + 'Mean']
                     testData.loc[file, response + 'MeanCI_Low'] = responseAgg.loc[file, response + 'MeanCI_Low']
                     testData.loc[file, response + 'MeanCI_High'] = responseAgg.loc[file, response + 'MeanCI_High']
-                    
+                    testData.loc[file, response + 'MeanSE'] = responseAgg.loc[file, response + 'MeanSE']
                     for col in columns:
                         testData.loc[file, col] = responseData.loc[file, col]
             
@@ -2567,6 +2577,7 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
                     if ("Baseline" in file and "d" in response) or np.nansum(responseData.values) == 0:
                         meanCI_Low = 0
                         meanCI_High = 0
+                        meanSE = 0
 
                     else:
 
@@ -2575,24 +2586,28 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
 
                         meanCI_Low = responseMeanBoot.confidence_interval.low
                         meanCI_High = responseMeanBoot.confidence_interval.high
+                        meanSE = responseMeanBoot.standard_error
 
                     responseAgg = pd.DataFrame(data=np.vstack([np.nansum(responseData.values,
                                                                          axis=1)[0],
                                                                np.nanmean(responseData.values,
                                                                           axis=1)[0],
                                                                meanCI_Low,
-                                                               meanCI_High]),
+                                                               meanCI_High,
+                                                               meanSE]),
                                                index=[response + 'Total',
                                                       response + 'Prop',
                                                       response + 'PropCI_Low',
-                                                      response + 'PropCI_High'],
+                                                      response + 'PropCI_High',
+                                                      response + 'PropSE'],
                                                columns=[file]).transpose()
                 else:
-                    responseAgg = pd.DataFrame(data=np.vstack([np.nan, np.nan, np.nan, np.nan]),
+                    responseAgg = pd.DataFrame(data=np.vstack([np.nan, np.nan, np.nan, np.nan, np.nan]),
                                                index=[response + 'Total',
                                                       response + 'Prop',
                                                       response + 'PropCI_Low',
-                                                      response + 'PropCI_High'],
+                                                      response + 'PropCI_High',
+                                                      response + 'PropSE'],
                                                columns=[file]).transpose()
 
                 # add to testData DataFrame
@@ -2604,7 +2619,7 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
                     testData.loc[file, response + 'Prop'] = responseAgg.loc[file, response + 'Prop']
                     testData.loc[file, response + 'PropCI_Low'] = responseAgg.loc[file, response + 'PropCI_Low']
                     testData.loc[file, response + 'PropCI_High'] = responseAgg.loc[file, response + 'PropCI_High']
-                    
+                    testData.loc[file, response + 'PropSE'] = responseAgg.loc[file, response + 'PropSE']
                     for col in columns:
                         testData.loc[file, col] = responseData.loc[file, col]
             
@@ -2622,6 +2637,7 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
                     if "Baseline" in file and "d" in response:
                         meanCI_Low = 0
                         meanCI_High = 0
+                        meanSE = 0
 
                     else:
                         responseMeanBoot = stats.bootstrap(responseData.values, statistic=np.nanmean, confidence_level=0.95,
@@ -2629,19 +2645,23 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
 
                         meanCI_Low = responseMeanBoot.confidence_interval.low
                         meanCI_High = responseMeanBoot.confidence_interval.high
+                        meanSE = responseMeanBoot.standard_error
 
                     responseAgg = pd.DataFrame(data=np.vstack([np.nanmean(responseData.values, axis=1)[0],
                                                                meanCI_Low,
-                                                               meanCI_High]),
+                                                               meanCI_High,
+                                                               meanSE]),
                                                index=[response + 'Mean',
                                                       response + 'MeanCI_Low',
-                                                      response + 'MeanCI_High'],
+                                                      response + 'MeanCI_High',
+                                                      response + 'MeanSE'],
                                                columns=[file]).transpose()
                 else:
-                    responseAgg = pd.DataFrame(data=np.vstack([np.nan, np.nan, np.nan]),
+                    responseAgg = pd.DataFrame(data=np.vstack([np.nan, np.nan, np.nan, np.nan]),
                                                index=[response + 'Mean',
                                                       response + 'MeanCI_Low',
-                                                      response + 'MeanCI_High'],
+                                                      response + 'MeanCI_High',
+                                                      response + 'MeanSE'],
                                                columns=[file]).transpose()
                 
                 # add to testData DataFrame
@@ -2652,7 +2672,7 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
                     testData.loc[file, response + 'Mean'] = responseAgg.loc[file, response + 'Mean']
                     testData.loc[file, response + 'MeanCI_Low'] = responseAgg.loc[file, response + 'MeanCI_Low']
                     testData.loc[file, response + 'MeanCI_High'] = responseAgg.loc[file, response + 'MeanCI_High']
-                    
+                    testData.loc[file, response + 'MeanSE'] = responseAgg.loc[file, response + 'MeanSE']
                     for col in columns:
                         testData.loc[file, col] = responseData.loc[file, col]
             
@@ -2666,15 +2686,18 @@ def dataAggregation(testResponseData, responses, stimuliNames, randomState):
                 if not (col.endswith('Median')
                         or col.endswith('MedianCI_Low')
                         or col.endswith('MedianCI_High')
+                        or col.endswith('MedianSE')
                         or col.endswith('Quartile25')
                         or col.endswith('Quartile75')
                         or col.endswith('Mean')
                         or col.endswith('MeanCI_Low')
                         or col.endswith('MeanCI_High')
+                        or col.endswith('MeanSE')
                         or col.endswith('Total')
                         or col.endswith('Prop')
                         or col.endswith('PropCI_Low')
-                        or col.endswith('PropCI_High'))]
+                        or col.endswith('PropCI_High')
+                        or col.endswith('PropSE'))]
     indivCols.sort()
     cols = list(testData.columns)
     cols.sort()
@@ -2738,8 +2761,7 @@ if not QApplication.instance():
 else:
     app = QApplication.instance() 
 
-fileExts = "*.csv"
-filepath = QFileDialog.getOpenFileName(filter=fileExts,
+filepath = QFileDialog.getOpenFileName(filter="refmap_listest2_questionnaireResponses.csv",
                                        caption=r"Select test questionnaire response data file in '03 Experiment\Experiment 2\Analysis\PostProcess'")[0]
 
 questResponses = pd.read_csv(filepath, header=0)

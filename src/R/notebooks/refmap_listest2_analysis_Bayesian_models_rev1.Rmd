@@ -3937,31 +3937,31 @@ p_type_within_env <- ggplot(mdA13_type_within_env, aes(x = AmbientEnvCore, y = e
   
   geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
   # Add text annotation next to estimate point
-  geom_text(aes(label = paste("pd:",
-                              ifelse(pd > 0.99, ">0.99",
-                                     sprintf("%.2f",
-                                             round(pd, digits = 2))))),
-            nudge_x = 0.0,      # Shifts text slightly to the right of the point
-            nudge_y = 0.72,
-            hjust = 0,           # Left-aligns text relative to the nudge position
-            family = "serif", 
-            size = 4, 
-            show.legend = FALSE) +
-  
-  geom_text(aes(label = sprintf("%.2f", round(estimate, digits = 2))),
-            nudge_x = -0.45,      # Shifts text slightly to the right of the point
-            hjust = 0,           # Left-aligns text relative to the nudge position
-            family = "serif", 
-            size = 4, 
-            show.legend = FALSE) +
-  
-  geom_text(aes(label = sprintf("[%.2f,\n%.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
-            nudge_x = -0.1,     # Kept on the left side alongside the estimate
-            nudge_y = -0.6,    # Slightly offset downward so it sits underneath the estimate
-            hjust = 1,
-            family = "serif", 
-            size = 4, 
-            show.legend = FALSE) +
+  # geom_text(aes(label = paste("pd:",
+  #                             ifelse(pd > 0.99, ">0.99",
+  #                                    sprintf("%.2f",
+  #                                            round(pd, digits = 2))))),
+  #           nudge_x = 0.0,      # Shifts text slightly to the right of the point
+  #           nudge_y = 0.72,
+  #           hjust = 0,           # Left-aligns text relative to the nudge position
+  #           family = "serif", 
+  #           size = 4, 
+  #           show.legend = FALSE) +
+  # 
+  # geom_text(aes(label = sprintf("%.2f", round(estimate, digits = 2))),
+  #           nudge_x = -0.45,      # Shifts text slightly to the right of the point
+  #           hjust = 0,           # Left-aligns text relative to the nudge position
+  #           family = "serif", 
+  #           size = 4, 
+  #           show.legend = FALSE) +
+  # 
+  # geom_text(aes(label = sprintf("[%.2f,\n%.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
+  #           nudge_x = -0.1,     # Kept on the left side alongside the estimate
+  #           nudge_y = -0.6,    # Slightly offset downward so it sits underneath the estimate
+  #           hjust = 1,
+  #           family = "serif", 
+  #           size = 4, 
+  #           show.legend = FALSE) +
   
   geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.5) +
   scale_x_discrete(limits = env_order) +
@@ -3985,31 +3985,31 @@ p_op_within_env <- ggplot(mdA13_op_within_env, aes(x = AmbientEnvCore, y = estim
   
   geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
    # Add text annotation next to estimate point
-  geom_text(aes(label = paste("pd:",
-                              ifelse(pd > 0.99, ">0.99",
-                                     sprintf("%.2f",
-                                             round(pd, digits = 2))))),
-            nudge_x = -0.05,      # Shifts text slightly to the right of the point
-            nudge_y = 0.6,
-            hjust = 0,           # Left-aligns text relative to the nudge position
-            family = "serif", 
-            size = 4, 
-            show.legend = FALSE) +
-  
-  geom_text(aes(label = sprintf("%.2f", round(estimate, digits = 2))),
-            nudge_x = -0.45,      # Shifts text slightly to the right of the point
-            hjust = 0,           # Left-aligns text relative to the nudge position
-            family = "serif", 
-            size = 4, 
-            show.legend = FALSE) +
-  
-  geom_text(aes(label = sprintf("[%.2f,\n%.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
-            nudge_x = -0.1,     # Kept on the left side alongside the estimate
-            nudge_y = -0.6,    # Slightly offset downward so it sits underneath the estimate
-            hjust = 1,
-            family = "serif", 
-            size = 4, 
-            show.legend = FALSE) +
+  # geom_text(aes(label = paste("pd:",
+  #                             ifelse(pd > 0.99, ">0.99",
+  #                                    sprintf("%.2f",
+  #                                            round(pd, digits = 2))))),
+  #           nudge_x = -0.05,      # Shifts text slightly to the right of the point
+  #           nudge_y = 0.6,
+  #           hjust = 0,           # Left-aligns text relative to the nudge position
+  #           family = "serif", 
+  #           size = 4, 
+  #           show.legend = FALSE) +
+  # 
+  # geom_text(aes(label = sprintf("%.2f", round(estimate, digits = 2))),
+  #           nudge_x = -0.45,      # Shifts text slightly to the right of the point
+  #           hjust = 0,           # Left-aligns text relative to the nudge position
+  #           family = "serif", 
+  #           size = 4, 
+  #           show.legend = FALSE) +
+  # 
+  # geom_text(aes(label = sprintf("[%.2f,\n%.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
+  #           nudge_x = -0.1,     # Kept on the left side alongside the estimate
+  #           nudge_y = -0.6,    # Slightly offset downward so it sits underneath the estimate
+  #           hjust = 1,
+  #           family = "serif", 
+  #           size = 4, 
+  #           show.legend = FALSE) +
   
   geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.5) +
   scale_x_discrete(limits = env_order) +
@@ -4034,31 +4034,31 @@ p_prox_within_env <- ggplot(mdA13_prox_within_env, aes(x = AmbientEnvCore, y = e
   
   geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
    # Add text annotation next to estimate point
-  geom_text(aes(label = paste("pd:",
-                              ifelse(pd > 0.99, ">0.99",
-                                     sprintf("%.2f",
-                                             round(pd, digits = 2))))),
-            nudge_x = 0.0,      # Shifts text slightly to the right of the point
-            nudge_y = 0.5,
-            hjust = 0,           # Left-aligns text relative to the nudge position
-            family = "serif", 
-            size = 4, 
-            show.legend = FALSE) +
-  
-  geom_text(aes(label = sprintf("%.2f", round(estimate, digits = 2))),
-            nudge_x = -0.45,      # Shifts text slightly to the right of the point
-            hjust = 0,           # Left-aligns text relative to the nudge position
-            family = "serif", 
-            size = 4, 
-            show.legend = FALSE) +
-  
-  geom_text(aes(label = sprintf("[%.2f,\n%.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
-            nudge_x = -0.1,     # Kept on the left side alongside the estimate
-            nudge_y = -0.6,    # Slightly offset downward so it sits underneath the estimate
-            hjust = 1,
-            family = "serif", 
-            size = 4, 
-            show.legend = FALSE) +
+  # geom_text(aes(label = paste("pd:",
+  #                             ifelse(pd > 0.99, ">0.99",
+  #                                    sprintf("%.2f",
+  #                                            round(pd, digits = 2))))),
+  #           nudge_x = 0.0,      # Shifts text slightly to the right of the point
+  #           nudge_y = 0.5,
+  #           hjust = 0,           # Left-aligns text relative to the nudge position
+  #           family = "serif", 
+  #           size = 4, 
+  #           show.legend = FALSE) +
+  # 
+  # geom_text(aes(label = sprintf("%.2f", round(estimate, digits = 2))),
+  #           nudge_x = -0.45,      # Shifts text slightly to the right of the point
+  #           hjust = 0,           # Left-aligns text relative to the nudge position
+  #           family = "serif", 
+  #           size = 4, 
+  #           show.legend = FALSE) +
+  # 
+  # geom_text(aes(label = sprintf("[%.2f,\n%.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
+  #           nudge_x = -0.1,     # Kept on the left side alongside the estimate
+  #           nudge_y = -0.6,    # Slightly offset downward so it sits underneath the estimate
+  #           hjust = 1,
+  #           family = "serif", 
+  #           size = 4, 
+  #           show.legend = FALSE) +
   
   geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.5) +
   scale_x_discrete(limits = env_order) +
@@ -4289,7 +4289,7 @@ p_between_fac <- ggplot(mdA13_between_contrasts, aes(x = estimate,
   scale_colour_manual(values = mycolours) +
   guides(colour = "none") +
   geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
-  labs(x = expression("Difference in"~bar(A)), y = NULL)
+  labs(x = expression("Difference in"~bar(Delta*A)), y = NULL)
 
 p_between_cov <- ggplot(mdA13_covariate_slopes, aes(x = estimate, y = variable, colour = variable)) +
   theme(panel.grid = element_blank(),
@@ -4327,13 +4327,13 @@ p_between_cov <- ggplot(mdA13_covariate_slopes, aes(x = estimate, y = variable, 
   guides(colour = "none") +
   
   geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
-  labs(x = expression("Slope of"~bar(A)~"per unit increase"), y = NULL)
+  labs(x = expression("Slope of"~bar(Delta*A)~"per unit increase"), y = NULL)
 
 (p_between_fac | p_between_cov) + plot_layout(widths = c(2, 1))
 
 if (saveplots){
   
-  filename <- "PtsdABAnnoyMn_ExpMod_PersonMargEff_brmsOb"
+  filename <- "dAnnoyMn_ExpMod_PersonMargEff_brmsOb"
   
   ggsave(filename=paste(filename, ".svg", sep=""), width=14, height=4,
          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
@@ -8847,11 +8847,11 @@ if (saveplots){
   
   filename <- "dAnnoyMn_ExpLAEModEnvEvt_brmsOb"
   
-  ggsave(filename=paste(filename, ".svg", sep=""), width=14, height=4,
+  ggsave(filename=paste(filename, ".svg", sep=""), width=10, height=4,
          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
   unlink(paste(filename, ".svg", sep=""))
 
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=14, height=4, path=file.path(outFigPath, "pdf"))
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=10, height=4, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 }
 
@@ -8903,7 +8903,7 @@ p_between_fac <- ggplot(mdA31_between_contrasts, aes(x = estimate,
   scale_colour_manual(values = mycolours) +
   guides(colour = "none") +
   geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
-  labs(x = expression("Difference in"~bar(A)), y = NULL)
+  labs(x = expression("Difference in"~bar(Delta*A)), y = NULL)
 
 p_between_cov <- ggplot(mdA31_covariate_slopes, aes(x = estimate, y = variable, colour = variable)) +
   theme(panel.grid = element_blank(),
@@ -8941,13 +8941,13 @@ p_between_cov <- ggplot(mdA31_covariate_slopes, aes(x = estimate, y = variable, 
   guides(colour = "none") +
   
   geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
-  labs(x = expression("Slope of"~bar(A)~"per unit increase"), y = NULL)
+  labs(x = expression("Slope of"~bar(Delta*A)~"per unit increase"), y = NULL)
 
 (p_between_fac | p_between_cov) + plot_layout(widths = c(2, 1))
 
 if (saveplots){
   
-  filename <- "PtsdABAnnoyMn_ExpLAEMod_PersonMargEff_brmsOb"
+  filename <- "dAnnoyMn_ExpLAEMod_PersonMargEff_brmsOb"
   
   ggsave(filename=paste(filename, ".svg", sep=""), width=14, height=4,
          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))

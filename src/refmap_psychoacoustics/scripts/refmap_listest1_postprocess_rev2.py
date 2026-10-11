@@ -2911,19 +2911,25 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
                                                    method='median_unbiased')[0],
                                      arousalMedianBoot.confidence_interval.low,
                                      arousalMedianBoot.confidence_interval.high,
+                                     arousalMedianBoot.standard_error,
                                      np.mean(partAArousal.values, axis=1)[0],
                                      arousalMeanBoot.confidence_interval.low,
-                                     arousalMeanBoot.confidence_interval.high]],
-                              columns=['ArousalMedian', 'ArousalMedianCI_Low', 'ArousalMedianCI_High',
-                                       'ArousalMean', 'ArousalMeanCI_Low', 'ArousalMeanCI_High'],
+                                     arousalMeanBoot.confidence_interval.high,
+                                     arousalMeanBoot.standard_error]],
+                              columns=['ArousalMedian', 'ArousalMedianCI_Low',
+                                       'ArousalMedianCI_High', 'ArousalMedianSE',
+                                       'ArousalMean', 'ArousalMeanCI_Low',
+                                       'ArousalMeanCI_High', 'ArousalMeanSE'],
                               index=[file])
     
     if file == "A1_CALBIN_Pa.wav" or file == "A2_CALBIN_Pa.wav":
 
         medianCI_Low = 0
         medianCI_High = 0
+        medianSE = 0
         meanCI_Low = 0
         meanCI_High = 0
+        meanSE = 0
     
     else:
         dArousalMedianBoot = stats.bootstrap(partAdArousal.values, statistic=np.median, confidence_level=0.95,
@@ -2931,23 +2937,29 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
         
         medianCI_Low = dArousalMedianBoot.confidence_interval.low
         medianCI_High = dArousalMedianBoot.confidence_interval.high
+        medianSE = dArousalMedianBoot.standard_error
         
         dArousalMeanBoot = stats.bootstrap(partAdArousal.values, statistic=np.mean, confidence_level=0.95,
                                         method='BCa', n_resamples=20000, random_state=rng)
     
         meanCI_Low = dArousalMeanBoot.confidence_interval.low
         meanCI_High = dArousalMeanBoot.confidence_interval.high
+        meanSE = dArousalMeanBoot.standard_error
 
     darousalAgg = pd.DataFrame(data=[[np.percentile(partAdArousal.values,
                                                     q=50, axis=1,
                                                     method='median_unbiased')[0],
                                       medianCI_Low,
                                       medianCI_High,
+                                      medianSE,
                                       np.mean(partAdArousal.values, axis=1)[0],
                                       meanCI_Low,
-                                      meanCI_High]],
-                               columns=['dArousalMedian', 'dArousalMedianCI_Low', 'dArousalMedianCI_High',
-                                        'dArousalMean', 'dArousalMeanCI_Low', 'dArousalMeanCI_High'],
+                                      meanCI_High,
+                                      meanSE]],
+                               columns=['dArousalMedian', 'dArousalMedianCI_Low',
+                                        'dArousalMedianCI_High', 'dArousalMedianSE',
+                                        'dArousalMean', 'dArousalMeanCI_Low',
+                                        'dArousalMeanCI_High', 'dArousalMeanSE'],
                                index=[file])
     
     valenceMedianBoot = stats.bootstrap(partAValence.values, statistic=np.median, confidence_level=0.95,
@@ -2961,19 +2973,25 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
                                                    method='median_unbiased')[0],
                                      valenceMedianBoot.confidence_interval.low,
                                      valenceMedianBoot.confidence_interval.high,
+                                     valenceMedianBoot.standard_error,
                                      np.mean(partAValence.values, axis=1)[0],
                                      valenceMeanBoot.confidence_interval.low,
-                                     valenceMeanBoot.confidence_interval.high]],
-                              columns=['ValenceMedian', 'ValenceMedianCI_Low', 'ValenceMedianCI_High',
-                                       'ValenceMean', 'ValenceMeanCI_Low', 'ValenceMeanCI_High'],
+                                     valenceMeanBoot.confidence_interval.high,
+                                     valenceMeanBoot.standard_error]],
+                              columns=['ValenceMedian', 'ValenceMedianCI_Low',
+                                       'ValenceMedianCI_High', 'ValenceMedianSE',
+                                       'ValenceMean', 'ValenceMeanCI_Low',
+                                       'ValenceMeanCI_High', 'ValenceMeanSE'],
                               index=[file])
 
     if file == "A1_CALBIN_Pa.wav" or file == "A2_CALBIN_Pa.wav":
 
         medianCI_Low = 0
         medianCI_High = 0
+        medianSE = 0
         meanCI_Low = 0
         meanCI_High = 0
+        meanSE = 0
 
     else:
         dValenceMedianBoot = stats.bootstrap(partAdValence.values, statistic=np.median, confidence_level=0.95,
@@ -2981,23 +2999,29 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
     
         medianCI_Low = dValenceMedianBoot.confidence_interval.low
         medianCI_High = dValenceMedianBoot.confidence_interval.high
+        medianSE = dValenceMedianBoot.standard_error
 
         dValenceMeanBoot = stats.bootstrap(partAdValence.values, statistic=np.mean, confidence_level=0.95,
                                         method='BCa', n_resamples=20000, random_state=rng)
     
         meanCI_Low = dValenceMeanBoot.confidence_interval.low
         meanCI_High = dValenceMeanBoot.confidence_interval.high
+        meanSE = dValenceMeanBoot.standard_error
     
     dvalenceAgg = pd.DataFrame(data=[[np.percentile(partAdValence.values,
                                                     q=50, axis=1,
                                                     method='median_unbiased')[0],
                                       medianCI_Low,
                                       medianCI_High,
+                                      medianSE,
                                       np.mean(partAdValence.values, axis=1)[0],
                                       meanCI_Low,
-                                      meanCI_High]],
-                               columns=['dValenceMedian', 'dValenceMedianCI_Low', 'dValenceMedianCI_High',
-                                        'dValenceMean', 'dValenceMeanCI_Low', 'dValenceMeanCI_High'],
+                                      meanCI_High,
+                                      meanSE]],
+                               columns=['dValenceMedian', 'dValenceMedianCI_Low',
+                                        'dValenceMedianCI_High', 'dValenceMedianSE',
+                                        'dValenceMean', 'dValenceMeanCI_Low',
+                                        'dValenceMeanCI_High', 'dValenceMeanSE'],
                                index=[file])
     
     annoyMedianBoot = stats.bootstrap(partAAnnoy.values, statistic=np.median, confidence_level=0.95,
@@ -3010,19 +3034,25 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
                                                  method='median_unbiased')[0],
                                    annoyMedianBoot.confidence_interval.low,
                                    annoyMedianBoot.confidence_interval.high,
+                                   annoyMeanBoot.standard_error,
                                    np.mean(partAAnnoy.values, axis=1)[0],
                                    annoyMeanBoot.confidence_interval.low,
-                                   annoyMeanBoot.confidence_interval.high]],
-                            columns=['AnnoyMedian', 'AnnoyMedianCI_Low', 'AnnoyMedianCI_High',
-                                     'AnnoyMean', 'AnnoyMeanCI_Low', 'AnnoyMeanCI_High'],
+                                   annoyMeanBoot.confidence_interval.high,
+                                   annoyMeanBoot.standard_error]],
+                            columns=['AnnoyMedian', 'AnnoyMedianCI_Low',
+                                     'AnnoyMedianCI_High', 'AnnoyMedianSE',
+                                     'AnnoyMean', 'AnnoyMeanCI_Low',
+                                     'AnnoyMeanCI_High', 'AnnoyMeanSE'],
                             index=[file])
     
     if file == "A1_CALBIN_Pa.wav" or file == "A2_CALBIN_Pa.wav":
 
         medianCI_Low = 0
         medianCI_High = 0
+        medianSE = 0
         meanCI_Low = 0
         meanCI_High = 0
+        meanSE = 0
 
     else:
         dAnnoyMedianBoot = stats.bootstrap(partAdAnnoy.values, statistic=np.median, confidence_level=0.95,
@@ -3030,34 +3060,42 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
         
         medianCI_Low = dAnnoyMedianBoot.confidence_interval.low
         medianCI_High = dAnnoyMedianBoot.confidence_interval.high
+        medianSE = dAnnoyMedianBoot.standard_error
 
         dAnnoyMeanBoot = stats.bootstrap(partAdAnnoy.values, statistic=np.mean, confidence_level=0.95,
                                         method='BCa', n_resamples=20000, random_state=rng)
         
         meanCI_Low = dAnnoyMeanBoot.confidence_interval.low
         meanCI_High = dAnnoyMeanBoot.confidence_interval.high
+        meanSE = dAnnoyMeanBoot.standard_error
     
     dannoyAgg = pd.DataFrame(data=[[np.percentile(partAdAnnoy.values,
                                                   q=50, axis=1,
                                                   method='median_unbiased')[0],
                                     medianCI_Low,
                                     medianCI_High,
+                                    medianSE,
                                     np.mean(partAdAnnoy.values, axis=1)[0],
                                     meanCI_Low,
-                                    meanCI_High]],
-                             columns=['dAnnoyMedian', 'dAnnoyMedianCI_Low', 'dAnnoyMedianCI_High',
-                                      'dAnnoyMean', 'dAnnoyMeanCI_Low', 'dAnnoyMeanCI_High'],
+                                    meanCI_High,
+                                    meanSE]],
+                             columns=['dAnnoyMedian', 'dAnnoyMedianCI_Low',
+                                      'dAnnoyMedianCI_High', 'dAnnoyMedianSE',
+                                      'dAnnoyMean', 'dAnnoyMeanCI_Low',
+                                      'dAnnoyMeanCI_High', 'dAnnoyMeanSE'],
                              index=[file])
 
     if np.sum(partAHighAnnoy.values) == 0:
 
         meanCI_Low = 0
         meanCI_High = 0
+        meanSE = 0
     
     elif np.min(partAHighAnnoy.values) == 1:
 
         meanCI_Low = 1
         meanCI_High = 1
+        meanSE = 0
 
     else:
 
@@ -3066,28 +3104,33 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
 
         meanCI_Low = highAnnoyPropBoot.confidence_interval.low
         meanCI_High = highAnnoyPropBoot.confidence_interval.high
+        meanSE = highAnnoyPropBoot.standard_error
 
     highAnnoyAgg = pd.DataFrame(data=[[np.sum(partAHighAnnoy.values,
                                               axis=1)[0],
                                        np.mean(partAHighAnnoy.values,
                                                axis=1)[0],
                                        meanCI_Low,
-                                       meanCI_High]],
+                                       meanCI_High,
+                                       meanSE]],
                                 columns=['HighAnnoyTotal',
                                          'HighAnnoyProp',
                                          'HighAnnoyPropCI_Low',
-                                         'HighAnnoyPropCI_High'],
+                                         'HighAnnoyPropCI_High',
+                                         'HighAnnoyPropSE'],
                                 index=[file])
 
     if file == "A1_CALBIN_Pa.wav" or file == "A2_CALBIN_Pa.wav" or np.sum(partAdHighAnnoy.values) == 0:
 
         meanCI_Low = 0
         meanCI_High = 0
+        meanSE = 0
     
     elif np.min(partAdHighAnnoy.values) == 1:
 
         meanCI_Low = 1
         meanCI_High = 1
+        meanSE = 0
 
     else:
         dHighAnnoyPropBoot = stats.bootstrap(partAdHighAnnoy.values, statistic=np.nanmean, confidence_level=0.95,
@@ -3095,28 +3138,33 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
 
         meanCI_Low = dHighAnnoyPropBoot.confidence_interval.low
         meanCI_High = dHighAnnoyPropBoot.confidence_interval.high
+        meanSE = dHighAnnoyPropBoot.standard_error
 
     dhighAnnoyAgg = pd.DataFrame(data=[[np.nansum(partAdHighAnnoy.values,
                                                   axis=1)[0],
                                         np.nanmean(partAdHighAnnoy.values,
                                                    axis=1)[0],
                                         meanCI_Low,
-                                        meanCI_High]],
+                                        meanCI_High,
+                                        meanSE]],
                                  columns=['dHighAnnoyTotal',
                                           'dHighAnnoyProp',
                                           'dHighAnnoyPropCI_Low',
-                                          'dHighAnnoyPropCI_High'],
+                                          'dHighAnnoyPropCI_High',
+                                          'dHighAnnoyPropSE'],
                                  index=[file])
 
     if np.sum(partANotice.values) == 0:
 
         meanCI_Low = 0
         meanCI_High = 0
+        meanSE = 0
 
     elif np.min(partANotice.values) == 1:
 
         meanCI_Low = 1
         meanCI_High = 1
+        meanSE = 0
 
     else:
         
@@ -3125,13 +3173,16 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
 
         meanCI_Low = noticePropBoot.confidence_interval.low
         meanCI_High = noticePropBoot.confidence_interval.high
+        meanSE = noticePropBoot.standard_error
 
     noticeAgg = pd.DataFrame(data=[[np.sum(partANotice.values, axis=1)[0],
                                     np.mean(partANotice.values, axis=1)[0],
                                     meanCI_Low,
-                                    meanCI_High]],
+                                    meanCI_High,
+                                    meanSE]],
                              columns=['NoticedTotal', 'NoticedProp',
-                                      'NoticedPropCI_Low', 'NoticedPropCI_High'],
+                                      'NoticedPropCI_Low', 'NoticedPropCI_High',
+                                      'NoticedPropSE'],
                              index=[file])
 
     # add results to DataFrame
@@ -3290,44 +3341,56 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
                                                    method='median_unbiased')[0],
                                      arousalMedianBoot.confidence_interval.low,
                                      arousalMedianBoot.confidence_interval.high,
+                                     arousalMedianBoot.standard_error,
                                      np.mean(partBArousal.values, axis=1)[0],
                                      arousalMeanBoot.confidence_interval.low,
-                                     arousalMeanBoot.confidence_interval.high]],
-                              columns=['ArousalMedian', 'ArousalMedianCI_Low', 'ArousalMedianCI_High',
-                                       'ArousalMean', 'ArousalMeanCI_Low', 'ArousalMeanCI_High'],
+                                     arousalMeanBoot.confidence_interval.high,
+                                     arousalMeanBoot.standard_error]],
+                              columns=['ArousalMedian', 'ArousalMedianCI_Low',
+                                       'ArousalMedianCI_High', 'ArousalMedianSE',
+                                       'ArousalMean', 'ArousalMeanCI_Low',
+                                       'ArousalMeanCI_High', 'ArousalMeanSE'],
                               index=[file])
     
     if file == "B2_CALBIN_Pa.wav":
 
         medianCI_Low = 0
         medianCI_High = 0
+        medianSE = 0
         meanCI_Low = 0
         meanCI_High = 0
+        meanSE = 0
 
     else:
 
         dArousalMedianBoot = stats.bootstrap(partBdArousal.values, statistic=np.median, confidence_level=0.95,
-                                            method='percentile', n_resamples=20000, random_state=rng)
+                                             method='percentile', n_resamples=20000, random_state=rng)
         
         medianCI_Low = dArousalMedianBoot.confidence_interval.low
         medianCI_High = dArousalMedianBoot.confidence_interval.high
+        medianSE = dArousalMedianBoot.standard_error
 
         dArousalMeanBoot = stats.bootstrap(partBdArousal.values, statistic=np.mean, confidence_level=0.95,
-                                        method='BCa', n_resamples=20000, random_state=rng)
+                                           method='BCa', n_resamples=20000, random_state=rng)
     
         meanCI_Low = dArousalMeanBoot.confidence_interval.low
         meanCI_High = dArousalMeanBoot.confidence_interval.high
+        meanSE = dArousalMeanBoot.standard_error
 
     darousalAgg = pd.DataFrame(data=[[np.percentile(partBdArousal.values,
                                                     q=50, axis=1,
                                                     method='median_unbiased')[0],
                                       medianCI_Low,
                                       medianCI_High,
+                                      medianSE,
                                       np.mean(partBdArousal.values, axis=1)[0],
                                       meanCI_Low,
-                                      meanCI_High]],
-                               columns=['dArousalMedian', 'dArousalMedianCI_Low', 'dArousalMedianCI_High',
-                                        'dArousalMean', 'dArousalMeanCI_Low', 'dArousalMeanCI_High'],
+                                      meanCI_High,
+                                      meanSE]],
+                               columns=['dArousalMedian', 'dArousalMedianCI_Low',
+                                        'dArousalMedianCI_High', 'dArousalMedianSE',
+                                        'dArousalMean', 'dArousalMeanCI_Low',
+                                        'dArousalMeanCI_High', 'dArousalMeanSE'],
                                index=[file])
     
     valenceMedianBoot = stats.bootstrap(partBValence.values, statistic=np.median, confidence_level=0.95,
@@ -3340,43 +3403,56 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
                                                    method='median_unbiased')[0],
                                      valenceMedianBoot.confidence_interval.low,
                                      valenceMedianBoot.confidence_interval.high,
+                                     valenceMedianBoot.standard_error,
+
                                      np.mean(partBValence.values, axis=1)[0],
                                      valenceMeanBoot.confidence_interval.low,
-                                     valenceMeanBoot.confidence_interval.high]],
-                              columns=['ValenceMedian', 'ValenceMedianCI_Low', 'ValenceMedianCI_High',
-                                       'ValenceMean', 'ValenceMeanCI_Low', 'ValenceMeanCI_High'],
+                                     valenceMeanBoot.confidence_interval.high,
+                                     valenceMeanBoot.standard_error]],
+                              columns=['ValenceMedian', 'ValenceMedianCI_Low',
+                                       'ValenceMedianCI_High', 'ValenceMedianSE',
+                                       'ValenceMean', 'ValenceMeanCI_Low',
+                                       'ValenceMeanCI_High', 'ValenceMeanSE'],
                               index=[file])
     
     if file == "B2_CALBIN_Pa.wav":
       
         medianCI_Low = 0
         medianCI_High = 0
+        medianSE = 0
         meanCI_Low = 0
         meanCI_High = 0
+        meanSE = 0
     
     else:
         dValenceMedianBoot = stats.bootstrap(partBdValence.values, statistic=np.median, confidence_level=0.95,
-                                            method='percentile', n_resamples=20000, random_state=rng)
+                                             method='percentile', n_resamples=20000, random_state=rng)
         
         medianCI_Low = dValenceMedianBoot.confidence_interval.low
         medianCI_High = dValenceMedianBoot.confidence_interval.high
+        medianSE = dValenceMedianBoot.standard_error
 
         dValenceMeanBoot = stats.bootstrap(partBdValence.values, statistic=np.mean, confidence_level=0.95,
-                                        method='BCa', n_resamples=20000, random_state=rng)
+                                          method='BCa', n_resamples=20000, random_state=rng)
         
         meanCI_Low = dValenceMeanBoot.confidence_interval.low
         meanCI_High = dValenceMeanBoot.confidence_interval.high
-    
+        meanSE = dValenceMeanBoot.standard_error
+
     dvalenceAgg = pd.DataFrame(data=[[np.percentile(partBdValence.values,
                                                     q=50, axis=1,
                                                     method='median_unbiased')[0],
                                       medianCI_Low,
                                       medianCI_High,
+                                      medianSE,
                                       np.mean(partBdValence.values, axis=1)[0],
                                       meanCI_Low,
-                                      meanCI_High]],
-                               columns=['dValenceMedian', 'dValenceMedianCI_Low', 'dValenceMedianCI_High',
-                                        'dValenceMean', 'dValenceMeanCI_Low', 'dValenceMeanCI_High'],
+                                      meanCI_High,
+                                      meanSE]],
+                               columns=['dValenceMedian', 'dValenceMedianCI_Low',
+                                        'dValenceMedianCI_High', 'dValenceMedianSE',
+                                        'dValenceMean', 'dValenceMeanCI_Low',
+                                        'dValenceMeanCI_High', 'dValenceMeanSE'],
                                index=[file])
     
     annoyMedianBoot = stats.bootstrap(partBAnnoy.values, statistic=np.median, confidence_level=0.95,
@@ -3389,11 +3465,15 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
                                                  method='median_unbiased')[0],
                                    annoyMedianBoot.confidence_interval.low,
                                    annoyMedianBoot.confidence_interval.high,
+                                   annoyMedianBoot.standard_error,
                                    np.mean(partBAnnoy.values, axis=1)[0],
                                    annoyMeanBoot.confidence_interval.low,
-                                   annoyMeanBoot.confidence_interval.high]],
-                             columns=['AnnoyMedian', 'AnnoyMedianCI_Low', 'AnnoyMedianCI_High',
-                                      'AnnoyMean', 'AnnoyMeanCI_Low', 'AnnoyMeanCI_High'],
+                                   annoyMeanBoot.confidence_interval.high,
+                                   annoyMeanBoot.standard_error]],
+                             columns=['AnnoyMedian', 'AnnoyMedianCI_Low',
+                                      'AnnoyMedianCI_High', 'AnnoyMedianSE',
+                                      'AnnoyMean', 'AnnoyMeanCI_Low',
+                                      'AnnoyMeanCI_High', 'AnnoyMeanSE'],
                              index=[file])
     
     if file == "B2_CALBIN_Pa.wav":
@@ -3405,38 +3485,46 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
 
     else:
         dAnnoyMedianBoot = stats.bootstrap(partBdAnnoy.values, statistic=np.median, confidence_level=0.95,
-                                        method='percentile', n_resamples=20000, random_state=rng)
+                                           method='percentile', n_resamples=20000, random_state=rng)
         
         medianCI_Low = dAnnoyMedianBoot.confidence_interval.low
         medianCI_High = dAnnoyMedianBoot.confidence_interval.high
+        medianSE = dAnnoyMedianBoot.standard_error
 
         dAnnoyMeanBoot = stats.bootstrap(partBdAnnoy.values, statistic=np.mean, confidence_level=0.95,
-                                        method='BCa', n_resamples=20000, random_state=rng)
+                                         method='BCa', n_resamples=20000, random_state=rng)
 
         meanCI_Low = dAnnoyMeanBoot.confidence_interval.low
         meanCI_High = dAnnoyMeanBoot.confidence_interval.high
+        meanSE = dAnnoyMeanBoot.standard_error
 
     dannoyAgg = pd.DataFrame(data=[[np.percentile(partBdAnnoy.values,
                                                   q=50, axis=1,
                                                   method='median_unbiased')[0],
                                     medianCI_Low,
                                     medianCI_High,
+                                    medianSE,
                                     np.mean(partBdAnnoy.values, axis=1)[0],
                                     meanCI_Low,
-                                    meanCI_High]],
-                             columns=['dAnnoyMedian', 'dAnnoyMedianCI_Low', 'dAnnoyMedianCI_High',
-                                      'dAnnoyMean', 'dAnnoyMeanCI_Low', 'dAnnoyMeanCI_High'],
+                                    meanCI_High,
+                                    meanSE]],
+                             columns=['dAnnoyMedian', 'dAnnoyMedianCI_Low',
+                                      'dAnnoyMedianCI_High', 'dAnnoyMedianSE',
+                                      'dAnnoyMean', 'dAnnoyMeanCI_Low',
+                                      'dAnnoyMeanCI_High', 'dAnnoyMeanSE'],
                              index=[file])
 
     if np.sum(partBHighAnnoy.values) == 0:
 
         meanCI_Low = 0
         meanCI_High = 0
+        meanSE = 0
 
     elif np.min(partBHighAnnoy.values) == 1:
 
         meanCI_Low = 1
         meanCI_High = 1
+        meanSE = 0
 
     else:
 
@@ -3445,28 +3533,33 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
         
         meanCI_Low = highAnnoyPropBoot.confidence_interval.low
         meanCI_High = highAnnoyPropBoot.confidence_interval.high
+        meanSE = highAnnoyPropBoot.standard_error
 
     highAnnoyAgg = pd.DataFrame(data=[[np.sum(partBHighAnnoy.values,
                                               axis=1)[0],
                                        np.mean(partBHighAnnoy.values,
                                                axis=1)[0],
                                        meanCI_Low,
-                                       meanCI_High]],
+                                       meanCI_High,
+                                       meanSE]],
                                 columns=['HighAnnoyTotal',
                                          'HighAnnoyProp',
                                          'HighAnnoyPropCI_Low',
-                                         'HighAnnoyPropCI_High'],
+                                         'HighAnnoyPropCI_High',
+                                         'HighAnnoyPropSE'],
                                 index=[file])
 
     if file == "B2_CALBIN_Pa.wav" or np.sum(partBdHighAnnoy.values) == 0:
 
         meanCI_Low = 0
         meanCI_High = 0
+        meanSE = 0
     
     elif np.min(partBdHighAnnoy.values) == 1:
 
         meanCI_Low = 1
         meanCI_High = 1
+        meanSE = 0
 
     else:
 
@@ -3475,17 +3568,20 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
         
         meanCI_Low = dHighAnnoyPropBoot.confidence_interval.low
         meanCI_High = dHighAnnoyPropBoot.confidence_interval.high
+        meanSE = dHighAnnoyPropBoot.standard_error
 
     dhighAnnoyAgg = pd.DataFrame(data=[[np.nansum(partBdHighAnnoy.values,
                                                   axis=1)[0],
                                         np.nanmean(partBdHighAnnoy.values,
                                                    axis=1)[0],
                                         meanCI_Low,
-                                        meanCI_High]],
+                                        meanCI_High,
+                                        meanSE]],
                                  columns=['dHighAnnoyTotal',
                                           'dHighAnnoyProp',
                                           'dHighAnnoyPropCI_Low',
-                                          'dHighAnnoyPropCI_High'],
+                                          'dHighAnnoyPropCI_High',
+                                          'dHighAnnoyPropSE'],
                                  index=[file])
 
     # add results to DataFrame

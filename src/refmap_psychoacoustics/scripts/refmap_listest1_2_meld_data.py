@@ -13,9 +13,10 @@ import os
 import numpy as np
 import pandas as pd
 from PyQt5.QtWidgets import QFileDialog, QApplication
+import warnings
 
 # suppress pandas performance warnings
-simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
+warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
 # enable copy-on-write mode for Pandas (will be default from Pandas 3.0)
 pd.options.mode.copy_on_write = True
@@ -27,8 +28,6 @@ else:
 
 # output path for saving data
 outFilePath1 = QFileDialog.getExistingDirectory(caption="Choose output folder to save processed files in '03 Experiment\Experiment 1\Analysis\PostProcess'")
-outFilePath2 = QFileDialog.getExistingDirectory(caption="Choose output folder to save processed files in '03 Experiment\Experiment 2\Analysis\PostProcess'")
-
 # Load the data
 dataBySubjTest1filepath = list(QFileDialog.getOpenFileName(caption="Open refmap_listest1_testdata_BySubj.csv file in '03 Experiment\Experiment 1\Analysis\PostProcess'",
                                             filter="refmap_listest1_testdata_BySubj.csv"))[0]
@@ -38,6 +37,9 @@ dataByStimTest1filepath = list(QFileDialog.getOpenFileName(caption="Open refmap_
                                             filter="refmap_listest1_testdata_ByStim.csv"))[0]
 dataByStimTest1 = pd.read_csv(dataByStimTest1filepath, index_col=0)
 
+# output path for saving data
+outFilePath2 = QFileDialog.getExistingDirectory(caption="Choose output folder to save processed files in '03 Experiment\Experiment 2\Analysis\PostProcess'")
+# Load the data
 dataBySubjTest2filepath = list(QFileDialog.getOpenFileName(caption="Open refmap_listest2_testdata_BySubj.csv file in '03 Experiment\Experiment 2\Analysis\PostProcess'",
                                             filter="refmap_listest2_testdata_BySubj.csv"))[0]
 dataBySubjTest2 = pd.read_csv(dataBySubjTest2filepath, index_col=False)
@@ -256,13 +258,20 @@ test1_drop_cols = ["SessionPart", "CALBINRecFiles", "CALHEQRecFiles",
 test1_drop_cols += list(dataByStimTest1Merge.columns[dataByStimTest1Merge.columns.get_loc('Arousal_1'):
                                                 dataByStimTest1Merge.columns.get_loc('dHighAnnoy_19') + 1])
 test1_drop_cols += list(dataByStimTest1Merge.columns[dataByStimTest1Merge.columns.get_loc('UAS_noticed_1'):
-                                                dataByStimTest1Merge.columns.get_loc('NoticedPropCI_High') + 1])
-test1_drop_cols.extend(["ArousalMedian", "ArousalMedianCI_Low", "ArousalMedianCI_High", "ArousalMean",
-                        "ArousalMeanCI_Low", "ArousalMeanCI_High", "ValenceMedian", "ValenceMedianCI_Low",
-                        "ValenceMedianCI_High", "ValenceMean", "ValenceMeanCI_Low", "ValenceMeanCI_High",
-                        "dValenceMedian", "dValenceMedianCI_Low", "dValenceMedianCI_High", "dValenceMean",
-                        "dValenceMeanCI_Low", "dValenceMeanCI_High", "dArousalMedian", "dArousalMedianCI_Low",
-                        "dArousalMedianCI_High", "dArousalMean", "dArousalMeanCI_Low", "dArousalMeanCI_High"])
+                                                dataByStimTest1Merge.columns.get_loc('NoticedPropSE') + 1])
+test1_drop_cols.extend(["ArousalMedian", "ArousalMedianCI_Low", "ArousalMedianCI_High",
+                        "ArousalMedianSE", "ArousalMean", "ArousalMeanSE",
+                        "ArousalMeanCI_Low", "ArousalMeanCI_High", "ValenceMedian",
+                        "ValenceMedianCI_Low", "ValenceMedianCI_High",
+                        "ValenceMedianSE", "ValenceMean", "ValenceMeanCI_Low",
+                        "ValenceMeanCI_High", "ValenceMeanSE",
+                        "dValenceMedian", "dValenceMedianCI_Low", "dValenceMedianCI_High",
+                        "dValenceMedianSE", "dValenceMean",
+                        "dValenceMeanCI_Low", "dValenceMeanCI_High", "dValenceMeanSE",
+                        "dArousalMedian", "dArousalMedianCI_Low",
+                        "dArousalMedianCI_High", "dArousalMedianSE", "dArousalMean",
+                        "dArousalMeanCI_Low", "dArousalMeanCI_High",
+                        "dArousalMeanSE"])
 
 dataByStimTest1Merge.drop(columns=test1_drop_cols, inplace=True)
 
@@ -270,17 +279,22 @@ dataByStimTest1Merge['LAeqdiff'] = dataByStimTest1Merge['UASLAeqMaxLR'] - dataBy
 
 test1_rename_cols = {"StimFile": "Stimulus", "AnnoyMedian": "AnnoyanceMedian",
                      "AnnoyMedianCI_Low": "AnnoyanceMedianCI_Low",
-                     "AnnoyMedianCI_High": "AnnoyanceMedianCI_High", "AnnoyMean": "AnnoyanceMean",
-                     "AnnoyMeanCI_Low": "AnnoyanceMeanCI_Low", "AnnoyMeanCI_High": "AnnoyanceMeanCI_High",
+                     "AnnoyMedianCI_High": "AnnoyanceMedianCI_High",
+                     "AnnoyMedianSE": "AnnoyanceMedianSE", "AnnoyMean": "AnnoyanceMean",
+                     "AnnoyMeanCI_Low": "AnnoyanceMeanCI_Low",
+                     "AnnoyMeanCI_High": "AnnoyanceMeanCI_High", "AnnoyMeanSE": "AnnoyanceMeanSE",
                      "dAnnoyMedian": "dAnnoyanceMedian", "dAnnoyMedianCI_Low": "dAnnoyanceMedianCI_Low",
-                     "dAnnoyMedianCI_High": "dAnnoyanceMedianCI_High", "dAnnoyMean": "dAnnoyanceMean",
+                     "dAnnoyMedianSE": "dAnnoyanceMedianSE", "dAnnoyMedianCI_High": "dAnnoyanceMedianCI_High",
+                     "dAnnoyMean": "dAnnoyanceMean", "dAnnoyMeanSE": "dAnnoyanceMeanSE",
                      "dAnnoyMeanCI_High": "dAnnoyanceMeanCI_High", "dAnnoyMeanCI_Low": "dAnnoyanceMeanCI_Low",
                      "HighAnnoyTotal": "HighlyAnnoyedTotal", "HighAnnoyProp": "HighlyAnnoyedProp",
                      "HighAnnoyPropCI_Low": "HighlyAnnoyedPropCI_Low",
                      "HighAnnoyPropCI_High": "HighlyAnnoyedPropCI_High",
+                     "HighAnnoyPropSE": "HighlyAnnoyedPropSE",
                      "dHighAnnoyTotal": "dHighlyAnnoyedTotal", "dHighAnnoyProp": "dHighlyAnnoyedProp",
                      "dHighAnnoyPropCI_Low": "dHighlyAnnoyedPropCI_Low",
-                     "dHighAnnoyPropCI_High": "dHighlyAnnoyedPropCI_High"}
+                     "dHighAnnoyPropCI_High": "dHighlyAnnoyedPropCI_High",
+                     "dHighAnnoyPropSE": "dHighlyAnnoyedPropSE"}
 
 dataByStimTest1Merge.rename(columns=test1_rename_cols, inplace=True)
 dataByStimTest1Merge.rename(columns=rename_dict, inplace=True)
@@ -293,16 +307,29 @@ test2_drop_cols = ["HATSRecFiles", "MA220MicRecFiles", "AmbientRef",
                    "UASProximity", "UASStart"]
 test2_drop_cols += list(dataByStimTest2Merge.columns[dataByStimTest2Merge.columns.get_loc('Annoyance_1'):
                                                 dataByStimTest2Merge.columns.get_loc('dProbHA20k_9') + 1])
-test2_drop_cols.extend(["EventfulnessMedian", "EventfulnessMedianCI_Low", "EventfulnessMedianCI_High", "EventfulnessMean",
-                        "EventfulnessMeanCI_Low", "EventfulnessMeanCI_High", "PleasantnessMedian", "PleasantnessMedianCI_Low",
-                        "PleasantnessMedianCI_High", "PleasantnessMean", "PleasantnessMeanCI_Low", "PleasantnessMeanCI_High",
-                        "dPleasantnessMedian", "dPleasantnessMedianCI_Low", "dPleasantnessMedianCI_High", "dPleasantnessMean",
-                        "dPleasantnessMeanCI_Low", "dPleasantnessMeanCI_High", "dEventfulnessMedian", "dEventfulnessMedianCI_Low",
-                        "dEventfulnessMedianCI_High", "dEventfulnessMean", "dEventfulnessMeanCI_Low", "dEventfulnessMeanCI_High",
-                        "ProbHA20kMean", "ProbHA20kMeanCI_Low", "ProbHA20kMeanCI_High", "ProbHA10kMean", "ProbHA10kMeanCI_Low",
-                        "ProbHA10kMeanCI_High", "dProbHA20kMean", "dProbHA20kMeanCI_Low", "dProbHA20kMeanCI_High", "dProbHA10kMean",
-                        "dProbHA10kMeanCI_Low", "dProbHA10kMeanCI_High", "AnnoyanceQuartile25", "AnnoyanceQuartile75", "EventfulnessQuartile25", "EventfulnessQuartile75", "PleasantnessQuartile25", "PleasantnessQuartile75",
-                        "dAnnoyanceQuartile25", "dAnnoyanceQuartile75", "dEventfulnessQuartile25", "dEventfulnessQuartile75", "dPleasantnessQuartile25", "dPleasantnessQuartile75"])
+test2_drop_cols.extend(["EventfulnessMedian", "EventfulnessMedianCI_Low", "EventfulnessMedianCI_High",
+                        "EventfulnessMedianSE", "EventfulnessMean",
+                        "EventfulnessMeanCI_Low", "EventfulnessMeanCI_High", "EventfulnessMeanSE",
+                        "PleasantnessMedian", "PleasantnessMedianCI_Low",
+                        "PleasantnessMedianCI_High", "PleasantnessMedianSE", "PleasantnessMean",
+                        "PleasantnessMeanCI_Low", "PleasantnessMeanCI_High", "PleasantnessMeanSE",
+                        "dPleasantnessMedian", "dPleasantnessMedianCI_Low", "dPleasantnessMedianCI_High",
+                        "dPleasantnessMedianSE", "dPleasantnessMean",
+                        "dPleasantnessMeanCI_Low", "dPleasantnessMeanCI_High", "dPleasantnessMeanSE",
+                        "dEventfulnessMedian", "dEventfulnessMedianCI_Low",
+                        "dEventfulnessMedianCI_High", "dEventfulnessMedianSE",
+                        "dEventfulnessMean", "dEventfulnessMeanCI_Low",
+                        "dEventfulnessMeanCI_High", "dEventfulnessMeanSE",
+                        "ProbHA20kMean", "ProbHA20kMeanCI_Low", "ProbHA20kMeanCI_High", "ProbHA20kMeanSE",
+                        "ProbHA10kMean", "ProbHA10kMeanCI_Low",
+                        "ProbHA10kMeanCI_High", "ProbHA10kMeanSE", "dProbHA20kMean",
+                        "dProbHA20kMeanCI_Low", "dProbHA20kMeanCI_High", "dProbHA20kMeanSE",
+                        "dProbHA10kMean", "dProbHA10kMeanCI_Low", "dProbHA10kMeanCI_High",
+                        "dProbHA10kMeanSE", "AnnoyanceQuartile25", "AnnoyanceQuartile75",
+                        "EventfulnessQuartile25", "EventfulnessQuartile75", "PleasantnessQuartile25",
+                        "PleasantnessQuartile75",
+                        "dAnnoyanceQuartile25", "dAnnoyanceQuartile75", "dEventfulnessQuartile25",
+                        "dEventfulnessQuartile75", "dPleasantnessQuartile25", "dPleasantnessQuartile75"])
 dataByStimTest2Merge.drop(columns=test2_drop_cols, inplace=True)
 dataByStimTest2Merge['StimDuration'] = 30
 

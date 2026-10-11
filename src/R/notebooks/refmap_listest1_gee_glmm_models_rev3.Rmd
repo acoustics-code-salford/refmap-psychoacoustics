@@ -506,9 +506,19 @@ subjDataNoAmb.med <- rbind(subjDataNoAmb.med[subjDataNoAmb.med$SessionPart == "A
   droplevels() |>
   arrange(ID, TrialNumber)
 
+
+stimDataNoAmb.medPlot <- to_model_cols(stimDataNoAmb, subjDataNoAmb.medScaling)
+stimDataNoAmb.ccPlot <- to_model_cols(stimDataNoAmb, subjDataNoAmb.ccScaling)
+
 ```
 
 # Add external data
+
+```{r}
+
+lae_centre <- get_scaling(subjDataNoAmb.medScaling, "UASLAEMaxLRScl")$center
+
+```
 
 ## Aalmoes (NLR) HA curves
 
@@ -525,7 +535,7 @@ pHALAENLRFunc <- function(paramK, paramX0, abscissa){
 } 
 
 pHALAENLR <- data.frame(LAE = rangeLAENLR,
-                        LAEScl = rangeLAENLR - (max(stimDataNoAmb$UASLAEMaxLR) - max(stimDataNoAmb$UASLAEMaxLRScl)),
+                        LAEScl = rangeLAENLR - lae_centre,
                         Quad1=pHALAENLRFunc(paramKNLR[1], paramX0LAENLR[1], rangeLAENLR),
                         Quad2=pHALAENLRFunc(paramKNLR[2], paramX0LAENLR[2], rangeLAENLR),
                         Quad3=pHALAENLRFunc(paramKNLR[3], paramX0LAENLR[3], rangeLAENLR),
@@ -547,7 +557,7 @@ pHALAENLRUASRangeAdj <- pHALAENLRUASRange |> dplyr::mutate(LAE = LAE - 6,
                                                            LAEScl = LAEScl - 6)
 
 pHALAENLRAir <- data.frame(LAE = rangeLAENLR,
-                           LAEScl = rangeLAENLR - (max(stimDataNoAmb$UASLAEMaxLR) - max(stimDataNoAmb$UASLAEMaxLRScl)),
+                           LAEScl = rangeLAENLR - lae_centre,
                            Air_taxi=pHALAENLRFunc(paramKNLR[6], paramX0LAENLR[6], rangeLAENLR),
                            Helicopter_1=pHALAENLRFunc(paramKNLR[7], paramX0LAENLR[7], rangeLAENLR),
                            Helicopter_2=pHALAENLRFunc(paramKNLR[8], paramX0LAENLR[8], rangeLAENLR))
@@ -581,9 +591,7 @@ pHALAEEMPAFunc <- function(paramb0, paramb1, paramtau, abscissa){
 } 
 
 pHALAEEMPA <- data.frame(LAE = rangeLAEEMPA,
-                         LAEScl = rangeLAEEMPA -
-                           (max(stimDataNoAmb$UASLAEMaxLR) -
-                              max(stimDataNoAmb$UASLAEMaxLRScl)),
+                         LAEScl = rangeLAEEMPA - lae_centre,
                         Mav2=pHALAEEMPAFunc(paramb0EMPA[1], paramb1LAEEMPA[1],
                                             0, rangeLAEEMPA),
                         M300=pHALAEEMPAFunc(paramb0EMPA[1], paramb1LAEEMPA[1],
@@ -599,9 +607,7 @@ pHALAEEMPAUASRange <- pHALAEEMPA |> dplyr::group_by(LAE, LAEScl) |>
 paramtauAirEMPA <- c(-1.66, -1.68, -1.76)
 
 pHALAEEMPAAir <- data.frame(LAE = rangeLAEEMPA,
-                            LAEScl = rangeLAEEMPA -
-                              (max(stimDataNoAmb$UASLAEMaxLR) -
-                                 max(stimDataNoAmb$UASLAEMaxLRScl)),
+                            LAEScl = rangeLAEEMPA - lae_centre,
                         Helicopter=pHALAEEMPAFunc(paramb0EMPA[1], paramb1LAEEMPA[1],
                                             paramtauAirEMPA[1], rangeLAEEMPA),
                         Propeller=pHALAEEMPAFunc(paramb0EMPA[1], paramb1LAEEMPA[1],
@@ -635,9 +641,7 @@ pHALAEGwakFunc <- function(paramb0, paramk, abscissa){
 }
 
 pHALAEGwak <- data.frame(LAE = rangeLAEGwak,
-                         LAEScl = rangeLAEGwak -
-                           (max(stimDataNoAmb$UASLAEMaxLR)
-                            - max(stimDataNoAmb$UASLAEMaxLRScl)),
+                         LAEScl = rangeLAEGwak - lae_centre,
                         H12W=pHALAEGwakFunc(param0LAEGwak[1], paramkGwak[1],
                                              rangeLAEGwak),
                         F450=pHALAEGwakFunc(param0LAEGwak[2], paramkGwak[2],
@@ -665,9 +669,7 @@ paramkGwakAir <- 0.229
 param0LAEGwakAir <- 18.94/paramkGwakAir + 10*log10(7)
 
 pHALAEGwakAir <- data.frame(LAE = rangeLAEGwak,
-                             LAEScl = rangeLAEGwak -
-                              (max(stimDataNoAmb$UASLAEMaxLR) -
-                                 max(stimDataNoAmb$UASLAEMaxLRScl)),
+                             LAEScl = rangeLAEGwak - lae_centre,
                              Jet=pHALAEGwakFunc(param0LAEGwakAir, paramkGwakAir,
                                                      rangeLAEGwak))
 
@@ -704,7 +706,7 @@ pHALAEJeongFunc <- function(paramb0, paramk, abscissa){
 }
 
 pHALAEJeong <- data.frame(LAE = rangeLAEJeong,
-                         LAEScl = rangeLAEJeong - (max(stimDataNoAmb$UASLAEMaxLR) - max(stimDataNoAmb$UASLAEMaxLRScl)),
+                         LAEScl = rangeLAEJeong - lae_centre,
                          Motor_prop=pHALAEJeongFunc(param0LAEJeong, paramkJeong,
                                                     rangeLAEJeong))
 
@@ -787,7 +789,7 @@ m1 <- glmmTMB::glmmTMB(formula=m1formula, dispformula= ~ UASOperation, data=m1Da
                        family=glmmTMB::ordbeta(link='logit'),
                        control=glmmTMBctrl)
 
-parameters::model_parameters(m1, ci=95, exponentiate=TRUE, varest='robust', verbose=TRUE)
+parameters::model_parameters(m1, ci=0.95, exponentiate=TRUE, verbose=TRUE)
 
 m1b <- glmtoolbox::glmgee(formula=m1bformula, data=m1Data,
                           id=ID, waves=TrialNumber, family=quasibinomial(link='logit'),
@@ -982,6 +984,7 @@ X_matrix <- model.matrix(m1bformula, data=m1Data)[,-1]
 
 StimID_kept <- m1Data$StimID[kept_rows]
 
+set.seed(808)
 stim_folds <- setNames(
   sample(rep(1:10, length.out = length(unique(StimID_kept)))),
   unique(StimID_kept)
@@ -989,7 +992,6 @@ stim_folds <- setNames(
 foldid <- stim_folds[as.character(StimID_kept)]
 
 stopifnot(length(foldid) == nrow(X_matrix), length(y_matrix) == nrow(X_matrix))
-
 
 set.seed(808)
 m1d <- glmnet::cv.glmnet(x=X_matrix, y=y_matrix, family=quasibinomial(link='logit'),
@@ -1020,7 +1022,7 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_vline(xintercept = m1d$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m1d$lambda.1se*1.25, y = -max(coefficient_paths$estimate) * 0.25, 
            label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
-  labs(x = expression(log[10]*(lambda)),
+  labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
   ) +
@@ -1123,7 +1125,7 @@ p1 <- ggplot(data=subset(m1bpredType, UASEvents==1)) +
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_point(data=subset(stimDataNoAmb, UASEvents==1), aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
+              geom_point(data=subset(stimDataNoAmb.medPlot, UASEvents==1), aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
                                                  colour=UASType, shape=UASType),
                          alpha=0.35, size=2) +
               
@@ -1138,8 +1140,7 @@ p1 <- ggplot(data=subset(m1bpredType, UASEvents==1)) +
                                  guide=guide_legend(title="UAS type", reverse=FALSE)) +
               scale_shape_manual(values=c(10, 11, 12), guide=guide_legend(title="UAS type", reverse=FALSE)) +
 
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
               
               scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
               
@@ -1151,7 +1152,7 @@ p2 <- ggplot(data=subset(m1bpredOp, UASEvents==1)) +
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_point(data=subset(stimDataNoAmb, UASEvents==1), aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
+              geom_point(data=subset(stimDataNoAmb.medPlot, UASEvents==1), aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
                                                  colour=UASOperation, shape=UASOperation),
                          alpha=0.35, size=2) +
               
@@ -1168,8 +1169,7 @@ p2 <- ggplot(data=subset(m1bpredOp, UASEvents==1)) +
               scale_shape_manual(values=c(9, 6, 2),
                                  guide = guide_legend(title="UAS operation", reverse=TRUE)) +
               
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
               
               scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
               
@@ -1184,7 +1184,7 @@ p3 <- ggplot(data=subset(m1bpredEnv, UASEvents==1)) +
                     axis.text.x=element_blank(),
                     axis.ticks.x=element_blank()) +
               
-              geom_point(data=subset(stimDataNoAmb, UASEvents==1), aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
+              geom_point(data=subset(stimDataNoAmb.medPlot, UASEvents==1), aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
                                                  colour=AmbientEnv, shape=AmbientEnv),
                          alpha=0.35, size=2) +
               
@@ -1199,8 +1199,7 @@ p3 <- ggplot(data=subset(m1bpredEnv, UASEvents==1)) +
                                  guide=guide_legend(title="Amb. env.", reverse=FALSE)) +
               scale_shape_manual(values=c(1, 3), guide=guide_legend(title="Amb. env.", reverse=FALSE)) +
 
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
               
               scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
               
@@ -1211,7 +1210,7 @@ p4 <- ggplot(data=subset(m1bpredEvt, AmbientEnv=='Park' & UASOperation=='Overfli
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_point(data=subset(stimDataNoAmb, AmbientEnv=='Park' & UASOperation=='Overflight'),
+              geom_point(data=subset(stimDataNoAmb.medPlot, AmbientEnv=='Park' & UASOperation=='Overflight'),
                          aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
                              colour=factor(UASEvents), shape=factor(UASEvents)),
                          alpha=0.55, size=2) +
@@ -1227,8 +1226,7 @@ p4 <- ggplot(data=subset(m1bpredEvt, AmbientEnv=='Park' & UASOperation=='Overfli
                                  guide=guide_legend(title="UAS events", reverse=TRUE)) +
               scale_shape_manual(values=c(4, 5, 7, 8), guide=guide_legend(title="UAS events", reverse=TRUE)) +
 
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
               
               scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
               
@@ -1298,7 +1296,7 @@ p5 <- ggplot(data=subset(m1bpredEvt2, UASOperation=="Overflight" & AmbientEnv=="
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_point(data=subset(stimDataNoAmb, AmbientEnv=='Park' &
+              geom_point(data=subset(stimDataNoAmb.medPlot, AmbientEnv=='Park' &
                                        UASOperation=='Overflight' & SessionPart=='B'),
                          aes(x=UASEvents, y=dAnnoyMean,
                              colour=UASLAEMaxLR, shape=UASType),
@@ -1317,15 +1315,13 @@ p5 <- ggplot(data=subset(m1bpredEvt2, UASOperation=="Overflight" & AmbientEnv=="
 
               scale_color_viridis(option='inferno', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
                                    labels=function(x) format(round(as.numeric(x) +
-                                                                   mean(stimDataNoAmb$UASLAEMaxLR) -
-                                                                   mean(stimDataNoAmb$UASLAEMaxLRScl),
+                                                                   lae_centre,
                                                                    0),
                                                              nsmall = 0),
                                   guide=guide_legend(title=expression(paste(UAS~italic(L)[AE]*","~dB)), reverse=TRUE)) +
               scale_fill_viridis(option='inferno', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
                                    labels=function(x) format(round(as.numeric(x) +
-                                                                   mean(stimDataNoAmb$UASLAEMaxLR) -
-                                                                   mean(stimDataNoAmb$UASLAEMaxLRScl),
+                                                                   lae_centre,
                                                                    0),
                                                              nsmall = 0),
                                  guide=guide_legend(title=expression(paste(UAS~italic(L)[AE]*","~dB)), reverse=TRUE)) +
@@ -1740,7 +1736,7 @@ X_matrix <- model.matrix(m3formula, data=m3Data)[,-1]
 
 StimID_kept <- m3Data$StimID[kept_rows]
 
-
+set.seed(808)
 stim_folds <- setNames(
   sample(rep(1:10, length.out = length(unique(StimID_kept)))),
   unique(StimID_kept)
@@ -1781,7 +1777,7 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_vline(xintercept = m3b$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m3b$lambda.1se*1.25, y = -max(coefficient_paths$estimate) * 0.55, 
            label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
-  labs(x = expression(log[10]*(lambda)),
+  labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
   ) +
@@ -2189,6 +2185,7 @@ X_matrix <- model.matrix(m5formula, data=m5Data)[,-1]
 
 StimID_kept <- m5Data$StimID[kept_rows]
 
+set.seed(808)
 stim_folds <- setNames(
   sample(rep(1:10, length.out = length(unique(StimID_kept)))),
   unique(StimID_kept)
@@ -2227,7 +2224,7 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_vline(xintercept = m5b$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m5b$lambda.1se*1.25, y = -max(coefficient_paths$estimate) * 0.25, 
            label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
-  labs(x = expression(log[10]*(lambda)),
+  labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
   ) +
@@ -2273,7 +2270,7 @@ m5predSxT <- m5predSxT |> dplyr::rename(UASLAEMaxLRSclRnd=UASLAEMaxLRScl) |>
 
 ```{r}
 
-stimDataNoAmbTemp <- stimDataNoAmb
+stimDataNoAmbTemp <- stimDataNoAmb.medPlot
 numbersIn <- stimDataNoAmbTemp$UASLAEMaxLRScl
 numberList <- c(-11, -5, 1, 6, 7, 12)
 stimDataNoAmbTemp$UASLAEMaxLRSclRnd <- factor(numberSnap(numbersIn, numberList, rangeVal=0.9))
@@ -2789,6 +2786,7 @@ X_matrix <- model.matrix(m7formula, data=m7Data)[,-1]
 
 StimID_kept <- m7Data$StimID[kept_rows]
 
+set.seed(808)
 stim_folds <- setNames(
   sample(rep(1:10, length.out = length(unique(StimID_kept)))),
   unique(StimID_kept)
@@ -2827,7 +2825,7 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_vline(xintercept = m7c$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m7c$lambda.1se*1.25, y = -max(coefficient_paths$estimate) * 0.25, 
            label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
-  labs(x = expression(log[10]*(lambda)),
+  labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
   ) +
@@ -2868,7 +2866,7 @@ ggplot(data=m7predEvt) +
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_point(data=stimDataNoAmb,
+              geom_point(data=stimDataNoAmb.medPlot,
                          aes(x=LAELAF50diffScl, y=dAnnoyMean,
                              colour=factor(UASEvents), shape=factor(UASEvents)),
                          alpha=0.55, size=2) +
@@ -2884,8 +2882,7 @@ ggplot(data=m7predEvt) +
                                  guide=guide_legend(title="UAS events", reverse=TRUE)) +
               scale_shape_manual(values=c(4, 5, 7, 8), guide=guide_legend(title="UAS events", reverse=TRUE)) +
 
-              rescaleTicks(stimDataNoAmb$LAELAF50diff,
-                             stimDataNoAmb$LAELAF50diffScl, sep=5) +
+              scale_orig("LAELAF50diffScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
               
               scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
               
@@ -3350,6 +3347,7 @@ X_matrix <- model.matrix(m9formula, data=m9Data)[,-1]
 
 StimID_kept <- m9Data$StimID[kept_rows]
 
+set.seed(808)
 stim_folds <- setNames(
   sample(rep(1:10, length.out = length(unique(StimID_kept)))),
   unique(StimID_kept)
@@ -3389,7 +3387,7 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_vline(xintercept = m9c$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m9c$lambda.1se*1.25, y = -max(coefficient_paths$estimate) * 0.25, 
            label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
-  labs(x = expression(log[10]*(lambda)),
+  labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
   ) +
@@ -3430,7 +3428,7 @@ ggplot(data=m9predEvt) +
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_point(data=stimDataNoAmb,
+              geom_point(data=stimDataNoAmb.medPlot,
                          aes(x=Detect0p5dBIntMaxLRScl, y=dAnnoyMean,
                              colour=factor(UASEvents), shape=factor(UASEvents)),
                          alpha=0.55, size=2) +
@@ -3446,8 +3444,7 @@ ggplot(data=m9predEvt) +
                                  guide=guide_legend(title="UAS events", reverse=TRUE)) +
               scale_shape_manual(values=c(4, 5, 7, 8), guide=guide_legend(title="UAS events", reverse=TRUE)) +
 
-              rescaleTicks(stimDataNoAmb$Detect0p5dBIntMaxLR,
-                             stimDataNoAmb$Detect0p5dBIntMaxLRScl, sep=7) +
+              scale_orig("Detect0p5dBIntMaxLRScl", subjDataNoAmb.medScaling, by = 7, digits = 0) +
               
               scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
               
@@ -3732,6 +3729,7 @@ X_matrix <- model.matrix(m10formula, data=m10Data)[,-1]
 
 StimID_kept <- m10Data$StimID[kept_rows]
 
+set.seed(808)
 stim_folds <- setNames(
   sample(rep(1:10, length.out = length(unique(StimID_kept)))),
   unique(StimID_kept)
@@ -3770,7 +3768,7 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_vline(xintercept = m10c$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m10c$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
            label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
-  labs(x = expression(log[10]*(lambda)),
+  labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
   ) +
@@ -3957,82 +3955,58 @@ if (saveplots){
 
 ```{r}
 
+q1 <- 0.3
+q2 <- 0.9
+
+Detect0p5dBIntMaxLRScl_sweep <- seq(min(stimDataNoAmb$Detect0p5dBIntMaxLRScl),
+                                    max(stimDataNoAmb$Detect0p5dBIntMaxLRScl),
+                                    length.out=25) 
+
 m10dDataFit <- insight::get_data(m10d)
 m10dpredEvt <- marginaleffects::avg_predictions(m10d, m10dDataFit,
-                                                    variables = list(Detect0p5dBIntMaxLRScl=seq(
-                                                      min(stimDataNoAmb$Detect0p5dBIntMaxLRScl),
-                                                      max(stimDataNoAmb$Detect0p5dBIntMaxLRScl),
-                                                      length.out=25)),
+                                                    variables = list(Detect0p5dBIntMaxLRScl=Detect0p5dBIntMaxLRScl_sweep),
                                                   by=c("Detect0p5dBIntMaxLRScl", "UASEvents"),
                                                   vcov=vcov(m10d, type="bias-corrected"),
                                                   transform=\(x) betaTransform(x, -10, 10,
                                                                                direction='reverse',
-                                                                               squeeze='none'))
+                                                                               squeeze='none')) |>
+  add_original_units(subjDataNoAmb.medScaling)
 gc()
 
 m10dpredDdS <- marginaleffects::avg_predictions(m10d, newdata=m10dDataFit,
-                                              variables = list(Detect0p5dBIntMaxLRScl=seq(
-                                                min(stimDataNoAmb$Detect0p5dBIntMaxLRScl),
-                                                max(stimDataNoAmb$Detect0p5dBIntMaxLRScl),
-                                                length.out = 25),
+                                              variables = list(Detect0p5dBIntMaxLRScl=Detect0p5dBIntMaxLRScl_sweep,
                                                 dSharpAurISO3PowAvgMaxLRScl=seq(-0.3, 0.45, by=0.15),
-                                                dTonalSHMIntAvgMaxLRScl=c(quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, 
-                                                                                        0.3),
-                                                                                quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl,
-                                                                                         0.9))),
+                                                dTonalSHMIntAvgMaxLRScl=unname(quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, 
+                                                                                        c(q1, q2)))),
                                           by = c("Detect0p5dBIntMaxLRScl", "dSharpAurISO3PowAvgMaxLRScl",
                                                  "dTonalSHMIntAvgMaxLRScl"),
                                           vcov = vcov(m10d, type = "bias-corrected"),
                                                   transform=\(x) betaTransform(x, -10, 10,
                                                                                direction='reverse',
-                                                                               squeeze='none'))
+                                                                               squeeze='none')) |>
+  add_original_units(subjDataNoAmb.medScaling) |>
+  dplyr::mutate(dSharpAurISO3PowAvgMaxLR = num_factor(dSharpAurISO3PowAvgMaxLR),
+                dTonalSHMIntAvgMaxLR     = num_factor(dTonalSHMIntAvgMaxLR))
+
 gc()
 
 m10dpredDdT <- marginaleffects::avg_predictions(m10d, newdata=m10dDataFit,
-                                              variables = list(Detect0p5dBIntMaxLRScl=seq(
-                                                min(stimDataNoAmb$Detect0p5dBIntMaxLRScl),
-                                                max(stimDataNoAmb$Detect0p5dBIntMaxLRScl),
-                                                length.out = 25),
+                                              variables = list(Detect0p5dBIntMaxLRScl=Detect0p5dBIntMaxLRScl_sweep,
                                                 dTonalSHMIntAvgMaxLRScl=seq(-0.11, 0.18, by=0.05),
-                                                dSharpAurISO3PowAvgMaxLRScl=c(quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl,
-                                                                                         0.3),
-                                                                                quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl,
-                                                                                         0.9))),
+                                                dSharpAurISO3PowAvgMaxLRScl=unname(quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl,
+                                                                                         c(q1, q2)))),
                                           by = c("Detect0p5dBIntMaxLRScl", "dTonalSHMIntAvgMaxLRScl",
                                                  "dSharpAurISO3PowAvgMaxLRScl"),
                                           vcov = vcov(m10d, type = "bias-corrected"),
                                                   transform=\(x) betaTransform(x, -10, 10,
                                                                                direction='reverse',
-                                                                               squeeze='none'))
+                                                                               squeeze='none')) |>
+  add_original_units(subjDataNoAmb.medScaling) |>
+  dplyr::mutate(dSharpAurISO3PowAvgMaxLR = num_factor(dSharpAurISO3PowAvgMaxLR),
+                dTonalSHMIntAvgMaxLR     = num_factor(dTonalSHMIntAvgMaxLR))
+
 gc()
 
-m10dpredDdS <- m10dpredDdS |> dplyr::mutate(dSharpAurISO3PowAvgMaxLRScl = factor(dSharpAurISO3PowAvgMaxLRScl),
-                                          dTonalSHMIntAvgMaxLRScl = factor(dTonalSHMIntAvgMaxLRScl))
-m10dpredDdT <- m10dpredDdT |> dplyr::mutate(dTonalSHMIntAvgMaxLRScl = factor(dTonalSHMIntAvgMaxLRScl),
-                                          dSharpAurISO3PowAvgMaxLRScl = factor(dSharpAurISO3PowAvgMaxLRScl))
-
-# Find the midpoint to split the raw data into Min/Max categories
-low_val <- quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, 0.3)
-hi_val <- quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, 0.9)
-midpoint <- quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, 0.5)
-
-# Apply the factor grouping to the raw data
-stimDataNoAmbTemp1 <- stimDataNoAmb |>
-  mutate(dTonalSHMIntAvgMaxLRScl = factor(
-    ifelse(dTonalSHMIntAvgMaxLRScl <= midpoint, low_val, hi_val),
-    levels = c(low_val, hi_val)
-  ))
-
-# Find the midpoint to split the raw data into Min/Max categories
-low_val <- quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl, 0.3)
-hi_val <- quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl, 0.9)
-midpoint <- quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl, 0.5)
-
-stimDataNoAmbTemp2 <- stimDataNoAmb |>
-  mutate(dSharpAurISO3PowAvgMaxLRScl = factor(
-    ifelse(dSharpAurISO3PowAvgMaxLRScl <= midpoint, low_val, hi_val),
-    levels = c(low_val, hi_val)
-  ))
 
 ```
 
@@ -4041,32 +4015,30 @@ stimDataNoAmbTemp2 <- stimDataNoAmb |>
 ```{r}
 
 ggplot(data=m10dpredEvt) +
-              theme(panel.grid = element_blank(), aspect.ratio=1.35,
-                    text = element_text(family = "serif", size=16),
-                    axis.text=element_text(family = "serif", size=14)) +
-              
-              geom_point(data=stimDataNoAmb,
-                         aes(x=Detect0p5dBIntMaxLRScl, y=dAnnoyMean,
-                             colour=factor(UASEvents), shape=factor(UASEvents)),
-                         alpha=0.55, size=2) +
-              
-              geom_ribbon(aes(x=Detect0p5dBIntMaxLRScl, ymin=conf.low, ymax=conf.high, fill=factor(UASEvents)),
-                          alpha=0.15) +
-              
-              geom_line(aes(x=Detect0p5dBIntMaxLRScl, y=estimate, colour=factor(UASEvents)), linewidth=1) +
-              
-              scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
-                                  guide=guide_legend(title="UAS events", reverse=TRUE)) +
-              scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
-                                 guide=guide_legend(title="UAS events", reverse=TRUE)) +
-              scale_shape_manual(values=c(4, 5, 7, 8), guide=guide_legend(title="UAS events", reverse=TRUE)) +
+  theme(panel.grid = element_blank(), aspect.ratio=1.35,
+        text = element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_point(data=stimDataNoAmb.medPlot,
+             aes(x=Detect0p5dBIntMaxLR, y=dAnnoyMean,
+                 colour=factor(UASEvents), shape=factor(UASEvents)),
+             alpha=0.55, size=2) +
+  
+  geom_ribbon(aes(x=Detect0p5dBIntMaxLR, ymin=conf.low, ymax=conf.high, fill=factor(UASEvents)),
+              alpha=0.15) +
+  
+  geom_line(aes(x=Detect0p5dBIntMaxLR, y=estimate, colour=factor(UASEvents)), linewidth=1) +
+  
+  scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
+                      guide=guide_legend(title="UAS events", reverse=TRUE)) +
+  scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
+                     guide=guide_legend(title="UAS events", reverse=TRUE)) +
+  scale_shape_manual(values=c(4, 5, 7, 8), guide=guide_legend(title="UAS events", reverse=TRUE)) +
 
-              rescaleTicks(stimDataNoAmb$Detect0p5dBIntMaxLR,
-                             stimDataNoAmb$Detect0p5dBIntMaxLRScl, sep=7) +
-              
-              scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
-              
-              labs(x=expression(paste(UAS~italic(d*"'")[Sigma*0.5*s],",",~dB~re.~1)), y="Mean change in annoyance")
+  scale_x_continuous(breaks = scales::breaks_width(7)) +
+  scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
+  
+  labs(x=expression(paste(UAS~italic(d*"'")[Sigma*0.5*s],",",~dB~re.~1)), y="Mean change in annoyance")
 
 if (saveplots){
   
@@ -4079,105 +4051,44 @@ if (saveplots){
   unlink(paste(filename, ".pdf", sep=""))
 }
 
+p1 <- plot_slice(m10dpredDdS, stimDataNoAmb,
+                 x = "Detect0p5dBIntMaxLR", y = "dAnnoyMean",
+                 colour_v = "dSharpAurISO3PowAvgMaxLR",
+                 facet_v  = "dTonalSHMIntAvgMaxLR",
+                 facet_labeller = label_bquote(rows = UAS~Delta*bar(italic(T)[Sigma])*","~tu[SHM] %->%
+                                                 .(as.character(dTonalSHMIntAvgMaxLR))),
+                 q = c(q1, q2), option = "mako",
+                 colour_title = expression(paste(UAS~Delta*italic(S)^"*"*","~acum[A~"|"~"M-G-S"])),
+                 colour_breaks = to_original(seq(-0.3, 0.45, by = 0.15),
+                                             "dSharpAurISO3PowAvgMaxLRScl", subjDataNoAmb.medScaling)) +
+  scale_x_continuous(breaks = scales::breaks_width(7)) +
+  scale_y_continuous(breaks = seq(-10, 10, by = 1), limits = c(-2, 8)) +
+  labs(x = expression(paste(UAS~italic(d*"'")[Sigma*0.5*s], ",", ~dB~re.~1)),
+       y = "Mean change in annoyance") +
+  theme(panel.grid = element_blank(), aspect.ratio = 1.35,
+        text = element_text(family = "serif", size = 16),
+        axis.text.x = element_text(family = "serif", size = 10),
+        axis.text.y = element_text(family = "serif", size = 14))
 
-p1 <- ggplot(data=m10dpredDdS) +
-              theme(panel.grid = element_blank(), aspect.ratio=1.35,
-                    text = element_text(family = "serif", size=16),
-                    axis.text.x=element_text(family = "serif", size=10),
-                    axis.text.y=element_text(family = "serif", size=14)) +
-              
-              geom_point(data=stimDataNoAmbTemp1,
-                         aes(x=Detect0p5dBIntMaxLRScl, y=dAnnoyMean, colour=dSharpAurISO3PowAvgMaxLRScl),
-                         alpha=0.55, size=2) +
-  
-              scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.2, end = 0.8,
-                                  breaks=seq(-0.3, 0.45, by=0.15),
-                                  labels=function(x) format(round(as.numeric(x) +
-                                                        mean(subjDataNoAmb.med$dSharpAurISO3PowAvgMaxLR), 2), nsmall = 2),
-                                  guide=guide_legend(title=expression(paste(UAS~Delta*italic(S)^"*"*","~acum[A~"|"~"M-G-S"])),
-                                                     reverse=TRUE)) +
-  
-              ggnewscale::new_scale_colour() +
-  
-              geom_ribbon(aes(x=Detect0p5dBIntMaxLRScl, ymin=conf.low, ymax=conf.high,
-                              fill=dSharpAurISO3PowAvgMaxLRScl),
-                          alpha=0.15) +
-              
-              geom_line(aes(x=Detect0p5dBIntMaxLRScl, y=estimate, colour=dSharpAurISO3PowAvgMaxLRScl), linewidth=1) +
-              
-              scale_color_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
-                                  labels=function(x) format(round(as.numeric(x) +
-                                                        mean(subjDataNoAmb.med$dSharpAurISO3PowAvgMaxLR), 2), nsmall = 2),
-                            guide=guide_legend(title=expression(paste(UAS~Delta*italic(S)^"*"*","~acum[A~"|"~"M-G-S"])),
-                                               reverse=TRUE)) +
-  
-              scale_fill_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
-                                 labels=function(x) format(round(as.numeric(x) +
-                                                        mean(subjDataNoAmb.med$dSharpAurISO3PowAvgMaxLR), 2), nsmall = 2),
-                            guide=guide_legend(title=expression(paste(UAS~Delta*italic(S)^"*"*","~acum[A~"|"~"M-G-S"])),
-                                               reverse=TRUE)) +
-                
-              rescaleTicks(stimDataNoAmb$Detect0p5dBIntMaxLR,
-                             stimDataNoAmb$Detect0p5dBIntMaxLRScl, sep=7) +
-  
-              scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
-              
-              labs(x=expression(paste(UAS~italic(d*"'")[Sigma*0.5*s],",",~dB~re.~1)), y="Mean change in annoyance") +
-              facet_grid(rows = vars(dTonalSHMIntAvgMaxLRScl),
-                         labeller = label_bquote(rows = UAS~Delta*bar(italic(T)[Sigma])*","~tu[SHM] %->%
-                                                   .(format(round(as.numeric(as.character(dTonalSHMIntAvgMaxLRScl)) +
-                                                                    mean(subjDataNoAmb.med$dTonalSHMIntAvgMaxLR), 2),
-                                                            nsmall = 2))))
 
-p2 <- ggplot(data=m10dpredDdT) +
-              theme(panel.grid = element_blank(), aspect.ratio=1.35,
-                    text = element_text(family = "serif", size=16),
-                    axis.text.x=element_text(family = "serif", size=10),
-                    axis.text.y=element_text(family = "serif", size=14)) +
-              
-              geom_point(data=stimDataNoAmbTemp2,
-                         aes(x=Detect0p5dBIntMaxLRScl, y=dAnnoyMean, colour=dTonalSHMIntAvgMaxLRScl),
-                         alpha=0.55, size=2) +
-  
-              scale_color_viridis(option='rocket', direction=1, discrete=FALSE, begin = 0.2, end = 0.8,
-                                  breaks=seq(-0.11, 0.18, by=0.05),
-                                  labels=function(x) format(round(as.numeric(x) +
-                                                                    mean(subjDataNoAmb.med$dTonalSHMIntAvgMaxLR), 2), nsmall = 2),
-                                  guide=guide_legend(title=expression(paste(UAS~Delta*bar(italic(T)[Sigma])*","~tu[SHM])),
-                                                     reverse=TRUE)) +
-  
-              ggnewscale::new_scale_colour() +
-  
-              geom_ribbon(aes(x=Detect0p5dBIntMaxLRScl, ymin=conf.low, ymax=conf.high,
-                              fill=dTonalSHMIntAvgMaxLRScl),
-                          alpha=0.15) +
-              
-              geom_line(aes(x=Detect0p5dBIntMaxLRScl, y=estimate, colour=dTonalSHMIntAvgMaxLRScl), linewidth=1) +
-              
-              scale_color_viridis(option='rocket', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
-                                  labels=function(x) format(round(as.numeric(x) +
-                                                                    mean(subjDataNoAmb.med$dTonalSHMIntAvgMaxLR), 2), nsmall = 2),
-                            guide=guide_legend(title=expression(paste(UAS~Delta*bar(italic(T)[Sigma])*","~tu[SHM])),
-                                               reverse=TRUE)) +
-  
-              scale_fill_viridis(option='rocket', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
-                                 labels=function(x) format(round(as.numeric(x) +
-                                                                   mean(subjDataNoAmb.med$dTonalSHMIntAvgMaxLR), 2), nsmall = 2),
-                            guide=guide_legend(title=expression(paste(UAS~Delta*bar(italic(T)[Sigma])*","~tu[SHM])),
-                                               reverse=TRUE)) +
-                
-              rescaleTicks(stimDataNoAmb$Detect0p5dBIntMaxLR,
-                             stimDataNoAmb$Detect0p5dBIntMaxLRScl, sep=7) +
-  
-              scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
-              
-              labs(x=expression(paste(UAS~italic(d*"'")[Sigma*0.5*s],",",~dB~re.~1)), y="Mean change in annoyance") +
-  
-              facet_grid(rows = vars(dSharpAurISO3PowAvgMaxLRScl),
-                         labeller = label_bquote(rows = UAS~Delta*italic(S)^"*"*","~acum[A~"|"~"M-G-S"] %->%
-                                                   .(format(round(as.numeric(as.character(dSharpAurISO3PowAvgMaxLRScl)) +
-                                                                    mean(subjDataNoAmb.med$dSharpAurISO3PowAvgMaxLR), 2),
-                                                            nsmall = 2))))
+p2 <- plot_slice(m10dpredDdT, stimDataNoAmb,
+                 x = "Detect0p5dBIntMaxLR", y = "dAnnoyMean",
+                 colour_v = "dTonalSHMIntAvgMaxLR",
+                 facet_v  = "dSharpAurISO3PowAvgMaxLR",
+                 facet_labeller = label_bquote(rows = UAS~Delta*italic(S)^"*"*","~acum[A~"|"~"M-G-S"] %->%
+                                                 .(as.character(dSharpAurISO3PowAvgMaxLR))),
+                 q = c(q1, q2), option = "rocket",
+                 colour_title = expression(paste(UAS~Delta*bar(italic(T)[Sigma])*","~tu[SHM])),
+                 colour_breaks = to_original(seq(-0.11, 0.18, by = 0.05),
+                                             "dTonalSHMIntAvgMaxLRScl", subjDataNoAmb.medScaling)) +
+  scale_x_continuous(breaks = scales::breaks_width(7)) +
+  scale_y_continuous(breaks = seq(-10, 10, by = 1), limits = c(-2, 8)) +
+  labs(x = expression(paste(UAS~italic(d*"'")[Sigma*0.5*s], ",", ~dB~re.~1)),
+       y = "Mean change in annoyance") +
+  theme(panel.grid = element_blank(), aspect.ratio = 1.35,
+        text = element_text(family = "serif", size = 16),
+        axis.text.x = element_text(family = "serif", size = 10),
+        axis.text.y = element_text(family = "serif", size = 14))
 
 p1 + p2 + plot_layout(guides = 'collect') & theme(legend.position = 'right')
 
@@ -4462,6 +4373,7 @@ X_matrix <- model.matrix(m11formula, data=m11Data)[,-1]
 
 StimID_kept <- m11Data$StimID[kept_rows]
 
+set.seed(808)
 stim_folds <- setNames(
   sample(rep(1:10, length.out = length(unique(StimID_kept)))),
   unique(StimID_kept)
@@ -4500,7 +4412,7 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_vline(xintercept = m11c$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m11c$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
            label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
-  labs(x = expression(log[10]*(lambda)),
+  labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
   ) +
@@ -4690,82 +4602,58 @@ if (saveplots){
 
 ```{r}
 
+q1 <- 0.3
+q2 <- 0.9
+
+LAELAF50diffScl_sweep <- seq(min(stimDataNoAmb$LAELAF50diffScl),
+                              max(stimDataNoAmb$LAELAF50diffScl),
+                              length.out=25)
+
 m11dDataFit <- insight::get_data(m11d)
+
 m11dpredEvt <- marginaleffects::avg_predictions(m11d, m11dDataFit,
-                                                    variables = list(LAELAF50diffScl=seq(
-                                                      min(stimDataNoAmb$LAELAF50diffScl),
-                                                      max(stimDataNoAmb$LAELAF50diffScl),
-                                                      length.out=25)),
+                                                    variables = list(LAELAF50diffScl=LAELAF50diffScl_sweep),
                                                   by=c("LAELAF50diffScl", "UASEvents"),
                                                   vcov=vcov(m11d, type="bias-corrected"),
                                                   transform=\(x) betaTransform(x, -10, 10,
                                                                                direction='reverse',
-                                                                               squeeze='none'))
+                                                                               squeeze='none')) |>
+  add_original_units(subjDataNoAmb.medScaling)
 gc()
 
 m11dpreddLAEdS <- marginaleffects::avg_predictions(m11d, newdata=m11dDataFit,
-                                              variables = list(LAELAF50diffScl=seq(
-                                                min(stimDataNoAmb$LAELAF50diffScl),
-                                                max(stimDataNoAmb$LAELAF50diffScl),
-                                                length.out = 25),
+                                              variables = list(LAELAF50diffScl=LAELAF50diffScl_sweep,
                                                 dSharpAurISO3PowAvgMaxLRScl=seq(-0.3, 0.45, by=0.15),
-                                                dTonalSHMIntAvgMaxLRScl=c(quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, 
-                                                                                        0.3),
-                                                                                quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl,
-                                                                                         0.9))),
+                                                dTonalSHMIntAvgMaxLRScl=unname(quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, 
+                                                                                        c(q1, q2)))),
                                           by = c("LAELAF50diffScl", "dSharpAurISO3PowAvgMaxLRScl",
                                                  "dTonalSHMIntAvgMaxLRScl"),
                                           vcov = vcov(m11d, type = "bias-corrected"),
                                                   transform=\(x) betaTransform(x, -10, 10,
                                                                                direction='reverse',
-                                                                               squeeze='none'))
+                                                                               squeeze='none')) |>
+  add_original_units(subjDataNoAmb.medScaling) |>
+  dplyr::mutate(dSharpAurISO3PowAvgMaxLR = num_factor(dSharpAurISO3PowAvgMaxLR),
+                dTonalSHMIntAvgMaxLR     = num_factor(dTonalSHMIntAvgMaxLR))
+
 gc()
 
 m11dpreddLAEdT <- marginaleffects::avg_predictions(m11d, newdata=m11dDataFit,
-                                              variables = list(LAELAF50diffScl=seq(
-                                                min(stimDataNoAmb$LAELAF50diffScl),
-                                                max(stimDataNoAmb$LAELAF50diffScl),
-                                                length.out = 25),
+                                              variables = list(LAELAF50diffScl=LAELAF50diffScl_sweep,
                                                 dTonalSHMIntAvgMaxLRScl=seq(-0.11, 0.18, by=0.05),
-                                                dSharpAurISO3PowAvgMaxLRScl=c(quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl,
-                                                                                         0.3),
-                                                                                quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl,
-                                                                                         0.9))),
+                                                dSharpAurISO3PowAvgMaxLRScl=unname(quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl,
+                                                                                         c(q1, q2)))),
                                           by = c("LAELAF50diffScl", "dTonalSHMIntAvgMaxLRScl",
                                                  "dSharpAurISO3PowAvgMaxLRScl"),
                                           vcov = vcov(m11d, type = "bias-corrected"),
                                                   transform=\(x) betaTransform(x, -10, 10,
                                                                                direction='reverse',
-                                                                               squeeze='none'))
+                                                                               squeeze='none')) |>
+  add_original_units(subjDataNoAmb.medScaling) |>
+  dplyr::mutate(dSharpAurISO3PowAvgMaxLR = num_factor(dSharpAurISO3PowAvgMaxLR),
+                dTonalSHMIntAvgMaxLR     = num_factor(dTonalSHMIntAvgMaxLR))
+
 gc()
-
-m11dpreddLAEdS <- m11dpreddLAEdS |> dplyr::mutate(dSharpAurISO3PowAvgMaxLRScl = factor(dSharpAurISO3PowAvgMaxLRScl),
-                                          dTonalSHMIntAvgMaxLRScl = factor(dTonalSHMIntAvgMaxLRScl))
-m11dpreddLAEdT <- m11dpreddLAEdT |> dplyr::mutate(dTonalSHMIntAvgMaxLRScl = factor(dTonalSHMIntAvgMaxLRScl),
-                                          dSharpAurISO3PowAvgMaxLRScl = factor(dSharpAurISO3PowAvgMaxLRScl))
-
-# Find the midpoint to split the raw data into Min/Max categories
-low_val <- quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, 0.3)
-hi_val <- quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, 0.9)
-midpoint <- quantile(stimDataNoAmb$dTonalSHMIntAvgMaxLRScl, 0.5)
-
-# Apply the factor grouping to the raw data
-stimDataNoAmbTemp1 <- stimDataNoAmb |>
-  mutate(dTonalSHMIntAvgMaxLRScl = factor(
-    ifelse(dTonalSHMIntAvgMaxLRScl <= midpoint, low_val, hi_val),
-    levels = c(low_val, hi_val)
-  ))
-
-# Find the midpoint to split the raw data into Min/Max categories
-low_val <- quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl, 0.3)
-hi_val <- quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl, 0.9)
-midpoint <- quantile(stimDataNoAmb$dSharpAurISO3PowAvgMaxLRScl, 0.5)
-
-stimDataNoAmbTemp2 <- stimDataNoAmb |>
-  mutate(dSharpAurISO3PowAvgMaxLRScl = factor(
-    ifelse(dSharpAurISO3PowAvgMaxLRScl <= midpoint, low_val, hi_val),
-    levels = c(low_val, hi_val)
-  ))
 
 ```
 
@@ -4778,15 +4666,15 @@ ggplot(data=m11dpredEvt) +
         text = element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   
-  geom_point(data=stimDataNoAmb,
-             aes(x=LAELAF50diffScl, y=dAnnoyMean,
+  geom_point(data=stimDataNoAmb.medPlot,
+             aes(x=LAELAF50diff, y=dAnnoyMean,
                  colour=factor(UASEvents), shape=factor(UASEvents)),
              alpha=0.55, size=2) +
   
-  geom_ribbon(aes(x=LAELAF50diffScl, ymin=conf.low, ymax=conf.high, fill=factor(UASEvents)),
+  geom_ribbon(aes(x=LAELAF50diff, ymin=conf.low, ymax=conf.high, fill=factor(UASEvents)),
               alpha=0.15) +
   
-  geom_line(aes(x=LAELAF50diffScl, y=estimate, colour=factor(UASEvents)), linewidth=1) +
+  geom_line(aes(x=LAELAF50diff, y=estimate, colour=factor(UASEvents)), linewidth=1) +
   
   scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
                       guide=guide_legend(title="UAS events", reverse=TRUE)) +
@@ -4794,9 +4682,7 @@ ggplot(data=m11dpredEvt) +
                      guide=guide_legend(title="UAS events", reverse=TRUE)) +
   scale_shape_manual(values=c(4, 5, 7, 8), guide=guide_legend(title="UAS events", reverse=TRUE)) +
 
-  rescaleTicks(stimDataNoAmb$LAELAF50diff,
-                 stimDataNoAmb$LAELAF50diffScl, sep=5) +
-  
+  scale_x_continuous(breaks = scales::breaks_width(5)) +
   scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
   
   labs(x=expression(paste(UAS~italic(L)[AE]~-~amb.~italic(L)[AF50],",",~dB)),
@@ -4813,107 +4699,43 @@ if (saveplots){
   unlink(paste(filename, ".pdf", sep=""))
 }
 
+p1 <- plot_slice(m11dpreddLAEdS, stimDataNoAmb,
+                 x = "LAELAF50diff", y = "dAnnoyMean",
+                 colour_v = "dSharpAurISO3PowAvgMaxLR",
+                 facet_v  = "dTonalSHMIntAvgMaxLR",
+                 facet_labeller = label_bquote(rows = UAS~Delta*bar(italic(T)[Sigma])*","~tu[SHM] %->%
+                                                 .(as.character(dTonalSHMIntAvgMaxLR))),
+                 q = c(q1, q2), option = "mako",
+                 colour_title = expression(paste(UAS~Delta*italic(S)^"*"*","~acum[A~"|"~"M-G-S"])),
+                 colour_breaks = to_original(seq(-0.3, 0.45, by = 0.15),
+                                             "dSharpAurISO3PowAvgMaxLRScl", subjDataNoAmb.medScaling)) +
+  scale_x_continuous(breaks = scales::breaks_width(5)) +
+  scale_y_continuous(breaks = seq(-10, 10, by = 1), limits = c(-2, 8)) +
+  labs(x = expression(paste(UAS~italic(L)[AE]~-~amb.~italic(L)[AF50],",",~dB)),
+       y = "Mean change in annoyance") +
+  theme(panel.grid = element_blank(), aspect.ratio = 1.35,
+        text = element_text(family = "serif", size = 16),
+        axis.text.x = element_text(family = "serif", size = 10),
+        axis.text.y = element_text(family = "serif", size = 14))
 
-p1 <- ggplot(data=m11dpreddLAEdS) +
-  theme(panel.grid = element_blank(), aspect.ratio=1.35,
-        text = element_text(family = "serif", size=16),
-        axis.text.x=element_text(family = "serif", size=10),
-        axis.text.y=element_text(family = "serif", size=14)) +
-  
-  geom_point(data=stimDataNoAmbTemp1,
-             aes(x=LAELAF50diffScl, y=dAnnoyMean, colour=dSharpAurISO3PowAvgMaxLRScl),
-             alpha=0.55, size=2) +
-
-  scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.2, end = 0.8,
-                      breaks=seq(-0.3, 0.45, by=0.15),
-                      labels=function(x) format(round(as.numeric(x) +
-                                            mean(subjDataNoAmb.med$dSharpAurISO3PowAvgMaxLR), 2), nsmall = 2),
-                      guide=guide_legend(title=expression(paste(UAS~Delta*italic(S)^"*"*","~acum[A~"|"~"M-G-S"])),
-                                         reverse=TRUE)) +
-
-  ggnewscale::new_scale_colour() +
-
-  geom_ribbon(aes(x=LAELAF50diffScl, ymin=conf.low, ymax=conf.high,
-                  fill=dSharpAurISO3PowAvgMaxLRScl),
-              alpha=0.15) +
-  
-  geom_line(aes(x=LAELAF50diffScl, y=estimate, colour=dSharpAurISO3PowAvgMaxLRScl), linewidth=1) +
-  
-  scale_color_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
-                      labels=function(x) format(round(as.numeric(x) +
-                                            mean(subjDataNoAmb.med$dSharpAurISO3PowAvgMaxLR), 2), nsmall = 2),
-                guide=guide_legend(title=expression(paste(UAS~Delta*italic(S)^"*"*","~acum[A~"|"~"M-G-S"])),
-                                   reverse=TRUE)) +
-
-  scale_fill_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
-                     labels=function(x) format(round(as.numeric(x) +
-                                            mean(subjDataNoAmb.med$dSharpAurISO3PowAvgMaxLR), 2), nsmall = 2),
-                guide=guide_legend(title=expression(paste(UAS~Delta*italic(S)^"*"*","~acum[A~"|"~"M-G-S"])),
-                                   reverse=TRUE)) +
-    
-  rescaleTicks(stimDataNoAmb$LAELAF50diff,
-                 stimDataNoAmb$LAELAF50diffScl, sep=5) +
-
-  scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
-  
-  labs(x=expression(paste(UAS~italic(L)[AE]~-~amb.~italic(L)[AF50],",",~dB)),
-       y="Mean change in annoyance") +
-  facet_grid(rows = vars(dTonalSHMIntAvgMaxLRScl),
-             labeller = label_bquote(rows = UAS~Delta*bar(italic(T)[Sigma])*","~tu[SHM] %->%
-                                       .(format(round(as.numeric(as.character(dTonalSHMIntAvgMaxLRScl)) +
-                                                        mean(subjDataNoAmb.med$dTonalSHMIntAvgMaxLR), 2),
-                                                nsmall = 2))))
-
-p2 <- ggplot(data=m11dpreddLAEdT) +
-  theme(panel.grid = element_blank(), aspect.ratio=1.35,
-        text = element_text(family = "serif", size=16),
-        axis.text.x=element_text(family = "serif", size=10),
-        axis.text.y=element_text(family = "serif", size=14)) +
-  
-  geom_point(data=stimDataNoAmbTemp2,
-             aes(x=LAELAF50diffScl, y=dAnnoyMean, colour=dTonalSHMIntAvgMaxLRScl),
-             alpha=0.55, size=2) +
-  
-  scale_color_viridis(option='rocket', direction=1, discrete=FALSE, begin = 0.2, end = 0.8,
-                      breaks=seq(-0.11, 0.18, by=0.05),
-                      labels=function(x) format(round(as.numeric(x) +
-                                                        mean(subjDataNoAmb.med$dTonalSHMIntAvgMaxLR), 2), nsmall = 2),
-                      guide=guide_legend(title=expression(paste(UAS~Delta*bar(italic(T)[Sigma])*","~tu[SHM])),
-                                         reverse=TRUE)) +
-  
-  ggnewscale::new_scale_colour() +
-  
-  geom_ribbon(aes(x=LAELAF50diffScl, ymin=conf.low, ymax=conf.high,
-                  fill=dTonalSHMIntAvgMaxLRScl),
-              alpha=0.15) +
-  
-  geom_line(aes(x=LAELAF50diffScl, y=estimate, colour=dTonalSHMIntAvgMaxLRScl), linewidth=1) +
-  
-  scale_color_viridis(option='rocket', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
-                      labels=function(x) format(round(as.numeric(x) +
-                                                        mean(subjDataNoAmb.med$dTonalSHMIntAvgMaxLR), 2), nsmall = 2),
-                guide=guide_legend(title=expression(paste(UAS~Delta*bar(italic(T)[Sigma])*","~tu[SHM])),
-                                   reverse=TRUE)) +
-  
-  scale_fill_viridis(option='rocket', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
-                     labels=function(x) format(round(as.numeric(x) +
-                                                       mean(subjDataNoAmb.med$dTonalSHMIntAvgMaxLR), 2), nsmall = 2),
-                guide=guide_legend(title=expression(paste(UAS~Delta*bar(italic(T)[Sigma])*","~tu[SHM])),
-                                   reverse=TRUE)) +
-    
-  rescaleTicks(stimDataNoAmb$LAELAF50diff,
-                 stimDataNoAmb$LAELAF50diffScl, sep=5) +
-  
-  scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
-  
-  labs(x=expression(paste(UAS~italic(L)[AE]~-~amb.~italic(L)[AF50],",",~dB)),
-       y="Mean change in annoyance") +
-  
-  facet_grid(rows = vars(dSharpAurISO3PowAvgMaxLRScl),
-             labeller = label_bquote(rows = UAS~Delta*italic(S)^"*"*","~acum[A~"|"~"M-G-S"] %->%
-                                       .(format(round(as.numeric(as.character(dSharpAurISO3PowAvgMaxLRScl)) +
-                                                        mean(subjDataNoAmb.med$dSharpAurISO3PowAvgMaxLR), 2),
-                                                nsmall = 2))))
+p2 <- plot_slice(m11dpreddLAEdT, stimDataNoAmb,
+                 x = "LAELAF50diff", y = "dAnnoyMean",
+                 colour_v = "dTonalSHMIntAvgMaxLR",
+                 facet_v  = "dSharpAurISO3PowAvgMaxLR",
+                 facet_labeller = label_bquote(rows = UAS~Delta*italic(S)^"*"*","~acum[A~"|"~"M-G-S"] %->%
+                                                 .(as.character(dSharpAurISO3PowAvgMaxLR))),
+                 q = c(q1, q2), option = "rocket",
+                 colour_title = expression(paste(UAS~Delta*bar(italic(T)[Sigma])*","~tu[SHM])),
+                 colour_breaks = to_original(seq(-0.11, 0.18, by = 0.05),
+                                             "dTonalSHMIntAvgMaxLRScl", subjDataNoAmb.medScaling)) +
+  scale_x_continuous(breaks = scales::breaks_width(5)) +
+  scale_y_continuous(breaks = seq(-10, 10, by = 1), limits = c(-2, 8)) +
+  labs(x = expression(paste(UAS~italic(L)[AE]~-~amb.~italic(L)[AF50],",",~dB)),
+       y = "Mean change in annoyance") +
+  theme(panel.grid = element_blank(), aspect.ratio = 1.35,
+        text = element_text(family = "serif", size = 16),
+        axis.text.x = element_text(family = "serif", size = 10),
+        axis.text.y = element_text(family = "serif", size = 14))
 
 p1 + p2 + plot_layout(guides = 'collect') & theme(legend.position = 'right')
 
@@ -5024,8 +4846,8 @@ print(paste("Metrics:", lmmVsGEEdAm$metrics))
 print(paste("Prediction:", lmmVsGEEdAm$pred))
 print(paste("Total:", lmmVsGEEdAm$total))
 
-microbenchmark:::autoplot.microbenchmark(testdAm)
-microbenchmark:::boxplot.microbenchmark(testdAm)
+ggplot2::autoplot(testdAm)
+boxplot(testdAm)
 
 
 ```
@@ -5102,8 +4924,8 @@ p <- p +
                                              colour="GEE-LM (PA)"),
             linewidth=1, linetype=2, alpha=0.75) +
   
-  rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                 stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+  scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
+  
   scale_y_continuous(breaks=seq(-3, 8, by=1)) +
   
   scale_colour_manual(values=c("LMM (CS)"=mycolours[1], "GEE-LM (PA)"=mycolours[5])) +
@@ -5228,11 +5050,11 @@ p1 <- p +
                                                       colour="GLMM | O-b (PA)"),
               linetype=2, linewidth=1, alpha=0.75) +
   
-  geom_vline(xintercept = 13, linetype = 'dotted', color = "grey", linewidth = 0.8) +
-  ggplot2::annotate("text", x = 13 + 1.5, y = 0.5, 
+  geom_vline(xintercept=max(stimDataNoAmb$UASLAEMaxLR) - lae_centre, linetype = 'dotted', color = "grey", linewidth = 0.8) +
+  ggplot2::annotate("text", x = max(stimDataNoAmb$UASLAEMaxLR) - lae_centre + 1.5, y = 0.5, 
            label = "Dataset upper limit", color = "grey", angle = 90, vjust = 0.5) +
 
-  scale_x_continuous(breaks=seq(-12, 33, by=5), labels=seq(55, 100, by=5)) +
+  scale_orig("UASLAEMaxLRScl", subjDataNoAmbScaling, by = 5, digits = 0) +
   scale_y_continuous(breaks=seq(-3, 8, by=1)) +
   
   scale_colour_manual(values=c("GLMM | O-b (CS)"=mycolours[2],
@@ -5301,6 +5123,7 @@ geeCorStr(m12formula, data=m12Data, family=binomial(link='logit'),
 geeCorStr(m12bformula, data=m12bData, family=binomial(link='logit'),
                  id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
 
+```
 
 #### fit and estimate parameters
 
@@ -5375,9 +5198,9 @@ m12b_ar3_cv <- cv_glmgee(m12b_ar3, id_col="ID", waves_col="TrialNumber", K=cv_fo
   cv_binary_metrics()
 
 compare_cv_results(list(m12=m12_cv, m12b=m12b_cv,
-                        m12_b_ar1=m12b_ar1_cv,
-                        m12_b_ar2=m12b_ar2_cv,
-                        m12_b_ar3=m12b_ar3_cv))
+                        m12b_ar1=m12b_ar1_cv,
+                        m12b_ar2=m12b_ar2_cv,
+                        m12b_ar3=m12b_ar3_cv))
 
 ```
 
@@ -5449,6 +5272,7 @@ X_matrix <- model.matrix(m12formula, data=m12Data)[,-1]
 
 StimID_kept <- m12Data$StimID[kept_rows]
 
+set.seed(808)
 stim_folds <- setNames(
   sample(rep(1:10, length.out = length(unique(StimID_kept)))),
   unique(StimID_kept)
@@ -5487,7 +5311,7 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_vline(xintercept = m12c$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m12c$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
            label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
-  labs(x = expression(log[10]*(lambda)),
+  labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
   ) +
@@ -5643,7 +5467,7 @@ p1 <- ggplot(data=subset(m12predType, UASEvents==1)) +
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_point(data=subset(stimDataNoAmb, UASEvents==1), aes(x=UASLAEMaxLRScl, y=dHighAnnoyProp,
+              geom_point(data=subset(stimDataNoAmb.medPlot, UASEvents==1), aes(x=UASLAEMaxLRScl, y=dHighAnnoyProp,
                                                  colour=UASType, shape=UASType),
                          alpha=0.35, size=2) +
               
@@ -5658,9 +5482,8 @@ p1 <- ggplot(data=subset(m12predType, UASEvents==1)) +
                                  guide=guide_legend(title="UAS type", reverse=FALSE)) +
               scale_shape_manual(values=c(10, 11, 12), guide=guide_legend(title="UAS type", reverse=FALSE)) +
               
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
-              
+              scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
+  
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
               
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb]))) +
@@ -5671,8 +5494,8 @@ p1b <- ggplot(data=subset(m12predType, AmbientEnv=="Park" & UASEvents==1)) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35, text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=12)) +
 
-              geom_point(data=stimDataNoAmb[(stimDataNoAmb$UASEvents == 1) &
-                                            (stimDataNoAmb$AmbientEnv == "Park"), ],
+              geom_point(data=stimDataNoAmb.medPlot[(stimDataNoAmb.medPlot$UASEvents == 1) &
+                                            (stimDataNoAmb.medPlot$AmbientEnv == "Park"), ],
                          aes(x=UASLAEMaxLRScl, y=dHighAnnoyProp, colour=UASType, shape=UASType),
                          alpha=0.35, size=2) +
 
@@ -5686,8 +5509,8 @@ p1b <- ggplot(data=subset(m12predType, AmbientEnv=="Park" & UASEvents==1)) +
                                  guide=guide_legend(title="UAS type", reverse=FALSE)) +
               scale_shape_manual(values=c(10, 11, 12), guide=guide_legend(title="UAS type", reverse=FALSE)) +
 
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
+  
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
 
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
@@ -5737,8 +5560,8 @@ p1c <- ggplot(data=subset(m12predType, AmbientEnv=="Park" & UASEvents==1)) +
 
               guides(colour=guide_legend(title="Kawai et al.", reverse=FALSE, order=3)) +
 
-              rescaleTicks(pHALAENLR$LAE,
-                             pHALAENLR$LAEScl, sep=5) +
+              scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
+  
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
 
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y=expression(paste("%"~Highly~annoyed)))
@@ -5786,22 +5609,22 @@ p1d <- ggplot(data=subset(m12predType, AmbientEnv=="Park" & UASEvents==1)) +
               ggnewscale::new_scale_colour() +
 
               geom_line(data=pHALAENLR, aes(x=LAEScl, y=pHA, colour=UAS),
-                        linetype=3, size=1.5, alpha=0.9) +
+                        linetype=3, linewidth=1.5, alpha=0.9) +
 
               guides(colour=guide_legend(title="Aalmoes et al.", reverse=FALSE, order=3)) +
 
               ggnewscale::new_scale_colour() +
 
               geom_line(data=pHALAEEMPA, aes(x=LAEScl, y=pHA, colour=UAS),
-                        linetype=2, size=1, alpha=0.9) +
+                        linetype=2, linewidth=1, alpha=0.9) +
 
               scale_colour_brewer(palette = "Set1") +
 
               guides(colour=guide_legend(title="Kawai et al.", reverse=FALSE, order=4)) +
 
 
-              rescaleTicks(pHALAENLR$LAE,
-                             pHALAENLR$LAEScl, sep=5) +
+              scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
+  
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
 
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y=expression(paste("%"~Highly~annoyed)))
@@ -5827,14 +5650,14 @@ p1e <- ggplot(data=subset(m12predType1, UASEvents==1)) +
                     legend.spacing.y = unit(0.1, "cm")) +
 
               geom_line(data=pHALAENLR, aes(x=LAEScl, y=pHA, colour=UAS),
-                        linetype=3, size=1.25, alpha=0.8) +
+                        linetype=3, linewidth=1.25, alpha=0.8) +
 
               guides(colour=guide_legend(title="Aalmoes et al.", reverse=FALSE, order=2)) +
 
               ggnewscale::new_scale_colour() +
 
               geom_line(data=pHALAEEMPA, aes(x=LAEScl, y=pHA, colour=UAS),
-                        linetype=2, size=0.75, alpha=0.8) +
+                        linetype=2, linewidth=0.75, alpha=0.8) +
 
               scale_colour_brewer(palette = "Set1") +
 
@@ -5852,8 +5675,8 @@ p1e <- ggplot(data=subset(m12predType1, UASEvents==1)) +
                                  guide=guide_legend(title="UAS type", reverse=FALSE, order=1)) +
               scale_shape_manual(values=c(10, 11, 12), guide=guide_legend(title="UAS type", reverse=FALSE, order=1)) +
 
-              rescaleTicks(pHALAENLR$LAE,
-                             pHALAENLR$LAEScl, sep=5) +
+              scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
+  
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
 
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y=expression(paste("%"~Highly~annoyed)))
@@ -5879,14 +5702,14 @@ p1f <- ggplot(data=subset(m12predType1, UASEvents==1)) +
                     legend.spacing.y=unit(0.1, 'cm')) +
 
               geom_line(data=pHALAENLR, aes(x=LAEScl, y=pHA, colour=UAS),
-                        linetype=3, size=1.25, alpha=0.8) +
+                        linetype=3, linewidth=1.25, alpha=0.8) +
 
               guides(colour=guide_legend(title="Aalmoes et al.", reverse=FALSE, order=2)) +
 
               ggnewscale::new_scale_colour() +
 
               geom_line(data=pHALAEGwak, aes(x=LAEScl, y=pHA, colour=UAS),
-                        linetype=4, size=0.75, alpha=0.8) +
+                        linetype=4, linewidth=0.75, alpha=0.8) +
 
               scale_colour_brewer(palette = "Dark2") +
 
@@ -5895,7 +5718,7 @@ p1f <- ggplot(data=subset(m12predType1, UASEvents==1)) +
               ggnewscale::new_scale_colour() +
 
               geom_line(data=pHALAEEMPA, aes(x=LAEScl, y=pHA, colour=UAS),
-                        linetype=2, size=1, alpha=0.8) +
+                        linetype=2, linewidth=1, alpha=0.8) +
 
               scale_colour_brewer(palette = "Set1") +
 
@@ -5912,8 +5735,8 @@ p1f <- ggplot(data=subset(m12predType1, UASEvents==1)) +
               scale_fill_viridis(option='plasma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.8,
                                  guide=guide_legend(title="UAS type", reverse=FALSE, order=1)) +
 
-              rescaleTicks(pHALAEGwak$LAE,
-                             pHALAEGwak$LAEScl, sep=5) +
+              scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
+  
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
 
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y=expression(paste("%"~Highly~annoyed)))
@@ -5955,14 +5778,14 @@ p1g <- ggplot(data=subset(m12predType1, UASEvents==1)) +
                     legend.spacing.y=unit(-0.2, 'cm')) +
 
               geom_line(data=pHALAENLR, aes(x=LAEScl, y=pHA, colour=UAS),
-                        linetype=3, size=1.25, alpha=0.8) +
+                        linetype=3, linewidth=1.25, alpha=0.8) +
 
               guides(colour=guide_legend(title="Aalmoes et al.", reverse=FALSE, order=2)) +
 
               ggnewscale::new_scale_colour() +
 
               geom_line(data=pHALAEGwak, aes(x=LAEScl, y=pHA, colour=UAS),
-                        linetype=4, size=0.75, alpha=0.8) +
+                        linetype=4, linewidth=0.75, alpha=0.8) +
 
               scale_colour_brewer(palette = "Dark2") +
 
@@ -5971,7 +5794,7 @@ p1g <- ggplot(data=subset(m12predType1, UASEvents==1)) +
               ggnewscale::new_scale_colour() +
 
               geom_line(data=pHALAEJeong, aes(x=LAEScl, y=pHA, colour=UAS),
-                        linetype=5, size=0.75, alpha=0.8) +
+                        linetype=5, linewidth=0.75, alpha=0.8) +
 
               scale_colour_brewer(palette = "BrBG", direction=1) +
 
@@ -5980,7 +5803,7 @@ p1g <- ggplot(data=subset(m12predType1, UASEvents==1)) +
               ggnewscale::new_scale_colour() +
 
               geom_line(data=pHALAEEMPA, aes(x=LAEScl, y=pHA, colour=UAS),
-                        linetype=2, size=1, alpha=0.8) +
+                        linetype=2, linewidth=1, alpha=0.8) +
 
               scale_colour_brewer(palette = "Set1") +
 
@@ -5998,8 +5821,8 @@ p1g <- ggplot(data=subset(m12predType1, UASEvents==1)) +
                                  guide=guide_legend(title="UAS type", reverse=FALSE, order=1)) +
               scale_shape_manual(values=c(10, 11, 12), guide=guide_legend(title="UAS type", reverse=FALSE, order=1)) +
 
-              rescaleTicks(pHALAEGwak$LAE,
-                             pHALAEGwak$LAEScl, sep=5) +
+              scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
+  
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
 
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y=expression(paste("%"~Highly~annoyed)))
@@ -6027,15 +5850,15 @@ m12predType1UASRange <- subset(m12predType1, UASEvents==1) |>
 
 # incorporate m12predType1UASRange into pHALAEUASRangeAll with study 'Present study'
 m12predType1UASRange <- m12predType1UASRange |>
-  dplyr::mutate(LAE = UASLAEMaxLRScl  + stimDataNoAmb$UASLAEMaxLR[1] - stimDataNoAmb$UASLAEMaxLRScl[1],
+  dplyr::mutate(LAE = UASLAEMaxLRScl + lae_centre,
                 LAEScl = UASLAEMaxLRScl) |> dplyr::select(LAE, LAEScl, pHAmin, pHAmax)
 
-pHALAEUASRangeAll <- rbind(pHALAEUASRangeAll,
+pHALAEUASRangeAll_new <- rbind(pHALAEUASRangeAll,
                            m12predType1UASRange |> dplyr::mutate(Study = "Present study")
 )
 
 # repeat for pHALAEUASRangeAllAdj
-pHALAEUASRangeAllAdj <- rbind(pHALAEUASRangeAllAdj,
+pHALAEUASRangeAllAdj_new <- rbind(pHALAEUASRangeAllAdj,
                               m12predType1UASRange |> dplyr::mutate(Study = "Present study")
 )
 
@@ -6049,7 +5872,7 @@ p1h <- ggplot(data=m12predType1UASRange) +
 
 
               # use geom_ribbon to plot the range corresponding with the pHALAEUASRangeAll pHA data
-              geom_ribbon(data=pHALAEUASRangeAll, aes(x=LAEScl, ymin=pHAmin, ymax=pHAmax,
+              geom_ribbon(data=pHALAEUASRangeAll_new, aes(x=LAEScl, ymin=pHAmin, ymax=pHAmax,
                           fill=Study),
                           alpha=0.2) +
 
@@ -6061,25 +5884,26 @@ p1h <- ggplot(data=m12predType1UASRange) +
                                          "Present study"=mycolours[1])) +
 
               geom_line(data=pHALAENLRAir, aes(x=LAEScl, y=pHA,
-                        linetype=Type), colour=mycolours[4], size=1.25, alpha=0.6) +
+                        linetype=Type), colour=mycolours[4], linewidth=1.25, alpha=0.6) +
 
               guides(linetype=guide_legend(title="Aalmoes et al. aircraft", reverse=FALSE, order=2, ncol=2)) +
 
               ggnewscale::new_scale('linetype') +
 
               geom_line(data=pHALAEGwakAir, aes(x=LAEScl, y=pHA, linetype=Type),
-                        colour=mycolours[3], size=0.75, alpha=0.6) +
+                        colour=mycolours[3], linewidth=0.75, alpha=0.6) +
 
               guides(linetype=guide_legend(title="Gwak et al. aircraft", reverse=FALSE, order=3, ncol=2)) +
 
               ggnewscale::new_scale('linetype') +
 
               geom_line(data=pHALAEEMPAAir, aes(x=LAEScl, y=pHA, linetype=Type),
-                        colour=mycolours[2], size=1, alpha=0.6) +
+                        colour=mycolours[2], linewidth=1, alpha=0.6) +
 
               guides(linetype=guide_legend(title="Kawai et al. aircraft", reverse=FALSE, order=4, ncol=2)) +
 
-              rescaleTicks(pHALAEGwak$LAE, pHALAEGwak$LAEScl, sep=5) +
+              scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
+  
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
 
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y=expression(paste("%"~Highly~annoyed)))
@@ -6106,14 +5930,14 @@ p1i <- ggplot(data=subset(m12predType1, UASEvents==1)) +
                     legend.spacing.y=unit(0.1, 'cm')) +
 
                geom_line(data=pHALAENLRAdj, aes(x=LAEScl, y=pHA, colour=UAS),
-                        linetype=3, size=1.25, alpha=0.8) +
+                        linetype=3, linewidth=1.25, alpha=0.8) +
 
               guides(colour=guide_legend(title="Aalmoes et al. (adj.)", reverse=FALSE, order=2)) +
 
               ggnewscale::new_scale_colour() +
 
               geom_line(data=pHALAEGwakAdj, aes(x=LAEScl, y=pHA, colour=UAS),
-                        linetype=4, size=0.75, alpha=0.8) +
+                        linetype=4, linewidth=0.75, alpha=0.8) +
 
               scale_colour_brewer(palette = "Dark2") +
 
@@ -6122,7 +5946,7 @@ p1i <- ggplot(data=subset(m12predType1, UASEvents==1)) +
               ggnewscale::new_scale_colour() +
 
               geom_line(data=pHALAEEMPA, aes(x=LAEScl, y=pHA, colour=UAS),
-                        linetype=2, size=1, alpha=0.8) +
+                        linetype=2, linewidth=1, alpha=0.8) +
 
               scale_colour_brewer(palette = "Set1") +
 
@@ -6137,8 +5961,8 @@ p1i <- ggplot(data=subset(m12predType1, UASEvents==1)) +
               scale_fill_viridis(option='plasma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.8,
                                  guide=guide_legend(title="RefMap UAS type", reverse=FALSE, order=1)) +
 
-              rescaleTicks(pHALAEGwakAdj$LAE,
-                             pHALAEGwakAdj$LAEScl, sep=5) +
+              scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
+  
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
 
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y=expression(paste("%"~Highly~annoyed)))
@@ -6166,7 +5990,7 @@ p1j <- ggplot(data=m12predType1UASRange) +
 
 
               # use geom_ribbon to plot the range corresponding with the pHALAEUASRangeAllAdj pHA data
-              geom_ribbon(data=pHALAEUASRangeAllAdj, aes(x=LAEScl, ymin=pHAmin, ymax=pHAmax,
+              geom_ribbon(data=pHALAEUASRangeAllAdj_new, aes(x=LAEScl, ymin=pHAmin, ymax=pHAmax,
                           fill=Study),
                           alpha=0.2) +
 
@@ -6178,25 +6002,26 @@ p1j <- ggplot(data=m12predType1UASRange) +
                                          "Present study"=mycolours[1])) +
 
               geom_line(data=pHALAENLRAirAdj, aes(x=LAEScl, y=pHA,
-                        linetype=Type), colour=mycolours[4], size=1.25, alpha=0.6) +
+                        linetype=Type), colour=mycolours[4], linewidth=1.25, alpha=0.6) +
 
               guides(linetype=guide_legend(title="Aalmoes et al. aircraft (adj.)", reverse=FALSE, order=2)) +
 
               ggnewscale::new_scale('linetype') +
 
               geom_line(data=pHALAEGwakAirAdj, aes(x=LAEScl, y=pHA, linetype=Type),
-                        colour=mycolours[3], size=0.75, alpha=0.6) +
+                        colour=mycolours[3], linewidth=0.75, alpha=0.6) +
 
               guides(linetype=guide_legend(title="Gwak et al. aircraft (adj.)", reverse=FALSE, order=3)) +
 
               ggnewscale::new_scale('linetype') +
 
               geom_line(data=pHALAEEMPAAir, aes(x=LAEScl, y=pHA, linetype=Type),
-                        colour=mycolours[2], size=1, alpha=0.6) +
+                        colour=mycolours[2], linewidth=1, alpha=0.6) +
 
               guides(linetype=guide_legend(title="Kawai et al. aircraft", reverse=FALSE, order=4)) +
 
-              rescaleTicks(pHALAEGwakAdj$LAE, pHALAEGwakAdj$LAEScl, sep=5) +
+              scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
+  
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
 
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y=expression(paste("%"~Highly~annoyed)))
@@ -6219,7 +6044,7 @@ p2 <- ggplot(data=subset(m12predOp, UASEvents==1)) +
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_point(data=subset(stimDataNoAmb, UASEvents==1), aes(x=UASLAEMaxLRScl, y=dHighAnnoyProp,
+              geom_point(data=subset(stimDataNoAmb.medPlot, UASEvents==1), aes(x=UASLAEMaxLRScl, y=dHighAnnoyProp,
                                                  colour=UASOperation, shape=UASOperation),
                          alpha=0.35, size=2) +
               
@@ -6234,9 +6059,8 @@ p2 <- ggplot(data=subset(m12predOp, UASEvents==1)) +
                                  guide=guide_legend(title="UAS operation", reverse=TRUE)) +
               scale_shape_manual(values=c(9, 6, 2), guide=guide_legend(title="UAS operation", reverse=TRUE)) +
               
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
-              
+              scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
+  
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(-0.02, 1)) +
               
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb]))) +
@@ -6250,7 +6074,7 @@ p3 <- ggplot(data=subset(m12predEnv, UASEvents==1)) +
                     axis.text.x=element_blank(),
                     axis.ticks.x=element_blank()) +
               
-              geom_point(data=subset(stimDataNoAmb, UASEvents==1), aes(x=UASLAEMaxLRScl, y=dHighAnnoyProp,
+              geom_point(data=subset(stimDataNoAmb.medPlot, UASEvents==1), aes(x=UASLAEMaxLRScl, y=dHighAnnoyProp,
                                                  colour=AmbientEnv, shape=AmbientEnv),
                          alpha=0.35, size=2) +
               
@@ -6265,9 +6089,8 @@ p3 <- ggplot(data=subset(m12predEnv, UASEvents==1)) +
                                  guide=guide_legend(title="Amb. env.", reverse=FALSE)) +
               scale_shape_manual(values=c(1, 3), guide=guide_legend(title="Amb. env.", reverse=FALSE)) +
 
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
-              
+              scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
+  
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(-0.02, 1)) +
               
               labs(y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
@@ -6277,7 +6100,7 @@ p4 <- ggplot(data=subset(m12predEvt, AmbientEnv=='Park' & UASOperation=='Overfli
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_point(data=subset(stimDataNoAmb, AmbientEnv=='Park' & UASOperation=='Overflight'),
+              geom_point(data=subset(stimDataNoAmb.medPlot, AmbientEnv=='Park' & UASOperation=='Overflight'),
                          aes(x=UASLAEMaxLRScl, y=dHighAnnoyProp,
                              colour=factor(UASEvents), shape=factor(UASEvents)),
                          alpha=0.55, size=2) +
@@ -6293,9 +6116,8 @@ p4 <- ggplot(data=subset(m12predEvt, AmbientEnv=='Park' & UASOperation=='Overfli
                                  guide=guide_legend(title="UAS events", reverse=TRUE)) +
               scale_shape_manual(values=c(4, 5, 7, 8), guide=guide_legend(title="UAS events", reverse=TRUE)) +
 
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
-              
+              scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
+  
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(-0.02, 1)) +
               
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)), y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
@@ -6365,7 +6187,7 @@ p5 <- ggplot(data=subset(m12predEvt2, UASOperation=="Overflight" & AmbientEnv=="
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_point(data=subset(stimDataNoAmb, AmbientEnv=='Park' &
+              geom_point(data=subset(stimDataNoAmb.medPlot, AmbientEnv=='Park' &
                                        UASOperation=='Overflight' & SessionPart=='B'),
                          aes(x=UASEvents, y=dHighAnnoyProp,
                              colour=UASLAEMaxLR, shape=UASType),
@@ -6384,15 +6206,13 @@ p5 <- ggplot(data=subset(m12predEvt2, UASOperation=="Overflight" & AmbientEnv=="
 
               scale_color_viridis(option='inferno', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
                                    labels=function(x) format(round(as.numeric(x) +
-                                                                   mean(stimDataNoAmb$UASLAEMaxLR) -
-                                                                   mean(stimDataNoAmb$UASLAEMaxLRScl),
+                                                                   lae_centre,
                                                                    0),
                                                              nsmall = 0),
                                   guide=guide_legend(title=expression(paste(UAS~italic(L)[AE]*","~dB)), reverse=TRUE)) +
               scale_fill_viridis(option='inferno', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
                                    labels=function(x) format(round(as.numeric(x) +
-                                                                   mean(stimDataNoAmb$UASLAEMaxLR) -
-                                                                   mean(stimDataNoAmb$UASLAEMaxLRScl),
+                                                                   lae_centre,
                                                                    0),
                                                              nsmall = 0),
                                  guide=guide_legend(title=expression(paste(UAS~italic(L)[AE]*","~dB)), reverse=TRUE)) +
@@ -6463,9 +6283,9 @@ p1 <- ggplot(data=m12bpredAtt) +
               
               guides(colour=guide_legend(title="AAM attitude", reverse=TRUE),
                      fill=guide_legend(title="AAM attitude", reverse=TRUE)) +
-            
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+  
+              scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
+  
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
               
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)),
@@ -6486,9 +6306,9 @@ p2 <- ggplot(data=m12bpredAoR) +
               
               guides(colour=guide_legend(title="Area of residence", reverse=TRUE),
                      fill=guide_legend(title="Area of residence", reverse=TRUE)) +
-            
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+
+              scale_orig("UASLAEMaxLRScl", subjDataNoAmb.medScaling, by = 5, digits = 0) +
+  
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
               
               labs(x=expression(paste(UAS~italic(L)[AE],",",~dB)),
@@ -6856,6 +6676,7 @@ X_matrix <- model.matrix(m14bformula, data=m14bData)[,-1]
 
 StimID_kept <- m14bData$StimID[kept_rows]
 
+set.seed(808)
 stim_folds <- setNames(
   sample(rep(1:10, length.out = length(unique(StimID_kept)))),
   unique(StimID_kept)
@@ -6894,7 +6715,7 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_vline(xintercept = m14d$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m14d$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
            label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
-  labs(x = expression(log[10]*(lambda)),
+  labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
   ) +
@@ -7111,6 +6932,7 @@ X_matrix <- model.matrix(m15formula, data=m15Data)[,-1]
 
 StimID_kept <- m15Data$StimID[kept_rows]
 
+set.seed(808)
 stim_folds <- setNames(
   sample(rep(1:10, length.out = length(unique(StimID_kept)))),
   unique(StimID_kept)
@@ -7123,7 +6945,7 @@ stopifnot(length(foldid) == nrow(X_matrix), length(y_matrix) == nrow(X_matrix))
 set.seed(808)
 m15b <- glmnet::cv.glmnet(x=X_matrix, y=y_matrix, family=binomial(link='logit'),
                           alpha=0.5, foldid=foldid, type.measure='deviance',
-                          standardize=TRUE, lambda.min.ratio = 1e-320, nlambda = 50000)
+                          standardize=TRUE, lambda.min.ratio = 1e-20, nlambda = 500)
 
 coef(m15b, s = "lambda.min")
 coef(m15b, s = "lambda.1se")
@@ -7149,7 +6971,7 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_vline(xintercept = m15b$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m15b$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
            label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
-  labs(x = expression(log[10]*(lambda)),
+  labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
   ) +
@@ -7163,11 +6985,44 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
 
 ```
 
+#### fit elastic net-informed model
+
+##### formula
+
+```{r}
+
+m15cformula <- update(m15formula, . ~ . - UASLAEMaxLRScl:AmbientEnv)
+
+```
+
+#### run model
+
+##### check correlation structure
+
+```{r}
+
+geeCorStr(m15cformula, data=m15Data, family=binomial(link='logit'),
+          id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+```
+
+##### fit and estimate parameters
+
+```{r}
+
+m15c <- glmtoolbox::glmgee(m15cformula, data=m15Data,
+                         family=binomial(link='logit'),
+                         id=ID, waves=TrialNumber,
+                         corstr='exchangeable')
+
+geeParams(m15c, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+
+```
 #### analyse performance
 
 ```{r}
 
-geeModelPerformance(m12, m13, m14b, m15)
+geeModelPerformance(m12, m13, m14b, m15, m15c)
 
 m15_cv <- cv_glmgee(m15, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
                                 data=na.omit(m15Data), agg_cols="StimID",
@@ -7176,7 +7031,14 @@ m15_cv <- cv_glmgee(m15, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=
           cv_aggregated_metrics() |>
   cv_binary_metrics()
 
-compare_cv_results(list(m12=m12_cv, m13=m13_cv, m14b=m14b_cv, m15=m15_cv))
+m15c_cv <- cv_glmgee(m15c, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m15Data), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
+
+compare_cv_results(list(m12=m12_cv, m13=m13_cv, m14b=m14b_cv, m15=m15_cv, m15c=m15c_cv))
 
 ```
 
@@ -7184,21 +7046,21 @@ compare_cv_results(list(m12=m12_cv, m13=m13_cv, m14b=m14b_cv, m15=m15_cv))
 
 ```{r}
 
-m15predMeans <- avg_predictions_hybrid(m15, newdata=na.omit(m15Data),
+m15cpredMeans <- avg_predictions_hybrid(m15c, newdata=na.omit(m15Data),
                                       by=c("StimID",
                                            "UASLAEMaxLRScl",
                                            "UASEvents"),
-                                      vcov=vcov(m15, type='bias-corrected')) |>
+                                      vcov=vcov(m15c, type='bias-corrected')) |>
   dplyr::arrange(StimID)
 
-R2means <- 1 - sum((stimDataNoAmb$dHighAnnoyProp - m15predMeans$estimate)^2)/sum((stimDataNoAmb$dHighAnnoyProp - mean(stimDataNoAmb$dHighAnnoyProp))^2)
+R2means <- 1 - sum((stimDataNoAmb$dHighAnnoyProp - m15cpredMeans$estimate)^2)/sum((stimDataNoAmb$dHighAnnoyProp - mean(stimDataNoAmb$dHighAnnoyProp))^2)
 
-eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m15predMeans,
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m15cpredMeans,
                      measured_target='dHighAnnoyProp', measured_ci_low='dHighAnnoyPropCI_Low',
                      measured_ci_high='dHighAnnoyPropCI_High', fitted='estimate')
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
-ggplot(data=cbind(m15predMeans,
+ggplot(data=cbind(m15cpredMeans,
                   response=stimDataNoAmb$dHighAnnoyProp,
                   responseCI_Low=stimDataNoAmb$dHighAnnoyPropCI_Low,
                   responseCI_High=stimDataNoAmb$dHighAnnoyPropCI_High)) +
@@ -7227,7 +7089,7 @@ ggplot(data=cbind(m15predMeans,
 
 if (saveplots){
   
-  filename <- "PtsABdHiAnnoy_PredMod_LAEEnvCal_gee"
+  filename <- "PtsABdHiAnnoy_PredMod_LAEEnvnetCal_gee"
 
   ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
@@ -7243,7 +7105,7 @@ if (saveplots){
 
 ```{r}
 
-m15_deploy <- deploy_mean_model(m15,
+m15c_deploy <- deploy_mean_model(m15c,
                                  centred_vars = list(UASLAEMaxLRScl = "UASLAEMaxLR"),
                                  scaling_data = subjDataNoAmb.med,
                                  PartTrialNumberStd=0, coef_simplify=T, verbose=TRUE)
@@ -7467,6 +7329,7 @@ X_matrix <- model.matrix(m16bformula, data=m16Data)[,-1]
 
 StimID_kept <- m16Data$StimID[kept_rows]
 
+set.seed(808)
 stim_folds <- setNames(
   sample(rep(1:10, length.out = length(unique(StimID_kept)))),
   unique(StimID_kept)
@@ -7504,7 +7367,7 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_vline(xintercept = m16c$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m16c$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
            label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
-  labs(x = expression(log[10]*(lambda)),
+  labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
   ) +
@@ -7527,64 +7390,50 @@ UASLoudECMAPowAvgBinScl_sweep <- seq(min(stimDataNoAmb$UASLoudECMAPowAvgBinScl),
                                      max(stimDataNoAmb$UASLoudECMAPowAvgBinScl),
                                      length.out = 25)
 
+UASSharpAurISO3PowAvgMaxLRStd_sweep <- seq(-2.8, 1.9, by=0.94)
+UASTonalAwSHMInt05ExMaxLRStd_sweep <- seq(-1.89, 2.5, by=1.05)
+
 q1 <- 0.1
 q2 <- 0.9
 
-m16DataFit <- insight::get_data(m16b)
-m16bpredEvt <- avg_predictions_hybrid(m16b, newdata=m16DataFit,
-                                              variables = list(UASLoudECMAPowAvgBinScl=UASLoudECMAPowAvgBinScl_sweep),
-                                          by = c("UASLoudECMAPowAvgBinScl", "UASEvents"),
-                                          vcov = vcov(m16b, type = "bias-corrected"))
+m16bDataFit <- insight::get_data(m16b)
+
+m16bpredEvt <- avg_predictions_hybrid(m16b, newdata = m16bDataFit,
+                  variables = list(UASLoudECMAPowAvgBinScl = UASLoudECMAPowAvgBinScl_sweep),
+                  by = c("UASLoudECMAPowAvgBinScl", "UASEvents"),
+                  vcov = vcov(m16b, type = "bias-corrected")) |>
+  add_original_units(subjDataNoAmb.medScaling)
 gc()
 
-m16bpredNS <- avg_predictions_hybrid(m16b, newdata=m16DataFit,
-                                    variables = list(UASLoudECMAPowAvgBinScl=UASLoudECMAPowAvgBinScl_sweep,
-                                      UASSharpAurISO3PowAvgMaxLRScl=seq(-0.6, 0.4, by=0.2),
-                                      UASTonalAwSHMInt05ExMaxLRScl=unname(quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, 
-                                                                              c(q1, q2)))),
-                                by = c("UASLoudECMAPowAvgBinScl", "UASSharpAurISO3PowAvgMaxLRScl",
-                                       "UASTonalAwSHMInt05ExMaxLRScl"),
-                                vcov = vcov(m16b, type = "bias-corrected"))
+m16bpredNS <- avg_predictions_hybrid(m16b, newdata = m16bDataFit,
+                  variables = list(
+                    UASLoudECMAPowAvgBinScl = UASLoudECMAPowAvgBinScl_sweep,
+                    UASSharpAurISO3PowAvgMaxLRStd = UASSharpAurISO3PowAvgMaxLRStd_sweep,
+                    UASTonalAwSHMInt05ExMaxLRStd = to_model(
+                      unname(quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLR, c(q1, q2))),
+                      "UASTonalAwSHMInt05ExMaxLRStd", subjDataNoAmb.medScaling)),
+                  by = c("UASLoudECMAPowAvgBinScl", "UASSharpAurISO3PowAvgMaxLRStd",
+                         "UASTonalAwSHMInt05ExMaxLRStd"),
+                  vcov = vcov(m16b, type = "bias-corrected")) |>
+  add_original_units(subjDataNoAmb.medScaling) |>
+  dplyr::mutate(UASSharpAurISO3PowAvgMaxLR = num_factor(UASSharpAurISO3PowAvgMaxLR),
+                UASTonalAwSHMInt05ExMaxLR  = num_factor(UASTonalAwSHMInt05ExMaxLR))
 gc()
 
-m16bpredNT <- avg_predictions_hybrid(m16b, newdata=m16DataFit,
-                                    variables = list(UASLoudECMAPowAvgBinScl=UASLoudECMAPowAvgBinScl_sweep,
-                                      UASTonalAwSHMInt05ExMaxLRScl=seq(-0.35, 0.7, by=0.25),
-                                      UASSharpAurISO3PowAvgMaxLRScl=unname(quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl,
-                                                                               c(q1, q2)))),
-                                by = c("UASLoudECMAPowAvgBinScl", "UASTonalAwSHMInt05ExMaxLRScl",
-                                       "UASSharpAurISO3PowAvgMaxLRScl"),
-                                vcov = vcov(m16b, type = "bias-corrected"))
+m16bpredNT <- avg_predictions_hybrid(m16b, newdata = m16bDataFit,
+                  variables = list(
+                    UASLoudECMAPowAvgBinScl = UASLoudECMAPowAvgBinScl_sweep,
+                    UASTonalAwSHMInt05ExMaxLRStd = UASTonalAwSHMInt05ExMaxLRStd_sweep,
+                    UASSharpAurISO3PowAvgMaxLRStd = to_model(
+                      unname(quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLR, c(q1, q2))),
+                      "UASSharpAurISO3PowAvgMaxLRStd", subjDataNoAmb.medScaling)),
+                  by = c("UASLoudECMAPowAvgBinScl", "UASTonalAwSHMInt05ExMaxLRStd",
+                         "UASSharpAurISO3PowAvgMaxLRStd"),
+                  vcov = vcov(m16b, type = "bias-corrected")) |>
+  add_original_units(subjDataNoAmb.medScaling) |>
+  dplyr::mutate(UASSharpAurISO3PowAvgMaxLR = num_factor(UASSharpAurISO3PowAvgMaxLR),
+                UASTonalAwSHMInt05ExMaxLR  = num_factor(UASTonalAwSHMInt05ExMaxLR))
 gc()
-
-m16bpredNS <- m16bpredNS |> dplyr::mutate(UASSharpAurISO3PowAvgMaxLRScl = factor(UASSharpAurISO3PowAvgMaxLRScl),
-                                          UASTonalAwSHMInt05ExMaxLRScl = factor(UASTonalAwSHMInt05ExMaxLRScl))
-m16bpredNT <- m16bpredNT |> dplyr::mutate(UASTonalAwSHMInt05ExMaxLRScl = factor(UASTonalAwSHMInt05ExMaxLRScl),
-                                          UASSharpAurISO3PowAvgMaxLRScl = factor(UASSharpAurISO3PowAvgMaxLRScl))
-
-
-# Find the midpoint to split the raw data into Min/Max categories
-low_val <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, q1)
-hi_val <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, q2)
-midpoint <- quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLRScl, 0.5)
-
-# Apply the factor grouping to the raw data
-stimDataNoAmbTemp1 <- stimDataNoAmb |>
-  mutate(UASTonalAwSHMInt05ExMaxLRScl = factor(
-    ifelse(UASTonalAwSHMInt05ExMaxLRScl <= midpoint, low_val, hi_val),
-    levels = c(low_val, hi_val)
-  ))
-
-# Find the midpoint to split the raw data into Min/Max categories
-low_val <- quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl, q1)
-hi_val <- quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl, q2)
-midpoint <- quantile(stimDataNoAmb$UASSharpAurISO3PowAvgMaxLRScl, 0.5)
-
-stimDataNoAmbTemp2 <- stimDataNoAmb |>
-  mutate(UASSharpAurISO3PowAvgMaxLRScl = factor(
-    ifelse(UASSharpAurISO3PowAvgMaxLRScl <= midpoint, low_val, hi_val),
-    levels = c(low_val, hi_val)
-  ))
 
 ```
 
@@ -7597,7 +7446,7 @@ ggplot(data=m16bpredEvt) +
         text = element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   
-  geom_point(data=stimDataNoAmb,
+  geom_point(data=stimDataNoAmb.medPlot,
              aes(x=UASLoudECMAPowAvgBinScl, y=dHighAnnoyProp,
                  colour=factor(UASEvents), shape=factor(UASEvents)),
              alpha=0.55, size=2) +
@@ -7613,9 +7462,8 @@ ggplot(data=m16bpredEvt) +
                      guide=guide_legend(title="UAS events", reverse=TRUE)) +
   scale_shape_manual(values=c(4, 5, 7, 8), guide=guide_legend(title="UAS events", reverse=TRUE)) +
 
-  rescaleTicks(stimDataNoAmb$UASLoudECMAPowAvgBin,
-                 stimDataNoAmb$UASLoudECMAPowAvgBinScl, sep=1) +
-
+  scale_orig("UASLoudECMAPowAvgBinScl", subjDataNoAmb.medScaling, by = 1, digits = 0) +
+  
   scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
   
   labs(x=expression(paste(UAS~italic(N)^"*",",",~sone[SHM])),
@@ -7632,105 +7480,46 @@ if (saveplots){
   unlink(paste(filename, ".pdf", sep=""))
 }
 
-p1 <- ggplot(data=m16bpredNS) +
-  theme(panel.grid = element_blank(), aspect.ratio=1.35,
-        text = element_text(family = "serif", size=16),
-        axis.text.x=element_text(family = "serif", size=10),
-        axis.text.y=element_text(family = "serif", size=14)) +
-  
-  geom_point(data=stimDataNoAmbTemp1,
-             aes(x=UASLoudECMAPowAvgBinScl, y=dHighAnnoyProp, colour=UASSharpAurISO3PowAvgMaxLRScl),
-             alpha=0.55, size=2) +
+p1 <- plot_slice(m16bpredNS, stimDataNoAmb,
+                 x = "UASLoudECMAPowAvgBin", y = "dHighAnnoyProp",
+                 colour_v = "UASSharpAurISO3PowAvgMaxLR",
+                 facet_v  = "UASTonalAwSHMInt05ExMaxLR",
+                 facet_labeller = label_bquote(rows = UAS~italic(T)[a*Sigma*5]*","~tu[SHM] %->%
+                                                 .(as.character(UASTonalAwSHMInt05ExMaxLR))),
+                 q = c(q1, q2), option = "mako",
+                 colour_title = expression(paste(UAS~italic(S)^"*"*","~acum[A~"|"~"M-G-S"])),
+                 colour_breaks = to_original(UASSharpAurISO3PowAvgMaxLRStd_sweep,
+                                             "UASSharpAurISO3PowAvgMaxLRStd",
+                                             subjDataNoAmb.medScaling)) +
+  theme(panel.grid = element_blank(), aspect.ratio = 1.35, legend.position = 'right',
+        text = element_text(family = "serif", size = 16),
+        axis.text.x = element_text(family = "serif", size = 10),
+        axis.text.y = element_text(family = "serif", size = 14)) &
+  scale_x_continuous(breaks = scales::breaks_width(1)) &
+  scale_y_continuous(breaks = seq(0, 1, by = 0.1), labels = seq(0, 100, by = 10), limits = c(0, 1)) &
+  labs(x = expression(paste(UAS~italic(N)^"*", ",", ~sone[SHM])),
+       y = expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
-  scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.2, end = 0.8,
-                      breaks=seq(-0.6, 0.4, by=0.2),
-                      labels=function(x) format(round(as.numeric(x) +
-                                            mean(subjDataNoAmb.med$UASSharpAurISO3PowAvgMaxLR), 2), nsmall = 2),
-                      guide=guide_legend(title=expression(paste(UAS~italic(S)^"*"*","~acum[A~"|"~"M-G-S"])),
-                                         reverse=TRUE)) +
+p2 <- plot_slice(m16bpredNT, stimDataNoAmb,
+                 x = "UASLoudECMAPowAvgBin", y = "dHighAnnoyProp",
+                 colour_v = "UASTonalAwSHMInt05ExMaxLR",
+                 facet_v  = "UASSharpAurISO3PowAvgMaxLR",
+                 facet_labeller = label_bquote(rows = UAS~italic(S)^"*"*","~acum[A~"|"~"M-G-S"] %->%
+                                                 .(as.character(UASSharpAurISO3PowAvgMaxLR))),
+                 q = c(q1, q2), option = "rocket",
+                 colour_title = expression(paste(UAS~italic(T)[a*Sigma*5]*","~tu[SHM])),
+                 colour_breaks = to_original(UASTonalAwSHMInt05ExMaxLRStd_sweep,
+                                             "UASTonalAwSHMInt05ExMaxLRStd",
+                                             subjDataNoAmb.medScaling)) +
+  theme(panel.grid = element_blank(), aspect.ratio = 1.35, legend.position = 'right',
+        text = element_text(family = "serif", size = 16),
+        axis.text.x = element_text(family = "serif", size = 10),
+        axis.text.y = element_text(family = "serif", size = 14)) &
+  scale_x_continuous(breaks = scales::breaks_width(1)) &
+  scale_y_continuous(breaks = seq(0, 1, by = 0.1), labels = seq(0, 100, by = 10), limits = c(0, 1)) &
+  labs(x = expression(paste(UAS~italic(N)^"*", ",", ~sone[SHM])),
+       y = expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
-  ggnewscale::new_scale_colour() +
-
-  geom_ribbon(aes(x=UASLoudECMAPowAvgBinScl, ymin=conf.low, ymax=conf.high,
-                  fill=UASSharpAurISO3PowAvgMaxLRScl),
-              alpha=0.15) +
-  
-  geom_line(aes(x=UASLoudECMAPowAvgBinScl, y=estimate, colour=UASSharpAurISO3PowAvgMaxLRScl), linewidth=1) +
-  
-  scale_color_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
-                      labels=function(x) format(round(as.numeric(x) +
-                                            mean(subjDataNoAmb.med$UASSharpAurISO3PowAvgMaxLR), 2), nsmall = 2),
-                guide=guide_legend(title=expression(paste(UAS~italic(S)^"*"*","~acum[A~"|"~"M-G-S"])),
-                                   reverse=TRUE)) +
-
-  scale_fill_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
-                     labels=function(x) format(round(as.numeric(x) +
-                                            mean(subjDataNoAmb.med$UASSharpAurISO3PowAvgMaxLR), 2), nsmall = 2),
-                guide=guide_legend(title=expression(paste(UAS~italic(S)^"*"*","~acum[A~"|"~"M-G-S"])),
-                                   reverse=TRUE)) +
-    
-  rescaleTicks(stimDataNoAmb$UASLoudECMAPowAvgBin,
-               stimDataNoAmb$UASLoudECMAPowAvgBinScl, sep=1) +
-
-  scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
-  
-  labs(x=expression(paste(UAS~italic(N)^"*",",",~sone[SHM])),
-       y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb]))) +
-  facet_grid(rows = vars(UASTonalAwSHMInt05ExMaxLRScl),
-             labeller = label_bquote(rows = UAS~italic(T)[a*Sigma*5]*","~tu[SHM] %->%
-                                       .(format(round(as.numeric(as.character(UASTonalAwSHMInt05ExMaxLRScl)) +
-                                                        mean(subjDataNoAmb.med$UASTonalAwSHMInt05ExMaxLR), 2),
-                                                nsmall = 2))))
-
-p2 <- ggplot(data=m16bpredNT) +
-  theme(panel.grid = element_blank(), aspect.ratio=1.35,
-        text = element_text(family = "serif", size=16),
-        axis.text.x=element_text(family = "serif", size=10),
-        axis.text.y=element_text(family = "serif", size=14)) +
-  
-  geom_point(data=stimDataNoAmbTemp2,
-             aes(x=UASLoudECMAPowAvgBinScl, y=dHighAnnoyProp, colour=UASTonalAwSHMInt05ExMaxLRScl),
-             alpha=0.55, size=2) +
-
-  scale_color_viridis(option='rocket', direction=1, discrete=FALSE, begin = 0.2, end = 0.8,
-                      breaks=seq(-0.35, 0.65, by=0.25),
-                      labels=function(x) format(round(as.numeric(x) +
-                                            mean(subjDataNoAmb.med$UASTonalAwSHMInt05ExMaxLR), 2), nsmall = 2),
-                      guide=guide_legend(title=expression(paste(UAS~italic(T)[a*Sigma*5]*","~tu[SHM])),
-                                         reverse=TRUE)) +
-
-  ggnewscale::new_scale_colour() +
-
-  geom_ribbon(aes(x=UASLoudECMAPowAvgBinScl, ymin=conf.low, ymax=conf.high,
-                  fill=UASTonalAwSHMInt05ExMaxLRScl),
-              alpha=0.15) +
-  
-  geom_line(aes(x=UASLoudECMAPowAvgBinScl, y=estimate, colour=UASTonalAwSHMInt05ExMaxLRScl), linewidth=1) +
-  
-  scale_color_viridis(option='rocket', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
-                      labels=function(x) format(round(as.numeric(x) +
-                                            mean(subjDataNoAmb.med$UASTonalAwSHMInt05ExMaxLR), 2), nsmall = 2),
-                guide=guide_legend(title=expression(paste(UAS~italic(T)[a*Sigma*5]*","~tu[SHM])),
-                                   reverse=TRUE)) +
-
-  scale_fill_viridis(option='rocket', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
-                     labels=function(x) format(round(as.numeric(x) +
-                                            mean(subjDataNoAmb.med$UASTonalAwSHMInt05ExMaxLR), 2), nsmall = 2),
-                guide=guide_legend(title=expression(paste(UAS~italic(T)[a*Sigma*5]*","~tu[SHM])),
-                                   reverse=TRUE)) +
-    
-  rescaleTicks(stimDataNoAmb$UASLoudECMAPowAvgBin,
-               stimDataNoAmb$UASLoudECMAPowAvgBinScl, sep=1) +
-
-  scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
-  
-  labs(x=expression(paste(UAS~italic(N)^"*",",",~sone[SHM])),
-       y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb]))) +
-  facet_grid(rows = vars(UASSharpAurISO3PowAvgMaxLRScl),
-             labeller = label_bquote(rows = UAS~italic(S)^"*"*","~acum[A~"|"~"M-G-S"] %->%
-                                       .(format(round(as.numeric(as.character(UASSharpAurISO3PowAvgMaxLRScl)) +
-                                                        mean(subjDataNoAmb.med$UASSharpAurISO3PowAvgMaxLR), 2),
-                                                nsmall = 2))))
 
 p1 + p2 + plot_layout(guides = 'collect') & theme(legend.position = 'right')
 
@@ -7771,11 +7560,11 @@ m16b_deploy <- deploy_mean_model(m16b,
 
 # save the model
 if (savedata) {
-  filename = "dHiA_LAEEnv"
-  saveRDS(m15, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+  filename = "dHiA_LAEEnvnet"
+  saveRDS(m15c, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
   
-  filename = "dHiA_LAEEnv_deploy"
-  saveRDS(m15_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+  filename = "dHiA_LAEEnvnet_deploy"
+  saveRDS(m15c_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
   
   filename = "dHiA_LAESQEnv"
   saveRDS(m16b, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
@@ -7992,6 +7781,7 @@ X_matrix <- model.matrix(m17formula, data=m17Data)[,-1]
 
 StimID_kept <- m17Data$StimID[kept_rows]
 
+set.seed(808)
 stim_folds <- setNames(
   sample(rep(1:10, length.out = length(unique(StimID_kept)))),
   unique(StimID_kept)
@@ -8029,7 +7819,7 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_vline(xintercept = m17c$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m17c$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
            label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
-  labs(x = expression(log[10]*(lambda)),
+  labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
   ) +
@@ -8274,20 +8064,6 @@ m18predIT <- avg_predictions_hybrid(m18, newdata=m18DataFit,
   )
 gc()
 
-
-stimPlot <- add_original_units(stimDataNoAmb, stimDataNoAmbScaling)
- 
-# Median split of the raw data, labelled by the 10% / 90% quantile values
-hi_lo <- function(x) {
-  q <- quantile(x, c(q1, q2), na.rm = TRUE)
-  num_factor(ifelse(x <= median(x, na.rm = TRUE), q[[1]], q[[2]]))
-}
-stimPlot1 <- dplyr::mutate(stimPlot,
-                           UASTonalAwSHMInt05ExMaxLR = hi_lo(UASTonalAwSHMInt05ExMaxLR))
-
-stimPlot2 <- dplyr::mutate(stimPlot,
-                           UASSharpAurISO3PowAvgMaxLR = hi_lo(UASSharpAurISO3PowAvgMaxLR))
-
 ```
 
 ###### visualise plots of PA effects
@@ -8299,7 +8075,7 @@ ggplot(data=m18predEvt) +
             text = element_text(family = "serif", size=16),
             axis.text=element_text(family = "serif", size=14)) +
       
-      geom_point(data=stimPlot,
+      geom_point(data=stimDataNoAmb,
                  aes(x=UASImpulsLoudWZAvgMaxLR, y=dHighAnnoyProp,
                      colour=factor(UASEvents), shape=factor(UASEvents)),
                  alpha=0.55, size=2) +
@@ -8337,98 +8113,46 @@ if (saveplots){
 sharp_title <- expression(paste(UAS~italic(S)^"*"*","~acum[A~"|"~"M-G-S"]))
 tonal_title <- expression(paste(UAS~italic(T)[a*Sigma*5]*","~tu[SHM]))
 
-p1 <- ggplot(data = m18predIS) +
-  theme(panel.grid = element_blank(), aspect.ratio = 1.35,
+p1 <- plot_slice(m18predIS, stimDataNoAmb,
+                 x = "UASImpulsLoudWZAvgMaxLR", y = "dHighAnnoyProp",
+                 colour_v = "UASSharpAurISO3PowAvgMaxLR",
+                 facet_v  = "UASTonalAwSHMInt05ExMaxLR",
+                 facet_labeller = label_bquote(rows = UAS~italic(T)[a*Sigma*5]*","~tu[SHM] %->%
+                                                 .(as.character(UASTonalAwSHMInt05ExMaxLR))),
+                 q = c(q1, q2), option = "mako",
+                 colour_title = expression(paste(UAS~italic(S)^"*"*","~acum[A~"|"~"M-G-S"])),
+                 colour_breaks = to_original(UASSharpAurISO3PowAvgMaxLRStd_sweep,
+                                             "UASSharpAurISO3PowAvgMaxLRStd",
+                                             subjDataNoAmb.medScaling)) +
+  theme(panel.grid = element_blank(), aspect.ratio = 1.35, legend.position = 'right',
         text = element_text(family = "serif", size = 16),
         axis.text.x = element_text(family = "serif", size = 10),
-        axis.text.y = element_text(family = "serif", size = 14)) +
- 
-  geom_point(data = stimPlot1,
-             aes(x = UASImpulsLoudWZAvgMaxLR, y = dHighAnnoyProp,
-                 colour = UASSharpAurISO3PowAvgMaxLR),
-             alpha = 0.55, size = 2) +
-  scale_color_viridis(option = "mako", direction = 1, discrete = FALSE,
-                      begin = 0.2, end = 0.8,
-                      breaks = to_original(UASSharpAurISO3PowAvgMaxLRStd_sweep,
-                                           "UASSharpAurISO3PowAvgMaxLRStd",
-                                           subjDataNoAmb.medScaling),
-                      labels = fmt_num,
-                      guide = guide_legend(title = sharp_title, reverse = TRUE)) +
- 
-  ggnewscale::new_scale_colour() +
- 
-  geom_ribbon(aes(x = UASImpulsLoudWZAvgMaxLR, ymin = conf.low, ymax = conf.high,
-                  fill = UASSharpAurISO3PowAvgMaxLR),
-              alpha = 0.15) +
-  geom_line(aes(x = UASImpulsLoudWZAvgMaxLR, y = estimate,
-                colour = UASSharpAurISO3PowAvgMaxLR),
-            linewidth = 1) +
- 
-  # factor levels are already original-unit labels, so no labels= functions
-  scale_color_viridis(option = "mako", direction = 1, discrete = TRUE,
-                      begin = 0.2, end = 0.8,
-                      guide = guide_legend(title = sharp_title, reverse = TRUE)) +
-  scale_fill_viridis(option = "mako", direction = 1, discrete = TRUE,
-                     begin = 0.2, end = 0.8,
-                     guide = guide_legend(title = sharp_title, reverse = TRUE)) +
- 
-  scale_x_continuous(breaks = seq(0.2, 1.4, by = 0.1)) +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.1), labels = seq(0, 100, by = 10),
-                     limits = c(0, 1)) +
- 
-  labs(x = expression(paste(UAS~italic(bar(I[N])),",",~sone[W*"-"*R~"|"~Z])),
-       y = expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb]))) +
- 
-  facet_grid(rows = vars(UASTonalAwSHMInt05ExMaxLR),
-             labeller = label_bquote(
-               rows = UAS~italic(T)[a*Sigma*5]*","~tu[SHM] %->%
-                 .(as.character(UASTonalAwSHMInt05ExMaxLR))))
+        axis.text.y = element_text(family = "serif", size = 14)) &
+  scale_x_continuous(breaks = scales::breaks_width(0.2)) &
+  scale_y_continuous(breaks = seq(0, 1, by = 0.1), labels = seq(0, 100, by = 10), limits = c(0, 1)) &
+  labs(x = expression(paste(UAS~italic(bar(I[N])), ",", ~sone[W*"-"*R~"|"~Z])),
+       y = expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
-p2 <- ggplot(data=m18predIT) +
-  theme(panel.grid = element_blank(), aspect.ratio=1.35,
-        text = element_text(family = "serif", size=16),
-        axis.text.x=element_text(family = "serif", size=10),
-        axis.text.y=element_text(family = "serif", size=14)) +
-  geom_point(data = stimPlot2,
-             aes(x = UASImpulsLoudWZAvgMaxLR, y = dHighAnnoyProp,
-                 colour = UASTonalAwSHMInt05ExMaxLR),
-             alpha = 0.55, size = 2) +
-  scale_color_viridis(option = "rocket", direction = 1, discrete = FALSE,
-                      begin = 0.2, end = 0.8,
-                      breaks = to_original(UASTonalAwSHMInt05ExMaxLRStd_sweep,
-                                           "UASTonalAwSHMInt05ExMaxLRStd",
-                                           subjDataNoAmb.medScaling),
-                      labels = fmt_num,
-                      guide = guide_legend(title = tonal_title, reverse = TRUE)) +
- 
-  ggnewscale::new_scale_colour() +
- 
-  geom_ribbon(aes(x = UASImpulsLoudWZAvgMaxLR, ymin = conf.low, ymax = conf.high,
-                  fill = UASTonalAwSHMInt05ExMaxLR),
-              alpha = 0.15) +
-  geom_line(aes(x = UASImpulsLoudWZAvgMaxLR, y = estimate,
-                colour = UASTonalAwSHMInt05ExMaxLR),
-            linewidth = 1) +
- 
-  # factor levels are already original-unit labels, so no labels= functions
-  scale_color_viridis(option = "rocket", direction = 1, discrete = TRUE,
-                      begin = 0.2, end = 0.8,
-                      guide = guide_legend(title = tonal_title, reverse = TRUE)) +
-  scale_fill_viridis(option = "rocket", direction = 1, discrete = TRUE,
-                     begin = 0.2, end = 0.8,
-                     guide = guide_legend(title = tonal_title, reverse = TRUE)) +
- 
-  scale_x_continuous(breaks = seq(0.2, 1.4, by = 0.1)) +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.1), labels = seq(0, 100, by = 10),
-                     limits = c(0, 1)) +
- 
-  labs(x = expression(paste(UAS~italic(bar(I[N])),",",~sone[W*"-"*R~"|"~Z])),
-       y = expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb]))) +
- 
-  facet_grid(rows = vars(UASSharpAurISO3PowAvgMaxLR),
-             labeller = label_bquote(
-               rows = UAS~italic(S)^"*"*","~acum[A~"|"~"M-G-S"] %->%
-                 .(as.character(UASSharpAurISO3PowAvgMaxLR))))
+p2 <- plot_slice(m18predIT, stimDataNoAmb,
+                 x = "UASImpulsLoudWZAvgMaxLR", y = "dHighAnnoyProp",
+                 colour_v = "UASTonalAwSHMInt05ExMaxLR",
+                 facet_v  = "UASSharpAurISO3PowAvgMaxLR",
+                 facet_labeller = label_bquote(rows = UAS~italic(S)^"*"*","~acum[A~"|"~"M-G-S"] %->%
+                                                 .(as.character(UASSharpAurISO3PowAvgMaxLR))),
+                 q = c(q1, q2), option = "rocket",
+                 colour_title = expression(paste(UAS~italic(T)[a*Sigma*5]*","~tu[SHM])),
+                 colour_breaks = to_original(UASTonalAwSHMInt05ExMaxLRStd_sweep,
+                                             "UASTonalAwSHMInt05ExMaxLRStd",
+                                             subjDataNoAmb.medScaling)) +
+  theme(panel.grid = element_blank(), aspect.ratio = 1.35, legend.position = 'right',
+        text = element_text(family = "serif", size = 16),
+        axis.text.x = element_text(family = "serif", size = 10),
+        axis.text.y = element_text(family = "serif", size = 14)) &
+  scale_x_continuous(breaks = scales::breaks_width(0.2)) &
+  scale_y_continuous(breaks = seq(0, 1, by = 0.1), labels = seq(0, 100, by = 10), limits = c(0, 1)) &
+  labs(x = expression(paste(UAS~italic(bar(I[N])), ",", ~sone[W*"-"*R~"|"~Z])),
+       y = expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
+
 
 p1 + p2 + plot_layout(guides = 'collect') & theme(legend.position = 'right')
 
@@ -8490,6 +8214,7 @@ X_matrix <- model.matrix(m18formula, data=m18Data)[,-1]
 
 StimID_kept <- m18Data$StimID[kept_rows]
 
+set.seed(808)
 stim_folds <- setNames(
   sample(rep(1:10, length.out = length(unique(StimID_kept)))),
   unique(StimID_kept)
@@ -8527,7 +8252,7 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_vline(xintercept = m18b$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m18b$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
            label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
-  labs(x = expression(log[10]*(lambda)),
+  labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
   ) +
@@ -8738,7 +8463,7 @@ ggplot(data=m18cpredEvt) +
             text = element_text(family = "serif", size=16),
             axis.text=element_text(family = "serif", size=14)) +
       
-      geom_point(data=stimPlot,
+      geom_point(data=stimDataNoAmb,
                  aes(x=UASImpulsLoudWZAvgMaxLR, y=dHighAnnoyProp,
                      colour=factor(UASEvents), shape=factor(UASEvents)),
                  alpha=0.55, size=2) +
@@ -9032,22 +8757,8 @@ m19preddST <- avg_predictions_hybrid(m19, newdata=m19DataFit,
     UASTonalAwSHMInt05ExMaxLR  = num_factor(UASTonalAwSHMInt05ExMaxLR)
   )
 
-
-stimPlot <- add_original_units(stimDataNoAmb, stimDataNoAmbScaling)
- 
-# Median split of the raw data, labelled by the 30% / 90% quantile values
-hi_lo <- function(x) {
-  q <- quantile(x, c(q1, q2), na.rm = TRUE)
-  num_factor(ifelse(x <= median(x, na.rm = TRUE), q[[1]], q[[2]]))
-}
-
-stimPlot1 <- dplyr::mutate(stimPlot,
-                           UASTonalAwSHMInt05ExMaxLR = hi_lo(UASTonalAwSHMInt05ExMaxLR))
-
-stimPlot2 <- dplyr::mutate(stimPlot,
-                           UASImpulsLoudWZAvgMaxLR = hi_lo(UASImpulsLoudWZAvgMaxLR))
-
 ```
+
 ### visualise plots of PA effects
 
 ```{r}
@@ -9057,7 +8768,7 @@ ggplot(data=m19predEvt) +
         text = element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   
-  geom_point(data=stimPlot,
+  geom_point(data=stimDataNoAmb,
              aes(x=dSharpAurSHMPowAvgMaxLR, y=dHighAnnoyProp,
                  colour=factor(UASEvents), shape=factor(UASEvents)),
              alpha=0.55, size=2) +
@@ -9092,99 +8803,45 @@ if (saveplots){
   unlink(paste(filename, ".pdf", sep=""))
 }
 
-impuls_title <- expression(paste(UAS~italic(bar(I[N])),",",~sone[W*"-"*R~"|"~Z]))
-tonal_title <- expression(paste(UAS~italic(T)[a*Sigma*5]*","~tu[SHM]))
+p1 <- plot_slice(m19preddSI, stimDataNoAmb,
+                 x = "dSharpAurSHMPowAvgMaxLR", y = "dHighAnnoyProp",
+                 colour_v = "UASImpulsLoudWZAvgMaxLR",
+                 facet_v  = "UASTonalAwSHMInt05ExMaxLR",
+                 facet_labeller = label_bquote(rows = UAS~italic(T)[a*Sigma*5]*","~tu[SHM] %->%
+                                                 .(as.character(UASTonalAwSHMInt05ExMaxLR))),
+                 q = c(q1, q2), option = "mako",
+                 colour_title = expression(paste(UAS~italic(bar(I[N])), ",", ~sone[W*"-"*R~"|"~Z])),
+                 colour_breaks = to_original(UASImpulsLoudWZAvgMaxLRStd_sweep,
+                                             "UASImpulsLoudWZAvgMaxLRStd",
+                                             subjDataNoAmb.medScaling)) +
+  theme(panel.grid = element_blank(), aspect.ratio = 1.35, legend.position = 'right',
+        text = element_text(family = "serif", size = 16),
+        axis.text.x = element_text(family = "serif", size = 10),
+        axis.text.y = element_text(family = "serif", size = 14)) &
+  scale_x_continuous(breaks = scales::breaks_width(0.1)) &
+  scale_y_continuous(breaks = seq(0, 1, by = 0.1), labels = seq(0, 100, by = 10), limits = c(0, 1)) &
+  labs(x = expression(paste(UAS~italic(Delta*S)^"*", ",", ~acum[A~"|"~SHM])),
+       y = expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
-p1 <- ggplot(data=m19preddSI) +
-  theme(panel.grid = element_blank(), aspect.ratio=1.35,
-        text = element_text(family = "serif", size=16),
-        axis.text.x=element_text(family = "serif", size=10),
-        axis.text.y=element_text(family = "serif", size=14)) +
-  
-  geom_point(data=stimPlot1,
-             aes(x=dSharpAurSHMPowAvgMaxLR, y=dHighAnnoyProp, colour=UASImpulsLoudWZAvgMaxLR),
-             alpha=0.55, size=2) +
-
-  scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.2, end = 0.8,
-                      breaks=to_original(UASImpulsLoudWZAvgMaxLRStd_sweep,
-                               "UASImpulsLoudWZAvgMaxLRStd",
-                               subjDataNoAmb.medScaling),
-                      labels=fmt_num,
-                      guide=guide_legend(title=impuls_title,
-                                         reverse=TRUE)) +
-
-  ggnewscale::new_scale_colour() +
-
-  geom_ribbon(aes(x=dSharpAurSHMPowAvgMaxLR, ymin=conf.low, ymax=conf.high,
-                  fill=UASImpulsLoudWZAvgMaxLR),
-              alpha=0.15) +
-  
-  geom_line(aes(x=dSharpAurSHMPowAvgMaxLR, y=estimate, colour=UASImpulsLoudWZAvgMaxLR), linewidth=1) +
-  
-  scale_color_viridis(option = "mako", direction = 1, discrete = TRUE,
-                      begin = 0.2, end = 0.8,
-                      guide = guide_legend(title = impuls_title, reverse = TRUE)) +
-  scale_fill_viridis(option = "mako", direction = 1, discrete = TRUE,
-                     begin = 0.2, end = 0.8,
-                     guide = guide_legend(title = impuls_title, reverse = TRUE)) +
-    
-  scale_x_continuous(breaks=seq(0.02, 0.55, by=0.1)) +
-
-  scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
-  
-  labs(x=expression(paste(UAS~italic(Delta*S)^"*",",",~acum[A~"|"~SHM])),
-       y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb]))) +
-
-  facet_grid(rows = vars(UASTonalAwSHMInt05ExMaxLR),
-             labeller = label_bquote(
-               rows = UAS~italic(T)[a*Sigma*5]*","~tu[SHM] %->%
-                 .(as.character(UASTonalAwSHMInt05ExMaxLR))))
-
-p2 <- ggplot(data=m19preddST) +
-  theme(panel.grid = element_blank(), aspect.ratio=1.35,
-        text = element_text(family = "serif", size=16),
-        axis.text.x=element_text(family = "serif", size=10),
-        axis.text.y=element_text(family = "serif", size=14)) +
-  
-  geom_point(data=stimPlot2,
-             aes(x=dSharpAurSHMPowAvgMaxLR, y=dHighAnnoyProp, colour=UASTonalAwSHMInt05ExMaxLR),
-             alpha=0.55, size=2) +
-
-  scale_color_viridis(option='rocket', direction=1, discrete=FALSE, begin = 0.2, end = 0.8,
-                      breaks=to_original(UASTonalAwSHMInt05ExMaxLRStd_sweep,
-                               "UASTonalAwSHMInt05ExMaxLRStd",
-                               subjDataNoAmb.medScaling),
-                      labels=fmt_num,
-                      guide=guide_legend(title=tonal_title,
-                                         reverse=TRUE)) +
-
-  ggnewscale::new_scale_colour() +
-
-  geom_ribbon(aes(x=dSharpAurSHMPowAvgMaxLR, ymin=conf.low, ymax=conf.high,
-                  fill=UASTonalAwSHMInt05ExMaxLR),
-              alpha=0.15) +
-  
-  geom_line(aes(x=dSharpAurSHMPowAvgMaxLR, y=estimate, colour=UASTonalAwSHMInt05ExMaxLR), linewidth=1) +
-  
-  scale_color_viridis(option = "rocket", direction = 1, discrete = TRUE,
-          begin = 0.2, end = 0.8,
-          guide = guide_legend(title = tonal_title, reverse = TRUE)) +
-  scale_fill_viridis(option = "rocket", direction = 1, discrete = TRUE,
-         begin = 0.2, end = 0.8,
-         guide = guide_legend(title = tonal_title, reverse = TRUE)) +
-
-  scale_x_continuous(breaks=seq(0.02, 0.55, by=0.1)) +
-
-  scale_y_continuous(breaks=seq(0, 1, by=0.1),
-                     labels=seq(0, 100, by=10), limits=c(0, 1)) +
-  
-  labs(x=expression(paste(UAS~italic(Delta*S)^"*",",",~acum[A~"|"~SHM])),
-       y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb]))) +
-  
-  facet_grid(rows = vars(UASImpulsLoudWZAvgMaxLR),
-           labeller = label_bquote(
-             rows = UAS~italic(bar(I[N]))*","~sone[W*"-"*R~"|"~Z] %->%
-               .(as.character(UASImpulsLoudWZAvgMaxLR))))
+p2 <- plot_slice(m19preddST, stimDataNoAmb,
+                 x = "dSharpAurSHMPowAvgMaxLR", y = "dHighAnnoyProp",
+                 colour_v = "UASTonalAwSHMInt05ExMaxLR",
+                 facet_v  = "UASImpulsLoudWZAvgMaxLR",
+                 facet_labeller = label_bquote(rows = UAS~italic(bar(I[N]))*","~sone[W*"-"*R~"|"~Z] %->%
+                                                 .(as.character(UASImpulsLoudWZAvgMaxLR))),
+                 q = c(q1, q2), option = "rocket",
+                 colour_title = expression(paste(UAS~italic(T)[a*Sigma*5]*","~tu[SHM])),
+                 colour_breaks = to_original(UASTonalAwSHMInt05ExMaxLRStd_sweep,
+                                             "UASTonalAwSHMInt05ExMaxLRStd",
+                                             subjDataNoAmb.medScaling)) +
+  theme(panel.grid = element_blank(), aspect.ratio = 1.35, legend.position = 'right',
+        text = element_text(family = "serif", size = 16),
+        axis.text.x = element_text(family = "serif", size = 10),
+        axis.text.y = element_text(family = "serif", size = 14)) &
+  scale_x_continuous(breaks = scales::breaks_width(0.1)) &
+  scale_y_continuous(breaks = seq(0, 1, by = 0.1), labels = seq(0, 100, by = 10), limits = c(0, 1)) &
+  labs(x = expression(paste(UAS~italic(Delta*S)^"*", ",", ~acum[A~"|"~SHM])),
+       y = expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
 p1 + p2 + plot_layout(guides = 'collect') & theme(legend.position = 'right')
 
@@ -9285,7 +8942,7 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   geom_vline(xintercept = m19b$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m19b$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
            label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
-  labs(x = expression(log[10]*(lambda)),
+  labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
   ) +
@@ -9523,20 +9180,6 @@ m19cpreddST <- avg_predictions_hybrid(m19c, newdata=m19cDataFit,
   )
 
 
-stimPlot <- add_original_units(stimDataNoAmb, stimDataNoAmbScaling)
- 
-# Median split of the raw data, labelled by the 30% / 90% quantile values
-hi_lo <- function(x) {
-  q <- quantile(x, c(q1, q2), na.rm = TRUE)
-  num_factor(ifelse(x <= median(x, na.rm = TRUE), q[[1]], q[[2]]))
-}
-
-stimPlot1 <- dplyr::mutate(stimPlot,
-                           UASTonalAwSHMInt05ExMaxLR = hi_lo(UASTonalAwSHMInt05ExMaxLR))
-
-stimPlot2 <- dplyr::mutate(stimPlot,
-                           UASImpulsLoudWZAvgMaxLR = hi_lo(UASImpulsLoudWZAvgMaxLR))
-
 ```
 
 ##### visualise plots of PA effects
@@ -9548,7 +9191,7 @@ ggplot(data=m19cpredEvt) +
         text = element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   
-  geom_point(data=stimPlot,
+  geom_point(data=stimDataNoAmb,
              aes(x=dSharpAurSHMPowAvgMaxLR, y=dHighAnnoyProp,
                  colour=factor(UASEvents), shape=factor(UASEvents)),
              alpha=0.55, size=2) +
@@ -9583,99 +9226,45 @@ if (saveplots){
   unlink(paste(filename, ".pdf", sep=""))
 }
 
-impuls_title <- expression(paste(UAS~italic(bar(I[N])),",",~sone[W*"-"*R~"|"~Z]))
-tonal_title <- expression(paste(UAS~italic(T)[a*Sigma*5]*","~tu[SHM]))
+p1 <- plot_slice(m19cpreddSI, stimDataNoAmb,
+                 x = "dSharpAurSHMPowAvgMaxLR", y = "dHighAnnoyProp",
+                 colour_v = "UASImpulsLoudWZAvgMaxLR",
+                 facet_v  = "UASTonalAwSHMInt05ExMaxLR",
+                 facet_labeller = label_bquote(rows = UAS~italic(T)[a*Sigma*5]*","~tu[SHM] %->%
+                                                 .(as.character(UASTonalAwSHMInt05ExMaxLR))),
+                 q = c(q1, q2), option = "mako",
+                 colour_title = expression(paste(UAS~italic(bar(I[N])), ",", ~sone[W*"-"*R~"|"~Z])),
+                 colour_breaks = to_original(UASImpulsLoudWZAvgMaxLRStd_sweep,
+                                             "UASImpulsLoudWZAvgMaxLRStd",
+                                             subjDataNoAmb.medScaling)) +
+  theme(panel.grid = element_blank(), aspect.ratio = 1.35, legend.position = 'right',
+        text = element_text(family = "serif", size = 16),
+        axis.text.x = element_text(family = "serif", size = 10),
+        axis.text.y = element_text(family = "serif", size = 14)) &
+  scale_x_continuous(breaks = scales::breaks_width(0.1)) &
+  scale_y_continuous(breaks = seq(0, 1, by = 0.1), labels = seq(0, 100, by = 10), limits = c(0, 1)) &
+  labs(x = expression(paste(UAS~italic(Delta*S)^"*", ",", ~acum[A~"|"~SHM])),
+       y = expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
-p1 <- ggplot(data=m19cpreddSI) +
-  theme(panel.grid = element_blank(), aspect.ratio=1.35,
-        text = element_text(family = "serif", size=16),
-        axis.text.x=element_text(family = "serif", size=10),
-        axis.text.y=element_text(family = "serif", size=14)) +
-  
-  geom_point(data=stimPlot1,
-             aes(x=dSharpAurSHMPowAvgMaxLR, y=dHighAnnoyProp, colour=UASImpulsLoudWZAvgMaxLR),
-             alpha=0.55, size=2) +
-
-  scale_color_viridis(option='mako', direction=1, discrete=FALSE, begin = 0.2, end = 0.8,
-                      breaks=to_original(UASImpulsLoudWZAvgMaxLRStd_sweep,
-                               "UASImpulsLoudWZAvgMaxLRStd",
-                               subjDataNoAmb.medScaling),
-                      labels=fmt_num,
-                      guide=guide_legend(title=impuls_title,
-                                         reverse=TRUE)) +
-
-  ggnewscale::new_scale_colour() +
-
-  geom_ribbon(aes(x=dSharpAurSHMPowAvgMaxLR, ymin=conf.low, ymax=conf.high,
-                  fill=UASImpulsLoudWZAvgMaxLR),
-              alpha=0.15) +
-  
-  geom_line(aes(x=dSharpAurSHMPowAvgMaxLR, y=estimate, colour=UASImpulsLoudWZAvgMaxLR), linewidth=1) +
-  
-  scale_color_viridis(option = "mako", direction = 1, discrete = TRUE,
-                      begin = 0.2, end = 0.8,
-                      guide = guide_legend(title = impuls_title, reverse = TRUE)) +
-  scale_fill_viridis(option = "mako", direction = 1, discrete = TRUE,
-                     begin = 0.2, end = 0.8,
-                     guide = guide_legend(title = impuls_title, reverse = TRUE)) +
-    
-  scale_x_continuous(breaks=seq(0.02, 0.55, by=0.1)) +
-
-  scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
-  
-  labs(x=expression(paste(UAS~italic(Delta*S)^"*",",",~acum[A~"|"~SHM])),
-       y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb]))) +
-
-  facet_grid(rows = vars(UASTonalAwSHMInt05ExMaxLR),
-             labeller = label_bquote(
-               rows = UAS~italic(T)[a*Sigma*5]*","~tu[SHM] %->%
-                 .(as.character(UASTonalAwSHMInt05ExMaxLR))))
-
-p2 <- ggplot(data=m19cpreddST) +
-  theme(panel.grid = element_blank(), aspect.ratio=1.35,
-        text = element_text(family = "serif", size=16),
-        axis.text.x=element_text(family = "serif", size=10),
-        axis.text.y=element_text(family = "serif", size=14)) +
-  
-  geom_point(data=stimPlot2,
-             aes(x=dSharpAurSHMPowAvgMaxLR, y=dHighAnnoyProp, colour=UASTonalAwSHMInt05ExMaxLR),
-             alpha=0.55, size=2) +
-
-  scale_color_viridis(option='rocket', direction=1, discrete=FALSE, begin = 0.2, end = 0.8,
-                      breaks=to_original(UASTonalAwSHMInt05ExMaxLRStd_sweep,
-                               "UASTonalAwSHMInt05ExMaxLRStd",
-                               subjDataNoAmb.medScaling),
-                      labels=fmt_num,
-                      guide=guide_legend(title=tonal_title,
-                                         reverse=TRUE)) +
-
-  ggnewscale::new_scale_colour() +
-
-  geom_ribbon(aes(x=dSharpAurSHMPowAvgMaxLR, ymin=conf.low, ymax=conf.high,
-                  fill=UASTonalAwSHMInt05ExMaxLR),
-              alpha=0.15) +
-  
-  geom_line(aes(x=dSharpAurSHMPowAvgMaxLR, y=estimate, colour=UASTonalAwSHMInt05ExMaxLR), linewidth=1) +
-  
-  scale_color_viridis(option = "rocket", direction = 1, discrete = TRUE,
-          begin = 0.2, end = 0.8,
-          guide = guide_legend(title = tonal_title, reverse = TRUE)) +
-  scale_fill_viridis(option = "rocket", direction = 1, discrete = TRUE,
-         begin = 0.2, end = 0.8,
-         guide = guide_legend(title = tonal_title, reverse = TRUE)) +
-
-  scale_x_continuous(breaks=seq(0.02, 0.55, by=0.1)) +
-
-  scale_y_continuous(breaks=seq(0, 1, by=0.1),
-                     labels=seq(0, 100, by=10), limits=c(0, 1)) +
-  
-  labs(x=expression(paste(UAS~italic(Delta*S)^"*",",",~acum[A~"|"~SHM])),
-       y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb]))) +
-  
-  facet_grid(rows = vars(UASImpulsLoudWZAvgMaxLR),
-           labeller = label_bquote(
-             rows = UAS~italic(bar(I[N]))*","~sone[W*"-"*R~"|"~Z] %->%
-               .(as.character(UASImpulsLoudWZAvgMaxLR))))
+p2 <- plot_slice(m19cpreddST, stimDataNoAmb,
+                 x = "dSharpAurSHMPowAvgMaxLR", y = "dHighAnnoyProp",
+                 colour_v = "UASTonalAwSHMInt05ExMaxLR",
+                 facet_v  = "UASImpulsLoudWZAvgMaxLR",
+                 facet_labeller = label_bquote(rows = UAS~italic(bar(I[N]))*","~sone[W*"-"*R~"|"~Z] %->%
+                                                 .(as.character(UASImpulsLoudWZAvgMaxLR))),
+                 q = c(q1, q2), option = "rocket",
+                 colour_title = expression(paste(UAS~italic(T)[a*Sigma*5]*","~tu[SHM])),
+                 colour_breaks = to_original(UASTonalAwSHMInt05ExMaxLRStd_sweep,
+                                             "UASTonalAwSHMInt05ExMaxLRStd",
+                                             subjDataNoAmb.medScaling)) +
+  theme(panel.grid = element_blank(), aspect.ratio = 1.35, legend.position = 'right',
+        text = element_text(family = "serif", size = 16),
+        axis.text.x = element_text(family = "serif", size = 10),
+        axis.text.y = element_text(family = "serif", size = 14)) &
+  scale_x_continuous(breaks = scales::breaks_width(0.1)) &
+  scale_y_continuous(breaks = seq(0, 1, by = 0.1), labels = seq(0, 100, by = 10), limits = c(0, 1)) &
+  labs(x = expression(paste(UAS~italic(Delta*S)^"*", ",", ~acum[A~"|"~SHM])),
+       y = expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
 p1 + p2 + plot_layout(guides = 'collect') & theme(legend.position = 'right')
 
@@ -9798,8 +9387,8 @@ print(paste("Metrics:", glmmVsGEEdHA$metrics))
 print(paste("Prediction:", glmmVsGEEdHA$pred))
 print(paste("Total:", glmmVsGEEdHA$total))
 
-microbenchmark:::autoplot.microbenchmark(testdHA)
-microbenchmark:::boxplot.microbenchmark(testdHA)
+ggplot2::autoplot(testdHA)
+boxplot(testdHA)
 
 
 ```
@@ -9817,89 +9406,89 @@ newData <- data.frame(UASLAEMaxLR=UASLAEMaxLRDummy,
                       UASLAEMaxLRScl=seq(-12, 33, by=1), UASEvents=1,
                       PartTrialNumberStd=0)
 
-modelGLMM <- lme4::glmer(dHighAnnoy ~ UASLAEMaxLRScl + I(log10(UASEvents)) +
+mGLMM <- lme4::glmer(dHighAnnoy ~ UASLAEMaxLRScl + I(log10(UASEvents)) +
                              PartTrialNumberStd +
                            (1 + UASLAEMaxLRScl | ID),
                             data=subjDataNoAmb, family=binomial(link='logit'),
                          control=glmerctrl)
 
-modelGEE <- glmtoolbox::glmgee(dHighAnnoy ~ UASLAEMaxLRScl + I(log10(UASEvents)) +
+mGEEGLM <- glmtoolbox::glmgee(dHighAnnoy ~ UASLAEMaxLRScl + I(log10(UASEvents)) +
                                               PartTrialNumberStd,
                                   data=subjDataNoAmb, family=binomial(link='logit'),
                                   id=ID, corstr='exchangeable')
 
-mABdHLAElgQSq.LAElgQpredict <- modelbased::estimate_expectation(modelGLMM,
-                                                                data = newData,
-                                                                predict = "expectation",
-                                                                ci = 0.95,
-                                                                keep_iterations = FALSE,
-                                                                ci_method='wald')
+mGLMMpred <- modelbased::estimate_expectation(mGLMM,
+                                            data = newData,
+                                            predict = "expectation",
+                                            ci = 0.95,
+                                            keep_iterations = FALSE,
+                                            ci_method='wald')
 
-mABdHLAElgQSq.LAElgQmarginal <- ggeffects::predict_response(modelGLMM,
-                                                             terms=c("UASLAEMaxLRScl [-12:33]",
-                                                              "UASEvents [1]",
-                                                              "PartTrialNumberStd [0]"),
-                                                             type='fixed', margin='empirical',
-                                                             bias_correction=TRUE)
+mGLMMpredmarginal <- ggeffects::predict_response(mGLMM,
+                                               terms=c("UASLAEMaxLRScl [-12:33]",
+                                                "UASEvents [1]",
+                                                "PartTrialNumberStd [0]"),
+                                               type='fixed', margin='empirical',
+                                               bias_correction=TRUE)
 
-mABdHLAElgQSq.GEEpredict <- ggeffects::predict_response(modelGEE,
-                                                      terms=c("UASLAEMaxLRScl [-12:33]",
-                                                              "UASEvents [1]",
-                                                              "PartTrialNumberStd [0]"),
-                                                       type='fixed', margin='empirical',
-                                                      vcov=vcov(modelGEE, type="bias-corrected"))
+mGEEGLMpred <- ggeffects::predict_response(mGEEGLM,
+                                          terms=c("UASLAEMaxLRScl [-12:33]",
+                                                  "UASEvents [1]",
+                                                  "PartTrialNumberStd [0]"),
+                                           type='fixed', margin='empirical',
+                                          vcov=vcov(mGEEGLM, type="bias-corrected"))
 
-mABdHLAElgQSq.LAElgQpredictAll <- ggeffects::predict_response(modelGLMM,
-                                                      terms=c("UASLAEMaxLRScl [-12:33]",
-                                                              "ID [all]",
-                                                              "UASEvents [1]",
-                                                              "PartTrialNumberStd [0]"),
-                                                       type='random',
-                                                       bias_correction=FALSE)
+mGLMMpredAll <- ggeffects::predict_response(mGLMM,
+                                          terms=c("UASLAEMaxLRScl [-12:33]",
+                                                  "ID [all]",
+                                                  "UASEvents [1]",
+                                                  "PartTrialNumberStd [0]"),
+                                           type='random',
+                                           bias_correction=FALSE)
 
 p <- ggplot() +
   theme(panel.grid = element_blank(), aspect.ratio=1.35,
-        text = element_text(family = "serif"),
-        plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
-        axis.text=element_text(family = "serif", size=11))
+  text = element_text(family = "serif"),
+  plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
+  axis.text=element_text(family = "serif", size=11))
 
 
-for (id in unique(mABdHLAElgQSq.LAElgQpredictAll$group)){
-  p <- p + geom_line(data=mABdHLAElgQSq.LAElgQpredictAll[mABdHLAElgQSq.LAElgQpredictAll$group==id,],
+for (id in unique(mGLMMpredAll$group)){
+  p <- p + geom_line(data=mGLMMpredAll[mGLMMpredAll$group==id,],
                      mapping=aes(x=x, y=predicted, colour="GLMM (CS)"),
                      alpha=0.1, linewidth=0.25)
 }
 
 p1 <- p +
   
-    geom_ribbon(data=mABdHLAElgQSq.LAElgQpredict,
+    geom_ribbon(data=mGLMMpred,
                 mapping=aes(x=UASLAEMaxLRScl, ymin=CI_low, ymax=CI_high,
                             colour="GLMM (CS)"),
                 alpha=0.5, fill=NA, linetype=3, linewidth=0.55) +
     
-    geom_ribbon(data=mABdHLAElgQSq.GEEpredict,
+    geom_ribbon(data=mGEEGLMpred,
                 mapping=aes(x=x, ymin=conf.low, ymax=conf.high,
                             colour="GEE-GLM (PA)"),
                 alpha=0.5, fill=NA, linetype=4, linewidth=0.55) +
     
-    geom_line(data=mABdHLAElgQSq.LAElgQpredict, mapping=aes(x=UASLAEMaxLRScl,
-                                                            y=Predicted,
-                                                        colour="GLMM (CS)"), linewidth=1) +
+    geom_line(data=mGLMMpred, mapping=aes(x=UASLAEMaxLRScl,
+                y=Predicted,
+            colour="GLMM (CS)"), linewidth=1) +
     
-    geom_line(data=mABdHLAElgQSq.GEEpredict, aes(x=x, y=predicted,
-                                                colour="GEE-GLM (PA)"), linewidth=1) +
+    geom_line(data=mGEEGLMpred, aes(x=x, y=predicted,
+              colour="GEE-GLM (PA)"), linewidth=1) +
   
-    geom_line(data=mABdHLAElgQSq.LAElgQmarginal, mapping=aes(x=x,
-                                                            y=predicted,
-                                                        colour="GLMM (PA)"),
+    geom_line(data=mGLMMpredmarginal, mapping=aes(x=x,
+                  y=predicted,
+              colour="GLMM (PA)"),
               linetype=2, linewidth=1, alpha=0.75) +
   
-    geom_vline(xintercept = 13, linetype = 'dotted', color = "grey", linewidth = 0.8) +
-    ggplot2::annotate("text", x = 13 - 2.5, y = 0.75, 
+    geom_vline(xintercept=max(stimDataNoAmb$UASLAEMaxLR) - lae_centre, linetype = 'dotted', color = "grey", linewidth = 0.8) +
+    ggplot2::annotate("text", x = max(stimDataNoAmb$UASLAEMaxLR) - lae_centre - 2.5, y = 0.75, 
              label = "Dataset upper limit", color = "grey", angle = 90, vjust = 0.5) +
 
     
-    scale_x_continuous(breaks=seq(-12, 33, by=5), labels=seq(55, 100, by=5)) +
+    scale_orig("UASLAEMaxLRScl", subjDataNoAmbScaling, by = 5, digits = 0) +
     scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
     
     scale_colour_manual(values=c("GLMM (CS)"=mycolours[3],
@@ -9932,107 +9521,11 @@ filename <- "PtsABdHighAnnoyGLMMVsGEE_emp"
 
 ```
 
-# WiP: Test models on listening test 2 data
-
-## Import data and wrangle
-
-### Get centering values from test 1 model variables
+# Save the workspace to file
 
 ```{r}
-
-# for each var in centre_vars, get the mean value from the input dataset
-centre_values <- sapply(centre_vars, function(var) mean(subjDataNoAmb[[var]], na.rm=TRUE))
-
-```
-
-### Test 2 data
-
-```{r}
-
-subjData2Path <- utils::choose.files(caption=r"(Select refmap_listest2_testdata_BySubj.csv from 03 Experiment\Experiment 2\Analysis\PostProcess)",
-                                     filters=matrix(data=c("refmap_listest2_testdata_BySubj.csv", "refmap_listest2_testdata_BySubj.csv"), ncol=2))
-
-subjData2 <- read.csv(subjData2Path, header=TRUE)
-
-stimData2Path <- utils::choose.files(caption=r"(Select refmap_listest2_testdata_ByStim.csv from 03 Experiment\Experiment 2\Analysis\PostProcess)",
-                                     filters=matrix(data=c("refmap_listest2_testdata_ByStim.csv", "refmap_listest2_testdata_ByStim.csv"), ncol=2))
-
-stimData2 <- read.csv(stimData2Path, header=TRUE, row.names=1)
-
-```
-
-### Generate appropriately-scaled variables for test 2 data
-
-The variables in the test 2 data need to be centred using the test 1 means and renamed to work with the test 1 models
-
-
-```{r}
-
-# remove "MaxLR" or "Bin" substrings from relevant SQ variables in centre_vars
-centre_vars2 <- centre_vars
-sq_vars <- c("UASLoudECMAPowAvgBin", "UASTonalAwSHMInt05ExMaxLR", "UASSharpAurISO3PowAvgMaxLR",
-             "UASSharpAurISO305ExMaxLR", "UASTonLdECMAPowAvgBin", "UASLoudECMAPowAvgBin",
-             "dTonalSHMIntAvgMaxLR", "dSharpAurISO3PowAvgMaxLR", "dSharpAurSHMPowAvgMaxLR")
-centre_vars2[centre_vars2 %in% sq_vars] <- gsub("MaxLR|Bin", "", centre_vars2[centre_vars2 %in% sq_vars])
-
-# confirm whether each var in centre_vars is  present in the test 2 data
-var_present <- sapply(centre_vars2, function(var) var %in% colnames(subjData2))
-stopifnot(all(var_present))
-
-# rename the variables in centre_values
-centre_values2 <- setNames(centre_values, centre_vars2)
-
-centred_var_names <- paste0(centre_vars, "Scl")
-
-# loop through each var in center_vars2 and create a new variable in subjData2 that is the original variable minus the corresponding mean value from centre_values2, named according to the corresponding var in centred_var_names by indexing the position of the var in centre_vars2
-for (ii in seq_along(centre_vars2)) {
-  var_name <- centre_vars2[ii]
-  centred_var_name <- centred_var_names[ii]
-  mean_value <- centre_values2[var_name]
-  
-  subjData2[[centred_var_name]] <- subjData2[[var_name]] - mean_value
+if (savedata){
+  save.image(file.path(outDataPath, "refmap_listest1_gee_glmm_models_rev3.RData"))
 }
-
-```
-
-### add the transformed dependent variable to the test 2 data and add renamed variables that match test 1 response variables
-
-```{r}
-
-subjData2 <- subjData2 |>
-  dplyr::mutate(dHighAnnoy = dHighlyAnnoyed,
-                dAnnoyanceOrdBetaScl = betaTransform(dAnnoyance, -10, 10,
-                                                     direction='forward', squeeze='none'),
-                TrialNumber = Trial)
-
-stimData2 <- stimData2 |>
-  dplyr::mutate(dHighAnnoyProp = dHighlyAnnoyedProp,
-                dHighAnnoyPropCI_Low = dHighlyAnnoyedPropCI_Low,
-                dHighAnnoyPropCI_High = dHighlyAnnoyedPropCI_High,
-                dAnnoyMean = dAnnoyanceMean,
-                dAnnoyMeanCI_Low = dAnnoyanceMeanCI_Low,
-                dAnnoyMeanCI_High = dAnnoyanceMeanCI_High)
-
-```
-
-### factorise categorical variables and extract the no ambient data only
-
-```{r}
-
-# encode factors
-subjData$ID <- factor(subjData$ID)
-subjData$SessionPart <- factor(subjData$SessionPart)
-subjData$UASLAeq <- factor(subjData$UASLAeq, levels=UASLAeqCatsA, order=TRUE)
-subjData$SNRlevel <- factor(subjData$SNRlevel, levels=SNRCatsA, order=TRUE)
-subjData$UASOperation <- factor(subjData$UASOperation, levels=UASOpCatsA)
-subjData$UASType <- factor(subjData$UASType, levels=UASTypeCatsA)
-subjData$AmbientEnv <- factor(subjData$AmbientEnv, levels=c("Park", "Street"))
-subjData$AAM_attitude <- factor(subjData$AAM_attitude)
-subjData$Home_Area <- factor(subjData$Home_Area)
-subjData$Area_soundscape <- factor(subjData$Area_soundscape)
-subjData$NationGeo <- factor(subjData$NationGeo)
-
-stimData$UASOperation <- factor(stimData$UASOperation, levels=UASOpCatsA)
-stimData$UASType <- factor(stimData$UASType, levels=UASTypeCatsA)
 
 ```
