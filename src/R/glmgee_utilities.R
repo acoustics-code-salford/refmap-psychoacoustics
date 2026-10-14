@@ -307,28 +307,50 @@ geeCluster_stemplot <- function(glmgeeMod, clusterVar, colour='blue', alpha=1){
 }
 
 
-
 ## glmgee ggplot2 residuals plot
-gee_residplot <- function(glmgeeMod, residual_vals, colour='blue', shape=1, size=2, alpha=1){
+gee_residplot <- function(glmgeeMod, residual_vals, predictor = NULL,
+                          colour = 'blue', shape = 1, size = 2, alpha = 1){
   
   # check the lengths of residuals and fitted values match
   if (length(residual_vals) != length(glmgeeMod$fitted.values)){
     stop("Residuals length does not match fitted values length")
   }
   
+  # choose the x variable
+  if (is.null(predictor)){
+    x_vals <- as.vector(glmgeeMod$fitted.values)
+    xlab   <- "Fitted values"
+  } else {
+    # the model frame holds the variables the model was fitted with,
+    # with the same rows used in the fit (NAs already dropped)
+    mf <- model.frame(glmgeeMod)
+    
+    if (!predictor %in% names(mf)){
+      stop("'", predictor, "' not found in the model frame. Available: ",
+           paste(names(mf), collapse = ", "))
+    }
+    x_vals <- mf[[predictor]]
+    xlab   <- predictor
+  }
+  
+  if (length(x_vals) != length(residual_vals)){
+    stop("Predictor length does not match residuals length")
+  }
+  
   ylimits <- c(min(-3.5, min(residual_vals)), max(+3.5, max(residual_vals)))
   
-  df <- data.frame(fitted_vals=as.vector(glmgeeMod$fitted.values), resid_vals=as.vector(residual_vals))
+  df <- data.frame(x_vals = x_vals, resid_vals = as.vector(residual_vals))
   
-  ggplot(data=df) +
+  ggplot(data = df) +
     
-    geom_point(aes(x=fitted_vals, y=resid_vals), colour=colour, shape=shape, size=size, alpha=alpha) +
+    geom_point(aes(x = x_vals, y = resid_vals),
+               colour = colour, shape = shape, size = size, alpha = alpha) +
     
-    scale_y_continuous(limits=ylimits, breaks=seq(-20, 20, by=1),
-                       labels=seq(-20, 20, by=1)) +
+    scale_y_continuous(limits = ylimits, breaks = seq(-20, 20, by = 1),
+                       labels = seq(-20, 20, by = 1)) +
     
-    geom_hline(yintercept=3, linetype="dotted", color = "black") +
-    geom_hline(yintercept=-3, linetype="dotted", color = "black")
-  
-  
+    geom_hline(yintercept = 3, linetype = "dotted", color = "black") +
+    geom_hline(yintercept = -3, linetype = "dotted", color = "black") +
+    
+    labs(x = xlab, y = "Residuals")
 }
