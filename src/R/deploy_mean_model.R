@@ -4,17 +4,51 @@ require(brms)
 require(glmmTMB)
 
 # =============================================================================
-# deploy_mean_model.R  (v16)
+# deploy_mean_model.R  (v17)
 #
 # A model-type-agnostic "deployment" toolkit that extracts the FIXED-EFFECTS
 # MEAN STRUCTURE of a fitted model (glmtoolbox::glmgee, glmmTMB, or brms) and
 # turns it into a standalone R function of the predictor variables.
 #
-# CHANGE LOG vs v15 (this version):
+# CHANGE LOG vs v16 (this version):
+#   - FIXED a correctness flaw for formulas containing a summary of the data
+#     inside a term, e.g. I(log10(x) - log10(mean(x))). The deployed function
+#     re-ran model.frame() on the data it was given, so mean(x) was silently
+#     recomputed from the NEW data (for one new row the shifted term was
+#     always 0), while the coefficients were estimated with the mean of the
+#     FITTING data. None of the earlier checks could see this, because they
+#     all evaluate on the training data. Now:
+#       * summary calls (mean, median, sd, var, min, max, sum, mad, IQR,
+#         length, weighted.mean) involving a variable are replaced by the
+#         number they took at fitting time, and coefficient names are
+#         updated to match the new model-matrix column names;
+#       * which data the summary was computed over (all rows passed to the
+#         fitting function vs only the rows kept after NA removal) is not
+#         assumed: both candidates are tested against the model's own linear
+#         predictor, and the function STOPS if neither reproduces it (use
+#         the new fit_data argument to supply the exact fitting data);
+#       * constant shifts/scalings inside transformed pieces,
+#         I(log10(x) - c), I(x/k), I(a*x + b), are folded into the
+#         intercept and lower-order terms of the printed / simplified
+#         equation (.affine_decompose, .expand_affine_pieces), so the
+#         printed equation shows e.g. 0.127*log10(x) with the shift absorbed;
+#       * a NEW end-to-end check runs the real deployed path (raw inputs,
+#         un-scaling, frozen terms) against the model's own linear predictor
+#         on the rows the model used, for every call - this would have
+#         caught the problem above, and also verifies un-scaling.
+#       * REMOVED: the scaled_suffix argument. Nothing is inferred from
+#         variable names; only variables passed in centred_vars /
+#         stdised_vars (with explicit raw names) are un-scaled.
+#       * constants for a variable inside such a term (e.g. UASEvents = 5)
+#         now behave correctly (mean() of a single constant was 0 shift).
+#
+#       * NEW: batch-independence check of the returned function (single rows,
+#         reversed, split batches must all match the full batch).
+#
+# CHANGE LOG vs v15:
 #   - NEW: un-centring / un-standardising. New arguments centred_vars,
 #     stdised_vars (model variables that were centred, or centred AND
-#     divided by a scale factor), scaling_data, scaling_values,
-#     scaled_suffix. The deployed function then takes the RAW variable as
+#     divided by a scale factor), scaling_data, scaling_values. The deployed function then takes the RAW variable as
 #     input, and the printed equation is written in raw units.
 #       * A scaled column alone cannot reveal its shift/scale (a
 #         standardised column always has mean 0, SD 1), so these are
@@ -24,10 +58,11 @@ require(glmmTMB)
 #         verified to be linear and also gives the exact values used even
 #         if they were computed on a different subset of rows; or
 #         base::scale() "scaled:center"/"scaled:scale" attributes.
-#       * Raw column names: a named vector c(ModelVar = "RawCol"), or, for
-#         unnamed entries, the model variable name minus scaled_suffix
-#         (default "Scl", matching your naming, e.g. TrialNumberScl ->
-#         TrialNumber). The matched names are printed so you can check.
+#       * Raw column names must be given explicitly: a named vector
+#         c(ModelVar = "RawCol"). NOTHING is inferred from variable names
+#         (no suffix convention); any model variable not listed in
+#         centred_vars / stdised_vars is treated as being on its natural
+#         scale. The matched names are printed so you can check.
 #       * Bare scaled terms and interactions are expanded algebraically
 #         (z = (x - c)/k  =>  coefficient/k on x and -coefficient*c/k folded
 #         into the lower-order terms / intercept, merged with existing
@@ -312,7 +347,7 @@ deploy_mean_model <- function(model, ...,
                               stdised_vars = NULL,
                               scaling_data = NULL,
                               scaling_values = NULL,
-                              scaled_suffix = "Scl",
+                              fit_data = NULL,
                               validation_data = NULL,
                               verbose = TRUE) {
   UseMethod("deploy_mean_model")
@@ -335,7 +370,7 @@ deploy_mean_model.glmgee <- function(model, ...,
                                      stdised_vars = NULL,
                                      scaling_data = NULL,
                                      scaling_values = NULL,
-                                     scaled_suffix = "Scl",
+                                     fit_data = NULL,
                                      validation_data = NULL,
                                      verbose = TRUE) {
   spec <- .extract_spec_glmgee(model)
@@ -345,7 +380,7 @@ deploy_mean_model.glmgee <- function(model, ...,
                     coef_tolerance = coef_tolerance,
                     centred_vars = centred_vars, stdised_vars = stdised_vars,
                     scaling_data = scaling_data, scaling_values = scaling_values,
-                    scaled_suffix = scaled_suffix,
+                    fit_data = fit_data,
                     validation_data = validation_data, verbose = verbose)
 }
 
@@ -359,7 +394,7 @@ deploy_mean_model.glmmTMB <- function(model, ...,
                                       stdised_vars = NULL,
                                       scaling_data = NULL,
                                       scaling_values = NULL,
-                                      scaled_suffix = "Scl",
+                                      fit_data = NULL,
                                       validation_data = NULL,
                                       verbose = TRUE) {
   spec <- .extract_spec_glmmTMB(model)
@@ -369,7 +404,7 @@ deploy_mean_model.glmmTMB <- function(model, ...,
                     coef_tolerance = coef_tolerance,
                     centred_vars = centred_vars, stdised_vars = stdised_vars,
                     scaling_data = scaling_data, scaling_values = scaling_values,
-                    scaled_suffix = scaled_suffix,
+                    fit_data = fit_data,
                     validation_data = validation_data, verbose = verbose)
 }
 
@@ -383,7 +418,7 @@ deploy_mean_model.brmsfit <- function(model, ...,
                                       stdised_vars = NULL,
                                       scaling_data = NULL,
                                       scaling_values = NULL,
-                                      scaled_suffix = "Scl",
+                                      fit_data = NULL,
                                       validation_data = NULL,
                                       verbose = TRUE,
                                       point_estimate = c("mean", "median")) {
@@ -395,7 +430,7 @@ deploy_mean_model.brmsfit <- function(model, ...,
                     coef_tolerance = coef_tolerance,
                     centred_vars = centred_vars, stdised_vars = stdised_vars,
                     scaling_data = scaling_data, scaling_values = scaling_values,
-                    scaled_suffix = scaled_suffix,
+                    fit_data = fit_data,
                     validation_data = validation_data, verbose = verbose)
 }
 
@@ -1191,7 +1226,7 @@ deploy_mean_model.brmsfit <- function(model, ...,
        raw_mean = mean(xo), raw_sd = stats::sd(xo))
 }
 
-.resolve_scaling <- function(centred_vars, stdised_vars, scaled_suffix,
+.resolve_scaling <- function(centred_vars, stdised_vars,
                              scaling_data, scaling_values, model_data, model_vars) {
   norm_spec <- function(x, arg) {
     if (is.null(x) || length(x) == 0) return(list(vars = character(0), raw = character(0)))
@@ -1231,14 +1266,10 @@ deploy_mean_model.brmsfit <- function(model, ...,
   for (i in seq_along(all_vars)) {
     v <- all_vars[i]; kind <- kinds[i]; raw <- raws[i]
     if (is.na(raw)) {
-      if (!is.null(scaled_suffix) && nzchar(scaled_suffix) && endsWith(v, scaled_suffix) &&
-          nchar(v) > nchar(scaled_suffix)) {
-        raw <- substr(v, 1, nchar(v) - nchar(scaled_suffix))
-      } else {
-        stop(sprintf(paste0("Cannot infer the raw variable name for '%s' (it does not end in scaled_suffix = \"%s\"). ",
-                            "Give it explicitly with a named vector, e.g. stdised_vars = c(%s = \"<raw column>\")."),
-                     v, if (is.null(scaled_suffix)) "" else scaled_suffix, v))
-      }
+      stop(sprintf(paste0("No raw variable was named for '%s'. Nothing is inferred from variable names (e.g. suffixes); ",
+                          "name the raw input explicitly with a named vector, e.g. stdised_vars = c(%s = \"<raw variable name>\"). ",
+                          "Any model variable not listed in centred_vars / stdised_vars is treated as being on its natural scale."),
+                   v, v))
     }
     if (raw %in% model_vars) {
       stop(sprintf("Raw variable '%s' (for '%s') is itself a variable in the model formula; this is not supported.", raw, v))
@@ -1431,11 +1462,365 @@ deploy_mean_model.brmsfit <- function(model, ...,
   if (s$scale == 1) num else sprintf("(%s)/%s", num, format(signif(s$scale, digits)))
 }
 
+# ---- Data-dependent terms (mean(x) etc. inside a formula) -------------------
+# A term such as I(log10(x) - log10(mean(x))) contains a summary of the DATA.
+# stats::model.frame()/model.matrix() re-evaluate that summary on whatever data
+# they are given, so evaluating the model's terms on NEW data silently
+# recomputes mean(x) from the new data (for a single new row,
+# log10(x) - log10(mean(x)) is always 0), whereas the coefficients were
+# estimated using the mean of the FITTING data. Each such call is therefore
+# replaced by the number it took at fitting time. Which data that number was
+# computed over (all rows passed to the fitting function, or only the rows
+# kept after missing-value removal) is not assumed: each candidate is tested
+# by comparing the deployed linear predictor with the model's own.
+
+.DATA_SUMMARY_FNS <- c("mean", "median", "sd", "var", "min", "max", "sum",
+                       "mad", "IQR", "length", "weighted.mean")
+
+.dp <- function(x) paste(trimws(deparse(x, width.cutoff = 500L)), collapse = " ")
+
+.call_fn_name <- function(x) {
+  fn <- x[[1]]
+  if (is.name(fn)) return(as.character(fn))
+  if (is.call(fn) && length(fn) == 3 && is.name(fn[[1]]) &&
+      as.character(fn[[1]]) %in% c("::", ":::")) return(as.character(fn[[3]]))
+  NA_character_
+}
+
+# Replaces every summary call that involves a variable by its numeric value.
+.freeze_expr <- function(e, data, env) {
+  items <- list()
+  walk <- function(x) {
+    if (!is.call(x)) return(x)
+    fname <- .call_fn_name(x)
+    if (!is.na(fname) && fname %in% .DATA_SUMMARY_FNS && length(all.vars(x)) > 0) {
+      txt <- .dp(x)
+      val <- tryCatch(eval(x, data, env), error = function(err) err)
+      if (inherits(val, "error")) {
+        stop(sprintf("Could not evaluate '%s' on the fitting data: %s", txt, conditionMessage(val)), call. = FALSE)
+      }
+      if (!is.numeric(val) || length(val) != 1L || !is.finite(val)) {
+        stop(sprintf(paste0("'%s' did not evaluate to a single finite number on the fitting data. Data-dependent ",
+                            "terms must reduce to one number (e.g. mean(x)); vector-valued ones such as ",
+                            "cumsum(x) or rank(x) are not supported."), txt), call. = FALSE)
+      }
+      items[[length(items) + 1L]] <<- list(call = txt, value = as.numeric(val))
+      return(as.numeric(val))
+    }
+    for (i in seq_along(x)[-1L]) x[i] <- list(walk(x[[i]]))
+    x
+  }
+  list(expr = walk(e), items = items)
+}
+
+# Rebuilds the terms with the data-dependent calls frozen. The model-matrix
+# column names contain the deparsed expression (and so change when a call is
+# replaced by a number), so the coefficients are renamed to the new column
+# names; old and new columns correspond one-to-one by position.
+.make_frozen_spec <- function(spec, data) {
+  f <- stats::formula(spec$terms)
+  env <- environment(f)
+  if (is.null(env)) env <- globalenv()
+  rhs_i <- length(f)
+  fr <- .freeze_expr(f[[rhs_i]], data, env)
+  if (length(fr$items) == 0L) return(NULL)
+  
+  f2 <- f
+  f2[[rhs_i]] <- fr$expr
+  environment(f2) <- env
+  terms2 <- stats::delete.response(stats::terms(f2))
+  
+  cn_old <- colnames(stats::model.matrix(spec$terms, .make_synthetic_frame_for_colnames(spec$terms, data)))
+  cn_new <- colnames(stats::model.matrix(terms2,     .make_synthetic_frame_for_colnames(terms2, data)))
+  idx <- match(names(spec$coefficients), cn_old)
+  if (anyNA(idx) || length(cn_old) != length(cn_new)) {
+    stop(paste0("Could not map the model's coefficient names onto the model-matrix columns after replacing ",
+                "data-dependent terms (coefficient names not found: ",
+                paste(names(spec$coefficients)[is.na(idx)], collapse = ", "), ")."), call. = FALSE)
+  }
+  cf2 <- spec$coefficients
+  names(cf2) <- cn_new[idx]
+  
+  spec2 <- spec
+  spec2$terms <- terms2
+  spec2$coefficients <- cf2
+  list(spec = spec2, items = fr$items)
+}
+
+# Row positions in the raw data that correspond to the model's own fitted
+# values (same rows, same order). Alignment is by row names and is then
+# double-checked against any variables present in both frames, so a frame
+# whose row names were reset cannot silently produce a wrong pairing.
+.aligned_rows <- function(spec) {
+  raw <- spec$data
+  if (!isTRUE(spec$data_is_raw) || !is.data.frame(raw) || is.null(spec$fitted)) return(NULL)
+  n_fit <- length(spec$fitted)
+  ff <- spec$fit_frame
+  ff_ok <- is.data.frame(ff) && nrow(ff) == n_fit
+  shared <- character(0)
+  if (ff_ok) {
+    shared <- intersect(names(ff), names(raw))
+    shared <- shared[vapply(shared, function(v) is.atomic(ff[[v]]) && !is.matrix(ff[[v]]), logical(1))]
+  }
+  # a candidate alignment is only accepted if every variable present in both
+  # frames (up to 5) agrees row for row
+  verified <- function(idx) {
+    if (is.null(idx) || length(idx) != n_fit) return(FALSE)
+    for (v in utils::head(shared, 5L)) {
+      a <- as.character(raw[[v]][idx]); b <- as.character(ff[[v]])
+      if (!isTRUE(all(a == b | (is.na(a) & is.na(b))))) return(FALSE)
+    }
+    TRUE
+  }
+  cands <- list()
+  if (ff_ok) {
+    m <- match(rownames(ff), rownames(raw))                      # 1. by row names
+    if (!anyNA(m) && !anyDuplicated(m)) cands[[length(cands) + 1L]] <- m
+    if (length(shared) > 0 && nrow(raw) > n_fit) {               # 2. complete cases (row names reset)
+      cc <- which(stats::complete.cases(raw[, shared, drop = FALSE]))
+      if (length(cc) == n_fit) cands[[length(cands) + 1L]] <- cc
+    }
+  }
+  if (nrow(raw) == n_fit) cands[[length(cands) + 1L]] <- seq_len(n_fit)   # 3. identical row sets
+  for (cd in cands) if (verified(cd)) return(cd)
+  NULL
+}
+
+# End-to-end check of the DEPLOYED path: raw inputs (un-scaled variables,
+# untransformed columns) -> linear predictor, compared with the model's own
+# linear predictor on the rows the model used. Unlike the stored-frame check,
+# this exercises the same code path as the returned function, so it catches
+# data-dependent terms, un-scaling mistakes and similar problems.
+.validate_deployment_path <- function(spec, scaling) {
+  idx <- .aligned_rows(spec)
+  if (is.null(idx)) {
+    return(list(ok = FALSE, reason = paste0("the raw fitting data could not be matched row-for-row to the model's ",
+                                            "own fitted values (row names/values did not align, or the raw data was unavailable)")))
+  }
+  rows <- spec$data[idx, , drop = FALSE]
+  eta <- tryCatch(.eval_eta(spec, .apply_scaling(.ensure_raw_columns(rows, scaling), scaling)),
+                  error = function(e) e)
+  if (inherits(eta, "error")) {
+    return(list(ok = FALSE, reason = sprintf("evaluating the deployed path failed: %s", conditionMessage(eta))))
+  }
+  dev <- eta - spec$fitted
+  list(ok = TRUE, max_abs_dev = max(abs(dev), na.rm = TRUE), rmse = sqrt(mean(dev^2, na.rm = TRUE)),
+       n = length(dev), n_na = sum(is.na(dev)))
+}
+
+.freeze_data_dependent <- function(spec, fit_data, scaling) {
+  if (!any(all.names(stats::formula(spec$terms)) %in% .DATA_SUMMARY_FNS)) {
+    return(list(spec = spec, info = NULL))
+  }
+  if (!is.null(fit_data)) {
+    if (!is.data.frame(fit_data)) stop("fit_data must be a data frame.", call. = FALSE)
+    spec$data <- fit_data
+    spec$data_is_raw <- TRUE
+  }
+  base_data <- if (isTRUE(spec$data_is_raw)) spec$data else NULL
+  if (is.null(base_data) || !is.data.frame(base_data)) {
+    stop(paste0("The model formula contains data-dependent term(s) (a summary such as mean(x) inside the formula), ",
+                "which must be fixed at their fitting-data values, but the fitting data could not be recovered. ",
+                "Supply the data frame the model was fitted to via fit_data = <data frame>."), call. = FALSE)
+  }
+  missing_vars <- setdiff(all.vars(stats::formula(spec$terms)), names(base_data))
+  if (length(missing_vars) > 0) {
+    stop(sprintf("The fitting data is missing variable(s) needed to evaluate the data-dependent term(s): %s",
+                 paste(missing_vars, collapse = ", ")), call. = FALSE)
+  }
+  
+  candidates <- list(list(label = sprintf("all %d rows of the fitting data", nrow(base_data)), data = base_data))
+  idx <- .aligned_rows(spec)
+  if (!is.null(idx) && length(idx) < nrow(base_data)) {
+    candidates[[2]] <- list(label = sprintf("the %d rows kept by the model (after missing-value removal)", length(idx)),
+                            data = base_data[idx, , drop = FALSE])
+  }
+  
+  tol <- 1e-7 * (if (is.null(spec$fitted)) 1 else max(1, max(abs(spec$fitted), na.rm = TRUE)))
+  best <- NULL
+  tried <- character(0)
+  verified <- FALSE
+  for (cand in candidates) {
+    fz <- .make_frozen_spec(spec, cand$data)
+    if (is.null(fz)) return(list(spec = spec, info = NULL))
+    chk <- .validate_deployment_path(fz$spec, scaling)
+    tried <- c(tried, sprintf("%s: %s", cand$label,
+                              if (isTRUE(chk$ok)) sprintf("max|dev| = %.3g", chk$max_abs_dev) else "could not be checked"))
+    res <- list(label = cand$label, fz = fz, chk = chk)
+    if (isTRUE(chk$ok) && chk$max_abs_dev <= tol) { best <- res; verified <- TRUE; break }
+    if (is.null(best) || (isTRUE(chk$ok) && (!isTRUE(best$chk$ok) || chk$max_abs_dev < best$chk$max_abs_dev))) best <- res
+  }
+  
+  if (!verified && isTRUE(best$chk$ok)) {
+    stop(sprintf(paste0("The data-dependent term(s) (%s) could not be reproduced: for every candidate the deployed ",
+                        "linear predictor differs from the model's own by more than %.2g. Candidates tried -- %s. ",
+                        "The summary was probably computed over different data to that available here; supply the ",
+                        "exact data frame passed to the fitting function via fit_data = <data frame>."),
+                 paste(vapply(best$fz$items, function(it) it$call, character(1)), collapse = "; "), tol,
+                 paste(tried, collapse = "; ")), call. = FALSE)
+  }
+  if (!verified) {
+    warning(sprintf(paste0("Data-dependent term(s) (%s) were fixed at their values over %s, but this could not be ",
+                           "verified against the model's own linear predictor (%s). Check deployed(newdata) against ",
+                           "the original model before relying on it."),
+                    paste(vapply(best$fz$items, function(it) it$call, character(1)), collapse = "; "),
+                    best$label, best$chk$reason), call. = FALSE)
+  }
+  list(spec = best$fz$spec,
+       info = list(items = best$fz$items, source = best$label, verified = verified,
+                   max_abs_dev = if (isTRUE(best$chk$ok)) best$chk$max_abs_dev else NA_real_))
+}
+
+# ---- Shifts / scalings inside transformed pieces ----------------------------
+# Writes a piece expression e as a*inner + b, where a and b are numbers, by
+# looking through I(), brackets, + and - (binary/unary), and * or / by a
+# constant. E.g. I(log10(x) - 0.7) -> a = 1, b = -0.7, inner = log10(x).
+# Anything else is returned as a = 1, b = 0 (unchanged).
+.affine_decompose <- function(e) {
+  const_val <- function(x) {
+    if (length(all.vars(x)) == 0L) {
+      v <- tryCatch(eval(x, baseenv()), error = function(err) NULL)
+      if (is.numeric(v) && length(v) == 1L && is.finite(v)) return(as.numeric(v))
+    }
+    NULL
+  }
+  rec <- function(x) {
+    cv <- const_val(x)
+    if (!is.null(cv)) return(list(a = 0, b = cv, inner = NULL))
+    if (is.call(x) && is.name(x[[1]])) {
+      op <- as.character(x[[1]]); n <- length(x)
+      if (op %in% c("(", "I") && n == 2L) return(rec(x[[2]]))
+      if (op == "+" && n == 2L) return(rec(x[[2]]))
+      if (op == "-" && n == 2L) {
+        r <- rec(x[[2]]); return(list(a = -r$a, b = -r$b, inner = r$inner))
+      }
+      if (op %in% c("+", "-") && n == 3L) {
+        l <- rec(x[[2]]); r <- rec(x[[3]]); sg <- if (op == "+") 1 else -1
+        if (is.null(l$inner)) return(list(a = sg * r$a, b = l$b + sg * r$b, inner = r$inner))
+        if (is.null(r$inner)) return(list(a = l$a, b = l$b + sg * r$b, inner = l$inner))
+        if (identical(l$inner, r$inner)) {
+          return(list(a = l$a + sg * r$a, b = l$b + sg * r$b, inner = l$inner))
+        }
+      }
+      if (op == "*" && n == 3L) {
+        l <- rec(x[[2]]); r <- rec(x[[3]])
+        if (is.null(l$inner) && !is.null(r$inner)) return(list(a = l$b * r$a, b = l$b * r$b, inner = r$inner))
+        if (is.null(r$inner) && !is.null(l$inner)) return(list(a = r$b * l$a, b = r$b * l$b, inner = l$inner))
+      }
+      if (op == "/" && n == 3L) {
+        l <- rec(x[[2]]); r <- rec(x[[3]])
+        if (is.null(r$inner) && !is.null(l$inner) && r$b != 0) {
+          return(list(a = l$a / r$b, b = l$b / r$b, inner = l$inner))
+        }
+      }
+    }
+    list(a = 1, b = 0, inner = x)
+  }
+  rec(e)
+}
+
+# Re-expresses pieces of the form (a*inner + b) as a*inner plus a constant b,
+# distributing across the term: coef*(a*inner + b)*rest becomes
+# (coef*a)*inner*rest + (coef*b)*rest. The constant parts merge into
+# lower-order terms (or the intercept), exactly as for centring/scaling.
+# Terms with no such piece are left untouched.
+.expand_affine_pieces <- function(beta0, reduced_terms) {
+  decomp_piece <- function(p) {
+    if (p$type != "continuous") return(NULL)
+    d <- tryCatch(.affine_decompose(str2lang(p$expr)), error = function(e) NULL)
+    if (is.null(d) || is.null(d$inner)) return(NULL)
+    if (d$a == 1 && d$b == 0) return(NULL)
+    inner_txt <- .dp(d$inner)
+    list(a = d$a, b = d$b,
+         piece = list(type = "continuous", raw_var = p$raw_var,
+                      expr = if (is.name(d$inner)) inner_txt else paste0("I(", inner_txt, ")")))
+  }
+  any_aff <- any(vapply(reduced_terms, function(t)
+    any(vapply(t$pieces, function(p) !is.null(decomp_piece(p)), logical(1))), logical(1)))
+  if (!any_aff) return(list(beta0 = beta0, terms = reduced_terms))
+  
+  out <- list(); beta0_new <- beta0
+  add_term <- function(coef, pieces) {
+    if (coef == 0) return(invisible(NULL))
+    if (length(pieces) == 0) { beta0_new <<- beta0_new + coef; return(invisible(NULL)) }
+    key <- .term_key(pieces)
+    if (is.null(out[[key]])) out[[key]] <<- list(coef = coef, pieces = pieces)
+    else out[[key]]$coef <<- out[[key]]$coef + coef
+    invisible(NULL)
+  }
+  for (term in reduced_terms) {
+    kept <- list(); aff <- list()
+    for (p in term$pieces) {
+      d <- decomp_piece(p)
+      if (is.null(d)) kept[[length(kept) + 1L]] <- p else aff[[length(aff) + 1L]] <- d
+    }
+    m <- length(aff)
+    for (mask in 0:(2^m - 1)) {
+      coef <- term$coef; pieces <- kept
+      for (j in seq_len(m)) {
+        if (bitwAnd(mask, 2^(j - 1)) != 0) {
+          coef <- coef * aff[[j]]$a
+          pieces[[length(pieces) + 1L]] <- aff[[j]]$piece
+        } else {
+          coef <- coef * aff[[j]]$b
+        }
+      }
+      add_term(coef, pieces)
+    }
+  }
+  # drop terms that cancelled to numerical noise
+  if (length(out) > 0) {
+    cmax <- max(abs(c(beta0_new, vapply(out, function(t) t$coef, numeric(1)))))
+    out <- out[vapply(out, function(t) abs(t$coef) > 1e-12 * cmax, logical(1))]
+  }
+  list(beta0 = beta0_new, terms = out)
+}
+
+# Batch-independence check of the RETURNED function. Each row's prediction
+# must not depend on which other rows are passed alongside it (a formula term
+# such as mean(x) recomputed from the input would break this). A deterministic
+# sample of rows is predicted (a) as one batch, (b) one row at a time,
+# (c) in reverse order and (d) as two halves; all must agree with (a).
+# Which rows are used does not matter here, so any data frame holding the
+# required input columns will do.
+.validate_batch_independence <- function(predict_fn, required_inputs, pools, max_rows = 40L) {
+  pool <- NULL
+  for (cand in pools) {
+    if (is.data.frame(cand) && nrow(cand) > 1L && all(required_inputs %in% names(cand))) { pool <- cand; break }
+  }
+  if (is.null(pool)) {
+    return(list(ok = FALSE, reason = "no data frame containing all the required input columns was available"))
+  }
+  pool <- pool[stats::complete.cases(pool[, required_inputs, drop = FALSE]), required_inputs, drop = FALSE]
+  if (nrow(pool) < 2L) return(list(ok = FALSE, reason = "fewer than 2 complete rows were available"))
+  n <- min(nrow(pool), as.integer(max_rows))
+  rows <- pool[unique(round(seq(1, nrow(pool), length.out = n))), , drop = FALSE]
+  rownames(rows) <- NULL
+  n <- nrow(rows)
+  
+  base <- tryCatch(predict_fn(rows), error = function(e) e)
+  if (inherits(base, "error")) {
+    return(list(ok = FALSE, reason = sprintf("evaluating the deployed function failed: %s", conditionMessage(base))))
+  }
+  one_by_one <- tryCatch(vapply(seq_len(n), function(i) as.numeric(predict_fn(rows[i, , drop = FALSE])), numeric(1)),
+                         error = function(e) e)
+  if (inherits(one_by_one, "error")) {
+    return(list(ok = FALSE, reason = sprintf("evaluating one row at a time failed: %s", conditionMessage(one_by_one))))
+  }
+  rev_pred <- rev(as.numeric(predict_fn(rows[rev(seq_len(n)), , drop = FALSE])))
+  h <- n %/% 2L
+  halves <- c(as.numeric(predict_fn(rows[seq_len(h), , drop = FALSE])),
+              as.numeric(predict_fn(rows[(h + 1L):n, , drop = FALSE])))
+  scale_ref <- max(1, max(abs(base), na.rm = TRUE))
+  dev <- max(abs(one_by_one - base), abs(rev_pred - base), abs(halves - base), na.rm = TRUE) / scale_ref
+  list(ok = TRUE, max_rel_dev = dev, n = n, passed = is.finite(dev) && dev <= 1e-10)
+}
+
 # ---- Orchestrator ---------------------------------------------------------
 .deploy_from_spec <- function(spec, ..., coef_simplify, tolerance, tolerance_type,
                               max_denominator, coef_tolerance, validation_data, verbose,
                               centred_vars = NULL, stdised_vars = NULL, scaling_data = NULL,
-                              scaling_values = NULL, scaled_suffix = "Scl") {
+                              scaling_values = NULL, fit_data = NULL) {
   constants <- list(...)
   tolerance_type <- match.arg(tolerance_type, c("relative", "absolute"))
   
@@ -1447,7 +1832,7 @@ deploy_mean_model.brmsfit <- function(model, ...,
   all_raw_vars <- all.vars(stats::formula(spec$terms))
   
   # ---- Optional un-centring / un-standardising ----
-  scaling <- .resolve_scaling(centred_vars, stdised_vars, scaled_suffix,
+  scaling <- .resolve_scaling(centred_vars, stdised_vars,
                               scaling_data, scaling_values, spec$data, all_raw_vars)
   scaling_raw_names <- unname(vapply(scaling, function(s) s$raw_name, character(1)))
   
@@ -1481,7 +1866,20 @@ deploy_mean_model.brmsfit <- function(model, ...,
   }, character(1)))
   
   # ---- Unconditional self-check against the model's own fitted values ----
+  # (uses the ORIGINAL terms and the model's own stored fit frame, so it must
+  # run before any data-dependent term is replaced below)
   fitted_check <- .validate_against_fitted(spec)
+  
+  # ---- Data-dependent terms, e.g. I(log10(x) - log10(mean(x))) ----
+  # Fixed at the value they took when the model was fitted; the coefficient
+  # names are updated to match, so everything below uses the frozen spec.
+  fz <- .freeze_data_dependent(spec, fit_data, scaling)
+  spec <- fz$spec
+  cf <- spec$coefficients
+  frozen_info <- fz$info
+  
+  # ---- End-to-end check of the deployed path (raw inputs -> eta) ----
+  path_check <- .validate_deployment_path(spec, scaling)
   
   # ---- Robust prediction function (authoritative) ----
   # Takes RAW variables for any centred/standardised model variable, converts
@@ -1500,6 +1898,17 @@ deploy_mean_model.brmsfit <- function(model, ...,
     inv_link(eta)
   }
   
+  # ---- Batch-independence check of the returned function ----
+  batch_check <- .validate_batch_independence(
+    predict_fn, required_inputs,
+    pools = list(spec$data, fit_data, scaling_data, validation_data))
+  if (isTRUE(batch_check$ok) && !isTRUE(batch_check$passed)) {
+    stop(sprintf(paste0("The deployed function's predictions depend on which other rows are passed with them ",
+                        "(max relative difference %.3g between a batch and the same rows one at a time / reordered / split). ",
+                        "A formula term probably recomputes a data summary from the input data; the deployment is not reliable."),
+                 batch_check$max_rel_dev), call. = FALSE)
+  }
+  
   # ---- Reduced-term representation (for printing / simplification) ----
   reduced_ok <- TRUE
   reduced_terms <- list()
@@ -1509,6 +1918,11 @@ deploy_mean_model.brmsfit <- function(model, ...,
     red <- .reduce_columns(cf, column_map, constants_model, spec$data)
     beta0 <- red$beta0
     reduced_terms <- red$terms
+    # Constant shifts/scalings inside transformed pieces, e.g.
+    # I(log10(x) - c), are folded into the intercept / lower-order terms.
+    ae <- .expand_affine_pieces(beta0, reduced_terms)
+    beta0 <- ae$beta0
+    reduced_terms <- ae$terms
     # Constants are absorbed first (on the model scale); the remaining free
     # centred/standardised variables are then re-expressed in raw units.
     if (length(scaling) > 0) {
@@ -1591,6 +2005,9 @@ deploy_mean_model.brmsfit <- function(model, ...,
   attr(f, "free_vars") <- required_inputs
   attr(f, "scaling") <- scaling
   attr(f, "fitted_validation") <- fitted_check
+  attr(f, "frozen") <- frozen_info
+  attr(f, "path_check") <- path_check
+  attr(f, "batch_check") <- batch_check
   if (reduced_ok) {
     disp_beta0 <- if (!is.null(simp)) simp$beta0$value else beta0
     disp_terms <- if (!is.null(simp)) simp$terms else reduced_terms
@@ -1655,6 +2072,18 @@ print.deployed_mean_model <- function(x, ...) {
     }
   }
   
+  fz <- attr(x, "frozen")
+  if (!is.null(fz)) {
+    cat("\nData-dependent terms fixed at their fitting-data values (NOT recomputed from new data):\n")
+    for (it in fz$items) cat(sprintf("  %s = %s\n", it$call, format(signif(it$value, 8))))
+    cat(sprintf("  evaluated over %s\n", fz$source))
+    if (isTRUE(fz$verified)) {
+      cat(sprintf("  verified against the model's own linear predictor: max|dev| = %.3g\n", fz$max_abs_dev))
+    } else {
+      cat("  ** NOT verified against the model's own linear predictor (see warning) **\n")
+    }
+  }
+  
   fc <- attr(x, "fitted_validation")
   if (!is.null(fc)) {
     if (isTRUE(fc$ok)) {
@@ -1679,6 +2108,30 @@ print.deployed_mean_model <- function(x, ...) {
       }
     } else {
       cat(sprintf("\nFitted-value self-check NOT performed: %s\n", fc$reason))
+    }
+  }
+  
+  pc <- attr(x, "path_check")
+  if (!is.null(pc)) {
+    if (isTRUE(pc$ok)) {
+      cat(sprintf("\nEnd-to-end check (raw inputs -> linear predictor, vs the model's own; n=%d): max|dev| = %.4g, RMSE = %.4g\n",
+                  pc$n, pc$max_abs_dev, pc$rmse))
+      if (pc$max_abs_dev > 1e-6) {
+        cat("  ** deviation exceeds 1e-6 on the eta scale: the deployed path does not reproduce the model\n")
+        cat("     (check un-scaling and any data-dependent terms) **\n")
+      }
+    } else {
+      cat(sprintf("\nEnd-to-end check NOT performed: %s\n", pc$reason))
+    }
+  }
+  
+  bc <- attr(x, "batch_check")
+  if (!is.null(bc)) {
+    if (isTRUE(bc$ok)) {
+      cat(sprintf("\nBatch-independence check (%d rows: whole batch vs one at a time, reversed, split): max relative difference = %.3g\n",
+                  bc$n, bc$max_rel_dev))
+    } else {
+      cat(sprintf("\nBatch-independence check NOT performed: %s\n", bc$reason))
     }
   }
   

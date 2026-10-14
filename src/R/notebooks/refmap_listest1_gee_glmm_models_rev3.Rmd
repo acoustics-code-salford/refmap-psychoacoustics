@@ -221,6 +221,18 @@ stimData <- read.csv(stimDataPath, header=TRUE, row.names=1)
 
 ```
 
+## experiment 2 LAE sweep
+
+```{r}
+
+exp2_lae_sweepPath <- utils::choose.files(caption=r"(Select lae_sweep.rds from 03 Experiment\Experiment 2\Analysis\R)",
+                                     filters=matrix(data=c("lae_sweep.rds", "lae_sweep.rds"), ncol=2))
+exp2_lae_sweep <- readRDS(exp2_lae_sweepPath)
+
+exp2_lae_sweepScl <- exp2_lae_sweep - lae_centre  # recentres using the centring from this experiment
+
+```
+
 ```{r}
 # definition of ordinal variable levels
 UASLAeqCatsA <- c("Baseline", "42", "48", "54", "60")
@@ -5154,6 +5166,7 @@ geeParams(m12, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALS
 geeParams(m12b, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 geeParams(m12b_ar1, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 geeParams(m12b_ar2, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m12b_ar3, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 
 
 ```
@@ -5389,6 +5402,37 @@ if (saveplots){
 ```{r}
 
 m12DataFit <- insight::get_data(m12)
+
+
+m12predEvt1 <- avg_predictions_hybrid(m12, newdata=subset(m12DataFit,
+                                         UASEvents==1),
+                                variables = list(UASLAEMaxLRScl=seq(
+                                  min(stimDataNoAmb$UASLAEMaxLRScl),
+                                  max(stimDataNoAmb$UASLAEMaxLRScl),
+                                  length.out=25)),
+                              by=c("UASLAEMaxLRScl"),
+                              vcov=vcov(m12, type="bias-corrected")) |>
+  add_original_units(subjDataNoAmb.medScaling)
+
+# save m12predEvt1 data to csv for further use
+write.csv(m12predEvt1, file=file.path(outDataPath, "m12predEvt1.csv"), row.names=FALSE)
+
+m12predEvt1_exp2lae <- avg_predictions_hybrid(m12, newdata=subset(m12DataFit,
+                                         UASEvents==1),
+                                variables = list(UASLAEMaxLRScl=exp2_lae_sweepScl),
+                              by=c("UASLAEMaxLRScl"),
+                              vcov=vcov(m12, type="bias-corrected")) |>
+  add_original_units(subjDataNoAmb.medScaling)
+
+# check the round trip before saving
+stopifnot(isTRUE(all.equal(m12predEvt1_exp2lae$UASLAEMaxLR, exp2_lae_sweep)))
+
+
+# save m12predEvt1 data to csv for further use
+write.csv(m12predEvt1_exp2lae, file=file.path(outDataPath, "m12predEvt1_exp2lae.csv"), row.names=FALSE)
+
+
+
 m12predType <- avg_predictions_hybrid(m12, newdata=subset(m12DataFit,
                                                              UASEvents==1),
                                                     variables = list(UASLAEMaxLRScl=seq(
@@ -5443,7 +5487,10 @@ m12predEvt <- avg_predictions_hybrid(m12, newdata=subset(m12DataFit, AmbientEnv=
                                                 length.out = 25)),
                                           by = c("UASLAEMaxLRScl", "UASEvents",
                                                  "UASOperation", "AmbientEnv"),
-                                          vcov = vcov(m12, type = "bias-corrected"))
+                                          vcov = vcov(m12, type = "bias-corrected")) |>
+  add_original_units(subjDataNoAmb.medScaling)
+
+
 
 m12predEvt2 <- avg_predictions_hybrid(m12, newdata=subset(m12DataFit,
                                                                  AmbientEnv=="Park" &

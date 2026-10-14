@@ -31,10 +31,16 @@ geeCorStr <- function(formula, data, family, id, waves=NULL,
   
   model_list <- setNames(vector("list", length(corstr_formatted)), names(corstr_formatted))
   
+  X <- model.matrix(formula, data = data)
+  if (qr(X)$rank < ncol(X)) {
+    warning(sprintf("Design matrix is rank-deficient (rank %d of %d columns); fits are likely to fail or be unreliable.",
+                    qr(X)$rank, ncol(X)))
+  }
+  
   for (i in seq_along(corstr_formatted)) {
     cs <- corstr_formatted[[i]]
     
-    model_list[[i]] <- tryCatch({
+    model_list[i] <- list(tryCatch({
       warn_msgs <- character(0)
       
       fit <- withCallingHandlers({
@@ -56,6 +62,11 @@ geeCorStr <- function(formula, data, family, id, waves=NULL,
         stop(paste("Non-convergence detected:", paste(unique(warn_msgs), collapse = "; ")))
       }
       
+      if (!is.finite(glmtoolbox::AGPC(fit, verbose = FALSE)) ||
+          !is.finite(glmtoolbox::SGPC(fit, verbose = FALSE))) {
+        stop("Fit returned non-finite information criteria")
+      }
+      
       # Tag with the true family name directly, since we already know it here.
       # Avoids both (a) inspecting .x$call$family post-hoc, which is fragile
       # once family is passed as a variable, and (b) do.call(), which was
@@ -66,7 +77,7 @@ geeCorStr <- function(formula, data, family, id, waves=NULL,
     }, error = function(e) {
       warning(sprintf("Model failed for corstr = '%s': %s", cs, conditionMessage(e)))
       NULL
-    })
+    }))
   }
   
   model_list <- Filter(Negate(is.null), model_list)
@@ -75,7 +86,7 @@ geeCorStr <- function(formula, data, family, id, waves=NULL,
     stop("All correlation structures failed to fit — no models available to compare. ",
          "Check the warnings above for the specific failure reasons.")
   }
-  
+
   # Splice list into separate ... arguments, preserving names as
   # geeModelPerformance expects (mirrors calling it with each model named)
   model_perf <- do.call(geeModelPerformance, c(model_list, list(verbose = verbose)))

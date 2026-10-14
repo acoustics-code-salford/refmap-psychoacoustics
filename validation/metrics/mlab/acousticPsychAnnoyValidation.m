@@ -51,7 +51,7 @@ function acousticPsychAnnoyValidation(savePlots)
     end
 
 %% Load path
-addpath(genpath(fullfile("refmap-psychoacoustics")))
+addpath(genpath(fullfile(pwd)))
 
 %% Load test signals
 
@@ -94,86 +94,151 @@ addpath(genpath(fullfile("refmap-psychoacoustics")))
 
 %% Calculate predicted values for test signals
 
+metricCount = 12;
 % unmodulated high-pass noise
-hprUnModSQMs = zeros(7, size(hprUnMod, 2));
+hprUnModSQMs = zeros(size(hprUnMod, 2), metricCount);
 for ii = 1:size(hprUnMod, 2)
     PA = acousticPsychAnnoy(hprUnMod(:, ii), fs, 1, 2, "freeFrontal");
-    hprUnModSQMs(1, ii) = PA.loudness.N5;
-    hprUnModSQMs(2, ii) = PA.sharpness.S5;
-    hprUnModSQMs(3, ii) = PA.fluctuation.F5;
-    hprUnModSQMs(4, ii) = PA.roughness.R5;
-    hprUnModSQMs(5, ii) = PA.psychAnnoyFrom5Pc;
+    hprUnModSQMs(ii, 1) = PA.loudness.N5;
+    hprUnModSQMs(ii, 2) = PA.sharpness.S5;
+    hprUnModSQMs(ii, 3) = PA.fluctuation.F5;
+    hprUnModSQMs(ii, 4) = PA.roughness.R5;
+    hprUnModSQMs(ii, 5) = PA.sharpness.Smean;
+    hprUnModSQMs(ii, 6) = PA.fluctuation.Fmean;
+    hprUnModSQMs(ii, 7) = PA.roughness.Rmean;
+    hprUnModSQMs(ii, 8) = PA.fluctuation.F10;
+    hprUnModSQMs(ii, 9) = PA.roughness.R10;
+    hprUnModSQMs(ii, 10) = PA.psychAnnoyFrom5Pc;
+    hprUnModSQMs(ii, 11) = prctile(PA.psychAnnoyTDep, 95);
+    hprUnModSQMs(ii, 12) = PA.psychAnnoyFromMean;
 end
 
 % modulated high-pass noise
-hprModSQMs = zeros(7, size(hprMod, 2));
+hprModSQMs = zeros(size(hprMod, 2), metricCount);
 for ii = 1:size(hprMod, 2)
     PA = acousticPsychAnnoy(hprMod(:, ii), fs, 1, 2, "freeFrontal");
-    hprModSQMs(1, ii) = PA.loudness.N5;
-    hprModSQMs(2, ii) = PA.sharpness.S5;
-    hprModSQMs(3, ii) = PA.fluctuation.F5;
-    hprModSQMs(4, ii) = PA.roughness.R5;
-    hprModSQMs(5, ii) = PA.psychAnnoyFrom5Pc;
+    hprModSQMs(ii, 1) = PA.loudness.N5;
+    hprModSQMs(ii, 2) = PA.sharpness.S5;
+    hprModSQMs(ii, 3) = PA.fluctuation.F5;
+    hprModSQMs(ii, 4) = PA.roughness.R5;
+    hprModSQMs(ii, 5) = PA.sharpness.Smean;
+    hprModSQMs(ii, 6) = PA.fluctuation.Fmean;
+    hprModSQMs(ii, 7) = PA.roughness.Rmean;
+    hprModSQMs(ii, 8) = PA.fluctuation.F10;
+    hprModSQMs(ii, 9) = PA.roughness.R10;
+    hprModSQMs(ii, 10) = PA.psychAnnoyFrom5Pc;
+    hprModSQMs(ii, 11) = prctile(PA.psychAnnoyTDep, 95);
+    hprModSQMs(ii, 12) = PA.psychAnnoyFromMean;
 end
 
 % unmodulated blue noise
-blrUnModSQMs = zeros(7, size(blrUnMod, 2));
+blrUnModSQMs = zeros(size(blrUnMod, 2), metricCount);
 for ii = 1:size(blrUnMod, 2)
     PA = acousticPsychAnnoy(blrUnMod(:, ii), fs, 1, 2, "freeFrontal");
-    blrUnModSQMs(1, ii) = PA.loudness.N5;
-    blrUnModSQMs(2, ii) = PA.sharpness.S5;
-    blrUnModSQMs(3, ii) = PA.fluctuation.F5;
-    blrUnModSQMs(4, ii) = PA.roughness.R5;
-    blrUnModSQMs(5, ii) = PA.psychAnnoyFrom5Pc;
+    blrUnModSQMs(ii, 1) = PA.loudness.N5;
+    blrUnModSQMs(ii, 2) = PA.sharpness.S5;
+    blrUnModSQMs(ii, 3) = PA.fluctuation.F5;
+    blrUnModSQMs(ii, 4) = PA.roughness.R5;
+    blrUnModSQMs(ii, 5) = PA.sharpness.Smean;
+    blrUnModSQMs(ii, 6) = PA.fluctuation.Fmean;
+    blrUnModSQMs(ii, 7) = PA.roughness.Rmean;
+    blrUnModSQMs(ii, 8) = PA.fluctuation.F10;
+    blrUnModSQMs(ii, 9) = PA.roughness.R10;
+    blrUnModSQMs(ii, 10) = PA.psychAnnoyFrom5Pc;
+    blrUnModSQMs(ii, 11) = prctile(PA.psychAnnoyTDep, 95);
+    blrUnModSQMs(ii, 12) = PA.psychAnnoyFromMean;
 end
 
 % modulated blue noise
-blrModSQMs = zeros(7, size(blrMod, 2));
+blrModSQMs = zeros(size(blrMod, 2), metricCount);
 for ii = 1:size(blrMod, 2)
     PA = acousticPsychAnnoy(blrMod(:, ii), fs, 1, 2, "freeFrontal");
-    blrModSQMs(1, ii) = PA.loudness.N5;
-    blrModSQMs(2, ii) = PA.sharpness.S5;
-    blrModSQMs(3, ii) = PA.fluctuation.F5;
-    blrModSQMs(4, ii) = PA.roughness.R5;
-    blrModSQMs(5, ii) = PA.psychAnnoyFrom5Pc;
+    blrModSQMs(ii, 1) = PA.loudness.N5;
+    blrModSQMs(ii, 2) = PA.sharpness.S5;
+    blrModSQMs(ii, 3) = PA.fluctuation.F5;
+    blrModSQMs(ii, 4) = PA.roughness.R5;
+    blrModSQMs(ii, 5) = PA.sharpness.Smean;
+    blrModSQMs(ii, 6) = PA.fluctuation.Fmean;
+    blrModSQMs(ii, 7) = PA.roughness.Rmean;
+    blrModSQMs(ii, 8) = PA.fluctuation.F10;
+    blrModSQMs(ii, 9) = PA.roughness.R10;
+    blrModSQMs(ii, 10) = PA.psychAnnoyFrom5Pc;
+    blrModSQMs(ii, 11) = prctile(PA.psychAnnoyTDep, 95);
+    blrModSQMs(ii, 12) = PA.psychAnnoyFromMean;
 end
 
 
 % unmodulated uniform masking noise
-gvrUnModSQMs = zeros(7, size(gvrUnMod, 2));
+gvrUnModSQMs = zeros(size(gvrUnMod, 2), metricCount);
 for ii = 1:size(gvrUnMod, 2)
     PA = acousticPsychAnnoy(gvrUnMod(:, ii), fs, 1, 2, "freeFrontal");
-    gvrUnModSQMs(1, ii) = PA.loudness.N5;
-    gvrUnModSQMs(2, ii) = PA.sharpness.S5;
-    gvrUnModSQMs(3, ii) = PA.fluctuation.F5;
-    gvrUnModSQMs(4, ii) = PA.roughness.R5;
-    gvrUnModSQMs(5, ii) = PA.psychAnnoyFrom5Pc;
+    gvrUnModSQMs(ii, 1) = PA.loudness.N5;
+    gvrUnModSQMs(ii, 2) = PA.sharpness.S5;
+    gvrUnModSQMs(ii, 3) = PA.fluctuation.F5;
+    gvrUnModSQMs(ii, 4) = PA.roughness.R5;
+    gvrUnModSQMs(ii, 5) = PA.sharpness.Smean;
+    gvrUnModSQMs(ii, 6) = PA.fluctuation.Fmean;
+    gvrUnModSQMs(ii, 7) = PA.roughness.Rmean;
+    gvrUnModSQMs(ii, 8) = PA.fluctuation.F10;
+    gvrUnModSQMs(ii, 9) = PA.roughness.R10;
+    gvrUnModSQMs(ii, 10) = PA.psychAnnoyFrom5Pc;
+    gvrUnModSQMs(ii, 11) = prctile(PA.psychAnnoyTDep, 95);
+    gvrUnModSQMs(ii, 12) = PA.psychAnnoyFromMean;
 end
 
 % modulated uniform masking noise
-gvrModSQMs = zeros(7, size(gvrMod, 2));
+gvrModSQMs = zeros(size(gvrMod, 2), metricCount);
 for ii = 1:size(gvrMod, 2)
     PA = acousticPsychAnnoy(gvrMod(:, ii), fs, 1, 2, "freeFrontal");
-    gvrModSQMs(1, ii) = PA.loudness.N5;
-    gvrModSQMs(2, ii) = PA.sharpness.S5;
-    gvrModSQMs(3, ii) = PA.fluctuation.F5;
-    gvrModSQMs(4, ii) = PA.roughness.R5;
-    gvrModSQMs(5, ii) = PA.psychAnnoyFrom5Pc;
+    gvrModSQMs(ii, 1) = PA.loudness.N5;
+    gvrModSQMs(ii, 2) = PA.sharpness.S5;
+    gvrModSQMs(ii, 3) = PA.fluctuation.F5;
+    gvrModSQMs(ii, 4) = PA.roughness.R5;
+    gvrModSQMs(ii, 5) = PA.sharpness.Smean;
+    gvrModSQMs(ii, 6) = PA.fluctuation.Fmean;
+    gvrModSQMs(ii, 7) = PA.roughness.Rmean;
+    gvrModSQMs(ii, 8) = PA.fluctuation.F10;
+    gvrModSQMs(ii, 9) = PA.roughness.R10;
+    gvrModSQMs(ii, 10) = PA.psychAnnoyFrom5Pc;
+    gvrModSQMs(ii, 11) = prctile(PA.psychAnnoyTDep, 95);
+    gvrModSQMs(ii, 12) = PA.psychAnnoyFromMean;
 end
 
 % calculate relative values
-hprUnModSQMs(6, :) = hprUnModSQMs(1, :)./gvrUnModSQMs(1, 2);
-hprUnModSQMs(7, :) = hprUnModSQMs(5, :)./gvrUnModSQMs(5, 2);
-hprModSQMs(6, :) = hprModSQMs(1, :)./gvrUnModSQMs(1, 2);
-hprModSQMs(7, :) = hprModSQMs(5, :)./gvrUnModSQMs(5, 2);
-blrUnModSQMs(6, :) = blrUnModSQMs(1, :)./gvrUnModSQMs(1, 2);
-blrUnModSQMs(7, :) = blrUnModSQMs(5, :)./gvrUnModSQMs(5, 2);
-blrModSQMs(6, :) = blrModSQMs(1, :)./gvrUnModSQMs(1, 2);
-blrModSQMs(7, :) = blrModSQMs(5, :)./gvrUnModSQMs(5, 2);
-gvrUnModSQMs(6, :) = gvrUnModSQMs(1, :)./gvrUnModSQMs(1, 2);
-gvrUnModSQMs(7, :) = gvrUnModSQMs(5, :)./gvrUnModSQMs(5, 2);
-gvrModSQMs(6, :) = gvrModSQMs(1, :)./gvrUnModSQMs(1, 2);
-gvrModSQMs(7, :) = gvrModSQMs(5, :)./gvrUnModSQMs(5, 2);
+hprUnModSQMs(:, metricCount + 1) = hprUnModSQMs(:, 1)./gvrUnModSQMs(2, 1);
+hprUnModSQMs(:, metricCount + 2) = hprUnModSQMs(:, metricCount - 2)./gvrUnModSQMs(2, metricCount - 2);
+hprModSQMs(:, metricCount + 1) = hprModSQMs(:, 1)./gvrUnModSQMs(2, 1);
+hprModSQMs(:, metricCount + 2) = hprModSQMs(:, metricCount - 2)./gvrUnModSQMs(2, metricCount - 2);
+blrUnModSQMs(:, metricCount + 1) = blrUnModSQMs(:, 1)./gvrUnModSQMs(2, 1);
+blrUnModSQMs(:, metricCount + 2) = blrUnModSQMs(:, metricCount - 2)./gvrUnModSQMs(2, metricCount - 2);
+blrModSQMs(:, metricCount + 1) = blrModSQMs(:, 1)./gvrUnModSQMs(2, 1);
+blrModSQMs(:, metricCount + 2) = blrModSQMs(:, metricCount - 2)./gvrUnModSQMs(2, metricCount - 2);
+gvrUnModSQMs(:, metricCount + 1) = gvrUnModSQMs(:, 1)./gvrUnModSQMs(2, 1);
+gvrUnModSQMs(:, metricCount + 2) = gvrUnModSQMs(:, metricCount - 2)./gvrUnModSQMs(2, metricCount - 2);
+gvrModSQMs(:, metricCount + 1) = gvrModSQMs(:, 1)./gvrUnModSQMs(2, 1);
+gvrModSQMs(:, metricCount + 2) = gvrModSQMs(:, metricCount - 2)./gvrUnModSQMs(2, metricCount - 2);
+
+
+%% Print table
+tab4_2 = vertcat(gvrUnModSQMs(1, :),...
+    gvrModSQMs(1, :),...
+    blrUnModSQMs(1, :),...
+    blrModSQMs(1, :),...
+    hprUnModSQMs(1, :),...
+    hprModSQMs(1, :),...
+    gvrUnModSQMs(2, :),...
+    gvrModSQMs(2, :),...
+    blrUnModSQMs(2, :),...
+    blrModSQMs(2, :),...
+    hprUnModSQMs(2, :),...
+    hprModSQMs(2, :),...
+    gvrUnModSQMs(3, :),...
+    gvrModSQMs(3, :),...
+    blrUnModSQMs(3, :),...
+    blrModSQMs(3, :),...
+    hprUnModSQMs(3, :),...
+    hprModSQMs(3, :));
+
 
 %% Plot results
 

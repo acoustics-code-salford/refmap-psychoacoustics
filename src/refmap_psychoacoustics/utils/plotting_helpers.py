@@ -32,7 +32,14 @@ violin_facet(data, plot_func, facet_col=None, facet_row=None, col_order=None,
                 yticks=None, **plot_kwargs)
     Create a faceted grid of violin plots using a custom plotting function.
 
+sscpy_kde_peak(df, x, y, bw_adjust=1.2, lim=(-1, 1), gridsize=200)
+    Compute the coordinates of the peak in a bivariate kernel density estimate.
 
+sscpy_annotate_peak_shift(ax, df, x, y, hue, frm, to, label=None, bw_adjust=1.2,
+                        label_pos=0.5, label_offset=6, side=1,
+                        arrow_kw=None, text_kw=None)
+    Annotate a plot with an arrow indicating the peak shift between two soundscape
+    kernel density estimates.
 
 Requirements
 ------------
@@ -46,7 +53,7 @@ Author: Mike JB Lotinga (m.j.lotinga@edu.salford.ac.uk)
 Institution: University of Salford
  
 Date created: 17/03/2026
-Date last modified: 03/05/2026
+Date last modified: 12/10/2026
 Python version: 3.11
 
 Copyright statement: This file and code is part of work undertaken within
