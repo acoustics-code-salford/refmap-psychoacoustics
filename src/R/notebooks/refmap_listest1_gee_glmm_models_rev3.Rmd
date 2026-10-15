@@ -229,8 +229,6 @@ exp2_lae_sweepPath <- utils::choose.files(caption=r"(Select lae_sweep.rds from 0
                                      filters=matrix(data=c("lae_sweep.rds", "lae_sweep.rds"), ncol=2))
 exp2_lae_sweep <- readRDS(exp2_lae_sweepPath)
 
-exp2_lae_sweepScl <- exp2_lae_sweep - lae_centre  # recentres using the centring from this experiment
-
 ```
 
 ```{r}
@@ -522,6 +520,13 @@ subjDataNoAmb.med <- rbind(subjDataNoAmb.med[subjDataNoAmb.med$SessionPart == "A
 stimDataNoAmb.medPlot <- to_model_cols(stimDataNoAmb, subjDataNoAmb.medScaling)
 stimDataNoAmb.ccPlot <- to_model_cols(stimDataNoAmb, subjDataNoAmb.ccScaling)
 
+log10evts_centre <- mean(log10(subjDataNoAmb.med$UASEvents))
+print(log10evts_centre, digits=20)
+# [1] 0.090652500787021542128
+# we use 0.0906525 to centre
+
+
+
 ```
 
 # Add external data
@@ -529,6 +534,8 @@ stimDataNoAmb.ccPlot <- to_model_cols(stimDataNoAmb, subjDataNoAmb.ccScaling)
 ```{r}
 
 lae_centre <- get_scaling(subjDataNoAmb.medScaling, "UASLAEMaxLRScl")$center
+
+exp2_lae_sweepScl <- exp2_lae_sweep - lae_centre  # recentres using the centring from this experiment
 
 ```
 
@@ -759,13 +766,13 @@ pHALAEUASRangeAllAdj <- rbind(
 ```{r}
 
 # NOTE: the GLMM re formula has been reduced from the Bayesian version to what the TMB solver can handle
-m1formula <- dAnnoyanceOrdBetaScl ~ 1 + PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents)) +
+m1formula <- dAnnoyanceOrdBetaScl ~ 1 + PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents) - 0.0906525) +
   UASLAEMaxLRScl*AmbientEnv*UASOperation + UASLAEMaxLRScl*UASType + AmbientEnv*UASType +
-  (1 + PartTrialNumberStd + UASLAEMaxLRScl + I(log10(UASEvents)) + AmbientEnv | ID)
+  (1 + PartTrialNumberStd + UASLAEMaxLRScl + I(log10(UASEvents) - 0.0906525) + AmbientEnv | ID)
 
 # extract only fixed effects from m1formula
 m1bformula <- update(m1formula, . ~ . - (1 + PartTrialNumberStd + UASLAEMaxLRScl +
-                                           I(log10(UASEvents)) + AmbientEnv | ID))
+                                           I(log10(UASEvents) - 0.0906525) + AmbientEnv | ID))
 
 # include personal factors
 m1cformula <- update(m1bformula, . ~ . +
@@ -773,8 +780,14 @@ m1cformula <- update(m1bformula, . ~ . +
                      AgeScl + Sex + NoiseSensitivityScl +
                        Area_soundscape2)
 
-m1Data <- subjDataNoAmb.med[, c(TrialNumber='TrialNumber', StimID='StimID', all.vars(m1formula)), drop=FALSE]
-m1cData <- subjDataNoAmb.med[, c(TrialNumber='TrialNumber', StimID='StimID', ID='ID', all.vars(m1cformula)), drop=FALSE]
+m1Data <- subjDataNoAmb.med[, c(TrialNumber='TrialNumber', StimID='StimID',
+                                all.vars(m1formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dAnnoyanceOrdBetaScl))
+  
+m1cData <- subjDataNoAmb.med[, c(TrialNumber='TrialNumber', StimID='StimID',
+                                 ID='ID', all.vars(m1cformula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dAnnoyanceOrdBetaScl))
+
 
 ```
 
@@ -1023,17 +1036,17 @@ coefficient_paths <- broom::tidy(m1d$glmnet.fit, return_zeros=TRUE) |>
 
 # 3. Create the ggplot
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
-  geom_line(linewidth = 0.4, alpha=0.6) +
+  geom_line(linewidth = 1, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
   # scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m1d$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m1d$lambda.min*1.25, y = -max(coefficient_paths$estimate) * 0.25, 
-           label = expression(paste("Minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("Minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   geom_vline(xintercept = m1d$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m1d$lambda.1se*1.25, y = -max(coefficient_paths$estimate) * 0.25, 
-           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
@@ -1368,10 +1381,11 @@ if (saveplots){
 
 ```{r}
 
-m2formula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents))
+m2formula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents) - 0.0906525)
 
 m2Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID',
-                                TrialNumber='TrialNumber', all.vars(m2formula)), drop=FALSE]
+                                TrialNumber='TrialNumber', all.vars(m2formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dAnnoyanceOrdBetaScl))
 
 ```
 
@@ -1536,19 +1550,23 @@ m2_deploy <- deploy_mean_model(m2,
 
 ```{r}
 
-m3formula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents)) +
+m3formula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents) - 0.0906525) +
   UASTonalAwSHMInt05ExMaxLRScl*UASSharpAurISO305ExMaxLRScl + UASImpulsLoudWZAvgMaxLR + UASFluctECMA10ExBin +
   UASRoughFZ05ExMaxLR
 
 m3Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
-                                all.vars(m3formula)), drop=FALSE]
+                                all.vars(m3formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dAnnoyanceOrdBetaScl))
+  
 
-m3aformula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents)) +
+m3aformula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents) - 0.0906525) +
   UASTonLdECMAPowAvgBinScl*UASSharpAurISO305ExMaxLRScl + UASImpulsLoudWZAvgMaxLR + UASFluctECMA10ExBin +
   UASRoughFZ05ExMaxLR
 
 m3aData <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
-                                 all.vars(m3aformula)), drop=FALSE]
+                                 all.vars(m3aformula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dAnnoyanceOrdBetaScl))
+  
 
 ```
 
@@ -1586,6 +1604,42 @@ geeParams(m3a, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FAL
 
 ```
 
+#### analyse performance
+
+```{r}
+
+geeModelPerformance(m1b, m2, m3, m3a)
+
+nd <- na.omit(m3Data)
+nda <-  na.omit(m3aData)
+
+m3_cv <- cv_glmgee(m3, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=nd, agg_cols="StimID",
+                                return_predictions=TRUE,
+                                backtransform_fn=\(x) betaTransform(x, -10, 10,
+                                                                      direction="reverse",
+                                                                      squeeze="none"),
+                                workers=n_cores) |>
+
+          cv_aggregated_metrics(backtransform_fn=\(x) betaTransform(x, -10, 10,
+                                direction="reverse", squeeze="none"))
+
+m3a_cv <- cv_glmgee(m3a, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=nda, agg_cols="StimID",
+                                return_predictions=TRUE,
+                                backtransform_fn=\(x) betaTransform(x, -10, 10,
+                                                                      direction="reverse",
+                                                                      squeeze="none"),
+                                workers=n_cores) |>
+
+          cv_aggregated_metrics(backtransform_fn=\(x) betaTransform(x, -10, 10,
+                                direction="reverse", squeeze="none"))
+
+compare_cv_results(list(m1b=m1b_cv, m2=m2_cv, m3=m3_cv, m3a=m3a_cv))
+
+```
+
+
 #### model diagnostics
 
 ```{r, fig.width=12, fig.height=4}
@@ -1621,41 +1675,6 @@ geeCluster_stemplot(m3, clusterVar=m3.Cook,
 
 glmgee_vif(m3a)
 glmgee_vif(m3)
-
-```
-
-#### analyse performance
-
-```{r}
-
-geeModelPerformance(m1b, m2, m3, m3a)
-
-nd <- na.omit(m3Data)
-nda <-  na.omit(m3aData)
-
-m3_cv <- cv_glmgee(m3, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
-                                data=nd, agg_cols="StimID",
-                                return_predictions=TRUE,
-                                backtransform_fn=\(x) betaTransform(x, -10, 10,
-                                                                      direction="reverse",
-                                                                      squeeze="none"),
-                                workers=n_cores) |>
-
-          cv_aggregated_metrics(backtransform_fn=\(x) betaTransform(x, -10, 10,
-                                direction="reverse", squeeze="none"))
-
-m3a_cv <- cv_glmgee(m3a, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
-                                data=nda, agg_cols="StimID",
-                                return_predictions=TRUE,
-                                backtransform_fn=\(x) betaTransform(x, -10, 10,
-                                                                      direction="reverse",
-                                                                      squeeze="none"),
-                                workers=n_cores) |>
-
-          cv_aggregated_metrics(backtransform_fn=\(x) betaTransform(x, -10, 10,
-                                direction="reverse", squeeze="none"))
-
-compare_cv_results(list(m1b=m1b_cv, m2=m2_cv, m3=m3_cv, m3a=m3a_cv))
 
 ```
 
@@ -1707,16 +1726,6 @@ ggplot(data=cbind(m3predMeans,
   ggplot2::annotate("text", x = 0.1, y = 5.25, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
   family = "serif", size = 4, hjust = 0, parse = TRUE)
 
-if (saveplots){
-  
-  filename <- "PtsABdAnnoyMn_PredMod_LAESQCal_geeQb"
-
-  ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4, path=file.path(outFigPath, "svg"))
-  unlink(paste(filename, ".svg", sep=""))
-
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=4, height=4, path=file.path(outFigPath, "pdf"))
-  unlink(paste(filename, ".pdf", sep=""))
-}
 
 ```
 
@@ -1761,7 +1770,7 @@ stopifnot(length(foldid) == nrow(X_matrix), length(y_matrix) == nrow(X_matrix))
 set.seed(808)
 m3b <- glmnet::cv.glmnet(x=X_matrix, y=y_matrix, family=quasibinomial(link='logit'),
                          alpha=0.5, foldid=foldid, type.measure='deviance', standardize=TRUE,
-                         lambda.min.ratio = 1e-40, nlambda = 200)
+                         lambda.min.ratio = 1e-2, nlambda = 200)
 
 coef(m3b, s = "lambda.min")
 coef(m3b, s = "lambda.1se")
@@ -1777,18 +1786,18 @@ coefficient_paths <- broom::tidy(m3b$glmnet.fit, return_zeros=TRUE) |>
 
 # 3. Create the ggplot
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
-  geom_hline(yintercept = 0, color = "grey30", linewidth = 0.3) +
-  geom_line(linewidth = 0.4, alpha=0.6) +
+  # geom_hline(yintercept = 0, color = "grey30", linewidth = 0.3) +
+  geom_line(linewidth = 1, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
   # scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m3b$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m3b$lambda.min*1.25, y = -max(coefficient_paths$estimate) * 0.55, 
-           label = expression(paste("Minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("Minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   geom_vline(xintercept = m3b$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m3b$lambda.1se*1.25, y = -max(coefficient_paths$estimate) * 0.55, 
-           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
@@ -1801,6 +1810,170 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
         legend.text=element_text(family = "serif", size=12),
         legend.position='right')
 
+ 
+if (saveplots){
+    
+  filename <- "PtsABdAnnoyMn_PredMod_LAESQnet_glmnetQb"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=10, height=5,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=10, height=5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
+##### fit elastic net-informed model
+
+###### formula
+
+```{r}
+
+m3cformula <- update(m3formula, . ~ . - UASFluctECMA10ExBin -
+                       UASRoughFZ05ExMaxLR - UASImpulsLoudWZAvgMaxLR)
+
+```
+
+###### run model
+
+####### check correlation structure
+
+```{r}
+
+geeCorStr(m3cformula, data=m3Data, family=quasibinomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+```
+
+####### fit and estimate parameters
+
+```{r}
+
+m3c <- glmtoolbox::glmgee(m3cformula, data=m3Data,
+                          family=quasibinomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+geeParams(m3c, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+
+```
+
+###### analyse performance
+
+```{r}
+
+geeModelPerformance(m3, m3c)
+
+m3c_cv <- cv_glmgee(m3c, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                    data=na.omit(m3Data), agg_cols="StimID",
+                    return_predictions=TRUE,
+                    backtransform_fn=\(x) betaTransform(x, -10, 10,
+                                                          direction="reverse",
+                                                          squeeze="none"),
+                    workers=n_cores) |>
+
+          cv_aggregated_metrics(backtransform_fn=\(x) betaTransform(x, -10, 10,
+                                direction="reverse", squeeze="none"))
+
+compare_cv_results(list(m3=m3_cv, m3c=m3c_cv))
+
+```
+
+###### model diagnostics
+
+```{r, fig.width=12, fig.height=4}
+
+m3c.resP <- residuals(m3c, type="pearson", plot.it=FALSE,
+                      pch=1, col=mycolours[3], identify=10)
+
+gee_residplot(m3c, residual_vals=m3c.resP,
+              colour=mycolours[3], alpha=0.3) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4, text=element_text (family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Fitted values", y="Standardised Pearson residuals")
+
+m3c.resM <- residuals(m3c, type="mahalanobis", plot.it=FALSE)
+
+# plot Mahalanobis residuals with ggplot2 on a stem plot replacing the index by the corresponding participant ID
+geeCluster_stemplot(m3c,
+                    clusterVar=m3c.resM,
+                    colour=mycolours[2], alpha=0.7) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Participant ID", y="Mahalanobis distance")
+
+m3c.Cook <- cooks.distance(m3c, plot.it=FALSE)
+
+geeCluster_stemplot(m3c, clusterVar=m3c.Cook,
+                    colour=mycolours[4], alpha=0.7) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Participant ID", y="Cook's distance")
+
+glmgee_vif(m3c)
+
+```
+
+###### analyse and visualise calibration
+
+```{r}
+
+m3cpredMeans <- marginaleffects::avg_predictions(m3c, newdata=na.omit(m3Data),
+                                                  by=c("StimID"),
+                                                  vcov=vcov(m3c, type='bias-corrected'),
+                                                 type='response',
+                                                transform=\(x) betaTransform(x, -10, 10,
+                                                                             direction='reverse',
+                                                                             squeeze='none')) |>
+  dplyr::arrange(StimID)
+
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyMean - m3cpredMeans$estimate)^2)/sum((stimDataNoAmb$dAnnoyMean - mean(stimDataNoAmb$dAnnoyMean))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m3cpredMeans,
+                     measured_target='dAnnoyMean', measured_ci_low='dAnnoyMeanCI_Low',
+                     measured_ci_high='dAnnoyMeanCI_High', fitted='estimate')
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=cbind(m3cpredMeans,
+                  response=stimDataNoAmb$dAnnoyMean,
+                  responseCI_Low=stimDataNoAmb$dAnnoyMeanCI_Low,
+                  responseCI_High=stimDataNoAmb$dAnnoyMeanCI_High)) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  geom_point(mapping=aes(x=response, y=estimate), size=1.75, shape=4, stroke=0.75, colour=mycolours[2], alpha=0.5) +
+
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate), width=0, colour=mycolours[2], alpha=0.1) +
+  
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=conf.low, ymax=conf.high), width=0, colour=mycolours[2], alpha=0.1) +
+
+  scale_x_continuous(breaks=seq(-2, 10, by=1), limits=c(-1, 9)) +
+  scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-1, 9)) +
+  
+  labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance") +
+  
+  ggplot2::annotate("text", x=0.1, y=6.75, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=0.1, y=6, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = 0.1, y = 5.25, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
+
+if (saveplots){
+  
+  filename <- "PtsABdAnnoyMn_PredMod_LAESQnetCal_geeQb"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
 
 ```
 
@@ -1808,7 +1981,7 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
 
 ```{r}
 
-m3_deploy <- deploy_mean_model(m3,
+m3c_deploy <- deploy_mean_model(m3c,
                                centred_vars=list(UASLAEMaxLRScl="UASLAEMaxLR",
                                                  UASTonalAwSHMInt05ExMaxLRScl="UASTonalAwSHMInt05ExMaxLR",
                                                  UASSharpAurISO305ExMaxLRScl="UASSharpAurISO305ExMaxLR"),
@@ -1830,11 +2003,11 @@ if (savedata) {
   filename = "dA_LAE_Qb_deploy"
   saveRDS(m2_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
   
-  filename = "dA_LAESQ_Qb"
-  saveRDS(m3, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+  filename = "dA_LAESQnet_Qb"
+  saveRDS(m3c, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
   
-  filename = "dA_LAESQ_Qb_deploy"
-  saveRDS(m3_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+  filename = "dA_LAESQnet_Qb_deploy"
+  saveRDS(m3c_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
   
 }
 
@@ -1848,11 +2021,12 @@ if (savedata) {
 
 ```{r}
 
-m4formula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents)) +
+m4formula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents) - 0.0906525) +
                                         UASLAEMaxLRScl*AmbientEnv
 
 m4Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
-                                all.vars(m4formula)), drop=FALSE]
+                                all.vars(m4formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dAnnoyanceOrdBetaScl))
 
 ```
 
@@ -1921,7 +2095,7 @@ glmgee_vif(m4)
 
 ```{r}
 
-geeModelPerformance(m1b, m2, m3, m4)
+geeModelPerformance(m1b, m2, m3c, m4)
 
 m4_cv <- cv_glmgee(m4, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
                                 data=na.omit(m4Data), agg_cols="StimID",
@@ -1934,7 +2108,7 @@ m4_cv <- cv_glmgee(m4, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv
           cv_aggregated_metrics(backtransform_fn=\(x) betaTransform(x, -10, 10,
                                 direction="reverse", squeeze="none"))
 
-compare_cv_results(list(m1b=m1b_cv, m2=m2_cv, m3=m3_cv, m4=m4_cv))
+compare_cv_results(list(m1b=m1b_cv, m2=m2_cv, m3c=m3c_cv, m4=m4_cv))
 
 ```
 
@@ -2016,13 +2190,14 @@ m4_deploy <- deploy_mean_model(m4,
 
 ```{r}
 
-m5formula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents)) +
+m5formula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents) - 0.0906525) +
                         UASLAEMaxLRScl*AmbientEnv + UASTonalAwSHMInt05ExMaxLRScl*UASSharpAurISO305ExMaxLRScl+
                         UASImpulsLoudWZAvgMaxLR + UASFluctECMA10ExBin +
                         UASRoughFZ05ExMaxLR
 
 m5Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
-                                all.vars(m5formula)), drop=FALSE]
+                                all.vars(m5formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dAnnoyanceOrdBetaScl))
 
 ```
 
@@ -2091,7 +2266,7 @@ glmgee_vif(m5)
 
 ```{r}
 
-geeModelPerformance(m1b, m2, m3, m4, m5)
+geeModelPerformance(m1b, m2, m3c, m4, m5)
 
 m5_cv <- cv_glmgee(m5, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
                                 data=na.omit(m5Data), agg_cols="StimID",
@@ -2104,7 +2279,7 @@ m5_cv <- cv_glmgee(m5, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv
           cv_aggregated_metrics(backtransform_fn=\(x) betaTransform(x, -10, 10,
                                 direction="reverse", squeeze="none"))
 
-compare_cv_results(list(m1b=m1b_cv, m2=m2_cv, m3=m3_cv, m4=m4_cv, m5=m5_cv))
+compare_cv_results(list(m1b=m1b_cv, m2=m2_cv, m3c=m3c_cv, m4=m4_cv, m5=m5_cv))
 
 ```
 
@@ -2155,17 +2330,6 @@ ggplot(data=cbind(m5predMeans,
   ggplot2::annotate("text", x=0.1, y=6, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
   ggplot2::annotate("text", x = 0.1, y = 5.25, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
   family = "serif", size = 4, hjust = 0, parse = TRUE)
-
-if (saveplots){
-  
-  filename <- "PtsABdAnnoyMn_PredMod_LAESQEnvCal_geeQb"
-
-  ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4, path=file.path(outFigPath, "svg"))
-  unlink(paste(filename, ".svg", sep=""))
-
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=4, height=4, path=file.path(outFigPath, "pdf"))
-  unlink(paste(filename, ".pdf", sep=""))
-}
 
 ```
 
@@ -2225,17 +2389,17 @@ coefficient_paths <- broom::tidy(m5b$glmnet.fit, return_zeros=TRUE) |>
 
 # 3. Create the ggplot
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
-  geom_line(linewidth = 0.4, alpha=0.6) +
+  geom_line(linewidth = 1, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
   # scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m5b$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m5b$lambda.min*1.25, y = -max(coefficient_paths$estimate) * 0.25, 
-           label = expression(paste("Minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("Minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   geom_vline(xintercept = m5b$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m5b$lambda.1se*1.25, y = -max(coefficient_paths$estimate) * 0.25, 
-           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
@@ -2247,6 +2411,158 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
         axis.text=element_text(family = "serif", size=14),
         legend.text=element_text(family = "serif", size=12),
         legend.position='right')
+
+```
+
+##### fit elastic net-informed model
+
+###### formula
+
+```{r}
+
+m5cformula <- update(m5formula, . ~ . - UASFluctECMA10ExBin -
+                       UASRoughFZ05ExMaxLR - UASImpulsLoudWZAvgMaxLR)
+m5cformula
+```
+
+###### run model
+
+####### check correlation structure
+
+```{r}
+
+geeCorStr(m5cformula, data=m5Data, family=quasibinomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+```
+
+####### fit and estimate parameters
+
+```{r}
+
+m5c <- glmtoolbox::glmgee(m5cformula, data=m5Data,
+                          family=quasibinomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+geeParams(m5c, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+
+```
+
+###### analyse performance
+
+```{r}
+
+geeModelPerformance(m5, m5c)
+
+m5c_cv <- cv_glmgee(m5c, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                    data=na.omit(m5Data), agg_cols="StimID",
+                    return_predictions=TRUE,
+                    backtransform_fn=\(x) betaTransform(x, -10, 10,
+                                                          direction="reverse",
+                                                          squeeze="none"),
+                    workers=n_cores) |>
+
+          cv_aggregated_metrics(backtransform_fn=\(x) betaTransform(x, -10, 10,
+                                direction="reverse", squeeze="none"))
+
+compare_cv_results(list(m5=m5_cv, m5c=m5c_cv))
+
+```
+
+###### model diagnostics
+
+```{r, fig.width=12, fig.height=4}
+
+m5c.resP <- residuals(m5c, type="pearson", plot.it=FALSE,
+                      pch=1, col=mycolours[3], identify=10)
+
+gee_residplot(m5c, residual_vals=m5c.resP,
+              colour=mycolours[3], alpha=0.3) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4, text=element_text (family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Fitted values", y="Standardised Pearson residuals")
+
+m5c.resM <- residuals(m5c, type="mahalanobis", plot.it=FALSE)
+
+# plot Mahalanobis residuals with ggplot2 on a stem plot replacing the index by the corresponding participant ID
+geeCluster_stemplot(m5c,
+                    clusterVar=m5c.resM,
+                    colour=mycolours[2], alpha=0.7) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Participant ID", y="Mahalanobis distance")
+
+m5c.Cook <- cooks.distance(m5c, plot.it=FALSE)
+
+geeCluster_stemplot(m5c, clusterVar=m5c.Cook,
+                    colour=mycolours[4], alpha=0.7) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Participant ID", y="Cook's distance")
+
+glmgee_vif(m5c)
+
+```
+
+###### analyse and visualise calibration
+
+```{r}
+
+m5cpredMeans <- marginaleffects::avg_predictions(m5c, newdata=na.omit(m5Data),
+                                                  by=c("StimID"),
+                                                  vcov=vcov(m5c, type='bias-corrected'),
+                                                 type='response',
+                                                transform=\(x) betaTransform(x, -10, 10,
+                                                                             direction='reverse',
+                                                                             squeeze='none')) |>
+  dplyr::arrange(StimID)
+
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyMean - m5cpredMeans$estimate)^2)/sum((stimDataNoAmb$dAnnoyMean - mean(stimDataNoAmb$dAnnoyMean))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m5cpredMeans,
+                     measured_target='dAnnoyMean', measured_ci_low='dAnnoyMeanCI_Low',
+                     measured_ci_high='dAnnoyMeanCI_High', fitted='estimate')
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=cbind(m5cpredMeans,
+                  response=stimDataNoAmb$dAnnoyMean,
+                  responseCI_Low=stimDataNoAmb$dAnnoyMeanCI_Low,
+                  responseCI_High=stimDataNoAmb$dAnnoyMeanCI_High)) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  geom_point(mapping=aes(x=response, y=estimate), size=1.75, shape=4, stroke=0.75, colour=mycolours[2], alpha=0.5) +
+
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate), width=0, colour=mycolours[2], alpha=0.1) +
+  
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=conf.low, ymax=conf.high), width=0, colour=mycolours[2], alpha=0.1) +
+
+  scale_x_continuous(breaks=seq(-2, 10, by=1), limits=c(-1, 9)) +
+  scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-1, 9)) +
+  
+  labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance") +
+  
+  ggplot2::annotate("text", x=0.1, y=6.75, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=0.1, y=6, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = 0.1, y = 5.25, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
+
+if (saveplots){
+  
+  filename <- "PtsABdAnnoyMn_PredMod_LAEEnvSQnetCal_geeQb"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
 
 ```
 
@@ -2353,7 +2669,7 @@ if (saveplots){
 
 ```{r}
 
-m5_deploy <- deploy_mean_model(m5,
+m5c_deploy <- deploy_mean_model(m5c,
                                centred_vars=list(UASLAEMaxLRScl="UASLAEMaxLR",
                                                  UASTonalAwSHMInt05ExMaxLRScl="UASTonalAwSHMInt05ExMaxLR",
                                                  UASSharpAurISO305ExMaxLRScl="UASSharpAurISO305ExMaxLR"),
@@ -2374,11 +2690,11 @@ if (savedata) {
   filename = "dA_LAEEnv_Qb_deploy"
   saveRDS(m4_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
   
-  filename = "dA_LAEEnvSQ_Qb"
-  saveRDS(m5, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+  filename = "dA_LAEEnvSQnet_Qb"
+  saveRDS(m5c, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
   
-  filename = "dA_LAEEnvSQ_Qb_deploy"
-  saveRDS(m5_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+  filename = "dA_LAEEnvSQnet_Qb_deploy"
+  saveRDS(m5c_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
   
 }
 
@@ -2393,13 +2709,14 @@ if (savedata) {
 ```{r}
 
 m6formula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd +
-                            I(exp(0.03*LAELAF50diffScl))*I(log10(UASEvents))
+                            I(exp(0.03*LAELAF50diffScl))*I(log10(UASEvents) - 0.0906525)
 
 m6Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
-                                all.vars(m6formula)), drop=FALSE]
+                                all.vars(m6formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dAnnoyanceOrdBetaScl))
 
 m6bformula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd +
-                            I(exp(0.03*LAELAF50diffScl)) + I(log10(UASEvents))
+                            I(exp(0.03*LAELAF50diffScl)) + I(log10(UASEvents) - 0.0906525)
 
 
 ```
@@ -2588,19 +2905,20 @@ m6_deploy <- deploy_mean_model(m6,
 ```{r}
 
 m7formula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd +
-              I(exp(0.03*LAELAF50diffScl)) + I(log10(UASEvents)) +
+              I(exp(0.03*LAELAF50diffScl)) + I(log10(UASEvents) - 0.0906525) +
               UASTonalAwSHMInt05ExMaxLRScl*UASSharpAurISO305ExMaxLRScl +
                                     UASImpulsLoudWZAvgMaxLR + UASFluctECMA10ExBin +
                                     UASRoughFZ05ExMaxLR
 
 m7bformula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd +
-              I(exp(0.03*LAELAF50diffScl))*I(log10(UASEvents)) +
+              I(exp(0.03*LAELAF50diffScl))*I(log10(UASEvents) - 0.0906525) +
               UASTonalAwSHMInt05ExMaxLRScl*UASSharpAurISO305ExMaxLRScl +
                                     UASImpulsLoudWZAvgMaxLR + UASFluctECMA10ExBin +
                                     UASRoughFZ05ExMaxLR
 
 m7Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
-                                all.vars(m7formula)), drop=FALSE]
+                                all.vars(m7formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dAnnoyanceOrdBetaScl))
    
 ```
 
@@ -2826,17 +3144,17 @@ coefficient_paths <- broom::tidy(m7c$glmnet.fit, return_zeros=TRUE) |>
 
 # 3. Create the ggplot
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
-  geom_line(linewidth = 0.4, alpha=0.6) +
+  geom_line(linewidth = 1, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
   scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m7c$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m7c$lambda.min*1.25, y = -max(coefficient_paths$estimate) * 0.25, 
-           label = expression(paste("Minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("Minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   geom_vline(xintercept = m7c$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m7c$lambda.1se*1.25, y = -max(coefficient_paths$estimate) * 0.25, 
-           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
@@ -2955,12 +3273,14 @@ if (savedata) {
 ```{r}
 
 m8formula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd +
-  I(exp(0.026*Detect0p5dBIntMaxLRScl)) + I(log10(UASEvents))
+  I(exp(0.026*Detect0p5dBIntMaxLRScl)) + I(log10(UASEvents) - 0.0906525)
 
 m8bformula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd +
-  I(exp(0.026*Detect0p5dBIntMaxLRScl))*I(log10(UASEvents))
+  I(exp(0.026*Detect0p5dBIntMaxLRScl))*I(log10(UASEvents) - 0.0906525)
 
-m8Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber', all.vars(m8formula)), drop=FALSE]
+m8Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                all.vars(m8formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dAnnoyanceOrdBetaScl))
 
 ```
 
@@ -3148,19 +3468,20 @@ m8_deploy <- deploy_mean_model(m8,
 ```{r}
 
 m9formula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd +
-  I(exp(0.026*Detect0p5dBIntMaxLRScl)) + I(log10(UASEvents)) +
+  I(exp(0.026*Detect0p5dBIntMaxLRScl)) + I(log10(UASEvents) - 0.0906525) +
   UASTonalAwSHMInt05ExMaxLRScl*UASSharpAurISO305ExMaxLRScl +
                         UASImpulsLoudWZAvgMaxLR + UASFluctECMA10ExBin +
                         UASRoughFZ05ExMaxLR
 
 m9bformula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd +
-  I(exp(0.026*Detect0p5dBIntMaxLRScl))*I(log10(UASEvents)) +
+  I(exp(0.026*Detect0p5dBIntMaxLRScl))*I(log10(UASEvents) - 0.0906525) +
   UASTonalAwSHMInt05ExMaxLRScl*UASSharpAurISO305ExMaxLRScl +
                         UASImpulsLoudWZAvgMaxLR + UASFluctECMA10ExBin +
                         UASRoughFZ05ExMaxLR
 
 m9Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
-                                all.vars(m9formula)), drop=FALSE]
+                                all.vars(m9formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dAnnoyanceOrdBetaScl))
 
 ```
 
@@ -3388,17 +3709,17 @@ coefficient_paths <- broom::tidy(m9c$glmnet.fit, return_zeros=TRUE) |>
 
 # 3. Create the ggplot
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
-  geom_line(linewidth = 0.4, alpha=0.6) +
+  geom_line(linewidth = 1, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
   scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m9c$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m9c$lambda.min*1.25, y = -max(coefficient_paths$estimate) * 0.25, 
-           label = expression(paste("Minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("Minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   geom_vline(xintercept = m9c$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m9c$lambda.1se*1.25, y = -max(coefficient_paths$estimate) * 0.25, 
-           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
@@ -3518,19 +3839,20 @@ if (savedata) {
 ```{r}
 
 m10formula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd +
-  I(exp(0.026*Detect0p5dBIntMaxLRScl)) + I(log10(UASEvents)) +
+  I(exp(0.026*Detect0p5dBIntMaxLRScl)) + I(log10(UASEvents) - 0.0906525) +
   dTonalSHMIntAvgMaxLRScl*dSharpAurISO3PowAvgMaxLRScl +
   dImpulsLoudWZAvgMaxLR + dFluctECMA10ExBin +
   dRoughFZ05ExMaxLR
 
 m10bformula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd +
-  I(exp(0.026*Detect0p5dBIntMaxLRScl))*I(log10(UASEvents)) +
+  I(exp(0.026*Detect0p5dBIntMaxLRScl))*I(log10(UASEvents) - 0.0906525) +
   dTonalSHMIntAvgMaxLRScl*dSharpAurISO3PowAvgMaxLRScl +
   dImpulsLoudWZAvgMaxLR + dFluctECMA10ExBin +
   dRoughFZ05ExMaxLR
 
 m10Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
-                                 all.vars(m10formula)), drop=FALSE]
+                                 all.vars(m10formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dAnnoyanceOrdBetaScl))
 
 ```
 
@@ -3769,17 +4091,17 @@ coefficient_paths <- broom::tidy(m10c$glmnet.fit, return_zeros=TRUE) |>
 
 # 3. Create the ggplot
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
-  geom_line(linewidth = 0.4, alpha=0.6) +
+  geom_line(linewidth = 1, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
   scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m10c$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m10c$lambda.min*1.25, y = max(coefficient_paths$estimate) * 0.5, 
-           label = expression(paste("Minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("Minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   geom_vline(xintercept = m10c$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m10c$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
-           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
@@ -4160,20 +4482,21 @@ if (savedata) {
 ```{r}
 
 m11formula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd +
-  I(exp(0.03*LAELAF50diffScl)) + I(log10(UASEvents)) +
+  I(exp(0.03*LAELAF50diffScl)) + I(log10(UASEvents) - 0.0906525) +
   dTonalSHMIntAvgMaxLRScl*dSharpAurISO3PowAvgMaxLRScl +
   dImpulsLoudWZAvgMaxLR + dFluctECMA10ExBin +
   dRoughFZ05ExMaxLR
 
 m11bformula <- dAnnoyanceOrdBetaScl ~ PartTrialNumberStd +
-  I(exp(0.03*LAELAF50diffScl))*I(log10(UASEvents)) +
+  I(exp(0.03*LAELAF50diffScl))*I(log10(UASEvents) - 0.0906525) +
   dTonalSHMIntAvgMaxLRScl*dSharpAurISO3PowAvgMaxLRScl +
   dImpulsLoudWZAvgMaxLR + dFluctECMA10ExBin +
   dRoughFZ05ExMaxLR
 
 
 m11Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
-                                 all.vars(m11formula)), drop=FALSE]
+                                 all.vars(m11formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dAnnoyanceOrdBetaScl))
 
 ```
 
@@ -4413,17 +4736,17 @@ coefficient_paths <- broom::tidy(m11c$glmnet.fit, return_zeros=TRUE) |>
 
 # 3. Create the ggplot
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
-  geom_line(linewidth = 0.4, alpha=0.6) +
+  geom_line(linewidth = 1, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
   scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m11c$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m11c$lambda.min*1.25, y = max(coefficient_paths$estimate) * 0.5, 
-           label = expression(paste("Minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("Minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   geom_vline(xintercept = m11c$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m11c$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
-           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
@@ -4812,13 +5135,13 @@ set.seed(808)
 testdAm <- microbenchmark::microbenchmark(
   
     'LMM_model' = {m0LMM <- lme4::lmer(dAnnoyance ~ UASLAEMaxLRScl +
-                                         I(log10(UASEvents)) + PartTrialNumberStd +
-                                         (1 + UASLAEMaxLRScl  + I(log10(UASEvents)) | ID),
+                                         I(log10(UASEvents) - 0.0906525) + PartTrialNumberStd +
+                                         (1 + UASLAEMaxLRScl  + I(log10(UASEvents) - 0.0906525) | ID),
                                                   data=subjDataNoAmb, REML=FALSE,
                                            control=lmerctrl)},
     
     'GEE-LM_model' = {m0GEELM <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl +
-                                                      I(log10(UASEvents)) + PartTrialNumberStd,
+                                                      I(log10(UASEvents) - 0.0906525) + PartTrialNumberStd,
                                                 data=subjDataNoAmb, family=gaussian(link='identity'),
                                                 id=ID, waves=TrialNumber, corstr='exchangeable')},
     
@@ -4870,11 +5193,11 @@ boxplot(testdAm)
 
 set.seed(808)
 
-mLMM <- lme4::lmer(dAnnoyance ~ UASLAEMaxLRScl + I(log10(UASEvents)) +
-                             PartTrialNumberStd + (1 + UASLAEMaxLRScl + I(log10(UASEvents)) | ID),
+mLMM <- lme4::lmer(dAnnoyance ~ UASLAEMaxLRScl + I(log10(UASEvents) - 0.0906525) +
+                             PartTrialNumberStd + (1 + UASLAEMaxLRScl + I(log10(UASEvents) - 0.0906525) | ID),
                             data=subjDataNoAmb, control=lmerctrl)
 
-mGEELM <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl + I(log10(UASEvents)) +
+mGEELM <- glmtoolbox::glmgee(dAnnoyance ~ UASLAEMaxLRScl + I(log10(UASEvents) - 0.0906525) +
                                  PartTrialNumberStd,
                                   data=subjDataNoAmb,
                                family=gaussian(link='identity'),
@@ -4979,11 +5302,11 @@ newData <- data.frame(UASLAEMaxLR=UASLAEMaxLRDummy,
                       UASLAEMaxLRScl=seq(-12, 33, by=1), UASEvents=1,
                       PartTrialNumberStd=0)
 
-mGLMM_Ob <- glmmTMB::glmmTMB(dAnnoyanceOrdBetaScl ~ UASLAEMaxLRScl + I(log10(UASEvents)) +
-                             PartTrialNumberStd + (1 + UASLAEMaxLRScl + I(log10(UASEvents)) | ID),
+mGLMM_Ob <- glmmTMB::glmmTMB(dAnnoyanceOrdBetaScl ~ UASLAEMaxLRScl + I(log10(UASEvents) - 0.0906525) +
+                             PartTrialNumberStd + (1 + UASLAEMaxLRScl + I(log10(UASEvents) - 0.0906525) | ID),
                             data=subjDataNoAmb, family=glmmTMB::ordbeta(link='logit'), control=glmmTMBctrl)
 
-mGEEGLM_Qb <- glmtoolbox::glmgee(dAnnoyanceOrdBetaScl ~ UASLAEMaxLRScl + I(log10(UASEvents)) +
+mGEEGLM_Qb <- glmtoolbox::glmgee(dAnnoyanceOrdBetaScl ~ UASLAEMaxLRScl + I(log10(UASEvents) - 0.0906525) +
                                  PartTrialNumberStd,
                                   data=subjDataNoAmb,
                                family=quasibinomial(link='logit'),
@@ -5108,18 +5431,20 @@ if (saveplots){
 ```{r}
 
 m12formula <- dHighAnnoy ~ 1 + PartTrialNumberStd +
-  UASLAEMaxLRScl*I(log10(UASEvents)) + UASLAEMaxLRScl*AmbientEnv*UASOperation +
+  UASLAEMaxLRScl*I(log10(UASEvents) - 0.0906525) + UASLAEMaxLRScl*AmbientEnv*UASOperation +
   UASLAEMaxLRScl*UASType + AmbientEnv*UASType
 
 m12Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
-                                 all.vars(m12formula)), drop=FALSE]
+                                 all.vars(m12formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
 
 m12bformula <- update(m12formula, . ~ . +
                         NationGeo2 + AAM_attitude2 + Home_Area2 +
                       AgeScl + Sex + NoiseSensitivityScl + Area_soundscape2)
 
 m12bData <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
-                                  all.vars(m12bformula)), drop=FALSE]
+                                  all.vars(m12bformula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
 
 ```
 
@@ -5313,17 +5638,17 @@ coefficient_paths <- broom::tidy(m12c$glmnet.fit, return_zeros=TRUE) |>
 
 # 3. Create the ggplot
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
-  geom_line(linewidth = 0.4, alpha=0.6) +
+  geom_line(linewidth = 1, alpha=0.6) +
   # # Use your custom colour palette mycolours as colour scale
   # scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m12c$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m12c$lambda.min*1.25, y = max(coefficient_paths$estimate) * 0.5, 
-           label = expression(paste("Minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("Minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   geom_vline(xintercept = m12c$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m12c$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
-           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
@@ -6385,10 +6710,11 @@ if (saveplots){
 
 ```{r}
 
-m13formula <- dHighAnnoy ~ PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents))
+m13formula <- dHighAnnoy ~ PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents) - 0.0906525)
 
 m13Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
-                                 all.vars(m13formula)), drop=FALSE]
+                                 all.vars(m13formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
 
 ```
 
@@ -6549,21 +6875,23 @@ m13_deploy <- deploy_mean_model(m13,
 
 ```{r}
 
-m14formula <- dHighAnnoy ~ PartTrialNumberStd + UASLoudECMAPowAvgBinScl + I(log10(UASEvents)) +
+m14formula <- dHighAnnoy ~ PartTrialNumberStd + UASLoudECMAPowAvgBinScl + I(log10(UASEvents) - 0.0906525) +
   UASTonLdECMAPowAvgBinStd*UASSharpAurISO3PowAvgMaxLRStd + UASImpulsLoudWZAvgMaxLRStd +
   UASFluctECMA10ExBinStd + UASRoughFZ05ExMaxLRStd
 
 m14Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
-                                 all.vars(m14formula)), drop=FALSE]
+                                 all.vars(m14formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
 
-m14bformula <- dHighAnnoy ~ PartTrialNumberStd + UASLoudECMAPowAvgBinScl + I(log10(UASEvents)) +
+m14bformula <- dHighAnnoy ~ PartTrialNumberStd + UASLoudECMAPowAvgBinScl + I(log10(UASEvents) - 0.0906525) +
   UASTonalAwSHMInt05ExMaxLRStd*UASSharpAurISO3PowAvgMaxLRStd + UASImpulsLoudWZAvgMaxLRStd +
   UASFluctECMA10ExBinStd + UASRoughFZ05ExMaxLRStd
 
 m14bData <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
-                                  all.vars(m14bformula)), drop=FALSE]
+                                  all.vars(m14bformula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
 
-m14cformula <- update(m14bformula, . ~ . + UASLoudECMAPowAvgBinScl:I(log10(UASEvents)))
+m14cformula <- update(m14bformula, . ~ . + UASLoudECMAPowAvgBinScl:I(log10(UASEvents) - 0.0906525))
 
 ```
 
@@ -6751,17 +7079,17 @@ coefficient_paths <- broom::tidy(m14d$glmnet.fit, return_zeros=TRUE) |>
 
 # 3. Create the ggplot
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
-  geom_line(linewidth = 0.4, alpha=0.6) +
+  geom_line(linewidth = 1, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
   scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m14d$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m14d$lambda.min*1.25, y = max(coefficient_paths$estimate) * 0.5, 
-           label = expression(paste("Minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("Minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   geom_vline(xintercept = m14d$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m14d$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
-           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
@@ -6880,10 +7208,12 @@ if (savedata) {
 
 ```{r}
 
-m15formula <- dHighAnnoy ~ PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents)) +
+m15formula <- dHighAnnoy ~ PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents) - 0.0906525) +
   UASLAEMaxLRScl*AmbientEnv
 
-m15Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber', all.vars(m15formula)), drop=FALSE]
+m15Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                 all.vars(m15formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
 
 ```
 
@@ -7007,17 +7337,17 @@ coefficient_paths <- broom::tidy(m15b$glmnet.fit, return_zeros=TRUE) |>
 
 # 3. Create the ggplot
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
-  geom_line(linewidth = 0.4, alpha=0.6) +
+  geom_line(linewidth = 1, alpha=0.6) +
   # # Use your custom colour palette mycolours as colour scale
   # scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m15b$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m15b$lambda.min*1.25, y = max(coefficient_paths$estimate) * 0.5, 
-           label = expression(paste("Minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("Minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   geom_vline(xintercept = m15b$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m15b$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
-           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
@@ -7165,15 +7495,16 @@ m15c_deploy <- deploy_mean_model(m15c,
 
 ```{r}
 
-m16formula <- dHighAnnoy ~ PartTrialNumberStd + UASLoudECMAPowAvgBinScl*AmbientEnv + I(log10(UASEvents)) +
+m16formula <- dHighAnnoy ~ PartTrialNumberStd + UASLoudECMAPowAvgBinScl*AmbientEnv + I(log10(UASEvents) - 0.0906525) +
   UASTonalAwSHMInt05ExMaxLRStd*UASSharpAurISO3PowAvgMaxLRStd + UASImpulsLoudWZAvgMaxLRStd +
   UASFluctECMA10ExBinStd + UASRoughFZ05ExMaxLRStd
 
 m16Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
-                                 all.vars(m16formula)), drop=FALSE]
+                                 all.vars(m16formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
 
 m16bformula <- dHighAnnoy ~ PartTrialNumberStd + UASLoudECMAPowAvgBinScl*AmbientEnv +
-  UASLoudECMAPowAvgBinScl*I(log10(UASEvents)) +
+  UASLoudECMAPowAvgBinScl*I(log10(UASEvents) - 0.0906525) +
   UASTonalAwSHMInt05ExMaxLRStd*UASSharpAurISO3PowAvgMaxLRStd + UASImpulsLoudWZAvgMaxLRStd +
   UASFluctECMA10ExBinStd + UASRoughFZ05ExMaxLRStd
 
@@ -7403,17 +7734,17 @@ coefficient_paths <- broom::tidy(m16c$glmnet.fit, return_zeros=TRUE) |>
 
 # 3. Create the ggplot
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
-  geom_line(linewidth = 0.4, alpha=0.6) +
+  geom_line(linewidth = 1, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
   scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m16c$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m16c$lambda.min*1.25, y = max(coefficient_paths$estimate) * 0.5, 
-           label = expression(paste("Minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("Minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   geom_vline(xintercept = m16c$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m16c$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
-           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
@@ -7631,14 +7962,17 @@ if (savedata) {
 
 ```{r}
 
-m17formula <- dHighAnnoy ~ PartTrialNumberStd + LAELAeqdiffScl*I(log10(UASEvents))
+m17formula <- dHighAnnoy ~ PartTrialNumberStd + LAELAeqdiffScl*I(log10(UASEvents) - 0.0906525)
 
-m17bformula <- dHighAnnoy ~ PartTrialNumberStd + LAELAF90diffScl*I(log10(UASEvents))
+m17bformula <- dHighAnnoy ~ PartTrialNumberStd + LAELAF90diffScl*I(log10(UASEvents) - 0.0906525)
 
 m17Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
-                                 all.vars(m17formula)), drop=FALSE]
+                                 all.vars(m17formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
+
 m17bData <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
-                                  all.vars(m17bformula)), drop=FALSE]
+                                  all.vars(m17bformula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
 
 ```
 
@@ -7855,17 +8189,17 @@ coefficient_paths <- broom::tidy(m17c$glmnet.fit, return_zeros=TRUE) |>
 
 # 3. Create the ggplot
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
-  geom_line(linewidth = 0.4, alpha=0.6) +
+  geom_line(linewidth = 1, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
   scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m17c$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m17c$lambda.min*1.25, y = max(coefficient_paths$estimate) * 0.5, 
-           label = expression(paste("Minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("Minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   geom_vline(xintercept = m17c$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m17c$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
-           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
@@ -7897,12 +8231,13 @@ m17_deploy <- deploy_mean_model(m17,
 
 ```{r}
 
-m18formula <- dHighAnnoy ~ PartTrialNumberStd + LAELAeqdiffScl*I(log10(UASEvents)) +
+m18formula <- dHighAnnoy ~ PartTrialNumberStd + LAELAeqdiffScl*I(log10(UASEvents) - 0.0906525) +
   UASTonalAwSHMInt05ExMaxLRStd*UASSharpAurISO3PowAvgMaxLRStd + UASImpulsLoudWZAvgMaxLRStd +
   UASFluctECMA10ExBinStd + UASRoughFZ05ExMaxLRStd
 
 m18Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
-                                 all.vars(m18formula)), drop=FALSE]
+                                 all.vars(m18formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
 
 ```
 
@@ -8288,17 +8623,17 @@ coefficient_paths <- broom::tidy(m18b$glmnet.fit, return_zeros=TRUE) |>
 
 # 3. Create the ggplot
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
-  geom_line(linewidth = 0.4, alpha=0.6) +
+  geom_line(linewidth = 1, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
   scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m18b$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m18b$lambda.min*1.25, y = max(coefficient_paths$estimate) * 0.5, 
-           label = expression(paste("Minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("Minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   geom_vline(xintercept = m18b$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m18b$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
-           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
@@ -8332,7 +8667,7 @@ if (saveplots){
 
 ```{r}
 
-m18cformula <- update(m18formula, . ~ . - LAELAeqdiffScl:I(log10(UASEvents)))
+m18cformula <- update(m18formula, . ~ . - LAELAeqdiffScl:I(log10(UASEvents) - 0.0906525))
 
 ```
 
@@ -8592,12 +8927,13 @@ if (savedata) {
 
 ```{r}
 
-m19formula <- dHighAnnoy ~ PartTrialNumberStd + UASLoudECMAPowAvgBinScl*I(log10(UASEvents)) +
+m19formula <- dHighAnnoy ~ PartTrialNumberStd + UASLoudECMAPowAvgBinScl*I(log10(UASEvents) - 0.0906525) +
   UASImpulsLoudWZAvgMaxLRStd + dSharpAurSHMPowAvgMaxLRStd*UASTonalAwSHMInt05ExMaxLRStd +
   UASFluctECMA10ExBinStd + dRoughFZ05ExMaxLRStd
 
 m19Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
-                                 all.vars(m19formula)), drop=FALSE]
+                                 all.vars(m19formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
 
 ```
 
@@ -8978,17 +9314,17 @@ coefficient_paths <- broom::tidy(m19b$glmnet.fit, return_zeros=TRUE) |>
 
 # 3. Create the ggplot
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
-  geom_line(linewidth = 0.4, alpha=0.6) +
+  geom_line(linewidth = 1, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
   # scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
   geom_vline(xintercept = m19b$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m19b$lambda.min*1.25, y = max(coefficient_paths$estimate) * 0.5, 
-           label = expression(paste("Minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("Minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   geom_vline(xintercept = m19b$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
   ggplot2::annotate("text", x = m19b$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
-           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "grey", angle = 90, vjust = 0.5) +
+           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
       color = "Predictors"
@@ -9379,13 +9715,13 @@ newData <- data.frame(UASLAEMaxLRScl=seq(-12, 13, by=1), UASEvents=1,
 # benchmark timing
 testdHA <- microbenchmark::microbenchmark(
   
-    'GLMM_model' = {m0GLMM <- lme4::glmer(dHighAnnoy ~ UASLAEMaxLRScl + I(log10(UASEvents)) +
+    'GLMM_model' = {m0GLMM <- lme4::glmer(dHighAnnoy ~ UASLAEMaxLRScl + I(log10(UASEvents) - 0.0906525) +
                                               PartTrialNumberStd +
-                                                (1 + UASLAEMaxLRScl + I(log10(UASEvents)) | ID),
+                                                (1 + UASLAEMaxLRScl + I(log10(UASEvents) - 0.0906525) | ID),
                                                   data=subjDataNoAmb, family=binomial(link='logit'),
                                               control=glmerctrl)},
     
-    'GEE_model' = {m0GEEGLM <- glmtoolbox::glmgee(dHighAnnoy ~ UASLAEMaxLRScl + I(log10(UASEvents)) +
+    'GEE_model' = {m0GEEGLM <- glmtoolbox::glmgee(dHighAnnoy ~ UASLAEMaxLRScl + I(log10(UASEvents) - 0.0906525) +
                                               PartTrialNumberStd,
                                                 data=subjDataNoAmb, family=binomial(link='logit'),
                                                 id=ID, corstr='exchangeable')},
@@ -9453,13 +9789,13 @@ newData <- data.frame(UASLAEMaxLR=UASLAEMaxLRDummy,
                       UASLAEMaxLRScl=seq(-12, 33, by=1), UASEvents=1,
                       PartTrialNumberStd=0)
 
-mGLMM <- lme4::glmer(dHighAnnoy ~ UASLAEMaxLRScl + I(log10(UASEvents)) +
+mGLMM <- lme4::glmer(dHighAnnoy ~ UASLAEMaxLRScl + I(log10(UASEvents) - 0.0906525) +
                              PartTrialNumberStd +
                            (1 + UASLAEMaxLRScl | ID),
                             data=subjDataNoAmb, family=binomial(link='logit'),
                          control=glmerctrl)
 
-mGEEGLM <- glmtoolbox::glmgee(dHighAnnoy ~ UASLAEMaxLRScl + I(log10(UASEvents)) +
+mGEEGLM <- glmtoolbox::glmgee(dHighAnnoy ~ UASLAEMaxLRScl + I(log10(UASEvents) - 0.0906525) +
                                               PartTrialNumberStd,
                                   data=subjDataNoAmb, family=binomial(link='logit'),
                                   id=ID, corstr='exchangeable')

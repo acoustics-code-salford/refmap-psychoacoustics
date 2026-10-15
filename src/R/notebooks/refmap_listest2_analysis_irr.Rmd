@@ -21,6 +21,8 @@ library(irrNA)
 
 ## Import data and wrangle
 
+### Annoyance data
+
 ```{r}
 
 annoyDatapath <- utils::choose.files(caption=r"(Select refmap_listest2_AnnoyDataBySubjWide.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
