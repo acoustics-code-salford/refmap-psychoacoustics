@@ -106,7 +106,7 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford
 %
 % Date created: 22/09/2023
-% Date last modified: 26/08/2026
+% Date last modified: 19/10/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -141,9 +141,6 @@ function loudnessSHM = acousticSHMLoudness(p, sampleRateIn, axisN, soundField, w
         outPlot {mustBeNumericOrLogical} = false
         binaural {mustBeNumericOrLogical} = true
     end
-
-%% Load path (assumes root directory is refmap-psychoacoustics)
-addpath(genpath(fullfile("src", "mlab")))
 
 %% Input checks
 % Orient input matrix

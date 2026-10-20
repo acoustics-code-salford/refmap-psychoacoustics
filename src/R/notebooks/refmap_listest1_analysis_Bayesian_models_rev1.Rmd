@@ -2074,6 +2074,11 @@ get_Br2_table(mdA1, mdA2, mdA3, mdA4, mdA5, mdA6, mdA7, mdA7.2)
 
 loo::loo_compare(mdA1, mdA2, mdA3, mdA4, mdA5, mdA6, mdA7, mdA7.2, criterion='loo')
 
+get_Br2_table(mdA1, mdA6, mdA7.2)
+
+loo::loo_compare(mdA1, mdA6, mdA7.2, criterion='loo')
+
+
 ```
 
 ## mdA8 ordered beta model for dAnnoyance

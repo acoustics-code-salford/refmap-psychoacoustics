@@ -25,16 +25,40 @@ library(irr)
 ```{r}
 
 annoyDataApath <- utils::choose.files(caption=r"(Select refmap_listest1_AnnoyDataABySubjWide.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
-                                     filters=matrix(data=c("refmap_listest1_AnnoyDataABySubjWide.csv", "refmap_listest1_AnnoyDataABySubjWide.csv"), ncol=2))
+                                     filters=matrix(data=c("refmap_listest1_AnnoyDataABySubjWide.csv",
+                                                           "refmap_listest1_AnnoyDataABySubjWide.csv"), ncol=2))
 
 annoyDataA <- read.csv(annoyDataApath, header=TRUE)
 
 # transpose the data
 annoyDataA <- setNames(data.frame(t(annoyDataA[,-1])), annoyDataA[,1])
-# get rid of the unwanted rows
+# get rid of the unwanted data rows
 annoyDataA <- annoyDataA[1:80,]
 # convert to numeric
 annoyDataA <- dplyr::mutate_all(annoyDataA, function(x) as.numeric(as.character(x)))
+
+noticeDatapath <- utils::choose.files(caption=r"(Select refmap_listest1_NoticeFiltDataABySubjWide.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
+                                     filters=matrix(data=c("refmap_listest1_NoticeFiltDataABySubjWide.csv",
+                                                           "refmap_listest1_NoticeFiltDataABySubjWide.csv"), ncol=2))
+
+noticeData <- read.csv(noticeDatapath, header=TRUE)
+
+# transpose the data
+noticeData <- setNames(data.frame(t(noticeData[,-1])), noticeData[,1])
+# get rid of the unwanted data rows
+noticeData <- noticeData[1:80,]
+
+# unfiltered notice data, for comparison
+noticeUnfiltDatapath <- utils::choose.files(caption=r"(Select refmap_listest1_NoticeDataABySubjWide.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
+                                     filters=matrix(data=c("refmap_listest1_NoticeDataABySubjWide.csv",
+                                                           "refmap_listest1_NoticeDataABySubjWide.csv"), ncol=2))
+
+noticeUnfiltData <- read.csv(noticeUnfiltDatapath, header=TRUE)
+
+# transpose the data
+noticeUnfiltData <- setNames(data.frame(t(noticeUnfiltData[,-1])), noticeUnfiltData[,1])
+# get rid of the unwanted data rows
+noticeUnfiltData <- noticeUnfiltData[1:80,]
 
 ```
 
@@ -69,6 +93,12 @@ irr::icc(annoyDataA, model = 'twoway',
 
 irr::icc(annoyDataA, model = 'twoway', 
          type = 'agreement', unit = 'average')
+
+irr::kappam.fleiss(noticeData, exact = TRUE, detail = TRUE)
+
+irr::kappam.fleiss(noticeUnfiltData, exact = TRUE, detail = TRUE)
+
+
 
 ```
 

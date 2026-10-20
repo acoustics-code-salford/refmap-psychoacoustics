@@ -113,7 +113,7 @@ function partLoudnessSHM = acousticSHMPartialLoudness(pTarget, pMasker, sampleRa
 % Institution: University of Salford
 %
 % Date created: 09/12/2023
-% Date last modified: 26/08/2026
+% Date last modified: 19/10/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -149,9 +149,6 @@ function partLoudnessSHM = acousticSHMPartialLoudness(pTarget, pMasker, sampleRa
         outPlot {mustBeNumericOrLogical} = false
         binaural {mustBeNumericOrLogical} = true
     end
-
-%% Load path (assumes root directory is refmap-psychoacoustics)
-addpath(genpath(fullfile("src", "mlab")))
 
 %% Input checks
 % Target and masker signal size check

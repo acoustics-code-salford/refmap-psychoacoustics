@@ -96,7 +96,7 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
 % Institution: University of Salford
 %
 % Date created: 12/10/2023
-% Date last modified: 26/08/2026
+% Date last modified: 19/10/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -131,9 +131,6 @@ function roughnessSHM = acousticSHMRoughness(p, sampleRateIn, axisN, soundField,
         outPlot {mustBeNumericOrLogical} = false
         binaural {mustBeNumericOrLogical} = true
     end
-
-%% Load path (assumes root directory is refmap-psychoacoustics)
-addpath(genpath(fullfile("src", "mlab")))
 
 %% Input checks
 % Orient input matrix
