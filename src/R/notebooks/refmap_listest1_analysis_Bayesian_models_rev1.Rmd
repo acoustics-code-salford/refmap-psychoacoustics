@@ -38,6 +38,7 @@ library(ggpmisc)
 library(gginnards)
 library(ggridges)
 library(ggpubr)
+library(MOTE)
 
 # set package parameters
 theme_set(theme_bw())
@@ -49,7 +50,7 @@ options(marginaleffects_parallel_inferences = TRUE)
 options(marginaleffects_parallel = TRUE)
 options(marginaleffects_parallel_packages = c("marginaleffects", "brms"))
 options(marginaleffects_posterior_interval = "eti")
-options(marginaleffects_posterior_center = stats::median)
+options(marginaleffects_posterior_center = "mean")
 
 bayesplot::bayesplot_theme_set(bayesplot::theme_default(base_family = "serif", base_size = 16))
 bayesplot::bayesplot_theme_update(axis.text = ggplot2::element_text(family = "serif", size = 14))
@@ -450,6 +451,9 @@ subjDataNoAmb.med <- rbind(subjDataNoAmb.med[subjDataNoAmb.med$SessionPart == "A
                       dplyr::mutate(PartTrialNumberStd = datawizard::standardise(PartTrialNumber, scale=TRUE))) |>
   droplevels() |>
   arrange(ID, TrialNumber)
+
+stimDataNoAmb.medPlot <- to_model_cols(stimDataNoAmb, subjDataNoAmb.medScaling)
+stimDataNoAmb.ccPlot <- to_model_cols(stimDataNoAmb, subjDataNoAmb.ccScaling)
 
 ```
 
@@ -1996,6 +2000,18 @@ brms::pp_check(mdA7.2, type='bars', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   labs(x="Change in annoyance category index (-7 to 10)")
 
+if (saveplots){
+  
+  filename <- "PtsABdAnnoyMn_ExpMod_PPCoverall_brmsCo"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=6, height=4.5,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=6, height=4.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
 brms::pp_check(mdA7.2, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
     theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
     rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
@@ -2160,7 +2176,7 @@ toc()
 mdA8PriorCheck <- brms::pp_check(mdA8Priors, type='dens_overlay', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean change in annoyance")
+  labs(x="Change in annoyance")
 
 mdA8PriorCheck + ggplot2::coord_cartesian(ylim=c(0, 5))
 
@@ -2339,7 +2355,7 @@ toc()
 mdA9PriorCheck <- brms::pp_check(mdA9Priors, type='dens_overlay', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean change in annoyance")
+  labs(x="Change in annoyance")
 
 mdA9PriorCheck + ggplot2::coord_cartesian(ylim=c(0, 5))
 
@@ -2383,43 +2399,37 @@ summary(mdA9)
 
 ```{r}
 
-mdA9PostCheck <- brms::pp_check(mdA9, ndraws=100) +
+brms::pp_check(mdA9, ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean change in annoyance")
-mdA9PostCheck
+  labs(x="Change in annoyance")
 
-mdA9PostCheckLAE <- brms::pp_check(mdA9, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+brms::pp_check(mdA9, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
     theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
     rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
     scale_y_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
     labs(x = expression(UAS~italic(L)[AE]~", dB"),
          y = "Change in annoyance")
-mdA9PostCheckLAE
 
-mdA9PostCheckEnv <- brms::pp_check(mdA9, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
+brms::pp_check(mdA9, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean change in annoyance")
-mdA9PostCheckEnv
+  labs(x="Change in annoyance")
 
-mdA9PostCheckEvt <- brms::pp_check(mdA9, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+brms::pp_check(mdA9, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean change in annoyance")
-mdA9PostCheckEvt
+  labs(x="Change in annoyance")
 
-mdA9PostCheckType <- brms::pp_check(mdA9, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+brms::pp_check(mdA9, type='dens_overlay_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean change in annoyance")
-mdA9PostCheckType
+  labs(x="Change in annoyance")
 
-mdA9PostCheckOp <- brms::pp_check(mdA9, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+brms::pp_check(mdA9, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean change in annoyance")
-mdA9PostCheckOp
+  labs(x="Change in annoyance")
 
 brms::pp_check(mdA9, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
     rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
@@ -2522,7 +2532,7 @@ toc()
 mdA10PriorCheck <- brms::pp_check(mdA10Priors, type='dens_overlay', ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean change in annoyance")
+  labs(x="Change in annoyance")
 
 mdA10PriorCheck + ggplot2::coord_cartesian(ylim=c(0, 5))
 
@@ -2566,43 +2576,55 @@ summary(mdA10)
 
 ```{r}
 
-mdA10PostCheck <- brms::pp_check(mdA10, ndraws=100) +
+brms::pp_check(mdA10, ndraws=100) +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean change in annoyance")
-mdA10PostCheck
+  labs(x="Change in annoyance") +
+  theme(
+    axis.text.y = element_text(),
+    axis.ticks.y = element_line()
+  ) +
+  labs(y="Probability density") +
+  coord_cartesian(ylim=c(0, 3.5))
 
-mdA10PostCheckLAE <- brms::pp_check(mdA10, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
+if (saveplots){
+  
+  filename <- "PtsABdAnnoyMn_ExpMod_PPCoverall_brmsOb"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=6, height=4.5,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=6, height=4.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+brms::pp_check(mdA10, type = "intervals", x = "UASLAEMaxLRScl",ndraws=100) +
     theme(panel.grid = element_blank(), text = element_text(family = 'serif')) +
     rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
     scale_y_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
     labs(x = expression(UAS~italic(L)[AE]~", dB"),
          y = "Change in annoyance")
-mdA10PostCheckLAE
 
-mdA10PostCheckEnv <- brms::pp_check(mdA10, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
+brms::pp_check(mdA10, type='dens_overlay_grouped', ndraws=100, group='AmbientEnv') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean change in annoyance")
-mdA10PostCheckEnv
+  labs(x="Change in annoyance")
 
-mdA10PostCheckEvt <- brms::pp_check(mdA10, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
+brms::pp_check(mdA10, type='dens_overlay_grouped', ndraws=100, group='UASEvents') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean change in annoyance")
-mdA10PostCheckEvt
+  labs(x="Change in annoyance")
 
-mdA10PostCheckType <- brms::pp_check(mdA10, type='dens_overlay_grouped', ndraws=100, group='UASType') +
+brms::pp_check(mdA10, type='dens_overlay_grouped', ndraws=100, group='UASType') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean change in annoyance")
-mdA10PostCheckType
+  labs(x="Change in annoyance")
 
-mdA10PostCheckOp <- brms::pp_check(mdA10, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
+brms::pp_check(mdA10, type='dens_overlay_grouped', ndraws=100, group='UASOperation') +
   theme(panel.grid=element_blank(), text=element_text(family='serif')) +
   scale_x_continuous(breaks=seq(0, 1, by=0.1),labels=seq(-10, 10, by=2), limits=c(0, 1)) +
-  labs(x="Mean change in annoyance")
-mdA10PostCheckOp
+  labs(x="Change in annoyance")
 
 brms::pp_check(mdA10, type='error_scatter_avg', x='UASLAEMaxLRScl', ndraws = 100) +
     rescaleTicks(stimDataNoAmb$UASLAEMaxLR, stimDataNoAmb$UASLAEMaxLRScl) +
@@ -2705,11 +2727,11 @@ ggplot(data=cbind(mdA10predMeans,
   scale_x_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
   scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
   
-  labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance") +
+  labs(x="Mean change in annoyance (test)", y="Estimated mean change in annoyance") +
   
   ggplot2::annotate("text", x=0.1, y=6.75, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
   ggplot2::annotate("text", x=0.1, y=6, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
-  ggplot2::annotate("text", x = 0.1, y = 5.25, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  ggplot2::annotate("text", x = 0.1, y = 5.25, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", eRMSE$epsilon_rmse)), 
   family = "serif", size = 4, hjust = 0, parse = TRUE)
 
 if (saveplots){
@@ -2896,6 +2918,12 @@ grid_fixed_lae <- build_marginal_grid(
   fixed_at_mean = "UASLAEMaxLRScl"
 )
 
+grid_evts_fixed_lae <- subset(grid_fixed_lae,
+                        UASOperation == "Overflight" &
+                        AmbientEnv == "Park") |>
+  dplyr::mutate(UASLAEMaxLRScl = mean(subset(subjDataNoAmb.med,
+                                             SessionPart == "B")$UASLAEMaxLRScl))
+
 ```
 
 ### analyse within subjects predictions
@@ -2912,7 +2940,8 @@ mdA10predType <- avg_predictions_manual(mdA10, newdata=subset(grid_marg_lae_swee
                                           allow_new_levels = TRUE,
                                             sample_new_levels = "gaussian",
                                            ndraws=ndraws_pred, seed=999,
-                                            transform=transform_dAnnoy)
+                                            transform=transform_dAnnoy) |>
+  add_original_units(subjDataNoAmb.medScaling)
 
 mdA10predOp <- avg_predictions_manual(mdA10, newdata=subset(grid_marg_lae_sweep,
                                                         UASEvents==1),
@@ -2924,7 +2953,9 @@ mdA10predOp <- avg_predictions_manual(mdA10, newdata=subset(grid_marg_lae_sweep,
                                               allow_new_levels = TRUE,
                                                 sample_new_levels = "gaussian",
                                                ndraws=ndraws_pred, seed=999,
-                                              transform=transform_dAnnoy)
+                                              transform=transform_dAnnoy) |>
+  add_original_units(subjDataNoAmb.medScaling)
+
 
 mdA10predEnv <- avg_predictions_manual(mdA10, newdata=subset(grid_marg_lae_sweep,
                                                       UASEvents==1),
@@ -2935,10 +2966,12 @@ mdA10predEnv <- avg_predictions_manual(mdA10, newdata=subset(grid_marg_lae_sweep
                                             allow_new_levels = TRUE,
                                               sample_new_levels = "gaussian",
                                              ndraws=ndraws_pred, seed=999,
-                                            transform=transform_dAnnoy)
+                                            transform=transform_dAnnoy) |>
+  add_original_units(subjDataNoAmb.medScaling)
 
 
-mdA10predEvt <- avg_predictions_manual(mdA10, newdata=subset(grid_marg_lae_sweep,
+
+mdA10predEvts <- avg_predictions_manual(mdA10, newdata=subset(grid_marg_lae_sweep,
                                                          AmbientEnv=="Park" &
                                                          UASOperation=="Overflight"),
                                     by=c("UASLAEMaxLRScl",
@@ -2949,9 +2982,11 @@ mdA10predEvt <- avg_predictions_manual(mdA10, newdata=subset(grid_marg_lae_sweep
                                       allow_new_levels = TRUE,
                                         sample_new_levels = "gaussian",
                                        ndraws=ndraws_pred, seed=999,
-                                  transform=transform_dAnnoy)
+                                  transform=transform_dAnnoy) |>
+  add_original_units(subjDataNoAmb.medScaling)
 
-mdA10predEvt_step <- avg_predictions_manual(mdA10, newdata=subset(grid_marg_lae_step,
+
+mdA10predEvts_step <- avg_predictions_manual(mdA10, newdata=subset(grid_marg_lae_step,
                                                               AmbientEnv=="Park" &
                                                               UASOperation=="Overflight" &
                                                                 UASType %in% c("H520", "T150")),
@@ -2963,7 +2998,9 @@ mdA10predEvt_step <- avg_predictions_manual(mdA10, newdata=subset(grid_marg_lae_
                                           allow_new_levels = TRUE,
                                             sample_new_levels = "gaussian",
                                            ndraws=ndraws_pred, seed=999,
-                                        transform=transform_dAnnoy)
+                                        transform=transform_dAnnoy) |>
+  add_original_units(subjDataNoAmb.medScaling)
+
 
 mdA10predAtt <- avg_predictions_adjusted_by(mdA10, newdata=grid_marg_lae_sweep,
                                      counterfactual_var="UASLAEMaxLRScl",
@@ -2973,7 +3010,9 @@ mdA10predAtt <- avg_predictions_adjusted_by(mdA10, newdata=grid_marg_lae_sweep,
                                         sample_new_levels = "gaussian",
                                        ndraws=ndraws_pred, seed=999,
                                      transform=transform_dAnnoy,
-                                     size_warn_gb=6)
+                                     size_warn_gb=6) |>
+  add_original_units(subjDataNoAmb.medScaling)
+
 
 mdA10predAoR <- avg_predictions_adjusted_by(mdA10, newdata=grid_marg_lae_sweep,
                                      counterfactual_var="UASLAEMaxLRScl",
@@ -2983,7 +3022,9 @@ mdA10predAoR <- avg_predictions_adjusted_by(mdA10, newdata=grid_marg_lae_sweep,
                                         sample_new_levels = "gaussian",
                                        ndraws=ndraws_pred, seed=999,
                                      transform=transform_dAnnoy,
-                                     size_warn_gb=6)
+                                     size_warn_gb=6) |>
+  add_original_units(subjDataNoAmb.medScaling)
+
 
 mdA10predScp <- avg_predictions_adjusted_by(mdA10, newdata=grid_marg_lae_sweep,
                                      counterfactual_var="UASLAEMaxLRScl",
@@ -2993,7 +3034,9 @@ mdA10predScp <- avg_predictions_adjusted_by(mdA10, newdata=grid_marg_lae_sweep,
                                         sample_new_levels = "gaussian",
                                      ndraws=ndraws_pred, seed=999,
                                      transform=transform_dAnnoy,
-                                     size_warn_gb=6)
+                                     size_warn_gb=6) |>
+  add_original_units(subjDataNoAmb.medScaling)
+
 
 mdA10_op_fixed_lae <- avg_comparisons_manual(
   mdA10, grid_fixed_lae, variable = "UASOperation", auto_orient=TRUE,
@@ -3008,6 +3051,23 @@ mdA10_type_fixed_lae <- avg_comparisons_manual(
   ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm',
   transform = transform_dAnnoy
 )
+
+mdA10_env_fixed_lae <- avg_comparisons_manual(
+  mdA10, grid_fixed_lae, variable = "AmbientEnv", auto_orient=TRUE,
+  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm',
+  transform = transform_dAnnoy
+)
+
+evt_order <- c("3 - 1", "5 - 1", "9 - 1", "5 - 3", "9 - 3", "9 - 5")
+
+mdA10_evts_fixed_lae <- avg_comparisons_manual(
+  mdA10, grid_evts_fixed_lae, variable = "UASEvents", auto_orient=TRUE,
+  re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+  ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm',
+  transform = transform_dAnnoy
+) |>
+  dplyr::mutate(contrast = factor(contrast, levels = evt_order))
 
 ```
 
@@ -3072,15 +3132,15 @@ p1 <- ggplot(data=subset(mdA10predType, UASEvents==1)) +
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_point(data=subset(stimDataNoAmb, UASEvents==1),
-                         aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
+              geom_point(data=subset(stimDataNoAmb.medPlot, UASEvents==1),
+                         aes(x=UASLAEMaxLR, y=dAnnoyMean,
                              colour=UASType, shape=UASType),
                          alpha=0.35, size=2) +
               
-              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=UASType),
+              geom_ribbon(aes(x=UASLAEMaxLR, ymin=conf.low, ymax=conf.high, fill=UASType),
                           alpha=0.15) +
               
-              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=UASType), linewidth=1) +
+              geom_line(aes(x=UASLAEMaxLR, y=estimate, colour=UASType), linewidth=1) +
               
               scale_color_viridis(option='plasma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.8) +
               scale_fill_viridis(option='plasma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.8) +
@@ -3090,8 +3150,7 @@ p1 <- ggplot(data=subset(mdA10predType, UASEvents==1)) +
                      fill=guide_legend(title="UAS type", reverse=FALSE),
                      shape=guide_legend(title="UAS type", reverse=FALSE)) +
             
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_x_continuous(breaks=scales::breaks_width(width=5)) +
               
               scale_y_continuous(breaks=seq(-10, 10, by=1)) +
   
@@ -3105,15 +3164,15 @@ p2 <- ggplot(data=subset(mdA10predOp, UASEvents==1)) +
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_point(data=subset(stimDataNoAmb, UASEvents==1),
-                         aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
+              geom_point(data=subset(stimDataNoAmb.medPlot, UASEvents==1),
+                         aes(x=UASLAEMaxLR, y=dAnnoyMean,
                              colour=UASOperation, shape=UASOperation),
                          alpha=0.35, size=2) +
               
-              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=UASOperation),
+              geom_ribbon(aes(x=UASLAEMaxLR, ymin=conf.low, ymax=conf.high, fill=UASOperation),
                           alpha=0.15) +
               
-              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=UASOperation), linewidth=1) +
+              geom_line(aes(x=UASLAEMaxLR, y=estimate, colour=UASOperation), linewidth=1) +
               
               scale_color_viridis(option='mako', discrete=TRUE, begin = 0.2, end = 0.8) +
               scale_fill_viridis(option='mako', discrete=TRUE, begin = 0.2, end = 0.8) +
@@ -3123,8 +3182,7 @@ p2 <- ggplot(data=subset(mdA10predOp, UASEvents==1)) +
                      fill=guide_legend(title="UAS operation", reverse=TRUE),
                      shape=guide_legend(title="UAS operation", reverse=TRUE)) +
               
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_x_continuous(breaks=scales::breaks_width(width=5)) +
               
               scale_y_continuous(breaks=seq(-10, 10, by=1)) +
   
@@ -3141,15 +3199,15 @@ p3 <- ggplot(data=subset(mdA10predEnv, UASEvents==1)) +
                     axis.text.x=element_blank(),
                     axis.ticks.x=element_blank()) +
               
-              geom_point(data=subset(stimDataNoAmb, UASEvents==1),
-                         aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
+              geom_point(data=subset(stimDataNoAmb.medPlot, UASEvents==1),
+                         aes(x=UASLAEMaxLR, y=dAnnoyMean,
                              colour=AmbientEnv, shape=AmbientEnv),
                          alpha=0.35, size=2) +
               
-              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=AmbientEnv),
+              geom_ribbon(aes(x=UASLAEMaxLR, ymin=conf.low, ymax=conf.high, fill=AmbientEnv),
                           alpha=0.15) +
               
-              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=AmbientEnv), linewidth=1) +
+              geom_line(aes(x=UASLAEMaxLR, y=estimate, colour=AmbientEnv), linewidth=1) +
               
               scale_color_viridis(option='magma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.7) +
               scale_fill_viridis(option='magma', direction=-1, discrete=TRUE, begin = 0.2, end = 0.7) +
@@ -3159,8 +3217,7 @@ p3 <- ggplot(data=subset(mdA10predEnv, UASEvents==1)) +
                      fill=guide_legend(title="Amb. env.", reverse=FALSE),
                      shape=guide_legend(title="Amb. env.", reverse=FALSE)) +
             
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_x_continuous(breaks=scales::breaks_width(width=5)) +
               
               scale_y_continuous(breaks=seq(-10, 10, by=1)) +
   
@@ -3169,20 +3226,20 @@ p3 <- ggplot(data=subset(mdA10predEnv, UASEvents==1)) +
               labs(y="Mean change in annoyance")
 
 
-p4 <- ggplot(data=subset(mdA10predEvt, AmbientEnv=='Park' & UASOperation=='Overflight')) +
+p4 <- ggplot(data=subset(mdA10predEvts, AmbientEnv=='Park' & UASOperation=='Overflight')) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_point(data=subset(stimDataNoAmb, AmbientEnv=='Park' & UASOperation=='Overflight'),
-                         aes(x=UASLAEMaxLRScl, y=dAnnoyMean,
+              geom_point(data=subset(stimDataNoAmb.medPlot, AmbientEnv=='Park' & UASOperation=='Overflight'),
+                         aes(x=UASLAEMaxLR, y=dAnnoyMean,
                              colour=factor(UASEvents), shape=factor(UASEvents)),
                          alpha=0.55, size=2) +
               
-              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=factor(UASEvents)),
+              geom_ribbon(aes(x=UASLAEMaxLR, ymin=conf.low, ymax=conf.high, fill=factor(UASEvents)),
                           alpha=0.15) +
               
-              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=factor(UASEvents)), linewidth=1) +
+              geom_line(aes(x=UASLAEMaxLR, y=estimate, colour=factor(UASEvents)), linewidth=1) +
               
               scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8) +
               scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8) +
@@ -3192,8 +3249,7 @@ p4 <- ggplot(data=subset(mdA10predEvt, AmbientEnv=='Park' & UASOperation=='Overf
                      fill=guide_legend(title="UAS events", reverse=TRUE),
                      shape=guide_legend(title="UAS events", reverse=TRUE)) +
             
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_x_continuous(breaks=scales::breaks_width(width=5)) +
               
               scale_y_continuous(breaks=seq(-10, 10, by=1)) +
   
@@ -3257,7 +3313,7 @@ if (saveplots){
   unlink(paste(filename, ".pdf", sep=""))
 }
 
-p5 <- ggplot(data=subset(mdA10predEvt_step, UASOperation=="Overflight" & AmbientEnv=="Park")) +
+p5 <- ggplot(data=subset(mdA10predEvts_step, UASOperation=="Overflight" & AmbientEnv=="Park")) +
               theme(panel.grid = element_blank(), aspect.ratio=0.8,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
@@ -3323,9 +3379,9 @@ p6 <- ggplot(data=mdA10predAtt) +
                     aspect.ratio=1.35, text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=AAM_attitude2), alpha=0.15) +
+              geom_ribbon(aes(x=UASLAEMaxLR, ymin=conf.low, ymax=conf.high, fill=AAM_attitude2), alpha=0.15) +
               
-              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=AAM_attitude2), linewidth=1) +
+              geom_line(aes(x=UASLAEMaxLR, y=estimate, colour=AAM_attitude2), linewidth=1) +
               
               scale_color_viridis(option='rocket', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
               scale_fill_viridis(option='rocket', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
@@ -3333,8 +3389,8 @@ p6 <- ggplot(data=mdA10predAtt) +
               guides(colour=guide_legend(title="AAM attitude", reverse=TRUE),
                      fill=guide_legend(title="AAM attitude", reverse=TRUE)) +
             
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_x_continuous(breaks=scales::breaks_width(width=5)) +
+  
               scale_y_continuous(breaks=seq(-10, 10, by=1)) +
   
               coord_cartesian(ylim=c(-2, 8)) +
@@ -3347,9 +3403,9 @@ p7 <- ggplot(data=mdA10predAoR) +
                     aspect.ratio=1.35, text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=Home_Area2), alpha=0.15) +
+              geom_ribbon(aes(x=UASLAEMaxLR, ymin=conf.low, ymax=conf.high, fill=Home_Area2), alpha=0.15) +
               
-              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=Home_Area2), linewidth=1) +
+              geom_line(aes(x=UASLAEMaxLR, y=estimate, colour=Home_Area2), linewidth=1) +
               
               scale_color_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
               scale_fill_viridis(option='mako', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
@@ -3357,8 +3413,8 @@ p7 <- ggplot(data=mdA10predAoR) +
               guides(colour=guide_legend(title="Area of residence", reverse=FALSE),
                      fill=guide_legend(title="Area of residence", reverse=FALSE)) +
             
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_x_continuous(breaks=scales::breaks_width(width=5)) +
+  
               scale_y_continuous(breaks=seq(-10, 10, by=1)) +
   
               coord_cartesian(ylim=c(-2, 8)) +
@@ -3372,9 +3428,9 @@ p8 <- ggplot(data=mdA10predScp) +
                     aspect.ratio=1.35, text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
               
-              geom_ribbon(aes(x=UASLAEMaxLRScl, ymin=conf.low, ymax=conf.high, fill=Area_soundscape2), alpha=0.15) +
+              geom_ribbon(aes(x=UASLAEMaxLR, ymin=conf.low, ymax=conf.high, fill=Area_soundscape2), alpha=0.15) +
               
-              geom_line(aes(x=UASLAEMaxLRScl, y=estimate, colour=Area_soundscape2), linewidth=1) +
+              geom_line(aes(x=UASLAEMaxLR, y=estimate, colour=Area_soundscape2), linewidth=1) +
               
               scale_color_viridis(option='turbo', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
               scale_fill_viridis(option='turbo', direction=1, discrete=TRUE, begin = 0.1, end = 0.8) +
@@ -3382,8 +3438,8 @@ p8 <- ggplot(data=mdA10predScp) +
               guides(colour=guide_legend(title="Soundscape at residence", reverse=FALSE),
                      fill=guide_legend(title="Soundscape at residence", reverse=FALSE)) +
             
-              rescaleTicks(stimDataNoAmb$UASLAEMaxLR,
-                             stimDataNoAmb$UASLAEMaxLRScl, sep=5) +
+              scale_x_continuous(breaks=scales::breaks_width(width=5)) +
+  
               scale_y_continuous(breaks=seq(-10, 10, by=1)) +
   
               coord_cartesian(ylim=c(-2, 8)) +
@@ -3417,38 +3473,38 @@ p_type <- ggplot(data=mdA10_type_fixed_lae,
         panel.grid.major.y = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
         text = element_text(family = "serif", size = 16),
         axis.text = element_text(family = "serif", size = 12)) +
-  geom_hline(yintercept = 0, linetype = "dashed", colour = alpha("grey65", alpha=0.75)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = alpha("grey65", alpha=0.25)) +
   geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
   # Add text annotation next to estimate point
   geom_text(aes(label = paste("pd:",
-                              ifelse(pd > 0.99, ">0.99",
-                                     sprintf("%.2f",
-                                             round(pd, digits = 2))))),
+                              ifelse(pd > 0.99, ">.99",
+                                     MOTE::apa(pd, decimals=2, leading=FALSE)))),
             nudge_x = 0.15,      # Shifts text slightly to the right of the point
             hjust = 0,           # Left-aligns text relative to the nudge position
             family = "serif", 
-            size = 4, 
+            size = 3, 
             show.legend = FALSE) +
   
   geom_text(aes(label = sprintf("%.2f", round(estimate, digits = 2))),
             nudge_x = -0.325,      # Shifts text slightly to the right of the point
+            nudge_y = 0.0,
             hjust = 0,           # Left-aligns text relative to the nudge position
             family = "serif", 
-            size = 4, 
+            size = 3, 
             show.legend = FALSE) +
   
-  geom_text(aes(label = sprintf("[%.2f,\n%.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
-            nudge_x = -0.075,     # Kept on the left side alongside the estimate
-            nudge_y = -0.125,    # Slightly offset downward so it sits underneath the estimate
+  geom_text(aes(label = sprintf("[%.2f, %.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
+            nudge_x = 0,     # Kept on the left side alongside the estimate
+            nudge_y = -0.225,    # Slightly offset downward so it sits underneath the estimate
             hjust = 1,
             family = "serif", 
-            size = 4, 
+            size = 3, 
             show.legend = FALSE) +
   
   scale_colour_manual(values = mycolours) +
   guides(colour = "none") +
-  coord_cartesian(ylim=c(-0.2, 1)) +
-  labs(x = NULL, y = expression("Difference in"~Delta*A))
+  coord_cartesian(ylim=c(-0.15, 1.5)) +
+  labs(x = "UAS type", y = expression("Difference in"~bar(Delta*A)))
 
 p_op <- ggplot(data=mdA10_op_fixed_lae,
                            aes(x = contrast, y = estimate, colour=contrast)) +
@@ -3456,49 +3512,137 @@ p_op <- ggplot(data=mdA10_op_fixed_lae,
         panel.grid.major.y = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
         text = element_text(family = "serif", size = 16),
         axis.text = element_text(family = "serif", size = 12)) +
-  geom_hline(yintercept = 0, linetype = "dashed", colour = alpha("grey65", alpha=0.75)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = alpha("grey65", alpha=0.25)) +
   geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
   # Add text annotation next to estimate point
   geom_text(aes(label = paste("pd:",
-                              ifelse(pd > 0.99, ">0.99",
-                                     sprintf("%.2f", round(pd, digits = 2))))),
+                              ifelse(pd > 0.99, ">.99",
+                                     MOTE::apa(pd, decimals=2, leading=FALSE)))),
             nudge_x = 0.1,      # Shifts text slightly to the right of the point
             hjust = 0,           # Left-aligns text relative to the nudge position
             family = "serif", 
-            size = 4, 
+            size = 3, 
             show.legend = FALSE) +
   
   geom_text(aes(label = sprintf("%.2f", round(estimate, digits = 2))),
             nudge_x = -0.25,      # Shifts text slightly to the right of the point
+            nudge_y = 0.0,
             hjust = 0,           # Left-aligns text relative to the nudge position
             family = "serif", 
-            size = 4, 
+            size = 3, 
             show.legend = FALSE) +
 
-  geom_text(aes(label = sprintf("[%.2f,\n%.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
-            nudge_x = -0.05,     # Kept on the left side alongside the estimate
-            nudge_y = -0.125,    # Slightly offset downward so it sits underneath the estimate
+  geom_text(aes(label = sprintf("[%.2f, %.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
+            nudge_x = 0,     # Kept on the left side alongside the estimate
+            nudge_y = -0.225,    # Slightly offset downward so it sits underneath the estimate
             hjust = 1,
             family = "serif", 
-            size = 4, 
+            size = 3, 
             show.legend = FALSE) +
   
   scale_colour_manual(values = mycolours) +
   guides(colour = "none") +
-  coord_cartesian(ylim=c(-0.2, 1)) +
-  labs(x = NULL, y = expression("Difference in"~Delta*A))
+  coord_cartesian(ylim=c(-0.15, 1.5)) +
+  labs(x = "UAS operation", y = expression("Difference in"~bar(Delta*A)))
 
-(p_type | p_op) + patchwork::plot_layout(axis_titles='collect', axes='collect_y', widths=c(1.5, 2))
+p_env <- ggplot(data=mdA10_env_fixed_lae,
+               aes(x = contrast, y = estimate, colour=contrast)) +
+  theme(panel.grid = element_blank(),
+        panel.grid.major.y = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+        text = element_text(family = "serif", size = 16),
+        axis.text = element_text(family = "serif", size = 12)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = alpha("grey65", alpha=0.25)) +
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
+  # Add text annotation next to estimate point
+  geom_text(aes(label = paste("pd:",
+                              ifelse(pd > 0.99, ">.99",
+                                     MOTE::apa(pd, decimals=2, leading=FALSE)))),
+            nudge_x = 0.1,      # Shifts text slightly to the right of the point
+            nudge_y = 0,
+            hjust = 0,           # Left-aligns text relative to the nudge position
+            family = "serif", 
+            size = 3, 
+            show.legend = FALSE) +
+  
+  geom_text(aes(label = sprintf("%.2f", round(estimate, digits = 2))),
+            nudge_x = -0.2,      # Shifts text slightly to the right of the point
+            nudge_y = 0.,
+            hjust = 0,           # Left-aligns text relative to the nudge position
+            family = "serif", 
+            size = 3, 
+            show.legend = FALSE) +
+
+  geom_text(aes(label = sprintf("[%.2f, %.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
+            nudge_x = -0.05,     # Kept on the left side alongside the estimate
+            nudge_y = -0.25,    # Slightly offset downward so it sits underneath the estimate
+            hjust = 1,
+            family = "serif", 
+            size = 3, 
+            show.legend = FALSE) +
+  
+  scale_colour_manual(values = mycolours) +
+  guides(colour = "none") +
+  coord_cartesian(ylim=c(-0.15, 2.6)) +
+  labs(x = "Ambient env.", y = expression("Difference in"~bar(Delta*A)))
+
+p_evts <- ggplot(data=mdA10_evts_fixed_lae,
+                           aes(x = contrast, y = estimate, colour=contrast)) +
+  theme(panel.grid = element_blank(),
+        panel.grid.major.y = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+        text = element_text(family = "serif", size = 16),
+        axis.text = element_text(family = "serif", size = 12)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = alpha("grey65", alpha=0.25)) +
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
+  # Add text annotation next to estimate point
+  geom_text(aes(label = paste("pd:",
+                              ifelse(pd > 0.99, ">.99",
+                                     MOTE::apa(pd, decimals=2, leading=FALSE)))),
+            nudge_x = 0.1,      # Shifts text slightly to the right of the point
+            nudge_y = 0.1,
+            hjust = 0,           # Left-aligns text relative to the nudge position
+            family = "serif", 
+            size = 3, 
+            show.legend = FALSE) +
+  
+  geom_text(aes(label = sprintf("%.2f", round(estimate, digits = 2))),
+            nudge_x = -0.325,      # Shifts text slightly to the right of the point
+            nudge_y = 0.0,
+            hjust = 0,           # Left-aligns text relative to the nudge position
+            family = "serif", 
+            size = 3, 
+            show.legend = FALSE) +
+  
+  geom_text(aes(label = sprintf("[%.2f,\n%.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
+            nudge_x = -0.05,     # Kept on the left side alongside the estimate
+            nudge_y = -0.3,    # Slightly offset downward so it sits underneath the estimate
+            hjust = 1,
+            family = "serif", 
+            size = 3, 
+            show.legend = FALSE) +
+  
+  scale_colour_manual(values = mycolours) +
+  guides(colour = "none") +
+  coord_cartesian(ylim=c(-0.15, 2.6)) +
+  labs(x = "UAS events", y = expression("Difference in"~bar(Delta*A)))
+
+
+((p_type | p_op) + patchwork::plot_layout(axis_titles='collect',
+                                         axes='collect_y',
+                                         widths=c(1.5, 2))) /
+((p_evts | p_env) + patchwork::plot_layout(axis_titles='collect',
+                                         axes='collect_y',
+                                         widths=c(2.5, 1)))
+
 
 if (saveplots) {
   
-  filename <- "PtsABdAnnoyMn_ExpMod_OpType_brmsOb"
+  filename <- "PtsABdAnnoyMn_ExpMod_OpTypeEnvEvts_brmsOb"
   
-  ggsave(filename=paste(filename, ".svg", sep=""), width=10, height=4,
+  ggsave(filename=paste(filename, ".svg", sep=""), width=9, height=6,
          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
   unlink(paste(filename, ".svg", sep=""))
 
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=10, height=4,
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=9, height=6,
          path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 
@@ -3523,9 +3667,8 @@ p_between_fac <- ggplot(mdA10_between_contrasts, aes(x = estimate,
   
   # Add text annotation next to estimate point
   geom_text(aes(label = paste("pd:",
-                              ifelse(pd > 0.99, ">0.99",
-                                     sprintf("%.2f",
-                                             round(pd, digits = 2))))),
+                              ifelse(pd > 0.99, ">.99",
+                                     MOTE::apa(pd, decimals=2, leading=FALSE)))),
             nudge_y = 0.25,      
             hjust = 0.5,  
             family = "serif", 
@@ -3550,7 +3693,7 @@ p_between_fac <- ggplot(mdA10_between_contrasts, aes(x = estimate,
   guides(colour = "none") +
   
   geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
-  labs(x = expression("Difference in"~Delta*A), y = NULL)
+  labs(x = expression("Difference in"~bar(Delta*A)), y = NULL)
 
 p_between_cov <- ggplot(mdA10_covariate_slopes, aes(x = estimate, y = variable, colour = variable)) +
   theme(panel.grid = element_blank(),
@@ -3561,9 +3704,8 @@ p_between_cov <- ggplot(mdA10_covariate_slopes, aes(x = estimate, y = variable, 
   
   # Add text annotation next to estimate point
   geom_text(aes(label = paste("pd:",
-                              ifelse(pd > 0.99, ">0.99",
-                                     sprintf("%.2f",
-                                             round(pd, digits = 2))))),
+                              ifelse(pd > 0.99, ">.99",
+                                     MOTE::apa(pd, decimals=2, leading=FALSE)))),
             nudge_y = 0.1,      
             hjust = 0.5,  
             family = "serif", 
@@ -3578,8 +3720,8 @@ p_between_cov <- ggplot(mdA10_covariate_slopes, aes(x = estimate, y = variable, 
             show.legend = FALSE) +
   
   geom_text(aes(label = sprintf("[%.2f, %.2f]", round(conf.low, digits = 2), round(conf.high, digits = 2))),
-            nudge_y = -0.1, 
-            nudge_x = 0.015,
+            nudge_y = -0.2, 
+            nudge_x = -0.025,
             hjust = 0,
             family = "serif", 
             size = 4, 
@@ -3589,7 +3731,7 @@ p_between_cov <- ggplot(mdA10_covariate_slopes, aes(x = estimate, y = variable, 
   guides(colour = "none") +
   
   geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
-  labs(x = expression("Slope of"~Delta*A~"per unit increase"), y = NULL)
+  labs(x = expression("Slope of"~bar(Delta*A)~"per unit increase"), y = NULL)
 
 (p_between_fac | p_between_cov) + plot_layout(widths = c(2, 1))
 
@@ -6284,7 +6426,7 @@ if (saveplots){
 <!--   geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) + -->
 <!--   # Add text annotation next to estimate point -->
 <!--   geom_text(aes(label = paste("pd:", -->
-<!--                               ifelse(pd > 0.99, ">0.99", -->
+<!--                               ifelse(pd > 0.99, ">.99", -->
 <!--                                      sprintf("%.2f", -->
 <!--                                              round(pd, digits = 2))))), -->
 <!--             nudge_x = 0.15,      # Shifts text slightly to the right of the point -->
@@ -6323,7 +6465,7 @@ if (saveplots){
 <!--   geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) + -->
 <!--   # Add text annotation next to estimate point -->
 <!--   geom_text(aes(label = paste("pd:", -->
-<!--                               ifelse(pd > 0.99, ">0.99", -->
+<!--                               ifelse(pd > 0.99, ">.99", -->
 <!--                                      sprintf("%.2f", round(pd, digits = 2))))), -->
 <!--             nudge_x = 0.1,      # Shifts text slightly to the right of the point -->
 <!--             hjust = 0,           # Left-aligns text relative to the nudge position -->
@@ -6385,7 +6527,7 @@ if (saveplots){
 
 <!--   # Add text annotation next to estimate point -->
 <!--   geom_text(aes(label = paste("pd:", -->
-<!--                               ifelse(pd > 0.99, ">0.99", -->
+<!--                               ifelse(pd > 0.99, ">.99", -->
 <!--                                      sprintf("%.2f", -->
 <!--                                              round(pd, digits = 2))))), -->
 <!--             nudge_y = 0.25,       -->
@@ -6423,7 +6565,7 @@ if (saveplots){
 
 <!--   # Add text annotation next to estimate point -->
 <!--   geom_text(aes(label = paste("pd:", -->
-<!--                               ifelse(pd > 0.99, ">0.99", -->
+<!--                               ifelse(pd > 0.99, ">.99", -->
 <!--                                      sprintf("%.2f", -->
 <!--                                              round(pd, digits = 2))))), -->
 <!--             nudge_y = 0.1,       -->
