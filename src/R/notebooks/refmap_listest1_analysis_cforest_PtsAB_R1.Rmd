@@ -117,7 +117,10 @@ The aggregated data by stimulus are assigned to a dataframe, relevant categorica
 # assign rownames from stimData dataframe to new dataframe
 stimDataNum <- data.frame(UASEvents=stimData[, "UASEvents"])
 
+stimDataNum <- cbind(stimDataNum, AmbientEnv = factor(stimData$AmbientEnv))
+
 stimDataNum <- cbind(stimDataNum,
+                     
                      stimData[, which(colnames(stimData)=="UASLAeq"):
                                 which(colnames(stimData)=="SNRlevel")],
                      stimData[, which(colnames(stimData)=="IntermitRatioC2MaxLR"):
@@ -141,6 +144,7 @@ row.names(stimDataNum) <- rownames(stimData)
 
 # remove duplicated variables
 stimDataNum <- subset(stimDataNum, select = -c(UASLAeq))
+stimDataNum <- subset(stimDataNum, select = -c(AmbientLAeq))
 
 # make the discrete ordinal outcome variables factors
 stimDataNum[['UASEvents']] <- factor(stimDataNum[['UASEvents']], levels=c(0, 1, 3, 5, 9), order=TRUE)
@@ -213,7 +217,7 @@ minbucket <- 7
 ntrees <- c(251, 501, 1001, 1501, 2501, 4001, 5501)
 
 eventVar <- "UASEvents"
-ambVar <- "AmbientLAeq"
+ambVar <- "AmbientEnv"
 
 ```
 

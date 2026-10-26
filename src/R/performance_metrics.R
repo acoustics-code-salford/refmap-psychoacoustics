@@ -4,22 +4,9 @@ require(performance)
 
 
 # GEE Rsquared (Zheng, 2000) ---------------------------------------------------
-geeRsquared <- function(...){
+geeRsquared <- function(..., transform=NULL){
   
   model_objects <- list(...)
-  
-  # if (length(list(...)) == 1){
-  #   
-  #   model_objects <- insight::ellipsis_info(..., ..., only_models = TRUE,
-  #                                           verbose=FALSE)
-  #   model_objects <- model_objects[1]
-  #   
-  # } else{
-  #   
-  #   model_objects <- insight::ellipsis_info(..., only_models = TRUE,
-  #                                           verbose=FALSE)
-  #   
-  # }
   
   # ensure proper object names
   dot_names <- sapply(match.call(expand.dots = FALSE)[["..."]], as.character)
@@ -37,16 +24,20 @@ geeRsquared <- function(...){
   object_names <- names(model_objects)
   
   m <- mapply(function(.x, .y) {
-    SSE <- sum(.x$prior.weights*(.x$y - .x$fitted.values)^2, na.rm = T)
-    SST <- sum(.x$prior.weights*(.x$y - mean(.x$y, na.rm = T))^2, na.rm = T)
-    r2 = 1 - SSE/SST
+    y  <- as.numeric(.x$y)
+    mu <- as.numeric(.x$fitted.values)
+    if (!is.null(transform)) {
+      y  <- transform(y)
+      mu <- transform(mu)
+    }
+    SSE <- sum(.x$prior.weights * (y - mu)^2, na.rm = TRUE)
+    SST <- sum(.x$prior.weights * (y - mean(y, na.rm = TRUE))^2, na.rm = TRUE)
     
-    dat <- data.frame(R2=r2)
+    dat <- data.frame(R2 = 1 - SSE/SST)
     model_name <- gsub("\"", "", insight::safe_deparse(.y), fixed = TRUE)
-    perf_df <- data.frame(Name = model_name, Model = class(.x)[1], dat, stringsAsFactors = FALSE)
-    perf_df
+    data.frame(Name = model_name, Model = class(.x)[1], dat, stringsAsFactors = FALSE)
   }, model_objects, object_names, SIMPLIFY = FALSE)
-  
+
   dfs <- Reduce(function(x, y) merge(x, y, all = TRUE, sort = FALSE), m)
   
   return(dfs)

@@ -6,7 +6,7 @@ require(tidyverse)
 geeCorStr <- function(formula, data, family, id, waves=NULL,
                       corstr = c("Exchangeable", "AR-M-dependent", "Stationary-M-dependent",
                                  "Independence", "Unstructured", "Non-Stationary-M-dependent"),
-                      m_lag = 1, ..., verbose = FALSE) {
+                      m_lag = 1, ..., verbose = FALSE, transform = NULL) {
   
   # Resolve id and inject it into data under a fixed name, so glmgee's
   # internal eval(id, envir = data, ...) finds it regardless of environment
@@ -89,7 +89,9 @@ geeCorStr <- function(formula, data, family, id, waves=NULL,
 
   # Splice list into separate ... arguments, preserving names as
   # geeModelPerformance expects (mirrors calling it with each model named)
-  model_perf <- do.call(geeModelPerformance, c(model_list, list(verbose = verbose)))
+  model_perf <- do.call(geeModelPerformance,
+                        c(model_list, list(verbose = verbose,
+                                           transform = transform)))
   
   # replace the generic model names in the Name column with the correlation structure names
   model_perf$Name <- names(model_list)
@@ -100,22 +102,13 @@ geeCorStr <- function(formula, data, family, id, waves=NULL,
 
 
 ## Compiling GEE GLM model performance parameters
-geeModelPerformance <- function(..., verbose=FALSE){
+geeModelPerformance <- function(..., verbose=FALSE, transform = NULL){
+  
+  if (!is.null(transform) && !is.function(transform)) {
+    stop("`transform` must be a function mapping model-scale values to the reporting scale.")
+  }
   
   model_objects <- list(...)
-  
-  # if (length(list(...)) == 1){
-  #   
-  #   model_objects <- insight::ellipsis_info(..., ..., only_models = TRUE,
-  #                                           verbose=verbose)
-  #   model_objects <- model_objects[1]
-  #   
-  # } else{
-  #   
-  #   model_objects <- insight::ellipsis_info(..., only_models = TRUE,
-  #                                           verbose=verbose)
-  #   
-  # }
   
   # ensure proper object names
   dot_names <- sapply(match.call(expand.dots = FALSE)[["..."]], as.character)
@@ -153,16 +146,28 @@ geeModelPerformance <- function(..., verbose=FALSE){
   
   m <- mapply(function(.x, .y) {
     fam_name <- get_family_name(.x)
+    
+    # observed and fitted values on the reporting scale
+    y_obs <- as.numeric(.x$y)
+    mu    <- as.numeric(.x$fitted.values)
+    if (!is.null(transform)) {
+      y_obs <- transform(y_obs)
+      mu    <- transform(mu)
+      if (length(y_obs) != length(.x$y) || length(mu) != length(.x$fitted.values)) {
+        stop("`transform` must return a vector of the same length as its input.")
+      }
+    }
+    
     if (fam_name %in% c("gaussian", "quasibinomial")) {
-      r2 <- geeRsquared(.x)
-      R2 <- r2$R2
-      H <- NA
-      D <- NA
-      AUC <- NA
-      Lloss <- NA
+      R2 <- geeRsquared(.x, transform = transform)$R2
+      H <- NA; D <- NA; AUC <- NA; Lloss <- NA
       PCP <- data.frame(pcp_model=NA, model_ci_low=NA, model_ci_high=NA, lrt_chisq=NA)
       
     } else if (fam_name == "binomial") {
+      if (!is.null(transform)) {
+        warning("`transform` is ignored for the binary-response metrics ",
+                "(H, D, AUC, Lloss, ePCP); it only affects R2, RMSE, MSE and MAE.")
+      }
       
       if (!is.null(.x$varest)) {
         varest <- .x$varest
@@ -175,7 +180,7 @@ geeModelPerformance <- function(..., verbose=FALSE){
       r <- rank(.x$fitted.values)
       auc <- (sum(r[.x$y == 1]) - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
       
-      r2 <- geeRsquared(.x)
+      r2 <- geeRsquared(.x, transform = transform)
       R2 <- r2$R2
       h <- geeEntropy(.x, varest=varest)
       H <- h$H
@@ -193,21 +198,21 @@ geeModelPerformance <- function(..., verbose=FALSE){
       PCP <- data.frame(pcp_model=NA, model_ci_low=NA, model_ci_high=NA, lrt_chisq=NA)
       
     }
-    dat <- data.frame(R2=R2,
-                      RMSE = sqrt(mean((.x$y - .x$fitted.values)^2, na.rm = TRUE)),
-                      MSE  = mean((.x$y - .x$fitted.values)^2, na.rm = TRUE),
-                      MAE  = mean(abs(.x$y - .x$fitted.values), na.rm = TRUE),
-                      H=H,
-                      D=D,
-                      GPAIC=glmtoolbox::AGPC(.x, verbose=verbose),
-                      GPSBIC=glmtoolbox::SGPC(.x, verbose=verbose),
-                      AUC=AUC,
-                      Lloss=Lloss,
-                      ePCP=PCP$pcp_model,
-                      ePCP95Lo=PCP$model_ci_low,
-                      ePCP95Hi=PCP$model_ci_high,
-                      ePCPChiSq=PCP$lrt_chisq
-    )
+    dat <- data.frame(R2    = R2,
+                      RMSE  = sqrt(mean((y_obs - mu)^2, na.rm = TRUE)),
+                      MSE   = mean((y_obs - mu)^2, na.rm = TRUE),
+                      MAE   = mean(abs(y_obs - mu), na.rm = TRUE),
+                      H = H,
+                      D = D,
+                      GPAIC  = glmtoolbox::AGPC(.x, verbose = verbose),
+                      GPSBIC = glmtoolbox::SGPC(.x, verbose = verbose),
+                      AUC = AUC,
+                      Lloss = Lloss,
+                      ePCP = PCP$pcp_model,
+                      ePCP95Lo = PCP$model_ci_low,
+                      ePCP95Hi = PCP$model_ci_high,
+                      ePCPChiSq = PCP$lrt_chisq)
+    
     # omit NA columns
     dat <- Filter(function(x)!all(is.na(x)), dat)
     

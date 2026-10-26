@@ -1700,6 +1700,26 @@ for ii, file in enumerate(filelist):
 # From ArtemiS calculations
 # -------------------------
 
+def specificImpuls2TDep(specImpuls, time_axis=0, dz=1):
+    """
+    Convert specific time-dependent impulsiveness to overall time-dependent impulsiveness
+    :param specImpuls: specific impulsiveness
+    :return: time-dependent impulsiveness
+    """
+
+    if time_axis == 1:
+        specImpuls = specImpuls.T
+
+    cal_i = 0.1622378
+
+    specImpulsInt = dz*(specImpuls).sum(axis=1)/cal_i
+
+    impulsiveness = cal_i*(0.055556*specImpulsInt
+                           + np.heaviside(specImpulsInt - 1.8, 1)*(1.271367*specImpulsInt - 2.288461)
+                           + np.heaviside(specImpulsInt - 7, 1)*(2.288461 - 0.326923*specImpulsInt))
+
+    return impulsiveness
+
 # open xlsx file selection dialog and assign filepaths to list
 # PROJECT NOTE: the calculated files are stored in
 # https://testlivesalfordac.sharepoint.com/:f:/r/sites/REFMAP/Shared%20Documents/General/03%20Experiment/Experiment%202/Analysis/ArtemiS?csf=1&web=1&e=mIwerm
@@ -1733,8 +1753,8 @@ for ii, file in enumerate(filelist):
     
             # specific time-dependent impulsiveness
             specImpulsSHM = pd.DataFrame(filedata[1:, 1:],
-                                            index=filedata[1:, 0],
-                                            columns=filedata[0, 1:])
+                                         index=filedata[1:, 0],
+                                         columns=filedata[0, 1:])
         
         elif file.find("Fluctuation") != -1 and file.find("ECMA") != -1:
             # ECMA-418-2:2025 Fluctuation strength
@@ -1743,8 +1763,8 @@ for ii, file in enumerate(filelist):
 
             # specific ECMA-418-2:2025 Fluctuation strength
             specFluctECMA = pd.DataFrame(filedata[1:, 1:],
-                                            index=filedata[1:, 0],
-                                            columns=filedata[0, 1:])
+                                         index=filedata[1:, 0],
+                                         columns=filedata[0, 1:])
 
 
             # time-dependent binaural fluctuation strength
@@ -1830,6 +1850,10 @@ for ii, file in enumerate(filelist):
 
                 dImpulsSHMTDep = np.maximum(specImpulsSHMMovAvg
                                             - ambSpecImpulsSHMMovAvg, 0).sum(axis=1).to_frame(name="Monaural")
+
+                # specImpulsSHMMovDiff = np.maximum(specImpulsSHMMovAvg - ambSpecImpulsSHMMovAvg, 0)
+                
+                # dImpulsSHMTDep = specificImpuls2TDep(specImpulsSHMMovDiff).to_frame(name="Monaural")    
     
                 # calculate aggregated difference values
                 # impulsiveness masked for start/end skip
