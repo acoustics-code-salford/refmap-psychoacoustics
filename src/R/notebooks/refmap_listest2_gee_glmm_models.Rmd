@@ -2911,7 +2911,7 @@ p3 <- ggplot(data=m7predR) +
     
     labs(x=x_labels[1], y="Mean change in annoyance")
 
-sqm_title <- expression(paste(bar(italic(I[N]))*","~sone[W*"-"*R~"|"~Z]))
+sqm_title <- expression(paste(bar(italic(I)[N])*","~sone[W*"-"*R~"|"~Z]))
 p4 <- ggplot(data=m7predI) +
     plot_theme +
     
@@ -3305,7 +3305,7 @@ p3 <- ggplot(data=m7cpredR) +
     
     labs(x=x_labels[1], y="Mean change in annoyance")
 
-sqm_title <- expression(paste(bar(italic(I[N]))*","~sone[W*"-"*R~"|"~Z]))
+sqm_title <- expression(paste(bar(italic(I)[N])*","~sone[W*"-"*R~"|"~Z]))
 p4 <- ggplot(data=m7cpredI) +
     plot_theme +
     
@@ -6801,7 +6801,7 @@ p2 <- ggplot(data=m16cpredEvt) +
 
 
 
-impuls_title <- expression(paste(UAS~bar(italic(I[N]))*","~sone["W-R"~"|"~"Z"]))
+impuls_title <- expression(paste(UAS~italic(bar(I)[N])*","~sone["W-R"~"|"~"Z"]))
 p3 <- ggplot(data=m16cpredI) +
   theme(panel.grid = element_blank(), aspect.ratio=1.35,
         text = element_text(family = "serif", size=16),
@@ -7527,7 +7527,7 @@ ggplot(data=m18cpredEvt) +
 
       scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
       
-      labs(x=expression(paste(UAS~italic(bar(I[N])),",",~sone[W*"-"*R~"|"~Z])),
+      labs(x=expression(paste(UAS~italic(bar(I)[N]),",",~sone[W*"-"*R~"|"~Z])),
            y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
 if (saveplots){
@@ -7559,7 +7559,7 @@ p1 <- plot_slice(m18cpredIF, stimDataNoAmb,
         axis.text.y = element_text(family = "serif", size = 14)) &
   scale_x_continuous(breaks = scales::breaks_width(0.3)) &
   scale_y_continuous(breaks = seq(0, 1, by = 0.1), labels = seq(0, 100, by = 10), limits = c(0, 1)) &
-  labs(x = expression(paste(UAS~bar(italic(I[N]))*","~sone["W-R"~"|"~Z])),
+  labs(x = expression(paste(UAS~bar(italic(I)[N])*","~sone["W-R"~"|"~Z])),
        y = expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
 p2 <- plot_slice(m18cpredIR, stimDataNoAmb,
@@ -7579,7 +7579,7 @@ p2 <- plot_slice(m18cpredIR, stimDataNoAmb,
         axis.text.y = element_text(family = "serif", size = 14)) &
   scale_x_continuous(breaks = scales::breaks_width(0.3)) &
   scale_y_continuous(breaks = seq(0, 1, by = 0.1), labels = seq(0, 100, by = 10), limits = c(0, 1)) &
-  labs(x = expression(paste(UAS~bar(italic(I[N]))*","~sone["W-R"~"|"~Z])),
+  labs(x = expression(paste(UAS~bar(italic(I)[N])*","~sone["W-R"~"|"~Z])),
        y = expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
 p1 + p2 + plot_layout(guides = 'collect') & theme(legend.position = 'right')

@@ -45,6 +45,14 @@ require(glmmTMB)
 #       * NEW: batch-independence check of the returned function (single rows,
 #         reversed, split batches must all match the full batch).
 #
+#       * exp() of a scaled variable (e.g. I(exp(0.03*z))): the centring
+#         constant is absorbed into the coefficient (exp(0.03*(x-c)) =
+#         exp(-0.03*c)*exp(0.03*x)) instead of being left inside the exp().
+#
+#       * logit equations are printed as 1 / (1 + exp(L)), with the coefficient
+#         signs reversed (L = -linear predictor), so no minus sign sits inside
+#         the exponent.
+#
 # CHANGE LOG vs v15:
 #   - NEW: un-centring / un-standardising. New arguments centred_vars,
 #     stdised_vars (model variables that were centred, or centred AND
@@ -1150,20 +1158,25 @@ deploy_mean_model.brmsfit <- function(model, ...,
 
 .format_equation <- function(beta0, reduced_terms, link, digits = 4,
                              beta0_num = NULL, beta0_den = NULL) {
+  # Logit link: written as 1 / (1 + exp(L)) with L = -(linear predictor), i.e.
+  # every coefficient is displayed with its sign reversed so that no minus sign
+  # is needed inside the exponent. Display only; predictions are unaffected.
+  sg <- if (identical(link, "logit")) -1 else 1
+  nm <- function(x) if (is.null(x)) NULL else sg * x
   term_strs <- vapply(reduced_terms, function(t) {
     piece_strs <- vapply(t$pieces, .format_piece_display, character(1))
-    coef_str <- .format_coef_display(t$coef, t[["num"]], t[["den"]], digits)
+    coef_str <- .format_coef_display(sg * t$coef, nm(t[["num"]]), t[["den"]], digits)
     paste0(coef_str, "*", paste(piece_strs, collapse = "*"))
   }, character(1))
   
-  beta0_str <- .format_coef_display(beta0, beta0_num, beta0_den, digits)
+  beta0_str <- .format_coef_display(sg * beta0, nm(beta0_num), beta0_den, digits)
   eta_terms <- c(beta0_str, term_strs)
   linear_predictor <- paste(eta_terms, collapse = " + ")
   linear_predictor <- gsub("\\+ -", "- ", linear_predictor)
   eta_str <- paste0("(", linear_predictor, ")")
   
   rhs <- switch(link,
-                logit    = sprintf("1 / (1 + exp(-%s))", eta_str),
+                logit    = sprintf("1 / (1 + exp(%s))", eta_str),
                 log      = sprintf("exp(%s)", eta_str),
                 identity = eta_str,
                 probit   = sprintf("Phi(%s)", eta_str),
@@ -1388,6 +1401,29 @@ deploy_mean_model.brmsfit <- function(model, ...,
   paste(trimws(deparse(e, width.cutoff = 500L)), collapse = " ")
 }
 
+# exp() of something linear in a scaled variable z = (x - c)/k can be absorbed
+# EXACTLY into the term's coefficient:
+#   exp(a*z + b) = exp(b - a*c/k) * exp((a/k)*x)
+# so only the multiplier changes (no extra terms, unlike polynomial pieces).
+# Returns NULL when the piece is not of that form (or the multiplier would
+# overflow/underflow), in which case z is substituted inside the expression.
+.exp_absorb <- function(expr_str, v, raw, center, scale) {
+  e <- tryCatch(str2lang(expr_str), error = function(err) NULL)
+  if (is.null(e)) return(NULL)
+  repeat {   # strip I( ) and ( )
+    if (is.call(e) && is.name(e[[1]]) && as.character(e[[1]]) %in% c("I", "(") && length(e) == 2L) e <- e[[2]] else break
+  }
+  if (!(is.call(e) && is.name(e[[1]]) && as.character(e[[1]]) == "exp" && length(e) == 2L)) return(NULL)
+  d <- .affine_decompose(e[[2]])
+  if (is.null(d$inner) || !identical(d$inner, as.name(v))) return(NULL)
+  rate <- d$a / scale
+  logmult <- d$b - d$a * center / scale
+  if (!is.finite(rate) || !is.finite(logmult) || abs(logmult) > 600) return(NULL)
+  rate_txt <- format(rate, digits = 15, scientific = FALSE, trim = TRUE)
+  arg <- if (rate == 1) raw else paste0(rate_txt, " * ", raw)
+  list(mult = exp(logmult), expr = paste0("exp(", arg, ")"))
+}
+
 .unscale_reduced <- function(beta0, reduced_terms, scaling) {
   out <- list()
   beta0_new <- beta0
@@ -1409,15 +1445,22 @@ deploy_mean_model.brmsfit <- function(model, ...,
   for (term in reduced_terms) {
     kept <- list()      # pieces carried over unchanged (or with z substituted inside an expression)
     lin <- list()       # bare scaled pieces, which expand into (x term) + (constant term)
+    mult <- 1           # multiplier from exp() pieces whose shift is absorbed into the coefficient
     for (p in term$pieces) {
       if (p$type == "continuous" && p$raw_var %in% names(scaling)) {
         s <- scaling[[p$raw_var]]
         if (identical(p$expr, p$raw_var)) {
           lin[[length(lin) + 1]] <- s
         } else {
-          kept[[length(kept) + 1]] <- list(
-            type = "continuous", raw_var = s$raw_name,
-            expr = .substitute_scaled_expr(p$expr, p$raw_var, s$raw_name, s$center, s$scale))
+          ab <- .exp_absorb(p$expr, p$raw_var, s$raw_name, s$center, s$scale)
+          if (!is.null(ab)) {
+            mult <- mult * ab$mult
+            kept[[length(kept) + 1]] <- list(type = "continuous", raw_var = s$raw_name, expr = ab$expr)
+          } else {
+            kept[[length(kept) + 1]] <- list(
+              type = "continuous", raw_var = s$raw_name,
+              expr = .substitute_scaled_expr(p$expr, p$raw_var, s$raw_name, s$center, s$scale))
+          }
         }
       } else {
         kept[[length(kept) + 1]] <- p
@@ -1425,7 +1468,7 @@ deploy_mean_model.brmsfit <- function(model, ...,
     }
     m <- length(lin)
     for (mask in 0:(2^m - 1)) {
-      coef <- term$coef
+      coef <- term$coef * mult
       pieces <- kept
       for (j in seq_len(m)) {
         s <- lin[[j]]
@@ -2038,6 +2081,9 @@ print.deployed_mean_model <- function(x, ...) {
   cat("<deployed_mean_model>\n")
   cat(attr(x, "equation"), "\n")
   cat("link:", attr(x, "link"), "\n")
+  if (identical(attr(x, "link"), "logit")) {
+    cat("  (logit written as 1 / (1 + exp(L)): the coefficients shown are those of L = -(linear predictor), i.e. sign-reversed)\n")
+  }
   cat("required input columns:", paste(attr(x, "free_vars"), collapse = ", "), "\n")
   
   sc <- attr(x, "scaling")
