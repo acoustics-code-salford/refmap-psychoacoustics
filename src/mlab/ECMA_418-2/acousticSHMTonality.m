@@ -96,19 +96,19 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 %
 % If annoyWeight=true, additional outputs are included in tonality:
 %
-% specTonalityAnnoy : matrix
+% specTonalAnnoy : matrix
 %   Tonal annoyance-weighted, time-dependent specific tonality for each
 %   critical band arranged as [time, bands(, channels)]
 %
-% specTonalityAvgAnnoy : matrix
+% specTonalAnnoyAvg : matrix
 %   Tonal annoyance-weighted, time-averaged specific tonality for each
 %   critical band arranged as [bands(, channels)]
 %
-% tonalityTDepAnnoy : vector or matrix
+% tonalAnnoyTDep : vector or matrix
 %   Tonal annoyance-weighted, time-dependent overall tonality
 %   arranged as [time(, channels)]
 %
-% tonalityAvgAnnoy : number or vector
+% tonalAnnoyAvg : number or vector
 %   Tonal annoyance-weighted, time-averaged overall tonality
 %   arranged as [tonality(, channels)]
 %
@@ -140,7 +140,7 @@ function tonalitySHM = acousticSHMTonality(p, sampleRateIn, axisN, soundField, w
 % Institution: University of Salford
 %
 % Date created: 07/08/2023
-% Date last modified: 19/10/2026
+% Date last modified: 01/11/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -549,19 +549,19 @@ for chan = chansIn:-1:1
         annoyWeightx(bandCentreFreqs...
                      >= 1e3) = 2.3*(log10(bandCentreFreqs(bandCentreFreqs...
                                                           >= 1e3)) - 3) + 1;
-        specTonalityAnnoy(:, :, chan) = specTonality(:, :, chan).*annoyWeightx;
+        specTonalAnnoy(:, :, chan) = specTonality(:, :, chan).*annoyWeightx;
 
         for zBand = 53:-1:1
-            mask = specTonalityAnnoy(:, zBand, chan) > 0.02;
+            mask = specTonalAnnoy(:, zBand, chan) > 0.02;
             mask(1:(58 - 1)) = 0;
-            specTonalityAvgAnnoy(1, zBand, chan)...
-                = sum(specTonalityAnnoy(mask, zBand, chan), 1)./(nnz(mask) + epsilon);
+            specTonalAnnoyAvg(1, zBand, chan)...
+                = sum(specTonalAnnoy(mask, zBand, chan), 1)./(nnz(mask) + epsilon);
         end
 
-        tonalityTDepAnnoy(:, chan) = max(specTonalityAnnoy(:, :, chan), [], 2);
-        mask = tonalityTDepAnnoy(:, chan) > 0.02;
+        tonalAnnoyTDep(:, chan) = max(specTonalAnnoy(:, :, chan), [], 2);
+        mask = tonalAnnoyTDep(:, chan) > 0.02;
         mask(1:(58 - 1)) = 0;
-        tonalityAvgAnnoy(chan) = sum(tonalityTDepAnnoy(mask, chan))/(nnz(mask) + epsilon);
+        tonalityAvgAnnoy(chan) = sum(tonalAnnoyTDep(mask, chan))/(nnz(mask) + epsilon);
     end
 
     if waitBar
@@ -637,13 +637,13 @@ for chan = chansIn:-1:1
             tiledlayout(fig, 2, 1);
             movegui(fig, 'center');
             ax1 = nexttile(1);
-            surf(ax1, timeOut, bandCentreFreqs, permute(specTonalityAnnoy(:, :, chan),...
+            surf(ax1, timeOut, bandCentreFreqs, permute(specTonalAnnoy(:, :, chan),...
                                                   [2, 1, 3]),...
                  'EdgeColor', 'none', 'FaceColor', 'interp');
             view(2);
             ax1.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
             ax1.YLim = [bandCentreFreqs(1), bandCentreFreqs(end)];
-            ax1.CLim = [0, ceil(max(tonalityTDepAnnoy(:, chan))*10)/10];
+            ax1.CLim = [0, ceil(max(tonalAnnoyTDep(:, chan))*10)/10];
             ax1.YTick = [63, 125, 250, 500, 1e3, 2e3, 4e3, 8e3, 16e3]; 
             ax1.YTickLabel = ["63", "125", "250", "500", "1k", "2k", "4k",...
                               "8k", "16k"]; 
@@ -671,11 +671,11 @@ for chan = chansIn:-1:1
                  ':', 'color', cmap_plasma(34, :),...
                  'LineWidth', 1.5, 'DisplayName', "Time-" + string(newline) + "average");
             hold on
-            plot(ax2, timeOut, tonalityTDepAnnoy(:, chan), 'color',  cmap_plasma(166, :),...
+            plot(ax2, timeOut, tonalAnnoyTDep(:, chan), 'color',  cmap_plasma(166, :),...
                  'LineWidth', 0.75, 'DisplayName', "Time-" + string(newline) + "dependent");
             hold off
             ax2.XLim = [timeOut(1), timeOut(end) + (timeOut(2) - timeOut(1))];
-            ax2.YLim = [0, 1.1*ceil(max(tonalityTDepAnnoy(:, chan))*10)/10];
+            ax2.YLim = [0, 1.1*ceil(max(tonalAnnoyTDep(:, chan))*10)/10];
             ax2.XLabel.String = "Time, s";
             ax2.YLabel.String = {"Tonality (tonal"; "annoyance-weighted),"; "tu_{SHMa}"};
             ax2.XGrid = 'on';
@@ -697,13 +697,13 @@ if chansIn > 1
     specTonalityAvg = squeeze(specTonalityAvg);
     specTonalityAvgFreqs = squeeze(specTonalityAvgFreqs);
     if annoyWeight
-        specTonalityAvgAnnoy = squeeze(specTonalityAvgAnnoy);
+        specTonalAnnoyAvg = squeeze(specTonalAnnoyAvg);
     end
 else
     specTonalityAvg = transpose(specTonalityAvg);
     specTonalityAvgFreqs = transpose(specTonalityAvgFreqs);
     if annoyWeight
-        specTonalityAvgAnnoy = transpose(specTonalityAvgAnnoy);
+        specTonalAnnoyAvg = transpose(specTonalAnnoyAvg);
     end
 end
 
@@ -725,10 +725,10 @@ tonalitySHM.soundField = soundField;
 
 % additional outputs for tonal annoyance weighting
 if annoyWeight
-    tonalitySHM.specTonalityAnnoy = specTonalityAnnoy;
-    tonalitySHM.specTonalityAvgAnnoy = specTonalityAvgAnnoy;
-    tonalitySHM.tonalityTDepAnnoy = tonalityTDepAnnoy;
-    tonalitySHM.tonalityAvgAnnoy = tonalityAvgAnnoy;
+    tonalitySHM.specTonalAnnoy = specTonalAnnoy;
+    tonalitySHM.specTonalAnnoyAvg = specTonalAnnoyAvg;
+    tonalitySHM.tonalAnnoyTDep = tonalAnnoyTDep;
+    tonalitySHM.tonalAnnoyAvg = tonalityAvgAnnoy;
 end
 
 % end of function
