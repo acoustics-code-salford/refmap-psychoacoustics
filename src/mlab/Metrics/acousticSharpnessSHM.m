@@ -132,7 +132,7 @@ function sharpnessSHM = acousticSharpnessSHM(p, sampleRateIn, axisN, soundField,
 % Institution: University of Salford
 %
 % Date created: 01/11/2024
-% Date last modified: 05/09/2026
+% Date last modified: 02/11/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -284,7 +284,7 @@ switch method
         % loudness
         weightSharp(1:57, :, :) = repmat(weightSharp(58, :, :), 57, 1, 1);
 
-        % force the weighting function towards the minimum at low critical
+        % force the weighting function to the minimum at low critical
         % bands <1/0.171 ~ 5.85
         inflect = 1/0.171;
         weightSharp(:, z < inflect, :) = repmat(min(weightSharp, [], 2), 1,...
