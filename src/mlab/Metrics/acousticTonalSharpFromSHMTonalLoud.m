@@ -120,7 +120,7 @@ function tonalSharpnessSHM = acousticTonalSharpFromSHMTonalLoud(specSHMTonalLoud
 % Institution: University of Salford
 %
 % Date created: 11/12/2024
-% Date last modified: 11/12/2025
+% Date last modified: 02/11/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -183,17 +183,17 @@ z = 32.12*(1 - (1 + (f/873.47).^1.18).^-0.4);  % Bark eq 9 Volk, 2015
 
 dt = 1/187.5;  % time step (resolution, s)
 
-% calibration value required to ensure an overall sharpness of 1 acum
+% calibration value required to ensure an overall sharpness of 1 tsu
 % corresponds with a 60 dB (free-field) sinusoid at 1 kHz
 
 switch method
     case 'aures'
         calS = 1.050805334544524;
-        acum = "Aur | SHM";
+        tsu = "Aur | SHM";
 
     case 'vonbismarck'
         calS = 0.983541704055661;
-        acum = "vBis | SHM";
+        tsu = "vBis | SHM";
         q1 = 15;
         q2 = 0.2;
         q3 = 0.308;
@@ -201,7 +201,7 @@ switch method
 
     case 'widmann'
         calS = 0.984912403132019;
-        acum = "Widm | SHM";
+        tsu = "Widm | SHM";
         q1 = 15.8;
         q2 = 0.15;
         q3 = 0.42;
@@ -242,6 +242,13 @@ switch method
         % nonsense values generated from first redundant 0.3s of time-dependent
         % loudness
         weightSharp(1:57, :, :) = repmat(weightSharp(58, :, :), 57, 1, 1);
+
+        % force the weighting function to the minimum at low critical
+        % bands <1/0.171 ~ 5.85
+        inflect = 1/0.171;
+        weightSharp(:, z < inflect, :) = repmat(min(weightSharp, [], 2), 1,...
+                                                    size(weightSharp(:, z < inflect, :), 2),...
+                                                    1);
 
         % time-dependent sharpness
         % Note: no multiplication by z (otherwise weighting would need /z term)
@@ -322,7 +329,7 @@ if outPlot
             ax.YLim = [0, 1.1*ceil(max(tonalSharpnessTDep(:, chan))*10)/10];
         end
         ax.XLabel.String = "Time, s";
-        ax.YLabel.String = "Tonal sharpness, acum_{{\it T}, " + acum + "}";
+        ax.YLabel.String = "Tonal sharpness, tsu_{" + tsu + "}";
         ax.XGrid = 'on';
         ax.YGrid = 'on';
         ax.GridAlpha = 0.075;
