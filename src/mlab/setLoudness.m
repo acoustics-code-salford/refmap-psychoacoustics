@@ -30,14 +30,15 @@ function [pSet, soneOut] = setLoudness(p, sampleRateIn, soneTarget, axisN, sound
 %              determines whether the 'freeFrontal' or 'diffuse' field stages
 %              are applied in the outer-middle ear filtering.
 %
-% aggregate : keyword string (default: PowAvg)
+% aggregate : keyword string (default: powavg)
 %             the time aggregation corresponding with the value of sone.
-%             Options include 'PowAvg' (ECMA-418-2:2025), 'Mean', 'Max',
-%             'Min', or '5PcEx' (5%-exceeded).
+%             Options include 'powavg' (ECMA-418-2:2025), 'mean', 'max',
+%             'min', or 'pcex5' (5%-exceeded).
 %
-% method : keyword string (default: ECMA-418-2)
+% method : keyword string (default: ecma4182)
 %          the loudness model to use - options include ECMA-418-2:2025
-%          ('ECMA-418-2', default) or ISO 532-1:2017 ('ISO-532-1').
+%          ('ecma4182', default), ISO 532-1:2017 time-varying 
+%          ('iso5321') or stationary ('iso5321s').
 %
 % binaural : Boolean (default: true)
 %            flag to indicate whether to take the combined binaural
@@ -83,7 +84,7 @@ function [pSet, soneOut] = setLoudness(p, sampleRateIn, soneTarget, axisN, sound
 % Institution: University of Salford
 %
 % Date created: 10/07/2025
-% Date last modified: 11/07/2025
+% Date last modified: 03/11/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -114,13 +115,13 @@ arguments (Input)
                                                {'freeFrontal',...
                                                 'diffuse'})} = 'freeFrontal'
         aggregate (1, :) string {mustBeMember(aggregate,...
-                                              {'PowAvg',...
-                                               'Mean', 'Max', 'Min',...
-                                               '5PcEx'})} = 'PowAvg'
+                                              {'powavg',...
+                                               'mean', 'max', 'min',...
+                                               'pcex5'})} = 'powavg'
         method (1, :) string {mustBeMember(method,...
-                                           {'ECMA-418-2',...
-                                            'ISO 532-1', ...
-                                            'ISO 532-1 S'})} = 'ECMA-418-2'
+                                           {'ecma4182',...
+                                            'iso5321', ...
+                                            'iso5321s'})} = 'ecma4182'
         binaural (1, 1) {mustBeNumericOrLogical} = true
         precision (1, 1) double {mustBePositive, mustBeLessThan(precision, 1)} = 0.05
         timeLimitX (1, 1) double {mustBePositive} = 10
@@ -135,7 +136,7 @@ if axisN == 2
     p = p.';
 end
 
-if strcmp(method, 'ECMA-418-2')
+if strcmp(method, 'ecma4182')
     startTSkip = 0.3;
 else 
     startTSkip = 0.5;
@@ -164,7 +165,7 @@ end
 
 % assign aggregation sample skip based on output sample rate
 switch method
-    case 'ECMA-418-2'
+    case 'ecma4182'
         startSkipIdx = ceil(startTSkip*187.5) + 1;
     otherwise
         startSkipIdx = ceil(startTSkip*500) + 1;
@@ -176,7 +177,7 @@ timeLimit = size(p, 1)/sampleRateIn*timeLimitX;
 
 %% Signal processing
 
-if (~binaural && chansIn == 2) || ismember(method, ['ISO 532-1', 'ISO 532-1 S'])
+if (~binaural && chansIn == 2) || ismember(method, ['iso5321', 'iso5321s'])
     N = runLoudness(p, aggregate, method);
     [~, whichChan] = max(N, [], 2);
     % use only the higher loudness signal to calculate the loudness
@@ -239,58 +240,58 @@ end
     % nested function to run loudness calculations
     function N = runLoudness(signal, aggregate, method)
         switch method
-            case 'ECMA-418-2'
+            case 'ecma4182'
                 loudness = acousticSHMLoudness(signal, sampleRateIn, axisN, soundField, false, false, binaural);
 
                 if binaural && chansIn == 2
-                    if strcmp(aggregate, 'PowAvg')
-                        N = loudness.loudnessPowAvgBin;
+                    if strcmp(aggregate, 'powavg')
+                        N = loudness.loudnesspowavgBin;
                     else
                         switch aggregate
-                            case 'Mean'
+                            case 'mean'
                                 N = mean(loudness.loudnessTDepBin(startSkipIdx:end));
-                            case 'Max'
+                            case 'max'
                                 N = max(loudness.loudnessTDepBin(startSkipIdx:end));
-                            case 'Min'
+                            case 'min'
                                 N = min(loudness.loudnessTDepBin(startSkipIdx:end));
-                            case '5PcEx'
+                            case 'pcex5'
                                 N = prctile(loudness.loudnessTDepBin(startSkipIdx:end), 95);
                         end  % end of switch for aggregate
                     end  % end of if branch for aggregate
                 else
-                    if strcmp(aggregate, 'PowAvg')
-                        N = loudness.loudnessPowAvg;
+                    if strcmp(aggregate, 'powavg')
+                        N = loudness.loudnesspowavg;
                     else
                         switch aggregate
-                            case 'Mean'
+                            case 'mean'
                                 N = mean(loudness.loudnessTDep(startSkipIdx:end, :));
-                            case 'Max'
+                            case 'max'
                                 N = max(loudness.loudnessTDep(startSkipIdx:end, :));
-                            case 'Min'
+                            case 'min'
                                 N = min(loudness.loudnessTDep(startSkipIdx:end, :));
-                            case '5PcEx'
+                            case 'pcex5'
                                 N = prctile(loudness.loudnessTDep(startSkipIdx:end, :), 95);
                         end  % end of switch for aggregate
                     end  % end of if branch for aggregate
                 end  % end of if branch for binaural
-            case 'ISO 532-1'
+            case 'iso5321'
                 loudness = acousticLoudness(signal, sampleRateIn, 1,...
                                             'Method', 'ISO 532-1',...
                                             'TimeVarying', true,...
                                             'SoundField', soundFieldKey);
                 switch aggregate
-                    case 'PowAvg'
+                    case 'powavg'
                         N = mean(loudness(startSkipIdx:end, :).^(1/log10(2)), 1).^log10(2);
-                    case 'Mean'
+                    case 'mean'
                         N = mean(loudness(startSkipIdx:end, :), 1);
-                    case 'Max'
+                    case 'max'
                         N = max(loudness(startSkipIdx:end, :), [], 1);
-                    case 'Min'
+                    case 'min'
                         N = min(loudness(startSkipIdx:end, :), [], 1);
-                    case '5PcEx'
+                    case 'pcex5'
                         N = prctile(loudness(startSkipIdx:end, :), 95, 1);
                 end  % end of switch for aggregate
-            case 'ISO 532-1 S'
+            case 'iso5321s'
                 N = acousticLoudness(signal, sampleRateIn, 1,...
                                      'Method', 'ISO 532-1',...
                                      'TimeVarying', false,...
