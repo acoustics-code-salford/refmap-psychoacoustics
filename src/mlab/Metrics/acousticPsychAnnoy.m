@@ -163,7 +163,7 @@ function annoyance = acousticPsychAnnoy(p, sampleRateIn, axisN, startSkip, sound
 % Institution: University of Salford
 %
 % Date created: 07/07/2025
-% Date last modified: 03/12/2025
+% Date last modified: 07/10/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -289,13 +289,13 @@ sharpness = acousticSharpness(specLoudness, 'TimeVarying', true,...
 sharpness = calS*sharpness;
 
 % calculate weighted sharpness component
-weightSharp = zeros(size(sharpness));
-weightSharp(sharpness > 1.75) = 0.25*log10(loudness(sharpness > 1.75) + 10)...
+weightSharpness = zeros(size(sharpness));
+weightSharpness(sharpness > 1.75) = 0.25*log10(loudness(sharpness > 1.75) + 10)...
                        .*(sharpness(sharpness > 1.75) - 1.75);
 
 % interpolation to match metric sampling rates
 lenN = size(loudness, 1);
-lenS = size(weightSharp, 1);
+lenS = size(weightSharpness, 1);
 lenF = size(fluctuation, 1);
 lenR = size(roughness, 1);
 lenMax = max([lenN, lenS, lenF, lenR]);
@@ -306,46 +306,66 @@ timeOutR = 0:samplePerR:lenR*samplePerR - samplePerR;
 timeOutMax = 0:samplePerMax:lenMax*samplePerMax - samplePerMax;
 
 if lenN < lenMax
-    loudUp = interp1(timeOutN, loudness, timeOutMax, 'pchip').';
+    loud = interp1(timeOutN, loudness, timeOutMax, 'pchip').';
+else
+    loud = loudness;
 end
 
 if lenS < lenMax
-    weightSharpUp = interp1(timeOutS, weightSharp, timeOutMax, 'pchip').';
+    weightSharp = interp1(timeOutS, weightSharpness, timeOutMax, 'pchip').';
+else
+    weightSharp = weightSharpness;
 end
 
 if lenF < lenMax
-    fluctUp = interp1(timeOutF, fluctuation, timeOutMax, 'pchip').';
+    fluct = interp1(timeOutF, fluctuation, timeOutMax, 'pchip').';
+else
+    fluct = fluctuation;
 end
 
 if lenR < lenMax
-    roughUp = interp1(timeOutR, roughness, timeOutMax, 'pchip').';
+    rough = interp1(timeOutR, roughness, timeOutMax, 'pchip').';
+else
+    rough = roughness;
 end
 
 % weighted time-dependent modulation
-weightMod = 2.18./loudUp.^0.4.*(0.4*fluctUp + 0.6*roughUp);
+weightMod = 2.18./loud.^0.4.*(0.4*fluct + 0.6*rough);
 
 % time-dependent psychoacoustic annoyance
-psychAnnoyTDep = loudUp.*(1 + sqrt(weightSharpUp.^2 + weightMod.^2));
+psychAnnoyTDep = loud.*(1 + sqrt(weightSharp.^2 + weightMod.^2));
 
 % convert skips to output samples for time aggregation
-startSkipNSF = startSkip*sampleRateNSF + 1;
-endSkipNSF = endSkip*sampleRateNSF;
+startSkipN = startSkip*sampleRateN + 1;
+endSkipN = endSkip*sampleRateN;
+startSkipS = startSkip*sampleRateS + 1;
+endSkipS = endSkip*sampleRateS;
+startSkipF = startSkip*sampleRateF + 1;
+endSkipF = endSkip*sampleRateF;
 startSkipR = startSkip*sampleRateR + 1;
 endSkipR = endSkip*sampleRateR;
 
 % time-aggregated psychoacoustic annoyance from 5%-exceeded values
-N5 = prctile(loudness(startSkipNSF:end - endSkipNSF, :), 95, 1);
-S5 = prctile(sharpness(startSkipNSF:end - endSkipNSF, :), 95, 1);
-F5 = prctile(fluctuation(startSkipNSF:end - endSkipNSF, :), 95, 1);
+N5 = prctile(loudness(startSkipN:end - endSkipN, :), 95, 1);
+S5 = prctile(sharpness(startSkipS:end - endSkipS, :), 95, 1);
+F5 = prctile(fluctuation(startSkipF:end - endSkipF, :), 95, 1);
 R5 = prctile(roughness(startSkipR:end - endSkipR, :), 95, 1);
 psychAnnoyFrom5Pc = PA(N5, S5, F5, R5);
 
+% time-aggregated psychoacoustic annoyance from mean and 5%-exceeded
+% loudness
+Nmean = mean(loudness(startSkipS:end - endSkipS, :), 1);  % included for output
+Smean = mean(sharpness(startSkipS:end - endSkipS, :), 1);
+Fmean = mean(fluctuation(startSkipF:end - endSkipF, :), 1);
+Rmean = mean(roughness(startSkipR:end - endSkipR, :), 1);
+psychAnnoyFromMean = PA(N5, Smean, Fmean, Rmean);  % note loudness remains as N5
+
 % time-aggregated psychoacoustic annoyance from alternative values
-NPwAvg = mean(loudness(startSkipNSF:end - endSkipNSF, :).^(1/log10(2)), 1).^(log10(2));
-SPwAvg = mean(sharpness(startSkipNSF:end - endSkipNSF, :).^(1/log10(2)), 1).^(log10(2));
-F10 = prctile(fluctuation(startSkipNSF:end - endSkipNSF, :), 90, 1);
+Npmean = mean(loudness(startSkipN:end - endSkipN, :).^(1/log10(2)), 1).^(log10(2));
+Spmean = mean(sharpness(startSkipS:end - endSkipS, :).^(1/log10(2)), 1).^(log10(2));
+F10 = prctile(fluctuation(startSkipF:end - endSkipF, :), 90, 1);
 R10 = prctile(roughness(startSkipR:end - endSkipR, :), 90, 1);
-psychAnnoyFromAlt = PA(NPwAvg, SPwAvg, F10, R10);
+psychAnnoyFromAlt = PA(Npmean, Spmean, F10, R10);
 
 timeOutPA = 0:samplePerMax:size(psychAnnoyTDep, 1)*samplePerMax - samplePerMax;
 
@@ -494,28 +514,33 @@ end
 annoyance.loudness.NTDep = loudness;
 annoyance.loudness.specN = specLoudness;
 annoyance.loudness.N5 = N5;
-annoyance.loudness.NPwAvg = NPwAvg;
+annoyance.loudness.Npmean = Npmean;
+annoyance.loudness.Nmean = Nmean;
 annoyance.loudness.timeOutN = timeOutN;
 
 annoyance.sharpnessSTDep = sharpness;
 annoyance.sharpness.S5 = S5;
-annoyance.sharpness.SPwAvg = SPwAvg;
+annoyance.sharpness.Spmean = Spmean;
+annoyance.sharpness.Smean = Smean;
 annoyance.loudness.timeOutS = timeOutS;
 
 annoyance.fluctuation.FTDep = fluctuation;
 annoyance.fluctuation.specF = specFluctuation;
 annoyance.fluctuation.F5 = F5;
 annoyance.fluctuation.F10 = F10;
+annoyance.fluctuation.Fmean = Fmean;
 annoyance.loudness.timeOutF = timeOutF;
 
 annoyance.roughness.RTDep = roughness;
 annoyance.roughness.specR = specRoughness;
 annoyance.roughness.R5 = R5;
 annoyance.roughness.R10 = R10;
+annoyance.roughness.Rmean = Rmean;
 annoyance.loudness.timeOutR = timeOutR;
 
 annoyance.psychAnnoyTDep = psychAnnoyTDep;
 annoyance.psychAnnoyFrom5Pc = psychAnnoyFrom5Pc;
+annoyance.psychAnnoyFromMean = psychAnnoyFromMean;
 annoyance.psychAnnoyFromAlt = psychAnnoyFromAlt;
 annoyance.timeOutPA = timeOutPA;
 
