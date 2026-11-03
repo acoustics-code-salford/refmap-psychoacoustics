@@ -189,12 +189,12 @@ ntrees <- c(251, 501, 1001, 1501, 2501, 4001, 5501)
 
 ```{r}
 
-if (!loadExisting) {
-  resAmbAnnoyMnFit <- data.frame(RMSE = numeric(),
-                                 MAE = numeric(),
-                                 Rsquared = numeric())
-  resAmbAnnoyMnPermImp <- list()
-}
+
+resAmbAnnoyMnFit <- data.frame(RMSE = numeric(),
+                               MAE = numeric(),
+                               Rsquared = numeric())
+resAmbAnnoyMnPermImp <- list()
+
 
 ```
 
@@ -1191,8 +1191,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1501
-mtry <- as.integer(length(iVars)/1.25)
+ntree <- 5501
+mtry <- as.integer(length(iVars)/2)
 
 ```
 
@@ -1265,7 +1265,7 @@ Selected metric
 
 ```{r}
 
-impulsVar <- "UASImpulsSHM05Ex"
+impulsVar <- "UASImpulsSHMAvg"
 
 ```
 
@@ -2411,8 +2411,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 501
-mtry <- as.integer(length(iVars)/1.25)
+ntree <- 4001
+mtry <- as.integer(length(iVars)/1.5)
 
 ```
 
@@ -2485,7 +2485,7 @@ Selected metric
 
 ```{r}
 
-allImpulsVar <- "dImpulsLoudWZAvg"
+allImpulsVar <- "dImpulsSHM05Ex"
 
 ```
 
@@ -2616,7 +2616,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 2501
+ntree <- 4001
 mtry <- as.integer(length(iVars)/1.6)
 
 ```
@@ -3615,7 +3615,7 @@ pBar
 
 if (saveplots){
   
-  filename <- "dHiAnnoyImpulsConPermimp"
+  filename <- "dHiAnnoyImpulsLdConPermimp"
 
   ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
@@ -3661,8 +3661,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 251
-mtry <- as.integer(length(iVars)/1.25)
+ntree <- 4001
+mtry <- as.integer(length(iVars)/2)
 
 ```
 
@@ -3709,7 +3709,7 @@ resdHiAnnoyPermImp$AbsImpuls <- resultsOutImpuls$conditional_permimp
 
 ###### Plot results
 
-```{r, fig.width=8,fig.height=3}
+```{r, fig.width=8,fig.height=2.6}
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -3722,10 +3722,10 @@ if (saveplots){
   
   filename <- "dHiAnnoyImpulsConPermimp"
 
-  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=3, path=file.path(outFigPath, "svg"))
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=2.6, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=3, path=file.path(outFigPath, "pdf"))
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=2.6, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 }
 
@@ -3735,7 +3735,7 @@ Selected metric
 
 ```{r}
 
-impulsVar <- "UASImpulsSHM05Ex"
+impulsVar <- "UASImpulsSHMAvg"
 
 ```
 
@@ -3921,7 +3921,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs2.conimp <- arrange(resultsOutSQMs2$conditional_permimp, desc(row_number()))
 
-pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 120))
+pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 180))
 pBar
 
 if (saveplots){
@@ -4867,8 +4867,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1001
-mtry <- as.integer(length(iVars)/1.25)
+ntree <- 501
+mtry <- as.integer(length(iVars)/1.5)
 
 ```
 
@@ -4915,7 +4915,7 @@ resdHiAnnoyPermImp$AllImpuls <- resultsOutImpuls$conditional_permimp
 
 ###### Plot results
 
-```{r, fig.width=8,fig.height=5.6}
+```{r, fig.width=8,fig.height=3}
 par(mai=c(0,3,0,0))
 
 # plot conditional importance
@@ -4928,10 +4928,10 @@ if (saveplots){
 
   filename <- "dHiAnnoyAllImpulsConPermimp"
 
-  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=5.6, path=file.path(outFigPath, "svg"))
+  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=3, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=5.6, path=file.path(outFigPath, "pdf"))
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=3, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 }
 
@@ -4941,7 +4941,7 @@ Selected metric
 
 ```{r}
 
-allImpulsVar <- "UASImpulsLoudWZPowAvg"
+allImpulsVar <- "dImpulsSHM05Ex"
 
 ```
 
@@ -5073,7 +5073,7 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1001
+ntree <- 1501
 mtry <- as.integer(length(iVars)/1.6)
 
 ```
@@ -5126,7 +5126,7 @@ par(mai=c(0,3,0,0))
 # plot conditional importance
 resultsOutSQMs2.conimp <- arrange(resultsOutSQMs2$conditional_permimp, desc(row_number()))
 
-pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 200))
+pBar <- ggplot(resultsOutSQMs2.conimp) + geom_col(aes(x=factor(rownames(resultsOutSQMs2.conimp), levels=rownames(resultsOutSQMs2.conimp)), y=CondPermImp), fill=mycolours[7], width=0.5) + labs(x="Variable", y="Conditional variable permutation importance (% highly annoyed)") + theme(text = element_text(family = "serif"), panel.grid=element_line(color = rgb(235, 235, 235, 100, maxColorValue = 255), linewidth = 0.25, linetype = 2)) + coord_flip(ylim=c(0, 250))
 pBar
 
 if (saveplots){
