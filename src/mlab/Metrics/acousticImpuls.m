@@ -60,12 +60,19 @@ function impulsive = acousticImpuls(p, sampleRateIn, axisN, boundSkip, soundFiel
 % impulsLoudPowAvg : number or vector
 %   Time-power-averaged impulsive loudness arranged as [sharpness(, channels)].
 %
+% loudnessTDep : vector or matrix
+%   Time-dependent loudness arranged as [time(, channels)].
+%
+% loudnessBase : vector or matrix
+%   Time-dependent baseline loudness arranged as [time(, channels)].
+%
 % timeOut : vector
 %   Time (seconds) corresponding with time-dependent outputs.
 %
 % soundField : string
 %              identifies the soundfield type applied (= input argument)
 %
+% [Not yet implemented]
 % If outplot=true, a set of plots is returned illustrating the
 % time-dependent impulsiveness, with the time-aggregated values.
 % A set of plots is returned for each input channel.
@@ -94,7 +101,7 @@ function impulsive = acousticImpuls(p, sampleRateIn, axisN, boundSkip, soundFiel
 % Institution: University of Salford
 %
 % Date created: 18/11/2025
-% Date last modified: 17/12/2025
+% Date last modified: 23/10/2026
 % MATLAB version: 2023b
 %
 % Copyright statement: This file and code is part of work undertaken within
@@ -129,9 +136,6 @@ function impulsive = acousticImpuls(p, sampleRateIn, axisN, boundSkip, soundFiel
                                                 'sottek'})} = 'zwicker'
         outPlot (1, 1) {mustBeNumericOrLogical} = false
     end
-
-%% Load path (assumes root directory is refmap-psychoacoustics)
-addpath(genpath(fullfile("src", "mlab")))
 
 %% Input checks
 
@@ -256,5 +260,7 @@ end
 impulsive.impulsLoudTDep = impulsLoudTDep;
 impulsive.impulsLoudAvg = impulsLoudAvg;
 impulsive.impulsLoudPowAvg = impulsLoudPowAvg;
+impulsive.loudnessTDep = loudnessTDep;
+impulsive.loudnessBase = loudnessBase;
 impulsive.timeOut = timeOut;
 impulsive.soundField = soundField;
