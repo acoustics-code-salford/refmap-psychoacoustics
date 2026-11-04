@@ -243,7 +243,8 @@ subjData <- subjData |> dplyr::mutate(NationGeo3 = dplyr::recode_values(NationGe
                                                                  "UK" ~ "UK",
                                                                  c("Africa",
                                                                    "SouthAsia") ~ "Africa_SAsia",
-                                                                 c("EastAsia",
+                                                                 c("Australasia",
+                                                                   "EastAsia",
                                                                    "Europe",
                                                                    "MidEast",
                                                                    "SouthAmerica",
@@ -8441,6 +8442,10 @@ loo::loo_compare(mdA25, mdA26, mdA27, mdA28, mdA29, mdA30, mdA31, criterion='loo
 get_Br2_table(mdA13, mdA31)
 
 loo::loo_compare(mdA13, mdA31, criterion='loo')
+
+get_Br2_table(mdA1, mdA24, mdA31)
+
+loo::loo_compare(mdA1, mdA24, mdA31, criterion='loo')
 
 ```
 

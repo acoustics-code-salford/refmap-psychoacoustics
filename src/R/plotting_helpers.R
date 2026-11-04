@@ -1,5 +1,7 @@
 # plotting_helpers.R
 require(ggplot2)
+require(viridis)
+require(ggnewscale)
 
 # Rescale ggplot tick marks for variables --------------------------------------
 
@@ -213,7 +215,7 @@ save_fig <- function(file_name, width, height, out_path, sub_ext = TRUE, extensi
   if (is.null(plot)) stop("No `plot` supplied and no last plot available.")
   for (ext in extensions) {
     if (sub_ext) {
-      if (!dir.exists(file.path(out_path, ext))){dir.create(file.path(outFigPath, ext))}
+      if (!dir.exists(file.path(out_path, ext))){dir.create(file.path(out_path, ext))}
       sub_folder <- ext
     }
     ggsave(filename = paste0(file_name, ".", ext), plot = plot, width = width, height = height,

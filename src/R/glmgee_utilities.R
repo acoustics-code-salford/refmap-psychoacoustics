@@ -228,12 +228,12 @@ geeModelPerformance <- function(..., verbose=FALSE, transform = NULL){
   wGPAIC <- exp(-0.5*(dfs$GPAIC - min(dfs$GPAIC)))/sum(exp(-0.5*(dfs$GPAIC - min(dfs$GPAIC))))
   wGPSBIC <- exp(-0.5*(dfs$GPSBIC - min(dfs$GPSBIC)))/sum(exp(-0.5*(dfs$GPSBIC - min(dfs$GPSBIC))))
   
-  dfs$wGPAIC <- format(round(wGPAIC, 6), scientific=FALSE, format=f, digits=6)
-  dfs$wGPSBIC <- format(round(wGPSBIC, 6), scientific=FALSE, format=f, digits=6)
+  dfs$wGPAIC <- format(round(wGPAIC, 6), scientific=FALSE, digits=6)
+  dfs$wGPSBIC <- format(round(wGPSBIC, 6), scientific=FALSE, digits=6)
   
   # calculate mean of AIC and SBIC weights for each model in the frame (row-wise)
   wICMean <- rowMeans(cbind(wGPAIC, wGPSBIC), na.rm = TRUE)
-  dfs$wICMean <- format(round(wICMean, 6), scientific=FALSE, format=f, digits=6)
+  dfs$wICMean <- format(round(wICMean, 6), scientific=FALSE, digits=6)
   
   # move columns
   dfs <- dfs |> dplyr::relocate(wGPAIC, .after=GPAIC)
@@ -259,7 +259,8 @@ geeParams <- function(geeMod, ci=0.95, exponentiate=FALSE, varest='bias-correcte
   geeModParams$S2.value <- -log2(geeModParams$p.value)
   
   # Bayes factor upper bound (Benjamin & Berger, 2016) - evidence in favour of the alternative hypothesis over the null hypothesis, based on the p-value
-  geeModParams$Bfb <- 1/(-exp(1)*geeModParams$p.value*log(geeModParams$p.value))
+  geeModParams$Bfb <- ifelse(geeModParams$p.value < 1/exp(1),
+                             1/(-exp(1)*geeModParams$p.value*log(geeModParams$p.value)), 1)
   
   # Posterior probability from Bayes factor upper bound - probability that the alternative hypothesis is true given the data, assuming a prior probability of 0.5 for the alternative hypothesis
   geeModParams$Pp <- geeModParams$Bfb/(1 + geeModParams$Bfb)
