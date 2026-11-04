@@ -299,6 +299,9 @@ test1_rename_cols = {"StimFile": "Stimulus", "AnnoyMedian": "AnnoyanceMedian",
 dataByStimTest1Merge.rename(columns=test1_rename_cols, inplace=True)
 dataByStimTest1Merge.rename(columns=rename_dict, inplace=True)
 
+# replace "Street" (only) with "Streetside square" in the AmbientEnv column
+dataByStimTest1Merge['AmbientEnv'] = dataByStimTest1Merge['AmbientEnv'].replace("Street", "Streetside square")
+
 # test 2
 # ------
 dataByStimTest2Merge = dataByStimTest2.copy()
@@ -378,6 +381,13 @@ cols.insert(cols.index('StimID'), cols.pop(cols.index('StimNum')))
 dataByStimTestMerge = dataByStimTestMerge[cols]
 
 dataByStimTestMerge.rename(columns={'ID': 'ParticipantNum'}, inplace=True)
+
+# make column 'AmbientEnvCore' as a copy of 'AmbientEnv' column, and replace "Park (high)" values with "Park", and "Highway (low)" values with "Highway"
+dataByStimTestMerge['AmbientEnvCore'] = dataByStimTestMerge['AmbientEnv'].replace({"Park (high)": "Park", "Highway (low)": "Highway"})
+# move new col to after AmbientEnv
+cols = dataByStimTestMerge.columns.tolist()
+cols.insert(cols.index('AmbientEnv') + 1, cols.pop(cols.index('AmbientEnvCore')))
+dataByStimTestMerge = dataByStimTestMerge[cols] 
 
 # save merged data to CSV
 dataByStimTestMerge.to_csv(os.path.join(outFilePath2,

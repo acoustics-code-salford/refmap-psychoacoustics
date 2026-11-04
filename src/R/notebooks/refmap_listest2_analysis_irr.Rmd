@@ -25,7 +25,7 @@ library(irrNA)
 
 ```{r}
 
-annoyDatapath <- utils::choose.files(caption=r"(Select refmap_listest2_AnnoyDataBySubjWide.csv from 03 Experiment\Experiment 1\Analysis\PostProcess)",
+annoyDatapath <- utils::choose.files(caption=r"(Select refmap_listest2_AnnoyDataBySubjWide.csv from 03 Experiment\Experiment 2\Analysis\PostProcess)",
                                      filters=matrix(data=c("refmap_listest2_AnnoyDataBySubjWide.csv", "refmap_listest2_AnnoyDataBySubjWide.csv"), ncol=2))
 
 annoyData <- read.csv(annoyDatapath, header=TRUE)
@@ -39,10 +39,51 @@ annoyData <- dplyr::mutate_all(annoyData, function(x) as.numeric(as.character(x)
 
 ```
 
+### Pleasantness data
+
+```{r}
+
+pleasantDatapath <- utils::choose.files(caption=r"(Select refmap_listest2_PleasantDataBySubjWide.csv from 03 Experiment\Experiment 2\Analysis\PostProcess)",
+                                     filters=matrix(data=c("refmap_listest2_PleasantDataBySubjWide.csv", "refmap_listest2_PleasantDataBySubjWide.csv"), ncol=2))
+
+pleasantData <- read.csv(pleasantDatapath, header=TRUE)
+
+# transpose the data
+pleasantData <- setNames(data.frame(t(pleasantData[,-1])), pleasantData[,1])
+# keep only the 110 stimuli rows
+pleasantData <- pleasantData[1:110,]
+# convert to numeric
+pleasantData <- dplyr::mutate_all(pleasantData, function(x) as.numeric(as.character(x)))
+
+```
+
+### Eventfulness data
+
+```{r}
+
+eventfulDatapath <- utils::choose.files(caption=r"(Select refmap_listest2_EventfulDataBySubjWide.csv from 03 Experiment\Experiment 2\Analysis\PostProcess)",
+                                     filters=matrix(data=c("refmap_listest2_EventfulDataBySubjWide.csv", "refmap_listest2_EventfulDataBySubjWide.csv"), ncol=2))
+
+eventfulData <- read.csv(eventfulDatapath, header=TRUE)
+
+# transpose the data
+eventfulData <- setNames(data.frame(t(eventfulData[,-1])), eventfulData[,1])
+# keep only the 110 stimuli rows
+eventfulData <- eventfulData[1:110,]
+# convert to numeric
+eventfulData <- dplyr::mutate_all(eventfulData, function(x) as.numeric(as.character(x)))
+
+```
+
 ## Calculate ICC
 
 ```{r}
 
 irrNA::iccNA(annoyData)
+
+irrNA::iccNA(pleasantData)
+
+irrNA::iccNA(eventfulData)
+
 
 ```
