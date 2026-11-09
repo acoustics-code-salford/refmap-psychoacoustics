@@ -3359,7 +3359,7 @@ p5 <- ggplot(data=subset(mdA10predEvts_step, UASOperation=="Overflight" & Ambien
   
               coord_cartesian(ylim=c(2, 7)) +
               
-              labs(x="Number of UAS Overflight events", y="Mean change in annoyance")
+              labs(x="Quantity of UAS overflight events", y="Mean change in annoyance")
 
 p5
 
@@ -6308,7 +6308,7 @@ if (saveplots){
 
 <!--               coord_cartesian(ylim=c(3, 8)) + -->
 
-<!--               labs(x="Number of UAS Overflight events", y="Mean annoyance rating") -->
+<!--               labs(x="Quantity of UAS overflight events", y="Mean annoyance rating") -->
 
 <!-- p5 -->
 

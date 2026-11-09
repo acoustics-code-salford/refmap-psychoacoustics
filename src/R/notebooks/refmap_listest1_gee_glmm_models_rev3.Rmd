@@ -1348,7 +1348,7 @@ p5 <- ggplot(data=subset(m1bpredEvt2, UASOperation=="Overflight" & AmbientEnv=="
               scale_x_continuous(breaks=c(1, 3, 5, 9), labels=c(1, 3, 5, 9)) +
               scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(2, 7)) +
               
-              labs(x="Number of UAS Overflight events", y="Mean change in annoyance")
+              labs(x="Quantity of UAS overflight events", y="Mean change in annoyance")
 
 p5
 
@@ -7306,7 +7306,7 @@ p5 <- ggplot(data=subset(m12predEvt2, UASOperation=="Overflight" & AmbientEnv=="
               scale_x_continuous(breaks=c(1, 3, 5, 9), labels=c(1, 3, 5, 9)) +
               scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, 10), limits=c(-0.02, 0.8)) +
               
-              labs(x="Number of UAS Overflight events", y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
+              labs(x="Quantity of UAS overflight events", y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
 
 if (saveplots){

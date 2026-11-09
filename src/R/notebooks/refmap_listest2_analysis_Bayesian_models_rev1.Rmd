@@ -3313,6 +3313,10 @@ get_Br2_table(mdA11, mdA12, mdA13)
 
 loo::loo_compare(mdA11, mdA12, mdA13, criterion='loo')
 
+get_Br2_table(mdA1, mdA10, mdA13)
+
+loo::loo_compare(mdA1, mdA10, mdA13)
+
 ```
 
 ### plot calibration
@@ -3509,6 +3513,8 @@ transform_dAnnoy <- \(x) betaTransform(x, -10, 10, direction = 'reverse', squeez
  
 env_order <- c("Park", "Residential", "Streetside square", "Highway")
 envvar_order <- c("Park", "Residential", "Park (high)", "Highway (low)", "Streetside square", "Highway")
+type_order <- c("H520", "T150")
+op_order <- c("Overflight", "Delivery")
 
 # ---- full grids -------------------------------------------
  
@@ -3571,6 +3577,49 @@ mdA13_env_contrasts <- avg_comparisons_manual(
   ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2), p_adjust='holm',
   transform = transform_dAnnoy
 )
+
+mdA13_env_by_type_means <- avg_predictions_manual(
+  mdA13, newdata=grid_group1, by=c("AmbientEnvCore", "UASType"),
+  re_formula=NULL, allow_new_levels=TRUE, sample_new_levels="gaussian",
+  ndraws=ndraws_pred, seed=999, transform=transform_dAnnoy
+)
+
+
+mdA13_env_by_type_by_op_means <- avg_predictions_manual(
+  mdA13, newdata=grid_group1, by=c("AmbientEnvCore", "UASType", "UASOperation"),
+  re_formula=NULL, allow_new_levels=TRUE, sample_new_levels="gaussian",
+  ndraws=ndraws_pred, seed=999, transform=transform_dAnnoy
+)
+
+mdA13_env_by_type_by_op_means <- mdA13_env_by_type_by_op_means |>
+  dplyr::mutate(AmbientEnvCore = factor(AmbientEnvCore, levels = env_order),
+                UASType        = factor(UASType, levels = type_order),
+                UASOperation   = factor(UASOperation, levels = op_order))
+
+
+combos <- expand.grid(UASType = type_order, UASOperation = op_order,
+                      stringsAsFactors = FALSE)
+
+mdA13_env_contrasts_by_type_op <- purrr::map2_dfr(
+  combos$UASType, combos$UASOperation,
+  function(ty, op) {
+    res <- avg_comparisons_manual(
+      mdA13,
+      newdata = droplevels(subset(grid_group1, UASType == ty & UASOperation == op)),
+      variable = "AmbientEnvCore", levels = env_order,
+      comparison_type = "pairwise",
+      re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+      ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2),
+      transform = transform_dAnnoy
+    ) |> as.data.frame()
+    res$UASType      <- ty
+    res$UASOperation <- op
+    gc()
+    res
+  }
+) |>
+  dplyr::mutate(UASType      = factor(UASType, levels = type_order),
+                UASOperation = factor(UASOperation, levels = op_order))
 
 # ---- Delivery vs Overflight (overall, within the fully-crossed subset)
  
@@ -3661,21 +3710,21 @@ mdA13_op_type_prox_contrast <- rbind(
 # Ambient variant means and contrast
 
 mdA13_park_variant_means <- avg_predictions_manual(
-  mdA13, newdata = grid_park_variant, by = "AmbientVariant",
+  mdA13, newdata = grid_park_variant, by = c("AmbientVariant", "UASType"),
   re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
   ndraws = ndraws_pred, seed = 999, transform = transform_dAnnoy
 ) |>
   dplyr::mutate(AmbientVariant = forcats::fct_recode(AmbientVariant, "Park" = "Standard"))
 
 mdA13_highway_variant_means  <- avg_predictions_manual(
-  mdA13, newdata = grid_highway_variant, by = "AmbientVariant",
+  mdA13, newdata = grid_highway_variant, by = c("AmbientVariant", "UASType"),
   re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
   ndraws = ndraws_pred, seed = 999, transform = transform_dAnnoy
 ) |>
   dplyr::mutate(AmbientVariant = forcats::fct_recode(AmbientVariant, "Highway" = "Standard"))
 
 mdA13_resi_st_variant_means <- avg_predictions_manual(
-  mdA13, newdata = grid_resi_st_variant, by = "AmbientEnvCore",
+  mdA13, newdata = grid_resi_st_variant, by = c("AmbientEnvCore", "UASType"),
   re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
   ndraws = ndraws_pred, seed = 999, transform = transform_dAnnoy
 ) |> dplyr::rename(AmbientVariant = AmbientEnvCore)
@@ -3695,7 +3744,8 @@ mdA13_envvarcore_means_matched <- dplyr::bind_rows(mdA13_park_variant_means,
   dplyr::mutate(AmbientVariant = factor(AmbientVariant,
                                         levels = c("Park", "Residential",
                                                    "Park (high)", "Highway (low)",
-                                                   "Streetside square", "Highway")))
+                                                   "Streetside square", "Highway"))) |>
+  dplyr::mutate(UASType = factor(UASType, levels = type_order))
 
 # predict for all environment core and variants but for the relevant restricted subset
 make_state_grid <- function(base_grid, env, variant) {
@@ -3714,32 +3764,49 @@ states <- list(
   "Highway"        = c("Highway", "Standard")
 )
 
-draws_list <- lapply(names(states), function(nm) {
-  nd <- make_state_grid(grid_envcomp_base, states[[nm]][1], states[[nm]][2])
-  set.seed(999)
-  d <- brms::posterior_epred(mdA13, newdata = nd, re_formula = NULL,
-                              allow_new_levels = TRUE, sample_new_levels = "gaussian",
-                              ndraws = ndraws_pred)
-  rowMeans(transform_dAnnoy(d))
+type_state_draws <- lapply(type_order, function(ty) {
+  base_ty <- droplevels(subset(grid_envcomp_base, UASType == ty))
+  dl <- lapply(names(states), function(nm) {
+    nd <- make_state_grid(base_ty, states[[nm]][1], states[[nm]][2])
+    set.seed(999)
+    d <- brms::posterior_epred(mdA13, newdata = nd, re_formula = NULL,
+                               allow_new_levels = TRUE, sample_new_levels = "gaussian",
+                               ndraws = ndraws_pred)
+    rowMeans(transform_dAnnoy(d))
+  })
+  names(dl) <- names(states)
+  dl
 })
-names(draws_list) <- names(states)
+names(type_state_draws) <- type_order
 
-pairs_idx <- utils::combn(names(states), 2)
+pairs_idx      <- utils::combn(names(states), 2)
 preserve_order <- list(c("Park (high)", "Park"), c("Highway (low)", "Highway"))
 
 mdA13_envvar_contrasts_all <- do.call(rbind, lapply(seq_len(ncol(pairs_idx)), function(i) {
   hi <- pairs_idx[1, i]; lo <- pairs_idx[2, i]
-  d <- draws_list[[hi]] - draws_list[[lo]]
+
+  # one orientation per pair, decided on the type-averaged difference
+  d_pooled <- Reduce(`+`, lapply(type_order, function(ty)
+    type_state_draws[[ty]][[hi]] - type_state_draws[[ty]][[lo]])) / length(type_order)
   is_preserved <- any(sapply(preserve_order, function(p) setequal(p, c(hi, lo))))
-  if (!is_preserved && mean(d) < 0) { d <- -d; tmp <- hi; hi <- lo; lo <- tmp }
-  pd <- as.numeric(bayestestR::p_direction(d))
-  data.frame(
-    contrast = paste(hi, "-", lo), estimate = mean(d),
-    conf.low = unname(quantile(d, 0.025)), conf.high = unname(quantile(d, 0.975)),
-    pd = pd, p.value = .pd_to_pvalue(pd, length(d)), ndraws_used = length(d)
-  )
+  flip <- !is_preserved && mean(d_pooled) < 0
+  if (flip) { tmp <- hi; hi <- lo; lo <- tmp }
+
+  do.call(rbind, lapply(type_order, function(ty) {
+    d <- type_state_draws[[ty]][[hi]] - type_state_draws[[ty]][[lo]]
+    pd <- as.numeric(bayestestR::p_direction(d))
+    data.frame(
+      UASType = ty, contrast = paste(hi, "-", lo), estimate = mean(d),
+      conf.low = unname(quantile(d, 0.025)), conf.high = unname(quantile(d, 0.975)),
+      pd = pd, p.value = .pd_to_pvalue(pd, length(d)), ndraws_used = length(d)
+    )
+  }))
 }))
-mdA13_envvar_contrasts_all$p.value.adj <- p.adjust(mdA13_envvar_contrasts_all$p.value, method = "holm")
+
+mdA13_envvar_contrasts_all <- mdA13_envvar_contrasts_all |>
+  dplyr::mutate(UASType = factor(UASType, levels = type_order))
+mdA13_envvar_contrasts_all$p.value.adj <-
+  p.adjust(mdA13_envvar_contrasts_all$p.value, method = "holm")
 
 # ---- events curve --------------------------------------
 
@@ -3763,7 +3830,9 @@ mdA13_evts_curve_by_env <- avg_predictions_manual(
   mdA13, newdata=grid_evts, by=c("UASEvents", "AmbientEnvCore"),
   re_formula=NULL, allow_new_levels=TRUE, sample_new_levels="gaussian",
   ndraws=ndraws_pred, seed=999, transform=transform_dAnnoy
-)
+)  |>
+  dplyr::mutate(AmbientEnvCore = factor(AmbientEnvCore,
+                                        levels = env_order))
 
 mdA13_evts_contrasts_by_env <- do.call(rbind, lapply(env_order, function(env) {
   res <- avg_comparisons_manual(
@@ -3795,6 +3864,46 @@ mdA13_evts_contrasts_by_type <- do.call(rbind, lapply(c("H520", "T150"), functio
   cbind(UASType = type, res)
 }))
 mdA13_evts_contrasts_by_type$p.value.adj <- p.adjust(mdA13_evts_contrasts_by_type$p.value, method='holm')
+
+
+# events contrasts by environment and type
+mdA13_evts_curve_by_env_type <- avg_predictions_manual(
+  mdA13, newdata=grid_evts, by=c("UASEvents", "AmbientEnvCore", "UASType"),
+  re_formula=NULL, allow_new_levels=TRUE, sample_new_levels="gaussian",
+  ndraws=ndraws_pred, seed=999, transform=transform_dAnnoy
+)  |>
+  dplyr::mutate(AmbientEnvCore = factor(AmbientEnvCore,
+                                        levels = env_order))
+
+
+
+combos <- expand.grid(AmbientEnvCore = env_order, UASType = type_order,
+                      stringsAsFactors = FALSE)
+
+mdA13_evts_contrasts_by_env_type <- purrr::map2_dfr(
+  combos$AmbientEnvCore, combos$UASType,
+  function(env, ty) {
+    res <- avg_comparisons_manual(
+      mdA13,
+      newdata = droplevels(subset(grid_evts, AmbientEnvCore == env & UASType == ty)),
+      variable = "UASEvents", levels = c(1, 2, 3),
+      comparison_type = "pairwise", auto_orient = TRUE,
+      re_formula = NULL, allow_new_levels = TRUE, sample_new_levels = "gaussian",
+      ndraws = ndraws_pred, seed = 999, rope = c(-0.2, 0.2),
+      transform = transform_dAnnoy
+    ) |> as.data.frame()
+    res$AmbientEnvCore <- env
+    res$UASType        <- ty
+    gc()
+    res
+  }
+) |>
+  dplyr::mutate(
+    AmbientEnvCore = factor(AmbientEnvCore, levels = env_order),
+    UASType        = factor(UASType, levels = type_order)
+  )
+mdA13_evts_contrasts_by_env_type$p.adj <-
+  p.adjust(mdA13_evts_contrasts_by_env_type$p.value, method = "holm")
 
 
 ```
@@ -3878,9 +3987,9 @@ p_env_means_brackets <- add_pairwise_brackets(base_plot=p_env_means,
 p_env_means_brackets
 
 if (saveplots){
-  
+
   filename <- "dAnnoyMnExpMod_AmbEnvMargEff_brmsOb"
-  
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=5, height=4,
          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
   unlink(paste(filename, ".svg", sep=""))
@@ -3890,44 +3999,87 @@ if (saveplots){
 
 }
 
-p_env_means_allvar <- ggplot(mdA13_envvarcore_means_matched, aes(x = AmbientVariant,
-                                                                 y = estimate,
-                                                                 colour = AmbientVariant)) +
+p_envtype_means_allvar <- ggplot(mdA13_envvarcore_means_matched,
+                             aes(x = AmbientVariant, y = estimate, colour = AmbientVariant)) +
   theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
         axis.text = element_text(family = "serif", size = 12),
-        axis.text.x = element_text(family = "serif", size = 10),
+        axis.text.x = element_text(family = "serif", size = 10, angle = 30, hjust = 1),
         legend.position = "none") +
   geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
   geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
   scale_x_discrete(limits = envvar_order) +
-  
   scale_colour_manual(values = mycolours) +
+  facet_grid(cols = vars(UASType)) +
   coord_cartesian(ylim = c(0, 10)) +
-  labs(x = "Ambient environment (overflight, far, 1 event)", y = "Mean change in annoyance")
+  labs(x = "Ambient environment (overflight, far, 1 event)",
+       y = "Mean change in annoyance")
 
-p_env_means_brackets_allvar <- add_pairwise_brackets(base_plot=p_env_means_allvar,
-                                              means_df=mdA13_envvarcore_means_matched,
-                                              contrast_df=mdA13_envvar_contrasts_all,
-                                              x_var="AmbientVariant",
-                                              x_order=envvar_order,
-                                              y_margin=0.15,
-                                              step_increase=0.125)
-
-p_env_means_brackets_allvar
+p_envtype_means_brackets_allvar <- add_pairwise_brackets(
+  base_plot     = p_envtype_means_allvar,
+  means_df      = mdA13_envvarcore_means_matched,
+  contrast_df   = mdA13_envvar_contrasts_all,
+  x_var         = "AmbientVariant",
+  x_order       = envvar_order,
+  y_margin      = 0.15,
+  step_increase = 0.125,
+  step_group_by = "UASType"
+)
+p_envtype_means_brackets_allvar
 
 if (saveplots){
-  
-  filename <- "dAnnoyMnExpMod_AmbEnvVarAllMargEff_brmsOb"
-  
-  ggsave(filename=paste(filename, ".svg", sep=""), width=8, height=6,
+
+  filename <- "dAnnoyMnExpMod_AmbEnvVarTypeMargEff_brmsOb"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=6,
          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
   unlink(paste(filename, ".svg", sep=""))
 
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=8, height=6, path=file.path(outFigPath, "pdf"))
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=12, height=6, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 
 }
 
+
+p_env_type_op <- ggplot(mdA13_env_by_type_by_op_means,
+                        aes(x = AmbientEnvCore, y = estimate, colour=AmbientEnvCore)) +
+  theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
+        axis.text = element_text(family = "serif", size = 12),
+        axis.text.x = element_text(angle = 30, hjust = 1)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
+  
+  scale_colour_manual(values = mycolours[c(1, 2, 5, 6)]) +
+  
+  guides(colour = "none") +
+  
+  facet_grid(rows = vars(UASOperation), cols = vars(UASType)) +
+  labs(x = NULL, y = "Mean change in annoyance")
+
+p_env_type_op_brackets <- add_pairwise_brackets(
+  base_plot     = p_env_type_op,
+  means_df      = mdA13_env_by_type_by_op_means,
+  contrast_df   = mdA13_env_contrasts_by_type_op,
+  x_var         = "AmbientEnvCore",
+  x_order       = env_order,
+  step_increase = 0.08,
+  y_margin      = 0.3,
+  step_group_by = c("UASType", "UASOperation")
+)
+p_env_type_op_brackets
+
+
+if (saveplots){
+
+  filename <- "dAnnoyMn_ExpMod_OpTypebyEnvMargEff_brmsOb"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=13, height=9,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=13, height=9, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+
+}
 
 # ---- environment x Type / Operation / Proximity ----------------------------------
 
@@ -4081,9 +4233,9 @@ p_prox_within_env_brackets <- add_pairwise_brackets(base_plot=p_prox_within_env,
   plot_layout(axis_titles = "collect", axes = "collect")
 
 if (saveplots){
-  
+
   filename <- "dAnnoyMn_ExpMod_OpTypeProxbyEnvMargEff_brmsOb"
-  
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=13, height=4,
          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
   unlink(paste(filename, ".svg", sep=""))
@@ -4135,9 +4287,9 @@ p_op_type_prox <- ggplot(data=mdA13_op_type_prox_contrast,
 p_op_type_prox
 
 if (saveplots){
-  
+
   filename <- "dAnnoyMnExpMod_OpTypeProxMargEff_brmsOb"
-  
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=5, height=4,
          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
   unlink(paste(filename, ".svg", sep=""))
@@ -4156,7 +4308,7 @@ p_evts_curve <- ggplot(mdA13_evts_curve, aes(x = UASEvents, y = estimate)) +
   geom_line(aes(x = UASEvents, y = estimate)) +
   scale_x_continuous(breaks = c(1, 2, 3)) +
   guides(colour = "none") +
-  labs(x = "Number of UAS events", y = "Mean change in annoyance")
+  labs(x = "Quantity of UAS overflight events", y = "Mean change in annoyance")
 
 p_evts_curve_brackets <- add_pairwise_brackets(base_plot=p_evts_curve,
                                                means_df=mdA13_evts_curve,
@@ -4167,9 +4319,9 @@ p_evts_curve_brackets <- add_pairwise_brackets(base_plot=p_evts_curve,
 p_evts_curve_brackets
 
 if (saveplots){
-  
+
   filename <- "dAnnoyMnExpMod_EvtsMargEff_brmsOb"
-  
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=5, height=4,
          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
   unlink(paste(filename, ".svg", sep=""))
@@ -4187,10 +4339,8 @@ p_evts_curve_by_env <- ggplot(mdA13_evts_curve_by_env, aes(x = UASEvents, y = es
   geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
   geom_line(aes(x = UASEvents, y = estimate)) +
   scale_x_continuous(breaks = c(1, 2, 3)) +
-  scale_colour_manual(values = mycolours) +
-  guides(colour = "none") +
-  facet_wrap(vars(AmbientEnvCore)) +
-  labs(x = "Number of UAS events", y = "Mean change in annoyance")
+  facet_wrap(vars(AmbientEnvCore), ncol=4) +
+  labs(x = "Quantity of UAS overflight events", y = "Mean change in annoyance")
 
 p_evts_curve_by_env_brackets <- add_pairwise_brackets(
   base_plot = p_evts_curve_by_env, means_df = mdA13_evts_curve_by_env,
@@ -4201,14 +4351,14 @@ p_evts_curve_by_env_brackets <- add_pairwise_brackets(
 p_evts_curve_by_env_brackets
 
 if (saveplots){
-  
+
   filename <- "dAnnoyMnExpMod_EvtsbyEnvMargEff_brmsOb"
-  
-  ggsave(filename=paste(filename, ".svg", sep=""), width=9, height=9,
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=13, height=5,
          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
   unlink(paste(filename, ".svg", sep=""))
 
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=9, height=9, path=file.path(outFigPath, "pdf"))
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=13, height=5, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 
 }
@@ -4220,10 +4370,8 @@ p_evts_curve_by_type <- ggplot(mdA13_evts_curve_by_type, aes(x = UASEvents, y = 
   geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
   geom_line(aes(x = UASEvents, y = estimate)) +
   scale_x_continuous(breaks = c(1, 2, 3)) +
-  scale_colour_manual(values = mycolours) +
-  guides(colour = "none") +
   facet_wrap(vars(UASType)) +
-  labs(x = "Number of UAS events", y = "Mean change in annoyance")
+  labs(x = "Quantity of UAS overflight events", y = "Mean change in annoyance")
 
 p_evts_curve_by_type_brackets <- add_pairwise_brackets(
   base_plot = p_evts_curve_by_type, means_df = mdA13_evts_curve_by_type,
@@ -4233,14 +4381,47 @@ p_evts_curve_by_type_brackets <- add_pairwise_brackets(
 p_evts_curve_by_type_brackets
 
 if (saveplots){
-  
+
   filename <- "dAnnoyMnExpMod_EvtsbyTypeMargEff_brmsOb"
-  
+
   ggsave(filename=paste(filename, ".svg", sep=""), width=9, height=5,
          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
   unlink(paste(filename, ".svg", sep=""))
 
   ggsave(filename=paste(filename, ".pdf", sep=""), width=9, height=5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+
+}
+
+
+p_evts_curve_by_env_type <- ggplot(mdA13_evts_curve_by_env_type, aes(x = UASEvents, y = estimate)) +
+  theme(panel.grid = element_blank(), text = element_text(family = "serif", size = 16),
+        axis.text = element_text(family = "serif", size = 12)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), linewidth = 1, size = 0.8) +
+  geom_line(aes(x = UASEvents, y = estimate)) +
+  scale_x_continuous(breaks = c(1, 2, 3)) +
+  facet_grid(rows = vars(UASType), cols = vars(AmbientEnvCore)) +
+  labs(x = "Quantity of UAS overflight events", y = "Mean change in annoyance")
+
+p_evts_curve_by_env_type_brackets <- add_pairwise_brackets(
+  base_plot = p_evts_curve_by_env_type, means_df = mdA13_evts_curve_by_env_type,
+  contrast_df = mdA13_evts_contrasts_by_env_type, x_var = "UASEvents",
+  step_increase = 0.11, y_margin = 0.01,
+  step_group_by = c("AmbientEnvCore", "UASType")) +
+  coord_cartesian(ylim = c(-1, 8))
+
+p_evts_curve_by_env_type_brackets
+
+if (saveplots){
+
+  filename <- "dAnnoyMnExpMod_EvtsbyTypeEnvMargEff_brmsOb"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=13, height=9,
+         path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=13, height=9, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 
 }
@@ -4559,6 +4740,7 @@ loo::loo(mdA14)
 get_Br2_table(mdA6, mdA8, mdA9, mdA10, mdA11, mdA12, mdA13, mdA14)
 
 loo::loo_compare(mdA6, mdA8, mdA9, mdA10, mdA11, mdA12, mdA13, mdA14, criterion='loo')
+
 
 ```
 
@@ -8443,9 +8625,13 @@ get_Br2_table(mdA13, mdA31)
 
 loo::loo_compare(mdA13, mdA31, criterion='loo')
 
-get_Br2_table(mdA1, mdA24, mdA31)
+get_Br2_table(mdA15, mdA24, mdA31)
 
-loo::loo_compare(mdA1, mdA24, mdA31, criterion='loo')
+loo::loo_compare(mdA15, mdA24, mdA31, criterion='loo')
+
+get_Br2_table(mdA13, mdA31)
+
+loo::loo_compare(mdA13, mdA31, criterion='loo')
 
 ```
 

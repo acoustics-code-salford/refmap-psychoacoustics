@@ -48,6 +48,8 @@ dataByStimTest2filepath = list(QFileDialog.getOpenFileName(caption="Open refmap_
                                             filter="refmap_listest2_testdata_ByStim.csv"))[0]
 dataByStimTest2 = pd.read_csv(dataByStimTest2filepath, index_col=0)
 
+# output path for saving melded data
+outFilePath_1_2 = QFileDialog.getExistingDirectory(caption="Choose output folder to save processed files in '03 Experiment\Experiment_1_2\Analysis\PostProcess'")
 
 # %%---------------------------
 # subject-level data processing
@@ -70,6 +72,11 @@ test1_drop_cols = ["SessionPart", "Valence", "Arousal", "UAS_noticed",
 dataBySubjTest1Merge.drop(columns=test1_drop_cols, inplace=True)
 
 dataBySubjTest1Merge['LAeqdiff'] = dataBySubjTest1Merge['UASLAeqMaxLR'] - dataBySubjTest1Merge['AmbLAeqMaxLR']
+
+# move new col to after LAELAeqdiff
+cols = dataBySubjTest1Merge.columns.tolist()
+cols.insert(cols.index('LAELAeqdiff') + 1, cols.pop(cols.index('LAeqdiff')))
+dataBySubjTest1Merge = dataBySubjTest1Merge[cols]
 
 test1_rename_cols = {"StimFile": "Stimulus", "HighAnnoy": "HighlyAnnoyed",
                      "dHighAnnoy": "dHighlyAnnoyed",
@@ -235,7 +242,7 @@ dataBySubjTestMerge = dataBySubjTestMerge[cols]
 dataBySubjTestMerge.rename(columns={'ID': 'ParticipantNum'}, inplace=True)
 
 # save merged data to CSV
-dataBySubjTestMerge.to_csv(os.path.join(outFilePath2,
+dataBySubjTestMerge.to_csv(os.path.join(outFilePath_1_2,
                                         "refmap_listest1_2_testdataMerge_BySubj.csv"),
                            index=False)
 
@@ -276,6 +283,11 @@ test1_drop_cols.extend(["ArousalMedian", "ArousalMedianCI_Low", "ArousalMedianCI
 dataByStimTest1Merge.drop(columns=test1_drop_cols, inplace=True)
 
 dataByStimTest1Merge['LAeqdiff'] = dataByStimTest1Merge['UASLAeqMaxLR'] - dataByStimTest1Merge['AmbLAeqMaxLR']
+
+# move new col to after LAELAeqdiff
+cols = dataByStimTest1Merge.columns.tolist()
+cols.insert(cols.index('LAELAeqdiff') + 1, cols.pop(cols.index('LAeqdiff')))
+dataByStimTest1Merge = dataByStimTest1Merge[cols]
 
 test1_rename_cols = {"StimFile": "Stimulus", "AnnoyMedian": "AnnoyanceMedian",
                      "AnnoyMedianCI_Low": "AnnoyanceMedianCI_Low",
@@ -373,7 +385,7 @@ assert df1['StimNum'].nunique() == df1['StimID'].nunique()          # one-to-one
 assert df2['StimNum'].nunique() == df2['StimID'].nunique()
 assert df1['StimNum'].notna().all() and df2['StimNum'].notna().all()
 
-dataByStimTestMerge = pd.concat([df1.assign(Experiment=1), df2.assign(Experiment=2)], ignore_index=True)# move StimNum before StimID
+dataByStimTestMerge = pd.concat([df1.assign(Experiment=1), df2.assign(Experiment=2)], ignore_index=False)# move StimNum before StimID
 
 cols = dataByStimTestMerge.columns.tolist()
 cols.insert(0, cols.pop(cols.index('Experiment')))
@@ -387,9 +399,9 @@ dataByStimTestMerge['AmbientEnvCore'] = dataByStimTestMerge['AmbientEnv'].replac
 # move new col to after AmbientEnv
 cols = dataByStimTestMerge.columns.tolist()
 cols.insert(cols.index('AmbientEnv') + 1, cols.pop(cols.index('AmbientEnvCore')))
-dataByStimTestMerge = dataByStimTestMerge[cols] 
+dataByStimTestMerge = dataByStimTestMerge[cols]
 
 # save merged data to CSV
-dataByStimTestMerge.to_csv(os.path.join(outFilePath2,
+dataByStimTestMerge.to_csv(os.path.join(outFilePath_1_2,
                                         "refmap_listest1_2_testdataMerge_ByStim.csv"),
-                           index=False)
+                           index=True, index_label="Stimulus")

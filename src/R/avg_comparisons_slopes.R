@@ -714,6 +714,13 @@ require(ggpubr)
 #         documenting it. Grid size unaffected - still design_cells x
 #         n_new. simulate_id=FALSE (no `idx` built at all) falls back to
 #         each real participant's own first observed value.
+#   v0.38 add_pairwise_brackets() gains `step_group_by` for FACETED plots.
+#         Without it, ggpubr::stat_pvalue_manual() applies step.increase
+#         cumulatively down ALL rows of contrast_df, so a faceted plot with
+#         many panels stacks later panels' brackets progressively higher
+#         (off the plot). step_group_by (character vector of the facet
+#         column names, which must exist in contrast_df) restarts the
+#         stacking within each panel. Default NULL = unchanged behaviour.
 # =============================================================================
 
 
@@ -2528,7 +2535,8 @@ avg_slopes_manual <- function(model, newdata, variable, eps = NULL,
 #'   headroom above the highest data point before the first bracket.
 #' @return `base_plot` with a stat_pvalue_manual() bracket layer added.
 add_pairwise_brackets <- function(base_plot, means_df, contrast_df, x_var, x_order = NULL,
-                                  label_size = 4, step_increase = 0.14, y_margin = 0.3) {
+                                  label_size = 4, step_increase = 0.14, y_margin = 0.3,
+                                  step_group_by = NULL) {
   if (all(c(x_var, "reference1") %in% names(contrast_df))) {
     contrast_df$group1 <- contrast_df[[x_var]]
     contrast_df$group2 <- contrast_df$reference1
@@ -2567,13 +2575,28 @@ add_pairwise_brackets <- function(base_plot, means_df, contrast_df, x_var, x_ord
   
   contrast_df <- contrast_df[order(span), ]
   
+  # Faceted plots: restart the bracket stacking within each panel. A single
+  # combined key column is built so step.group.by always receives one name,
+  # however many facet variables there are.
+  step_args <- list()
+  if (!is.null(step_group_by)) {
+    missing_cols <- setdiff(step_group_by, names(contrast_df))
+    if (length(missing_cols) > 0) {
+      stop("add_pairwise_brackets(): step_group_by column(s) not in contrast_df: ",
+           paste(missing_cols, collapse = ", "))
+    }
+    contrast_df$.step_grp <- as.character(interaction(contrast_df[step_group_by], drop = TRUE))
+    step_args$step.group.by <- ".step_grp"
+  }
+  
   base_plot +
-    ggpubr::stat_pvalue_manual(
-      contrast_df, label = "ci_label",
-      y.position = max(means_df$conf.high) + y_margin,  # always the MEANS data's own range, hard-coded once here
-      step.increase = step_increase, coord.flip = FALSE,
-      family = "serif", size = label_size
-    )
+    do.call(ggpubr::stat_pvalue_manual, c(
+      list(contrast_df, label = "ci_label",
+           y.position = max(means_df$conf.high) + y_margin,  # always the MEANS data's own range, hard-coded once here
+           step.increase = step_increase, coord.flip = FALSE,
+           family = "serif", size = label_size),
+      step_args
+    ))
 }
 
 

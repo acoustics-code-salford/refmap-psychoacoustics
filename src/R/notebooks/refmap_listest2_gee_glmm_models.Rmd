@@ -447,6 +447,12 @@ print(expEPNLLAF50diffScl, digits=20)
 # [1] 1.072727814277170566
 # we use 1.0727278 to centre
 
+log2UASPsychAnnoyWillemsen_centre <- mean(log2(subjDataNoAmb$UASPsychAnnoyWillemsen))
+print(log2UASPsychAnnoyWillemsen_centre, digits=20)
+
+# [1] 5.7080502839682747407
+# we use 5.70805 to centre
+
 ```
 
 # Add external data
@@ -5898,10 +5904,10 @@ m10k_deploy <- deploy_mean_model(m10k,
 if (savedata) {
 
   filename = "dA_DetdSQnet_Qb"
-  saveRDS(m10i, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+  saveRDS(m10k, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
 
   filename = "dA_DetdSQnet_Qb_deploy"
-  saveRDS(m10i_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+  saveRDS(m10k_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
 
 }
 
@@ -9879,6 +9885,14 @@ m20bData <- subjDataNoAmb[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber
 m20cformula <- dProbHA20k ~ TrialNumberStd +
   UASPsychAnnoyWillemsenScl*I(log10(UASEvents) - 0.16481)
 
+m20dformula <- dProbHA20k ~ TrialNumberStd +
+  I(log2(UASPsychAnnoyWillemsen) - 5.70805)*I(log10(UASEvents) - 0.16481)
+
+m20dData <- subjDataNoAmb[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                 all.vars(m20dformula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dProbHA20k))
+
+
 ```
 
 ### run model
@@ -9895,6 +9909,10 @@ geeCorStr(m20bformula, data=m20bData, family=quasibinomial(link='logit'),
 
 geeCorStr(m20cformula, data=m20bData, family=quasibinomial(link='logit'),
           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m20dformula, data=m20dData, family=quasibinomial(link='logit'),
+          id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
 
 ```
 
@@ -9917,9 +9935,15 @@ m20c <- glmtoolbox::glmgee(m20cformula, data=m20bData,
                           id=ID, waves=TrialNumber,
                           corstr='exchangeable')
 
+m20d <- glmtoolbox::glmgee(m20dformula, data=m20dData,
+                          family=quasibinomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
 geeParams(m20, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 geeParams(m20b, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 geeParams(m20c, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m20d, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 
 ```
 
@@ -9945,11 +9969,18 @@ m20c_cv <- cv_glmgee(m20c, id_col="ID", waves_col="TrialNumber", K=cv_folds, see
                                 workers=n_cores) |>
           cv_aggregated_metrics()
 
-geeModelPerformance(m12, m13, m14i, m15, m16d, m17, m18h, m19i, m20, m20b, m20c)
+m20d_cv <- cv_glmgee(m20d, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m20dData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics()
+
+geeModelPerformance(m12, m13, m14i, m15, m16d, m17, m18h, m19i, m20, m20b,
+                    m20c, m20d)
 
 compare_cv_results(list(m12=m12_cv, m13=m13_cv, m14i=m14i_cv, m15=m15_cv,
                         m16d=m16d_cv, m17=m17_cv, m18h=m18h_cv, m19i=m19i_cv,
-                        m20=m20_cv, m20b=m20b_cv, m20c=m20c_cv))
+                        m20=m20_cv, m20b=m20b_cv, m20c=m20c_cv, m20d=m20d_cv))
 
 ```
 
@@ -9957,59 +9988,59 @@ compare_cv_results(list(m12=m12_cv, m13=m13_cv, m14i=m14i_cv, m15=m15_cv,
 
 ```{r, fig.width=12, fig.height=4}
 
-m20c.resP <- residuals(m20c, type="pearson", plot.it=FALSE)
+m20d.resP <- residuals(m20d, type="pearson", plot.it=FALSE)
 
-used <- complete.cases(m20bData[all.vars(m20cformula)])
+used <- complete.cases(m20bData[all.vars(m20dformula)])
 
-arm::binnedplot(fitted(m20c), m20c.resP)
-arm::binnedplot(m20bData$UASPsychAnnoyWillemsenScl[used], residuals(m20c, type = "pearson"),
+arm::binnedplot(fitted(m20d), m20d.resP)
+arm::binnedplot(m20bData$UASPsychAnnoyWillemsenScl[used], residuals(m20d, type = "pearson"),
                  xlab = "UASPsychAnnoyWillemsenScl")
-arm::binnedplot(m20bData$UASEvents[used], residuals(m20c, type = "pearson"),
+arm::binnedplot(m20bData$UASEvents[used], residuals(m20d, type = "pearson"),
                  xlab = "UASEvents")
-arm::binnedplot(m20bData$TrialNumberStd[used], residuals(m20c, type = "pearson"),
+arm::binnedplot(m20bData$TrialNumberStd[used], residuals(m20d, type = "pearson"),
                  xlab = "TrialNumberStd")
 
-m20c.resM <- residuals(m20c, type="mahalanobis", plot.it=FALSE)
+m20d.resM <- residuals(m20d, type="mahalanobis", plot.it=FALSE)
 
 # plot Mahalanobis residuals with ggplot2 on a stem plot replacing the index by the corresponding participant ID
-geeCluster_stemplot(m20c,
-                    clusterVar=m20c.resM,
+geeCluster_stemplot(m20d,
+                    clusterVar=m20d.resM,
                     colour=mycolours[2], alpha=0.7) +
     theme(panel.grid = element_blank(), aspect.ratio=0.4,
         text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   labs(x="Participant ID", y="Mahalanobis distance")
 
-m20c.Cook <- cooks.distance(m20c, plot.it=FALSE)
+m20d.Cook <- cooks.distance(m20d, plot.it=FALSE)
 
-geeCluster_stemplot(m20c, clusterVar=m20c.Cook,
+geeCluster_stemplot(m20d, clusterVar=m20d.Cook,
                     colour=mycolours[4], alpha=0.7) +
     theme(panel.grid = element_blank(), aspect.ratio=0.4,
         text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   labs(x="Participant ID", y="Cook's distance")
 
-glmgee_vif(m20c)
+glmgee_vif(m20d)
 
 ```
 
-##### analyse and visualise calibration
+### analyse and visualise calibration
 
 ```{r}
 
-m20cpredMeans <- avg_predictions_hybrid(m20c, newdata=na.omit(m20bData),
+m20dpredMeans <- avg_predictions_hybrid(m20d, newdata=na.omit(m20dData),
                                       by=c("StimID"),
-                                      vcov=vcov(m20c, type='bias-corrected')) |>
+                                      vcov=vcov(m20d, type='bias-corrected')) |>
   dplyr::arrange(StimID)
 
-R2means <- 1 - sum((stimDataNoAmb$dProbHA20kMean - m20cpredMeans$estimate)^2)/sum((stimDataNoAmb$dProbHA20kMean - mean(stimDataNoAmb$dProbHA20kMean))^2)
+R2means <- 1 - sum((stimDataNoAmb$dProbHA20kMean - m20dpredMeans$estimate)^2)/sum((stimDataNoAmb$dProbHA20kMean - mean(stimDataNoAmb$dProbHA20kMean))^2)
 
-eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m20cpredMeans,
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m20dpredMeans,
                      measured_target='dProbHA20kMean', measured_ci_low='dProbHA20kMeanCI_Low',
                      measured_ci_high='dProbHA20kMeanCI_High', fitted='estimate')
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
-ggplot(data=cbind(m20cpredMeans,
+ggplot(data=cbind(m20dpredMeans,
                   response=stimDataNoAmb$dProbHA20kMean,
                   responseCI_Low=stimDataNoAmb$dProbHA20kMeanCI_Low,
                   responseCI_High=stimDataNoAmb$dProbHA20kMeanCI_High)) +
@@ -10031,9 +10062,9 @@ ggplot(data=cbind(m20cpredMeans,
   
   labs(x=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb]~"("~test~")")), y=expression(paste(Predicted~"%"~highly~annoyed~"|"~HA~"'"[amb]))) +
   
-  ggplot2::annotate("text", x=0.01, y=0.7, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
-  ggplot2::annotate("text", x=0.01, y=0.65, label=paste0("RMSE = ", sprintf("%.2f", round(eRMSE$rmse*100, 2)), "%"), family="serif", size=4, hjust = 0) +
-  ggplot2::annotate("text", x = 0.01, y = 0.6, label = paste0("RMSE[epsilon] == ", sprintf("%.2f", round(eRMSE$epsilon_rmse*100, 2)), "*'%'"), 
+  ggplot2::annotate("text", x=0.01, y=0.75, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=0.01, y=0.7, label=paste0("RMSE = ", sprintf("%.2f", round(eRMSE$rmse*100, 2)), "%"), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = 0.01, y = 0.65, label = paste0("RMSE[epsilon] == ", sprintf("%.2f", round(eRMSE$epsilon_rmse*100, 2)), "*'%'"), 
   family = "serif", size = 4, hjust = 0, parse = TRUE)
 
 if (saveplots){
@@ -10053,10 +10084,7 @@ if (saveplots){
 
 ```{r}
 
-m20c_deploy <- deploy_mean_model(m20c,
-                                centred_vars = list(UASPsychAnnoyWillemsenScl = "UASPsychAnnoyWillemsen"),
-                                 scaling_data = subjDataNoAmb,
-                                 TrialNumberStd=0, coef_simplify=T, verbose=TRUE)
+m20d_deploy <- deploy_mean_model(m20d, TrialNumberStd=0, coef_simplify=T, verbose=TRUE)
 
 ```
 
@@ -10066,10 +10094,10 @@ m20c_deploy <- deploy_mean_model(m20c,
 # save the model
 if (savedata) {
   filename = "dHiA_PA"
-  saveRDS(m20c, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+  saveRDS(m20d, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
 
   filename = "dHiA_PA_deploy"
-  saveRDS(m20c_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+  saveRDS(m20d_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
 }
 
 ```
