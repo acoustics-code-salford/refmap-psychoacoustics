@@ -2828,6 +2828,8 @@ if (!loadExisting) {
 
 iVars <- names(stimDataNum)[which(names(stimDataNum) == 'UASEvents'):which(names(stimDataNum) == 'UASPsychAnnoyBoucher')]
 
+iVars <- c("AmbientEnv", iVars)
+
 dVar <- "dProbHA20kPc"
 
 seeds <- c(2612618, 6541, 237, 723075032, 786312)
@@ -5533,6 +5535,7 @@ if (savedata){
 #### Save the workspace to file
 
 ```{r}
+
 if (savedata){
   save.image(file.path(outDataPath, "refmap_listest2_analysis_cforest.RData"))
 }

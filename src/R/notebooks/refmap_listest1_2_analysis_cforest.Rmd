@@ -1419,7 +1419,7 @@ iVars <- names(stimDataNoAmb)[which(names(stimDataNoAmb) == 'UASEvents'):which(n
 
 iVars <- c(iVars, "AmbientEnv")
 
-dVar <- "dAnnoyanceMean"
+dVar <- "dAnnoyanceMedian"
 
 seeds <- c(650834, 45634110, 78028376, 498, 808365)
 
@@ -1435,7 +1435,7 @@ p
 
 if (saveplots){
   
-  filename <- "dAnnoyMnAllVarsHyperTune"
+  filename <- "dAnnoyMdnAllVarsHyperTune"
   
   ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
@@ -1450,8 +1450,8 @@ Selected hyperparameters
 
 ```{r}
 
-ntree <- 1501
-mtry <- as.integer(length(iVars)/2.75)
+ntree <- 2501
+mtry <- as.integer(length(iVars)/3.5)
 
 ```
 
@@ -1461,7 +1461,7 @@ Train preliminary model
 
 ```{r}
 
-nperm <- 10
+nperm <- 5
 
 resultsOutAbsDiffs <- crfReg(dataIn=stimDataNoAmb, iVars=iVars, dVar=dVar, seeds=seeds[1:2], ntree=ntree, mtry=mtry, permImpCondThres=permImpCondThres, nperm=nperm, minsplit=minsplit, minbucket=minbucket)
 
@@ -1482,14 +1482,15 @@ resultsOutAbsDiffs <- multi_crfReg(dataIn=stimDataNoAmb, iVars=iVars, dVar=dVar,
 resultsOutAbsDiffs$OOB_RMSE
 resultsOutAbsDiffs$OOB_MAE
 resultsOutAbsDiffs$Rsquared
+
 ```
 
 ```{r}
 # store results
-resdAnnoyMnFit['All vars', 'RMSE'] <- resultsOutAbsDiffs$OOB_RMSE
-resdAnnoyMnFit['All vars', 'MAE'] <- resultsOutAbsDiffs$OOB_MAE
-resdAnnoyMnFit['All vars', 'Rsquared'] <- resultsOutAbsDiffs$Rsquared
-resdAnnoyMnPermImp$AllVars <- resultsOutAbsDiffs$conditional_permimp
+resdAnnoyMdnFit['All vars', 'RMSE'] <- resultsOutAbsDiffs$OOB_RMSE
+resdAnnoyMdnFit['All vars', 'MAE'] <- resultsOutAbsDiffs$OOB_MAE
+resdAnnoyMdnFit['All vars', 'Rsquared'] <- resultsOutAbsDiffs$Rsquared
+resdAnnoyMdnPermImp$AllVars <- resultsOutAbsDiffs$conditional_permimp
 
 ```
 
@@ -1506,7 +1507,7 @@ pBar
 
 if (saveplots){
   
-  filename <- "dAnnoyMnAllVarsConPermimp"
+  filename <- "dAnnoyMdnAllVarsConPermimp"
 
   ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=33, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
@@ -1517,7 +1518,7 @@ if (saveplots){
 
 ```
 
-```{r, fig.width=8,fig.height=22}
+```{r, fig.width=8,fig.height=30}
 
 # Plot only positive values
 
@@ -1531,19 +1532,19 @@ pBar
 
 if (saveplots){
   
-  filename <- "dAnnoyMnAllVarsConPermimpPtv"
+  filename <- "dAnnoyMdnAllVarsConPermimpPtv"
 
-  ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=22, path=file.path(outFigPath, "svg"))
+  ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=30, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=12, height=22, path=file.path(outFigPath, "pdf"))
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=12, height=30, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 }
 
 
 ```
 
-```{r, fig.width=8,fig.height=8}
+```{r, fig.width=8,fig.height=7}
 
 # Plot only values within 1% of the maximum
 
@@ -1557,12 +1558,12 @@ pBar
 
 if (saveplots){
   
-  filename <- "dAnnoyMnAllVarsConPermimp1pc"
+  filename <- "dAnnoyMdnAllVarsConPermimp1pc"
 
-  ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=8, path=file.path(outFigPath, "svg"))
+  ggsave(filename=paste(filename, ".svg", sep=""), width=12, height=7, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
   
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=12, height=8, path=file.path(outFigPath, "pdf"))
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=12, height=7, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 }
 ```
@@ -2673,7 +2674,7 @@ if (!loadExisting) {
 
 iVars <- names(stimDataNoAmb)[which(names(stimDataNoAmb) == 'UASEvents'):which(names(stimDataNoAmb) == 'UASPsychAnnoyBoucher')]
 
-dVar <- "dProbHA20kPc"
+dVar <- "dHighAnnoypc"
 
 seeds <- c(2612618, 6541, 237, 723075032, 786312)
 

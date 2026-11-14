@@ -393,7 +393,8 @@ centre_vars = c("UASLAF50ExMaxLR", "UASLAEMaxLR", "UASImpulsLoudWZAvg",
                 "dTonalECMAAvg", "dTonalAwSHM05Ex", "UASTonalECMA05Ex",
                 "EPNLLAF50diff", "LAELAF50diff", "LAeqLAF10diff",
                 "LAeqdiff", "dPsychAnnoyDi", "dPsychAnnoyWidmann", 
-                 "Age", "NoiseSensitivity")
+                 "Age", "NoiseSensitivity", "Detect0p1dBMaxEx50MaxLR",
+                "Detect0p5dBMaxEx50MaxLR")
 
 standardise_vars = c("TrialNumber", setdiff(centre_vars, c("Age", "NoiseSensitivity")))
 
@@ -813,8 +814,6 @@ geeParams(m1d, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FAL
 
 ```{r}
 
-geeModelPerformance(m1, m1b, m1c, m1d)
-
 m1_cv <- cv_glmgee(m1, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
                 data=na.omit(m1Data), agg_cols="StimID", return_predictions=TRUE,
                 backtransform_fn=transform_dAnnoy,
@@ -841,6 +840,8 @@ m1d_cv <- cv_glmgee(m1d, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=
                   backtransform_fn=transform_dAnnoy,
                   workers=n_cores) |>
   cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
+
+geeModelPerformance(m1, m1b, m1c, m1d, transform=transform_dAnnoy)
 
 compare_cv_results(list(m1=m1_cv, m1b=m1b_cv, m1c=m1c_cv, m1d=m1d_cv))
 
@@ -1070,7 +1071,7 @@ geeParams(m2, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALS
 
 ```{r}
 
-geeModelPerformance(m1b, m2)
+
 
 m2_cv <- cv_glmgee(m2, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
                                 data=na.omit(m2Data), agg_cols="StimID",
@@ -1078,6 +1079,8 @@ m2_cv <- cv_glmgee(m2, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv
                                 backtransform_fn=transform_dAnnoy,
                                 workers=n_cores) |>
           cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
+
+geeModelPerformance(m1b, m2, transform=transform_dAnnoy)
 
 compare_cv_results(list(m1b=m1b_cv, m2=m2_cv))
 
@@ -1314,7 +1317,7 @@ m3c_cv <- cv_glmgee(m3c, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=
                         workers=n_cores) |>
   cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
 
-geeModelPerformance(m1b, m2, m3, m3a, m3b, m3c)
+geeModelPerformance(m1b, m2, m3, m3a, m3b, m3c, transform=transform_dAnnoy)
 
 compare_cv_results(list(m1b=m1b_cv, m2=m2_cv, m3=m3_cv, m3a=m3a_cv,
                         m3b=m3b_cv, m3c=m3c_cv))
@@ -1628,7 +1631,7 @@ m3i_cv <- cv_glmgee(m3i, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=
                         workers=n_cores) |>
   cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
 
-geeModelPerformance(m3c, m3e, m3f, m3g, m3h, m3i)
+geeModelPerformance(m3c, m3e, m3f, m3g, m3h, m3i, transform=transform_dAnnoy)
 
 compare_cv_results(list(m3c=m3c_cv, m3e=m3e_cv, m3f=m3f_cv, m3g=m3g_cv,
                         m3h=m3h_cv, m3i=m3i_cv))
@@ -1859,7 +1862,7 @@ m4_cv <- cv_glmgee(m4, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv
               workers=n_cores) |>
 cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
 
-geeModelPerformance(m1b, m2, m3i, m4)
+geeModelPerformance(m1b, m2, m3i, m4, transform=transform_dAnnoy)
 
 compare_cv_results(list(m1b=m1b_cv, m2=m2_cv, m3i=m3i_cv, m4=m4_cv))
 
@@ -1931,7 +1934,8 @@ if (saveplots){
 m4_deploy <- deploy_mean_model(m4,
                                centred_vars=list(UASLAEMaxLRScl="UASLAEMaxLR"),
                                scaling_data = subjDataNoAmb,
-                               TrialNumberStd=0, verbose=TRUE)
+                               TrialNumberStd=0, verbose=TRUE,
+                               coef_simplify=TRUE)
 
 ```
 
@@ -2062,7 +2066,7 @@ m5d_cv <- cv_glmgee(m5d, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=
                         workers=n_cores) |>
   cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
 
-geeModelPerformance(m1b, m2, m3i, m4, m5, m5b, m5c, m5d)
+geeModelPerformance(m1b, m2, m3i, m4, m5, m5b, m5c, m5d, transform=transform_dAnnoy)
 
 compare_cv_results(list(m1b=m1b_cv, m2=m2_cv, m3i=m3i_cv, m4=m4_cv,
                         m5=m5_cv, m5b=m5b_cv, m5c=m5c_cv, m5d=m5d_cv))
@@ -2385,7 +2389,7 @@ m5k_cv <- cv_glmgee(m5k, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=
                         workers=n_cores) |>
   cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
 
-geeModelPerformance(m5, m5f, m5g, m5h, m5i, m5j, m5k)
+geeModelPerformance(m5, m5f, m5g, m5h, m5i, m5j, m5k, transform=transform_dAnnoy)
 
 compare_cv_results(list(m5=m5_cv, m5f=m5f_cv, m5g=m5g_cv,
                         m5h=m5h_cv, m5i=m5i_cv, m5j=m5j_cv, m5k=m5k_cv))
@@ -2598,7 +2602,7 @@ m6b_cv <- cv_glmgee(m6b, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=
           cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
 
 
-geeModelPerformance(m1b, m2, m3i, m4, m5g, m6, m6b)
+geeModelPerformance(m1b, m2, m3i, m4, m5g, m6, m6b, transform=transform_dAnnoy)
 
 compare_cv_results(list(m1b=m1b_cv, m2=m2_cv, m3i=m3i_cv, m4=m4_cv,
                         m5g=m5g_cv, m6=m6_cv, m6b=m6b_cv))
@@ -2868,7 +2872,8 @@ m7e_cv <- cv_glmgee(m7e, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=
                   workers=n_cores) |>
           cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
 
-geeModelPerformance(m1b, m2, m3i, m4, m5g, m6, m7, m7b, m7c, m7d, m7e)
+geeModelPerformance(m1b, m2, m3i, m4, m5g, m6, m7, m7b, m7c, m7d, m7e,
+                    transform=transform_dAnnoy)
 
 compare_cv_results(list(m1b=m1b_cv, m2=m2_cv, m3i=m3i_cv, m4=m4_cv,
                         m5g=m5g_cv, m6=m6_cv, m7=m7_cv, m7b=m7b_cv,
@@ -3496,7 +3501,7 @@ m7j_cv <- cv_glmgee(m7j, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=
                         workers=n_cores) |>
   cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
 
-geeModelPerformance(m7e, m7g, m7h, m7i, m7j)
+geeModelPerformance(m7e, m7g, m7h, m7i, m7j, transform=transform_dAnnoy)
 
 compare_cv_results(list(m7e=m7e_cv, m7g=m7g_cv, m7h=m7h_cv, m7i=m7i_cv, m7j=m7j_cv))
 
@@ -3862,7 +3867,7 @@ m8b_cv <- cv_glmgee(m8b, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=
                   workers=n_cores) |>
           cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
 
-geeModelPerformance(m1b, m2, m3i, m4, m5g, m6, m7g, m8, m8b)
+geeModelPerformance(m1b, m2, m3i, m4, m5g, m6, m7g, m8, m8b, transform=transform_dAnnoy)
 
 compare_cv_results(list(m1b=m1b_cv, m2=m2_cv, m3i=m3i_cv,
                         m4=m4_cv, m5g=m5g_cv, m6=m6_cv, m7g=m7g_cv,
@@ -4112,7 +4117,7 @@ m9d_cv <- cv_glmgee(m9d, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=
           cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
 
 geeModelPerformance(m1b, m2, m3i, m4, m5g, m6, m7g,
-                    m8b, m9, m9b, m9c, m9d)
+                    m8b, m9, m9b, m9c, m9d, transform=transform_dAnnoy)
 
 compare_cv_results(list(m1b=m1b_cv, m2=m2_cv, m3i=m3i_cv, m4=m4_cv, m5g=m5g_cv,
                         m6=m6_cv, m7g=m7g_cv, m8b=m8b_cv, m9=m9_cv,
@@ -4415,7 +4420,7 @@ m9j_cv <- cv_glmgee(m9j, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=
                         workers=n_cores) |>
   cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
 
-geeModelPerformance(m9c, m9f, m9g, m9h, m9i, m9j)
+geeModelPerformance(m9c, m9f, m9g, m9h, m9i, m9j, transform=transform_dAnnoy)
 
 compare_cv_results(list(m9c=m9c_cv, m9f=m9f_cv, m9g=m9g_cv,
                         m9h=m9h_cv, m9i=m9i_cv, m9j=m9j_cv))
@@ -5008,7 +5013,7 @@ m10d_cv <- cv_glmgee(m10d, id_col="ID", waves_col="TrialNumber", K=cv_folds, see
           cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
 
 geeModelPerformance(m1b, m2, m3i, m4, m5g, m6, m7g,
-                    m8b, m9h, m10, m10b, m10c, m10d)
+                    m8b, m9h, m10, m10b, m10c, m10d, transform=transform_dAnnoy)
 
 compare_cv_results(list(m1b=m1b_cv, m2=m2_cv, m3i=m3i_cv, m4=m4_cv, m5g=m5g_cv,
                         m6=m6_cv, m7g=m7g_cv, m8b=m8b_cv, m9h=m9h_cv,
@@ -5364,9 +5369,9 @@ m10l_cv <- cv_glmgee(m10l, id_col="ID", waves_col="TrialNumber", K=cv_folds, see
                     workers=n_cores) |>
           cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
 
-geeModelPerformance(m10b, m10f, m10g, m10h, m10i, m10j, m10k, m10l)
+geeModelPerformance(m10d, m10f, m10g, m10h, m10i, m10j, m10k, m10l, transform=transform_dAnnoy)
 
-compare_cv_results(list(m10b=m10b_cv, m10f=m10f_cv, m10g=m10g_cv, m10h=m10h_cv,
+compare_cv_results(list(m10d=m10d_cv, m10f=m10f_cv, m10g=m10g_cv, m10h=m10h_cv,
                         m10i=m10i_cv, m10j=m10j_cv, m10k=m10k_cv, m10l=m10l_cv))
 
 ```
@@ -5375,36 +5380,36 @@ compare_cv_results(list(m10b=m10b_cv, m10f=m10f_cv, m10g=m10g_cv, m10h=m10h_cv,
 
 ```{r, fig.width=12, fig.height=4}
 
-m10k.resP <- residuals(m10k, type="pearson", plot.it=FALSE,
+m10i.resP <- residuals(m10i, type="pearson", plot.it=FALSE,
                       pch=1, col=mycolours[3], identify=10)
 
-gee_residplot(m10k, residual_vals=m10k.resP,
+gee_residplot(m10i, residual_vals=m10i.resP,
               colour=mycolours[3], alpha=0.3) +
     theme(panel.grid = element_blank(), aspect.ratio=0.4, text=element_text (family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   labs(x="Fitted values", y="Standardised Pearson residuals")
 
-m10k.resM <- residuals(m10k, type="mahalanobis", plot.it=FALSE)
+m10i.resM <- residuals(m10i, type="mahalanobis", plot.it=FALSE)
 
 # plot Mahalanobis residuals with ggplot2 on a stem plot replacing the index by the corresponding participant ID
-geeCluster_stemplot(m10k,
-                    clusterVar=m10k.resM,
+geeCluster_stemplot(m10i,
+                    clusterVar=m10i.resM,
                     colour=mycolours[2], alpha=0.7) +
     theme(panel.grid = element_blank(), aspect.ratio=0.4,
         text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   labs(x="Participant ID", y="Mahalanobis distance")
 
-m10k.Cook <- cooks.distance(m10k, plot.it=FALSE)
+m10i.Cook <- cooks.distance(m10i, plot.it=FALSE)
 
-geeCluster_stemplot(m10k, clusterVar=m10k.Cook,
+geeCluster_stemplot(m10i, clusterVar=m10i.Cook,
                     colour=mycolours[4], alpha=0.7) +
     theme(panel.grid = element_blank(), aspect.ratio=0.4,
         text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   labs(x="Participant ID", y="Cook's distance")
 
-glmgee_vif(m10k)
+glmgee_vif(m10i)
 
 ```
 
@@ -5412,23 +5417,21 @@ glmgee_vif(m10k)
 
 ```{r}
 
-m10kpredMeans <- marginaleffects::avg_predictions(m10k, newdata=na.omit(m10dData),
-                                                  by=c("StimID",
-                                                       "Detect0p5dBIntEx50MaxLRScl",
-                                                       "UASEvents"),
-                                                  vcov=vcov(m10k, type='bias-corrected'),
+m10ipredMeans <- marginaleffects::avg_predictions(m10i, newdata=na.omit(m10dData),
+                                                  by=c("StimID"),
+                                                  vcov=vcov(m10i, type='bias-corrected'),
                                                  type='response',
                                                 transform=transform_dAnnoy) |>
   dplyr::arrange(StimID)
 
-R2means <- 1 - sum((stimDataNoAmb$dAnnoyanceMean - m10kpredMeans$estimate)^2)/sum((stimDataNoAmb$dAnnoyanceMean - mean(stimDataNoAmb$dAnnoyanceMean))^2)
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyanceMean - m10ipredMeans$estimate)^2)/sum((stimDataNoAmb$dAnnoyanceMean - mean(stimDataNoAmb$dAnnoyanceMean))^2)
 
-eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m10kpredMeans,
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m10ipredMeans,
                      measured_target='dAnnoyanceMean', measured_ci_low='dAnnoyanceMeanCI_Low',
                      measured_ci_high='dAnnoyanceMeanCI_High', fitted='estimate')
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
-ggplot(data=cbind(m10kpredMeans,
+ggplot(data=cbind(m10ipredMeans,
                   response=stimDataNoAmb$dAnnoyanceMean,
                   responseCI_Low=stimDataNoAmb$dAnnoyanceMeanCI_Low,
                   responseCI_High=stimDataNoAmb$dAnnoyanceMeanCI_High)) +
@@ -5471,7 +5474,7 @@ if (saveplots){
 
 ```{r}
 
-pred_mod <- m10k
+pred_mod <- m10i
 fitDat <- insight::get_data(pred_mod)
 vc <- vcov(pred_mod, type="bias-corrected")
 
@@ -5483,7 +5486,7 @@ x_sweep <- seq(min(stimDataNoAmbPlot[[x_main]]),
                max(stimDataNoAmbPlot[[x_main]]),
                length.out=25)
 
-m10kpred <- marginaleffects::avg_predictions(pred_mod, fitDat,
+m10ipred <- marginaleffects::avg_predictions(pred_mod, fitDat,
                                               variables = list(Detect0p5dBIntEx50MaxLRScl=x_sweep),
                                                   by=c("Detect0p5dBIntEx50MaxLRScl"),
                                                   vcov=vc,
@@ -5491,7 +5494,7 @@ m10kpred <- marginaleffects::avg_predictions(pred_mod, fitDat,
   add_original_units(subjDataNoAmbScaling)
 
 
-m10kpredEvt <- marginaleffects::avg_predictions(pred_mod, fitDat,
+m10ipredEvt <- marginaleffects::avg_predictions(pred_mod, fitDat,
                                               variables = list(Detect0p5dBIntEx50MaxLRScl=x_sweep),
                                                   by=c("Detect0p5dBIntEx50MaxLRScl", "UASEvents"),
                                                   vcov=vc,
@@ -5503,7 +5506,7 @@ q1 <- 0.1
 q2 <- 0.9
 
 
-m10kpredDdR <- marginaleffects::avg_predictions(pred_mod, fitDat,
+m10ipredDdR <- marginaleffects::avg_predictions(pred_mod, fitDat,
                                               variables = list(Detect0p5dBIntEx50MaxLRScl=x_sweep,
                                                 dRoughECMA05ExStd=seq(-1, 3.15, 0.8),
                                                 PartSharpvBSHMPowAvgStd=to_model(
@@ -5520,7 +5523,7 @@ m10kpredDdR <- marginaleffects::avg_predictions(pred_mod, fitDat,
 
 gc()
 
-m10kpredDdT <- marginaleffects::avg_predictions(pred_mod, fitDat,
+m10ipredDdT <- marginaleffects::avg_predictions(pred_mod, fitDat,
                                               variables = list(Detect0p5dBIntEx50MaxLRScl=x_sweep,
                                                 dTonalECMAAvgStd=seq(-1.2, 3, 0.8),
                                                 PartSharpvBSHMPowAvgStd=to_model(
@@ -5550,7 +5553,7 @@ grid_vars <- list(
   sqm1_q
 ) |> setNames(c(x_main, sqm1))
 
-m10kpredT <- marginaleffects::avg_predictions(pred_mod, fitDat,
+m10ipredT <- marginaleffects::avg_predictions(pred_mod, fitDat,
                                 variables = grid_vars,
                                 by=c(x_main, names(grid_vars)[-1]),
                                 vcov=vc,
@@ -5571,7 +5574,7 @@ grid_vars <- list(
   sqm2_q
 ) |> setNames(c(x_main, sqm2))
 
-m10kpredS <- marginaleffects::avg_predictions(pred_mod, fitDat,
+m10ipredS <- marginaleffects::avg_predictions(pred_mod, fitDat,
                                 variables = grid_vars,
                                 by=c(x_main, names(grid_vars)[-1]),
                                 vcov=vc,
@@ -5591,7 +5594,7 @@ grid_vars <- list(
   sqm3_q
 ) |> setNames(c(x_main, sqm3))
 
-m10kpredR <- marginaleffects::avg_predictions(pred_mod, fitDat,
+m10ipredR <- marginaleffects::avg_predictions(pred_mod, fitDat,
                                 variables = grid_vars,
                                 by=c(x_main, names(grid_vars)[-1]),
                                 vcov=vc,
@@ -5602,28 +5605,21 @@ m10kpredR <- marginaleffects::avg_predictions(pred_mod, fitDat,
       ~ num_factor(.x, digits=2)
     ))
 
-
-
-# sqm 4
-sqm4 <- "dFluctOV10ExStd"
-sqm4_orig <- subjDataNoAmbScaling$variable[subjDataNoAmbScaling$new_variable == sqm4]
-sqm4_q <- unname(quantile(stimDataNoAmbPlot[[sqm4]], q_levels))
-grid_vars <- list(
-  x_sweep, 
-  sqm4_q
-) |> setNames(c(x_main, sqm4))
-
-m10kpredF <- marginaleffects::avg_predictions(pred_mod, fitDat,
-                                variables = grid_vars,
-                                by=c(x_main, names(grid_vars)[-1]),
-                                vcov=vc,
-                                transform=transform_dAnnoy) |>
-  add_original_units(subjDataNoAmbScaling) |>
-  dplyr::mutate(dplyr::across(
-      dplyr::all_of(c(names(grid_vars)[-1], sqm4_orig)),
-      ~ num_factor(.x, digits=2)
-    ))
-
+# # prediction with varying SQM values
+# oth   <- c("dTonalECMAAvgStd", "dRoughECMA05ExStd", "PartSharpvBSHMPowAvgStd")
+# slope <- sapply(oth, \(v) coef(lm(stimDataNoAmbPlot[[v]] ~ stimDataNoAmbPlot[[x_main]]))[[2]])
+# 
+# m10ipred2 <- lapply(x_sweep, \(x) {
+#     nd <- fitDat
+#     for (v in oth) nd[[v]] <- fitDat[[v]] + slope[[v]] * (x - fitDat[[x_main]])
+#     nd[[x_main]] <- x
+#     p <- marginaleffects::avg_predictions(pred_mod, newdata = nd, vcov = vc,
+#                                           transform = transform_dAnnoy)
+#     p[[x_main]] <- x
+#     p
+# }) |>
+#     dplyr::bind_rows() |>
+#     add_original_units(subjDataNoAmbScaling)
 
 ```
 
@@ -5632,7 +5628,7 @@ m10kpredF <- marginaleffects::avg_predictions(pred_mod, fitDat,
 ```{r}
 
 
-p1 <- ggplot(data=m10kpred) +
+p1 <- ggplot(data=m10ipred) +
               theme(panel.grid = element_blank(), aspect.ratio=1.35,
                     text = element_text(family = "serif", size=16),
                     axis.text=element_text(family = "serif", size=14)) +
@@ -5658,7 +5654,7 @@ p1 <- ggplot(data=m10kpred) +
               labs(x=expression(paste(UAS~italic(d*"'")[Sigma*50*","*0.5*s],",",~dB~re.~1)), y="Mean change in annoyance")
 
 
-p2 <- ggplot(data=m10kpredEvt) +
+p2 <- ggplot(data=m10ipredEvt) +
   theme(panel.grid = element_blank(), aspect.ratio=1.35,
         text = element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
@@ -5684,7 +5680,7 @@ p2 <- ggplot(data=m10kpredEvt) +
   
   labs(x=expression(paste(UAS~italic(d*"'")[Sigma*50*","*0.5*s],",",~dB~re.~1)), y="Mean change in annoyance")
 
-p3 <- plot_slice(m10kpredDdR, stimDataNoAmb,
+p3 <- plot_slice(m10ipredDdR, stimDataNoAmb,
                  x = "Detect0p5dBIntEx50MaxLR", y = "dAnnoyanceMean",
                  colour_v = "dRoughECMA05Ex",
                  facet_v  = "PartSharpvBSHMPowAvg",
@@ -5704,7 +5700,7 @@ p3 <- plot_slice(m10kpredDdR, stimDataNoAmb,
         axis.text.y = element_text(family = "serif", size = 14))
 
 
-p4 <- plot_slice(m10kpredDdT, stimDataNoAmb,
+p4 <- plot_slice(m10ipredDdT, stimDataNoAmb,
                  x = "Detect0p5dBIntEx50MaxLR", y = "dAnnoyanceMean",
                  colour_v = "dTonalECMAAvg",
                  facet_v  = "PartSharpvBSHMPowAvg",
@@ -5726,7 +5722,7 @@ p4 <- plot_slice(m10kpredDdT, stimDataNoAmb,
 
 
 sqm_title <- expression(paste(Delta*italic(R)[5]*","~asper["SHM"]))
-p5 <- ggplot(data=m10kpredR) +
+p5 <- ggplot(data=m10ipredR) +
     plot_theme +
     
     geom_point(data=stimDataNoAmbPlot,
@@ -5757,7 +5753,7 @@ p5 <- ggplot(data=m10kpredR) +
 
 
 sqm_title <- expression(paste(bar(Delta*italic(T))*","~tu[SHM]))
-p6 <- ggplot(data=m10kpredT) +
+p6 <- ggplot(data=m10ipredT) +
     plot_theme +
     
     geom_point(data=stimDataNoAmbPlot,
@@ -5787,7 +5783,7 @@ p6 <- ggplot(data=m10kpredT) +
     labs(x=expression(paste(UAS~italic(d*"'")[Sigma*50*","*0.5*s],",",~dB~re.~1)), y="Mean change in annoyance")
 
 sqm_title <- expression(paste(italic(S)[part.]^"*"*","~acum["vB-Z"~"|"~"SHM"]))
-p7 <- ggplot(data=m10kpredS) +
+p7 <- ggplot(data=m10ipredS) +
     plot_theme +
     
     geom_point(data=stimDataNoAmbPlot,
@@ -5817,36 +5813,6 @@ p7 <- ggplot(data=m10kpredS) +
     labs(x=expression(paste(UAS~italic(d*"'")[Sigma*50*","*0.5*s],",",~dB~re.~1)), y="Mean change in annoyance")
 
 
-sqm_title <- expression(paste(Delta*italic(F)[10]*","~vacil["OV"]))
-p8 <- ggplot(data=m10kpredF) +
-    plot_theme +
-    
-    geom_point(data=stimDataNoAmbPlot,
-               aes(x=.data[[x_main]], y=dAnnoyanceMean,
-                   colour=.data[[sqm4_orig]]),
-               alpha=0.55, size=2) +
-    scale_color_viridis_c(option='inferno', direction=1,
-                          breaks=to_original(sqm4_q, sqm4, subjDataNoAmbScaling),
-                          begin = 0.2, end = 0.8, labels=\(x) sprintf("%.2f", x),
-                        guide=guide_legend(title=sqm_title, reverse=TRUE)) +
-
-    ggnewscale::new_scale_colour() +
-  
-    geom_ribbon(aes(x=.data[[x_main]], ymin=conf.low, ymax=conf.high, fill=.data[[sqm4_orig]]),
-                alpha=0.15) +
-    geom_line(aes(x=.data[[x_main]], y=estimate, colour=.data[[sqm4_orig]]), linewidth=1) +
-    
-    scale_color_viridis_d(option='inferno', direction=1, begin = 0.2, end = 0.8,
-                        guide=guide_legend(title=sqm_title, reverse=TRUE)) +
-    scale_fill_viridis_d(option='inferno', direction=1, begin = 0.2, end = 0.8,
-                       guide=guide_legend(title=sqm_title, reverse=TRUE)) +
-  
-    scale_orig(x_main, subjDataNoAmbScaling, by = 10, digits = 0) +
-    
-    scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
-    
-    labs(x=expression(paste(UAS~italic(d*"'")[Sigma*50*","*0.5*s],",",~dB~re.~1)), y="Mean change in annoyance")
-
 p1p2 <- (p1 / p2) + plot_layout(guides = 'collect', axes='collect')
 
 p3p4 <- (p3 | p4) + plot_layout(guides = 'collect', axes='collect')
@@ -5866,31 +5832,30 @@ if (saveplots){
 }
 
 
-(p5 / p6) | (p7 / p8) + plot_layout(guides = 'collect', axes='collect') & 
-  theme(legend.position = "right")
+p5 | p6 | p7
 
 if (saveplots){
   
   filename <- "dAnnoyMn_PredMod_DetdSQnetDSQMs_geeQb"
 
-  ggsave(filename=paste(filename, ".svg", sep=""), width=10.5, height=8, path=file.path(outFigPath, "svg"))
+  ggsave(filename=paste(filename, ".svg", sep=""), width=15, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
 
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=10.5, height=8, path=file.path(outFigPath, "pdf"))
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=15, height=4, path=file.path(outFigPath, "pdf"))
   unlink(paste(filename, ".pdf", sep=""))
 }
 
 ```
+
 ### generate deployment version
 
 ```{r}
 
-m10k_deploy <- deploy_mean_model(m10k,
+m10i_deploy <- deploy_mean_model(m10i,
                                  centred_vars=list(Detect0p5dBIntEx50MaxLRScl="Detect0p5dBIntEx50MaxLR"),
                                  stdised_vars=list(PartSharpvBSHMPowAvgStd="PartSharpvBSHMPowAvg",
                                                    dRoughECMA05ExStd="dRoughECMA05Ex",
-                                                   dTonalECMAAvgStd="dTonalECMAAvg",
-                                                   dFluctOV10ExStd="dFluctOV10Ex"),
+                                                   dTonalECMAAvgStd="dTonalECMAAvg"),
                                  scaling_data=subjDataNoAmb,
                                  TrialNumberStd=0, coef_simplify=T, verbose=TRUE)
 
@@ -5904,12 +5869,1028 @@ m10k_deploy <- deploy_mean_model(m10k,
 if (savedata) {
 
   filename = "dA_DetdSQnet_Qb"
-  saveRDS(m10k, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+  saveRDS(m10i, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
 
   filename = "dA_DetdSQnet_Qb_deploy"
-  saveRDS(m10k_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+  saveRDS(m10i_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
 
 }
+
+```
+
+### model 11 formula
+
+```{r}
+
+m11formula <- dAnnoyanceOrdBetaScl ~ TrialNumberStd +
+  I(exp(0.03*EPNLLAF50diffScl) - 1.0727278)*I(log10(UASEvents) - 0.16481) +
+  PartSharpvBSHMPowAvgStd*I(exp(0.03*EPNLLAF50diffScl) - 1.0727278) +
+  PartTonLdSHMPowAvgStd*I(exp(0.03*EPNLLAF50diffScl) - 1.0727278) +
+  dImpulsLoudWZAvgStd + dFluctOV10ExStd + UASRoughECMA10ExStd
+m11formula
+
+m11Data <- subjDataNoAmb[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                 all.vars(m11formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dAnnoyanceOrdBetaScl))
+
+m11bformula <- dAnnoyanceOrdBetaScl ~ TrialNumberStd +
+  I(exp(0.03*EPNLLAF50diffScl) - 1.0727278)*I(log10(UASEvents) - 0.16481) +
+  PartSharpvBSHMPowAvgStd*I(exp(0.03*EPNLLAF50diffScl) - 1.0727278) +
+  dTonalECMAAvgStd*I(exp(0.03*EPNLLAF50diffScl) - 1.0727278) +
+  dImpulsLoudWZAvgStd + dFluctOV10ExStd + UASRoughECMA10ExStd
+m11bformula
+
+m11bData <- subjDataNoAmb[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                 all.vars(m11bformula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dAnnoyanceOrdBetaScl))
+
+m11cformula <- dAnnoyanceOrdBetaScl ~ TrialNumberStd +
+  I(exp(0.03*EPNLLAF50diffScl) - 1.0727278)*I(log10(UASEvents) - 0.16481) +
+  PartSharpvBSHMPowAvgStd*I(exp(0.03*EPNLLAF50diffScl) - 1.0727278) +
+  PartTonLdSHMPowAvgStd*I(exp(0.03*EPNLLAF50diffScl) - 1.0727278) +
+  dImpulsSHM05ExStd + dFluctOV10ExStd + UASRoughECMA10ExStd
+m11cformula
+
+m11cData <- subjDataNoAmb[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                 all.vars(m11cformula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dAnnoyanceOrdBetaScl))
+
+m11dformula <- dAnnoyanceOrdBetaScl ~ TrialNumberStd +
+  I(exp(0.03*EPNLLAF50diffScl) - 1.0727278)*I(log10(UASEvents) - 0.16481) +
+  PartSharpvBSHMPowAvgStd*I(exp(0.03*EPNLLAF50diffScl) - 1.0727278) +
+  dTonalECMAAvgStd*I(exp(0.03*EPNLLAF50diffScl) - 1.0727278) +
+  dImpulsSHM05ExStd + dFluctOV10ExStd + UASRoughECMA10ExStd
+m11dformula
+
+m11dData <- subjDataNoAmb[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                 all.vars(m11dformula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dAnnoyanceOrdBetaScl))
+
+m11eformula <- dAnnoyanceOrdBetaScl ~ TrialNumberStd +
+  I(exp(0.03*EPNLLAF50diffScl) - 1.0727278) + I(log10(UASEvents) - 0.16481) +
+  PartSharpvBSHMPowAvgStd*I(exp(0.03*EPNLLAF50diffScl) - 1.0727278) +
+  dTonalECMAAvgStd*I(exp(0.03*EPNLLAF50diffScl) - 1.0727278) +
+  dImpulsSHM05ExStd + dFluctOV10ExStd + UASRoughECMA10ExStd
+m11eformula
+
+
+```
+
+### run model
+
+#### check correlation structure
+
+```{r}
+
+geeCorStr(m11formula, data=m11Data, family=quasibinomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m11bformula, data=m11bData, family=quasibinomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m11cformula, data=m11cData, family=quasibinomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m11dformula, data=m11dData, family=quasibinomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m11eformula, data=m11dData, family=quasibinomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+```
+
+#### fit and estimate parameters
+
+```{r}
+
+m11 <- glmtoolbox::glmgee(m11formula, data=m11Data,
+                         family=quasibinomial(link='logit'),
+                         id=ID, waves=TrialNumber,
+                         corstr='exchangeable')
+
+m11b <- glmtoolbox::glmgee(m11bformula, data=m11bData,
+                         family=quasibinomial(link='logit'),
+                         id=ID, waves=TrialNumber,
+                         corstr='exchangeable')
+
+m11c <- glmtoolbox::glmgee(m11cformula, data=m11cData,
+                         family=quasibinomial(link='logit'),
+                         id=ID, waves=TrialNumber,
+                         corstr='exchangeable')
+
+m11d <- glmtoolbox::glmgee(m11dformula, data=m11dData,
+                         family=quasibinomial(link='logit'),
+                         id=ID, waves=TrialNumber,
+                         corstr='exchangeable')
+
+m11e <- glmtoolbox::glmgee(m11eformula, data=m11dData,
+                         family=quasibinomial(link='logit'),
+                         id=ID, waves=TrialNumber,
+                         corstr='exchangeable')
+
+geeParams(m11, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+geeParams(m11b, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+geeParams(m11c, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+geeParams(m11d, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+geeParams(m11e, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+
+```
+
+### analyse performance
+
+```{r}
+
+m11_cv <- cv_glmgee(m11, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                  data=na.omit(m11Data), agg_cols="StimID",
+                  return_predictions=TRUE,
+                  backtransform_fn=transform_dAnnoy,
+                  workers=n_cores) |>
+          cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
+
+m11b_cv <- cv_glmgee(m11b, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                  data=na.omit(m11bData), agg_cols="StimID",
+                  return_predictions=TRUE,
+                  backtransform_fn=transform_dAnnoy,
+                  workers=n_cores) |>
+          cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
+
+m11c_cv <- cv_glmgee(m11c, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                  data=na.omit(m11cData), agg_cols="StimID",
+                  return_predictions=TRUE,
+                  backtransform_fn=transform_dAnnoy,
+                  workers=n_cores) |>
+          cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
+
+m11d_cv <- cv_glmgee(m11d, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                  data=na.omit(m11dData), agg_cols="StimID",
+                  return_predictions=TRUE,
+                  backtransform_fn=transform_dAnnoy,
+                  workers=n_cores) |>
+          cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
+
+m11e_cv <- cv_glmgee(m11e, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                  data=na.omit(m11dData), agg_cols="StimID",
+                  return_predictions=TRUE,
+                  backtransform_fn=transform_dAnnoy,
+                  workers=n_cores) |>
+          cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
+
+geeModelPerformance(m1b, m2, m3i, m4, m5g, m6, m7g,
+                    m8b, m9h, m10i, m11, m11b, m11c, m11d, m11e,
+                    transform=transform_dAnnoy)
+
+compare_cv_results(list(m1b=m1b_cv, m2=m2_cv, m3i=m3i_cv, m4=m4_cv, m5g=m5g_cv,
+                        m6=m6_cv, m7g=m7g_cv, m8b=m8b_cv, m9h=m9h_cv, m10i=m10i_cv,
+                        m11=m11_cv, m11b=m11b_cv, m11c=m11c_cv, m11d=m11d_cv,
+                        m11e=m11e_cv))
+
+```
+
+### model diagnostics
+
+```{r, fig.width=12, fig.height=4}
+
+m11d.resP <- residuals(m11d, type="pearson", plot.it=FALSE,
+                      pch=1, col=mycolours[3], identify=10)
+
+gee_residplot(m11d, residual_vals=m11d.resP,
+              colour=mycolours[3], alpha=0.3) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4, text=element_text (family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Fitted values", y="Standardised Pearson residuals")
+
+m11d.resM <- residuals(m11d, type="mahalanobis", plot.it=FALSE)
+
+# plot Mahalanobis residuals with ggplot2 on a stem plot replacing the index by the corresponding participant ID
+geeCluster_stemplot(m11d,
+                    clusterVar=m11d.resM,
+                    colour=mycolours[2], alpha=0.7) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Participant ID", y="Mahalanobis distance")
+
+m11d.Cook <- cooks.distance(m11d, plot.it=FALSE)
+
+geeCluster_stemplot(m11d, clusterVar=m11d.Cook,
+                    colour=mycolours[4], alpha=0.7) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Participant ID", y="Cook's distance")
+
+glmgee_vif(m11d)
+
+```
+
+### analyse and visualise calibration
+
+```{r}
+
+m11dpredMeans <- marginaleffects::avg_predictions(m11d, newdata=na.omit(m11dData),
+                                                  by=c("StimID"),
+                                                  vcov=vcov(m11d, type='bias-corrected'),
+                                                 type='response',
+                                                transform=transform_dAnnoy) |>
+  dplyr::arrange(StimID)
+
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyanceMean - m11dpredMeans$estimate)^2)/sum((stimDataNoAmb$dAnnoyanceMean - mean(stimDataNoAmb$dAnnoyanceMean))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m11dpredMeans,
+                     measured_target='dAnnoyanceMean', measured_ci_low='dAnnoyanceMeanCI_Low',
+                     measured_ci_high='dAnnoyanceMeanCI_High', fitted='estimate')
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=cbind(m11dpredMeans,
+                  response=stimDataNoAmb$dAnnoyanceMean,
+                  responseCI_Low=stimDataNoAmb$dAnnoyanceMeanCI_Low,
+                  responseCI_High=stimDataNoAmb$dAnnoyanceMeanCI_High)) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  geom_point(mapping=aes(x=response, y=estimate), size=1.75, shape=4, stroke=0.75, colour=mycolours[1], alpha=0.5) +
+
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate), width=0, colour=mycolours[1], alpha=0.1) +
+  
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=conf.low, ymax=conf.high), width=0, colour=mycolours[1], alpha=0.1) +
+
+  scale_x_continuous(breaks=seq(-2, 10, by=1), limits=c(-1, 9)) +
+  scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-1, 9)) +
+  
+  labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance") +
+  
+  ggplot2::annotate("text", x=0.1, y=6.75, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=0.1, y=6, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = 0.1, y = 5.25, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
+
+
+```
+
+### test model interactions
+
+#### stepwise back removal of variables
+
+```{r}
+
+modelStep <- glmtoolbox::stepCriterion(model=m11d,
+                                       criterion='agpc', test='score',
+                                       direction='backward',
+                                       varest='bias-corrected')
+
+m11dformula
+modelStep$final
+
+```
+
+### regularised version of model with glmnet
+
+```{r}
+
+mf <- model.frame(m11dformula, data = m11dData)      # na.omit happens here
+kept_rows <- as.integer(rownames(mf))               # original row indices actually retained
+
+y_matrix <- model.response(mf)
+X_matrix <- model.matrix(m11dformula, data=m11dData)[,-1]
+
+StimID_kept <- m11dData$StimID[kept_rows]
+
+set.seed(888888)
+stim_folds <- setNames(
+  sample(rep(1:10, length.out = length(unique(StimID_kept)))),
+  unique(StimID_kept)
+)
+foldid <- stim_folds[as.character(StimID_kept)]
+
+stopifnot(length(foldid) == nrow(X_matrix), length(y_matrix) == nrow(X_matrix))
+
+
+set.seed(888888)
+m11f <- glmnet::cv.glmnet(x=X_matrix, y=y_matrix, family=quasibinomial(link='logit'),
+                         alpha=0.5, foldid=foldid, type.measure='deviance',
+                         standardize=TRUE, lambda.min.ratio = 1e-200, nlambda = 800)
+
+coef(m11f, s = "lambda.min")
+coef(m11f, s = "lambda.1se")
+
+```
+
+```{r}
+
+# 1. Turn the glmnet path data into a clean data frame
+coefficient_paths <- broom::tidy(m11f$glmnet.fit, return_zeros=TRUE) |>
+  dplyr::filter(term != "(Intercept)") # Exclude intercept to keep scale clean
+
+col_pal <- randomcoloR::distinctColorPalette(k = length(unique(coefficient_paths$term)), altCol = FALSE, runTsne = FALSE)
+
+# 3. Create the ggplot
+ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
+  geom_line(linewidth = 1.5, alpha=0.6) +
+  # Use your custom colour palette mycolours as colour scale
+  scale_color_manual(values = col_pal) +
+  scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
+  # scale_y_log10() +
+  geom_vline(xintercept = m11f$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
+  ggplot2::annotate("text", x = m11f$lambda.min*1.25, y = max(coefficient_paths$estimate) * 0.5, 
+           label = expression(paste("Minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
+  geom_vline(xintercept = m11f$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
+  ggplot2::annotate("text", x = m11f$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
+           label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
+  labs(x = expression(Penalty*","~lambda),
+      y = "Coefficient estimate",
+      color = "Predictors"
+  ) +
+  theme(panel.grid.major = element_line(colour = alpha("grey90", alpha=0.5), linetype='dashed'),
+        panel.grid.minor = element_blank(),
+        aspect.ratio=1,
+        text = element_text(family = "serif", size=14),
+        axis.text=element_text(family = "serif", size=14),
+        legend.text=element_text(family = "serif", size=12),
+        legend.position='right')
+
+ 
+```
+
+#### fit elastic net-informed model
+
+##### formula
+
+```{r}
+
+m11gformula <- update(m11dformula, . ~ . - dFluctOV10ExStd)
+m11gformula
+
+m11hformula <- update(m11dformula, . ~ . - dFluctOV10ExStd -
+                        I(exp(0.03*EPNLLAF50diffScl) - 1.0727278):I(log10(UASEvents) - 0.16481))
+m11hformula
+
+m11iformula <- update(m11dformula, . ~ . - dFluctOV10ExStd -
+                        dImpulsSHM05ExStd)
+m11iformula
+
+m11jformula <- update(m11dformula, . ~ . - dFluctOV10ExStd -
+                        dImpulsSHM05ExStd -
+                        PartSharpvBSHMPowAvgStd:I(exp(0.03*EPNLLAF50diffScl) - 1.0727278))
+m11jformula
+
+m11kformula <- update(m11dformula, . ~ . - dImpulsSHM05ExStd)
+m11kformula
+
+m11lformula <- update(m11dformula, . ~ . - dImpulsSHM05ExStd -
+                        PartSharpvBSHMPowAvgStd:I(exp(0.03*EPNLLAF50diffScl) - 1.0727278))
+m11lformula
+
+
+m11mformula <- update(m11dformula, . ~ . - dFluctOV10ExStd -
+                        dTonalECMAAvgStd:I(exp(0.03*EPNLLAF50diffScl) - 1.0727278) -
+                        dTonalECMAAvgStd)
+m11mformula
+
+
+```
+
+##### run model
+
+###### check correlation structure
+
+```{r}
+
+geeCorStr(m11gformula, data=m11dData, family=quasibinomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m11hformula, data=m11dData, family=quasibinomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m11iformula, data=m11dData, family=quasibinomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m11jformula, data=m11dData, family=quasibinomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m11kformula, data=m11dData, family=quasibinomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m11lformula, data=m11dData, family=quasibinomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m11mformula, data=m11dData, family=quasibinomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+
+```
+
+###### fit and estimate parameters
+
+```{r}
+
+m11g <- glmtoolbox::glmgee(m11gformula, data=m11dData,
+                          family=quasibinomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+m11h <- glmtoolbox::glmgee(m11hformula, data=m11dData,
+                          family=quasibinomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+m11i <- glmtoolbox::glmgee(m11iformula, data=m11dData,
+                          family=quasibinomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+m11j <- glmtoolbox::glmgee(m11jformula, data=m11dData,
+                          family=quasibinomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+m11k <- glmtoolbox::glmgee(m11kformula, data=m11dData,
+                          family=quasibinomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+m11l <- glmtoolbox::glmgee(m11lformula, data=m11dData,
+                          family=quasibinomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+m11m <- glmtoolbox::glmgee(m11mformula, data=m11dData,
+                          family=quasibinomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+geeParams(m11g, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+geeParams(m11h, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+geeParams(m11i, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+geeParams(m11j, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+geeParams(m11k, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+geeParams(m11l, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+geeParams(m11m, ci=0.95, exponentiate=FALSE, varest='bias-corrected', verbose=FALSE)
+
+```
+
+##### analyse performance
+
+```{r}
+
+m11g_cv <- cv_glmgee(m11g, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                    data=na.omit(m11dData), agg_cols="StimID",
+                    return_predictions=TRUE,
+                    backtransform_fn=transform_dAnnoy,
+                    workers=n_cores) |>
+          cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
+
+m11h_cv <- cv_glmgee(m11h, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                    data=na.omit(m11dData), agg_cols="StimID",
+                    return_predictions=TRUE,
+                    backtransform_fn=transform_dAnnoy,
+                    workers=n_cores) |>
+          cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
+
+m11i_cv <- cv_glmgee(m11i, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                    data=na.omit(m11dData), agg_cols="StimID",
+                    return_predictions=TRUE,
+                    backtransform_fn=transform_dAnnoy,
+                    workers=n_cores) |>
+          cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
+
+m11j_cv <- cv_glmgee(m11j, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                    data=na.omit(m11dData), agg_cols="StimID",
+                    return_predictions=TRUE,
+                    backtransform_fn=transform_dAnnoy,
+                    workers=n_cores) |>
+          cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
+
+m11k_cv <- cv_glmgee(m11k, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                    data=na.omit(m11dData), agg_cols="StimID",
+                    return_predictions=TRUE,
+                    backtransform_fn=transform_dAnnoy,
+                    workers=n_cores) |>
+          cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
+
+m11l_cv <- cv_glmgee(m11l, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                    data=na.omit(m11dData), agg_cols="StimID",
+                    return_predictions=TRUE,
+                    backtransform_fn=transform_dAnnoy,
+                    workers=n_cores) |>
+          cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
+
+m11m_cv <- cv_glmgee(m11m, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                    data=na.omit(m11dData), agg_cols="StimID",
+                    return_predictions=TRUE,
+                    backtransform_fn=transform_dAnnoy,
+                    workers=n_cores) |>
+          cv_aggregated_metrics(backtransform_fn=transform_dAnnoy)
+
+geeModelPerformance(m11d, m11g, m11h, m11i, m11j, m11k, m11l, m11m, transform=transform_dAnnoy)
+
+compare_cv_results(list(m11d=m11d_cv, m11g=m11g_cv, m11h=m11h_cv,
+                        m11i=m11i_cv, m11j=m11j_cv, m11k=m11k_cv, m11l=m11l_cv,
+                        m11m=m11m_cv))
+
+```
+
+##### model diagnostics
+
+```{r, fig.width=12, fig.height=4}
+
+m11g.resP <- residuals(m11g, type="pearson", plot.it=FALSE,
+                      pch=1, col=mycolours[3], identify=10)
+
+gee_residplot(m11g, residual_vals=m11g.resP,
+              colour=mycolours[3], alpha=0.3) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4, text=element_text (family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Fitted values", y="Standardised Pearson residuals")
+
+m11g.resM <- residuals(m11g, type="mahalanobis", plot.it=FALSE)
+
+# plot Mahalanobis residuals with ggplot2 on a stem plot replacing the index by the corresponding participant ID
+geeCluster_stemplot(m11g,
+                    clusterVar=m11g.resM,
+                    colour=mycolours[2], alpha=0.7) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Participant ID", y="Mahalanobis distance")
+
+m11g.Cook <- cooks.distance(m11g, plot.it=FALSE)
+
+geeCluster_stemplot(m11g, clusterVar=m11g.Cook,
+                    colour=mycolours[4], alpha=0.7) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Participant ID", y="Cook's distance")
+
+glmgee_vif(m11g)
+
+```
+
+##### analyse and visualise calibration
+
+```{r}
+
+m11gpredMeans <- marginaleffects::avg_predictions(m11g, newdata=na.omit(m11dData),
+                                                  by=c("StimID"),
+                                                  vcov=vcov(m11g, type='bias-corrected'),
+                                                 type='response',
+                                                transform=transform_dAnnoy) |>
+  dplyr::arrange(StimID)
+
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyanceMean - m11gpredMeans$estimate)^2)/sum((stimDataNoAmb$dAnnoyanceMean - mean(stimDataNoAmb$dAnnoyanceMean))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m11gpredMeans,
+                     measured_target='dAnnoyanceMean', measured_ci_low='dAnnoyanceMeanCI_Low',
+                     measured_ci_high='dAnnoyanceMeanCI_High', fitted='estimate')
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=cbind(m11gpredMeans,
+                  response=stimDataNoAmb$dAnnoyanceMean,
+                  responseCI_Low=stimDataNoAmb$dAnnoyanceMeanCI_Low,
+                  responseCI_High=stimDataNoAmb$dAnnoyanceMeanCI_High)) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  geom_point(mapping=aes(x=response, y=estimate), size=1.75, shape=4, stroke=0.75, colour=mycolours[2], alpha=0.5) +
+
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate), width=0, colour=mycolours[2], alpha=0.1) +
+  
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=conf.low, ymax=conf.high), width=0, colour=mycolours[2], alpha=0.1) +
+
+  scale_x_continuous(breaks=seq(-2, 10, by=1), limits=c(-1, 9)) +
+  scale_y_continuous(breaks=seq(-2, 10, by=1), limits=c(-1, 9)) +
+  
+  labs(x="Mean change in annoyance (test)", y="Predicted mean change in annoyance") +
+  
+  ggplot2::annotate("text", x=0.1, y=6.75, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=0.1, y=6, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = 0.1, y = 5.25, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
+
+if (saveplots){
+  
+  filename <- "dAnnoyMn_PredMod_AlldSQ2netCal_geeQb"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
+##### analyse population-average predictions
+
+```{r}
+
+pred_mod <- m11g
+fitDat <- insight::get_data(pred_mod)
+vc <- vcov(pred_mod, type="bias-corrected")
+
+n_sweep  <- 25
+
+x_main    <- "EPNLLAF50diffScl"
+
+x_sweep <- seq(min(stimDataNoAmbPlot[[x_main]]),
+               max(stimDataNoAmbPlot[[x_main]]),
+               length.out=25)
+
+m11gpred <- marginaleffects::avg_predictions(pred_mod, fitDat,
+                                              variables = list(EPNLLAF50diffScl=x_sweep),
+                                                  by=c("EPNLLAF50diffScl"),
+                                                  vcov=vc,
+                                                  transform=transform_dAnnoy) |>
+  add_original_units(subjDataNoAmbScaling)
+
+
+m11gpredEvt <- marginaleffects::avg_predictions(pred_mod, fitDat,
+                                              variables = list(EPNLLAF50diffScl=x_sweep),
+                                                  by=c("EPNLLAF50diffScl", "UASEvents"),
+                                                  vcov=vc,
+                                                  transform=transform_dAnnoy) |>
+  add_original_units(subjDataNoAmbScaling)
+
+
+q1 <- 0.1
+q2 <- 0.9
+
+
+m11gpredDdR <- marginaleffects::avg_predictions(pred_mod, fitDat,
+                                              variables = list(EPNLLAF50diffScl=x_sweep,
+                                                UASRoughECMA10ExStd=seq(-1.4, 2, 0.85),
+                                                PartSharpvBSHMPowAvgStd=to_model(
+                                                  unname(quantile(stimDataNoAmb$PartSharpvBSHMPowAvg,
+                                                                  c(q1, q2))),
+                                                  "PartSharpvBSHMPowAvgStd", subjDataNoAmbScaling)),
+                                          by = c("EPNLLAF50diffScl", "UASRoughECMA10ExStd",
+                                                 "PartSharpvBSHMPowAvgStd"),
+                                          vcov = vc,
+                                                  transform=transform_dAnnoy) |>
+  add_original_units(subjDataNoAmbScaling) |>
+  dplyr::mutate(UASRoughECMA10Ex = num_factor(UASRoughECMA10Ex),
+                PartSharpvBSHMPowAvg     = num_factor(PartSharpvBSHMPowAvg))
+
+gc()
+
+m11gpredDdT <- marginaleffects::avg_predictions(pred_mod, fitDat,
+                                              variables = list(EPNLLAF50diffScl=x_sweep,
+                                                dTonalECMAAvgStd=seq(-1.2, 3, 0.8),
+                                                PartSharpvBSHMPowAvgStd=to_model(
+                                                  unname(quantile(stimDataNoAmb$PartSharpvBSHMPowAvg,
+                                                                  c(q1, q2))),
+                                                  "PartSharpvBSHMPowAvgStd", subjDataNoAmbScaling)),
+                                          by = c("EPNLLAF50diffScl", "dTonalECMAAvgStd",
+                                                 "PartSharpvBSHMPowAvgStd"),
+                                          vcov = vc,
+                                                  transform=transform_dAnnoy) |>
+  add_original_units(subjDataNoAmbScaling) |>
+  dplyr::mutate(PartSharpvBSHMPowAvg = num_factor(PartSharpvBSHMPowAvg),
+                dTonalECMAAvg     = num_factor(dTonalECMAAvg))
+
+gc()
+
+q_levels <- c(0.1, 0.5, 0.9)            # quantiles used for "low / mid / high" slices
+
+
+# sqm 1
+
+sqm1 <- "dTonalECMAAvgStd"
+sqm1_orig <- subjDataNoAmbScaling$variable[subjDataNoAmbScaling$new_variable == sqm1]
+sqm1_q <- unname(quantile(stimDataNoAmbPlot[[sqm1]], q_levels))
+grid_vars <- list(
+  x_sweep, 
+  sqm1_q
+) |> setNames(c(x_main, sqm1))
+
+m11gpredT <- marginaleffects::avg_predictions(pred_mod, fitDat,
+                                variables = grid_vars,
+                                by=c(x_main, names(grid_vars)[-1]),
+                                vcov=vc,
+                                transform=transform_dAnnoy) |>
+  add_original_units(subjDataNoAmbScaling) |>
+  dplyr::mutate(dplyr::across(
+      dplyr::all_of(c(names(grid_vars)[-1], sqm1_orig)), 
+      ~ num_factor(.x, digits=2)
+    ))
+
+# sqm 2
+
+sqm2 <- "PartSharpvBSHMPowAvgStd"
+sqm2_orig <- subjDataNoAmbScaling$variable[subjDataNoAmbScaling$new_variable == sqm2]
+sqm2_q <- unname(quantile(stimDataNoAmbPlot[[sqm2]], q_levels))
+grid_vars <- list(
+  x_sweep, 
+  sqm2_q
+) |> setNames(c(x_main, sqm2))
+
+m11gpredS <- marginaleffects::avg_predictions(pred_mod, fitDat,
+                                variables = grid_vars,
+                                by=c(x_main, names(grid_vars)[-1]),
+                                vcov=vc,
+                                transform=transform_dAnnoy) |>
+  add_original_units(subjDataNoAmbScaling) |>
+  dplyr::mutate(dplyr::across(
+      dplyr::all_of(c(names(grid_vars)[-1], sqm2_orig)),
+      ~ num_factor(.x, digits=2)
+    ))
+
+# sqm 3
+sqm3 <- "UASRoughECMA10ExStd"
+sqm3_orig <- subjDataNoAmbScaling$variable[subjDataNoAmbScaling$new_variable == sqm3]
+sqm3_q <- unname(quantile(stimDataNoAmbPlot[[sqm3]], q_levels))
+grid_vars <- list(
+  x_sweep, 
+  sqm3_q
+) |> setNames(c(x_main, sqm3))
+
+m11gpredR <- marginaleffects::avg_predictions(pred_mod, fitDat,
+                                variables = grid_vars,
+                                by=c(x_main, names(grid_vars)[-1]),
+                                vcov=vc,
+                                transform=transform_dAnnoy) |>
+  add_original_units(subjDataNoAmbScaling) |>
+  dplyr::mutate(dplyr::across(
+      dplyr::all_of(c(names(grid_vars)[-1], sqm3_orig)),
+      ~ num_factor(.x, digits=2)
+    ))
+
+# # prediction with varying SQM values
+# oth   <- c("dTonalECMAAvgStd", "UASRoughECMA10ExStd", "PartSharpvBSHMPowAvgStd")
+# slope <- sapply(oth, \(v) coef(lm(stimDataNoAmbPlot[[v]] ~ stimDataNoAmbPlot[[x_main]]))[[2]])
+# 
+# m11gpred2 <- lapply(x_sweep, \(x) {
+#     nd <- fitDat
+#     for (v in oth) nd[[v]] <- fitDat[[v]] + slope[[v]] * (x - fitDat[[x_main]])
+#     nd[[x_main]] <- x
+#     p <- marginaleffects::avg_predictions(pred_mod, newdata = nd, vcov = vc,
+#                                           transform = transform_dAnnoy)
+#     p[[x_main]] <- x
+#     p
+# }) |>
+#     dplyr::bind_rows() |>
+#     add_original_units(subjDataNoAmbScaling)
+
+```
+
+##### visualise predictions
+
+```{r}
+
+x_labels <- c(EPNLLAF50diff = expression(paste("UAS EPNL"~-~"amb."~italic(L)[AF50]*","~dB)))
+
+p1 <- ggplot(data=m11gpred) +
+              theme(panel.grid = element_blank(), aspect.ratio=1.35,
+                    text = element_text(family = "serif", size=16),
+                    axis.text=element_text(family = "serif", size=14)) +
+              
+              geom_point(data=stimDataNoAmb,
+                         aes(x=EPNLLAF50diff, y=dAnnoyanceMean,
+                             colour=AmbientEnvCore, shape=AmbientEnvCore),
+                         alpha=0.55, size=2) +
+              
+              scale_color_viridis(option='magma', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
+                                  guide=guide_legend(title="Ambient env.", reverse=TRUE)) +
+              scale_shape_manual(values=c(6, 2, 0, 3), guide=guide_legend(title="Ambient env.", reverse=TRUE)) +
+  
+              geom_ribbon(aes(x=EPNLLAF50diff, ymin=conf.low, ymax=conf.high),
+                          fill='black', alpha=0.15) +
+              
+              geom_line(aes(x=EPNLLAF50diff, y=estimate), colour='black', linewidth=1) +
+
+              scale_x_continuous(breaks = scales::breaks_width(10)) +
+              
+              scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
+              
+              labs(x=x_labels[1], y="Mean change in annoyance")
+
+
+p2 <- ggplot(data=m11gpredEvt) +
+  theme(panel.grid = element_blank(), aspect.ratio=1.35,
+        text = element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_point(data=stimDataNoAmbPlot,
+             aes(x=EPNLLAF50diff, y=dAnnoyanceMean,
+                 colour=factor(UASEvents), shape=factor(UASEvents)),
+             alpha=0.55, size=2) +
+  
+  geom_ribbon(aes(x=EPNLLAF50diff, ymin=conf.low, ymax=conf.high, fill=factor(UASEvents)),
+              alpha=0.15) +
+  
+  geom_line(aes(x=EPNLLAF50diff, y=estimate, colour=factor(UASEvents)), linewidth=1) +
+  
+  scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
+                      guide=guide_legend(title="UAS events", reverse=TRUE)) +
+  scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
+                     guide=guide_legend(title="UAS events", reverse=TRUE)) +
+  scale_shape_manual(values=c(4, 5, 7), guide=guide_legend(title="UAS events", reverse=TRUE)) +
+
+  scale_x_continuous(breaks = scales::breaks_width(10)) +
+  scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
+  
+  labs(x=x_labels[1], y="Mean change in annoyance")
+
+p3 <- plot_slice(m11gpredDdR, stimDataNoAmb,
+                 x = "EPNLLAF50diff", y = "dAnnoyanceMean",
+                 colour_v = "UASRoughECMA10Ex",
+                 facet_v  = "PartSharpvBSHMPowAvg",
+                 facet_labeller = label_bquote(rows = UAS~italic(S)[part.]^"*"*","~acum["vB-Z"~"|"~"SHM"] %->%
+                                                 .(as.character(PartSharpvBSHMPowAvg))),
+                 q = c(q1, q2), option = "mako",
+                 colour_title = expression(paste(UAS~italic(R)[10]*","~asper["SHM"])),
+                 colour_breaks = to_original(seq(-1.4, 2, 0.85),
+                                             "UASRoughECMA10ExStd", subjDataNoAmbScaling)) +
+  scale_x_continuous(breaks = scales::breaks_width(10)) +
+  scale_y_continuous(breaks = seq(-10, 10, by = 1), limits = c(-2, 8)) +
+  labs(x = x_labels[1],
+       y = "Mean change in annoyance") +
+  theme(panel.grid = element_blank(), aspect.ratio = 1.35,
+        text = element_text(family = "serif", size = 16),
+        axis.text.x = element_text(family = "serif", size = 10),
+        axis.text.y = element_text(family = "serif", size = 14))
+
+
+p4 <- plot_slice(m11gpredDdT, stimDataNoAmb,
+                 x = "EPNLLAF50diff", y = "dAnnoyanceMean",
+                 colour_v = "dTonalECMAAvg",
+                 facet_v  = "PartSharpvBSHMPowAvg",
+                 facet_labeller = label_bquote(rows = UAS~italic(S)[part.]^"*"*","~acum["vB-Z"~"|"~"SHM"] %->%
+                                                 .(as.character(PartSharpvBSHMPowAvg))),
+                 q = c(q1, q2), option = "rocket",
+                 colour_title = expression(paste(UAS~bar(Delta*italic(T))*","~tu["SHM"])),
+                 colour_breaks = to_original(seq(-1.2, 3, 0.8),
+                                             "dTonalECMAAvgStd", subjDataNoAmbScaling)) +
+  scale_x_continuous(breaks = scales::breaks_width(10)) +
+  scale_y_continuous(breaks = seq(-10, 10, by = 1), limits = c(-2, 8)) +
+  labs(x = x_labels[1],
+       y = "Mean change in annoyance") +
+  theme(panel.grid = element_blank(), aspect.ratio = 1.35,
+        text = element_text(family = "serif", size = 16),
+        axis.text.x = element_text(family = "serif", size = 10),
+        axis.text.y = element_text(family = "serif", size = 14))
+
+
+
+sqm_title <- expression(paste(italic(R)[10]*","~asper["SHM"]))
+p5 <- ggplot(data=m11gpredR) +
+    plot_theme +
+    
+    geom_point(data=stimDataNoAmbPlot,
+               aes(x=.data[[x_main]], y=dAnnoyanceMean,
+                   colour=.data[[sqm3_orig]]),
+               alpha=0.55, size=2) +
+    scale_color_viridis_c(option='rocket', direction=1,
+                          breaks=to_original(sqm3_q, sqm3, subjDataNoAmbScaling),
+                        begin = 0.2, end = 0.8, labels=\(x) sprintf("%.2f", x),
+                        guide=guide_legend(title=sqm_title, reverse=TRUE)) +
+
+    ggnewscale::new_scale_colour() +
+  
+    geom_ribbon(aes(x=.data[[x_main]], ymin=conf.low, ymax=conf.high, fill=.data[[sqm3_orig]]),
+                alpha=0.15) +
+    geom_line(aes(x=.data[[x_main]], y=estimate, colour=.data[[sqm3_orig]]), linewidth=1) +
+    
+    scale_color_viridis_d(option='rocket', direction=1, begin = 0.2, end = 0.8,
+                        guide=guide_legend(title=sqm_title, reverse=TRUE)) +
+    scale_fill_viridis_d(option='rocket', direction=1, begin = 0.2, end = 0.8,
+                       guide=guide_legend(title=sqm_title, reverse=TRUE)) +
+  
+    scale_orig(x_main, subjDataNoAmbScaling, by = 10, digits = 0) +
+    
+    scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
+    
+    labs(x=x_labels[1], y="Mean change in annoyance")
+
+
+sqm_title <- expression(paste(bar(Delta*italic(T))*","~tu[SHM]))
+p6 <- ggplot(data=m11gpredT) +
+    plot_theme +
+    
+    geom_point(data=stimDataNoAmbPlot,
+               aes(x=.data[[x_main]], y=dAnnoyanceMean,
+                   colour=.data[[sqm1_orig]]),
+               alpha=0.55, size=2) +
+    scale_color_viridis_c(option='mako', direction=1,
+                          breaks=to_original(sqm1_q, sqm1, subjDataNoAmbScaling),
+                          begin = 0.2, end = 0.8, labels=\(x) sprintf("%.2f", x),
+                        guide=guide_legend(title=sqm_title, reverse=TRUE)) +
+
+    ggnewscale::new_scale_colour() +
+  
+    geom_ribbon(aes(x=.data[[x_main]], ymin=conf.low, ymax=conf.high, fill=.data[[sqm1_orig]]),
+                alpha=0.15) +
+    geom_line(aes(x=.data[[x_main]], y=estimate, colour=.data[[sqm1_orig]]), linewidth=1) +
+    
+    scale_color_viridis_d(option='mako', direction=1, begin = 0.2, end = 0.8,
+                        guide=guide_legend(title=sqm_title, reverse=TRUE)) +
+    scale_fill_viridis_d(option='mako', direction=1, begin = 0.2, end = 0.8,
+                       guide=guide_legend(title=sqm_title, reverse=TRUE)) +
+  
+    scale_orig(x_main, subjDataNoAmbScaling, by = 10, digits = 0) +
+    
+    scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
+    
+    labs(x=x_labels[1], y="Mean change in annoyance")
+
+sqm_title <- expression(paste(italic(S)[part.]^"*"*","~acum["vB-Z"~"|"~"SHM"]))
+p7 <- ggplot(data=m11gpredS) +
+    plot_theme +
+    
+    geom_point(data=stimDataNoAmbPlot,
+               aes(x=.data[[x_main]], y=dAnnoyanceMean,
+                   colour=.data[[sqm2_orig]]),
+               alpha=0.55, size=2) +
+    scale_color_viridis_c(option='cividis', direction=1,
+                          breaks=to_original(sqm2_q, sqm2, subjDataNoAmbScaling),
+                          begin = 0.2, end = 0.8, labels=\(x) sprintf("%.2f", x),
+                        guide=guide_legend(title=sqm_title, reverse=TRUE)) +
+
+    ggnewscale::new_scale_colour() +
+  
+    geom_ribbon(aes(x=.data[[x_main]], ymin=conf.low, ymax=conf.high, fill=.data[[sqm2_orig]]),
+                alpha=0.15) +
+    geom_line(aes(x=.data[[x_main]], y=estimate, colour=.data[[sqm2_orig]]), linewidth=1) +
+    
+    scale_color_viridis_d(option='cividis', direction=1, begin = 0.2, end = 0.8,
+                        guide=guide_legend(title=sqm_title, reverse=TRUE)) +
+    scale_fill_viridis_d(option='cividis', direction=1, begin = 0.2, end = 0.8,
+                       guide=guide_legend(title=sqm_title, reverse=TRUE)) +
+  
+    scale_orig(x_main, subjDataNoAmbScaling, by = 10, digits = 0) +
+    
+    scale_y_continuous(breaks=seq(-10, 10, by=1), limits=c(-2, 8)) +
+    
+    labs(x=x_labels[1], y="Mean change in annoyance")
+
+
+p1p2 <- (p1 / p2) + plot_layout(guides = 'collect', axes='collect')
+
+p3p4 <- (p3 | p4) + plot_layout(guides = 'collect', axes='collect')
+
+(p1p2 | p3p4) + plot_layout(widths = c(0.7, 2)) & 
+  theme(legend.position = "right")
+
+if (saveplots){
+  
+  filename <- "dAnnoyMn_PredMod_AlldSQ2netDdRdI_geeQb"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=15, height=8, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=15, height=8, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+
+p5 | p6 | p7
+
+if (saveplots){
+  
+  filename <- "dAnnoyMn_PredMod_AlldSQ2netDSQMs_geeQb"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=15, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=15, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+### generate deployment version
+
+```{r}
+
+m11g_deploy <- deploy_mean_model(m11g,
+                                 centred_vars=list(EPNLLAF50diffScl="EPNLLAF50diff"),
+                                 stdised_vars=list(PartSharpvBSHMPowAvgStd="PartSharpvBSHMPowAvg",
+                                                   UASRoughECMA10ExStd="UASRoughECMA10Ex",
+                                                   dTonalECMAAvgStd="dTonalECMAAvg",
+                                                   dImpulsSHM05ExStd="dImpulsSHM05Ex"),
+                                 scaling_data=subjDataNoAmb,
+                                 TrialNumberStd=0, coef_simplify=T, verbose=TRUE)
+
+```
+
+## Export the CV results
+
+```{r}
+
+dAnnoy_CV_res <- compare_cv_results(list(m1b=m1b_cv, m2=m2_cv, m3i=m3i_cv,
+                                        m4=m4_cv, m5g=m5g_cv, m6=m6_cv,
+                                        m7g=m7g_cv, m8b=m8b_cv, m9h=m9h_cv,
+                                        m11g=m11g_cv))
+
+dAnnoy_CV_res
+
+write.csv(dAnnoy_CV_res, file=file.path(outDataPath, "dAnnoy_CV_results.csv"),
+          row.names=FALSE)
 
 ```
 
@@ -10069,7 +11050,7 @@ ggplot(data=cbind(m20dpredMeans,
 
 if (saveplots){
   
-  filename <- "dHiAnnoy_PredMod_AllPAnetCal_gee"
+  filename <- "dHiAnnoy_PredMod_PACal_gee"
 
   ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
@@ -10099,6 +11080,241 @@ if (savedata) {
   filename = "dHiA_PA_deploy"
   saveRDS(m20d_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
 }
+
+```
+
+## Detectability model
+
+### model 21 formula
+
+```{R}
+
+m21formula <- dProbHA20k ~ TrialNumberStd + Detect0p1dBMaxEx50MaxLRScl*I(log10(UASEvents) - 0.16481)
+m21formula
+
+m21Data <- subjDataNoAmb[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                 all.vars(m21formula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dProbHA20k))
+
+m21bformula <- dProbHA20k ~ TrialNumberStd + Detect0p5dBMaxEx50MaxLRScl*I(log10(UASEvents) - 0.16481)
+m21bformula
+
+m21bData <- subjDataNoAmb[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                  all.vars(m21bformula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dProbHA20k))
+
+m21cformula <- dProbHA20k ~ TrialNumberStd + Detect0p5dBMaxEx50MaxLRScl + I(log10(UASEvents) - 0.16481)
+m21cformula
+
+```
+### run model
+
+#### check correlation structure
+
+```{r}
+
+geeCorStr(m21formula, data=m21Data, family=quasibinomial(link='logit'),
+          id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m21bformula, data=m21bData, family=quasibinomial(link='logit'),
+          id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m21cformula, data=m21bData, family=quasibinomial(link='logit'),
+          id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+
+```
+
+#### fit and estimate parameters
+
+```{r}
+
+m21 <- glmtoolbox::glmgee(m21formula, data=m21Data,
+                          family=quasibinomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+m21b <- glmtoolbox::glmgee(m21bformula, data=m21bData,
+                          family=quasibinomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+m21c <- glmtoolbox::glmgee(m21bformula, data=m21bData,
+                          family=quasibinomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+geeParams(m21, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m21b, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m21c, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+
+
+```
+
+### analyse performance
+
+```{r}
+
+m21_cv <- cv_glmgee(m21, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m21Data), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics()
+
+m21b_cv <- cv_glmgee(m21b, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m21bData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics()
+
+m21c_cv <- cv_glmgee(m21c, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m21bData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics()
+
+geeModelPerformance(m12, m13, m14i, m15, m16d, m17, m18h, m19i, m20d, m21, m21b,
+                    m21c)
+
+compare_cv_results(list(m12=m12_cv, m13=m13_cv, m14i=m14i_cv, m15=m15_cv,
+                        m16d=m16d_cv, m17=m17_cv, m18h=m18h_cv, m19i=m19i_cv,
+                        m20d=m20d_cv, m21=m21_cv, m21b=m21b_cv, m21=m21_cv))
+
+```
+
+### model diagnostics
+
+```{r, fig.width=12, fig.height=4}
+
+m21b.resP <- residuals(m21b, type="pearson", plot.it=FALSE)
+
+used <- complete.cases(m21bData[all.vars(m21bformula)])
+
+arm::binnedplot(fitted(m21b), m21b.resP)
+arm::binnedplot(m21bData$Detect0p5dBMaxEx50MaxLRScl[used], residuals(m21b, type = "pearson"),
+                 xlab = "Detect0p5dBMaxEx50MaxLRScl")
+arm::binnedplot(m21bData$UASEvents[used], residuals(m21b, type = "pearson"),
+                 xlab = "UASEvents")
+arm::binnedplot(m21bData$TrialNumberStd[used], residuals(m21b, type = "pearson"),
+                 xlab = "TrialNumberStd")
+
+m21b.resM <- residuals(m21b, type="mahalanobis", plot.it=FALSE)
+
+# plot Mahalanobis residuals with ggplot2 on a stem plot replacing the index by the corresponding participant ID
+geeCluster_stemplot(m21b,
+                    clusterVar=m21b.resM,
+                    colour=mycolours[2], alpha=0.7) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Participant ID", y="Mahalanobis distance")
+
+m21b.Cook <- cooks.distance(m21b, plot.it=FALSE)
+
+geeCluster_stemplot(m21b, clusterVar=m21b.Cook,
+                    colour=mycolours[4], alpha=0.7) +
+    theme(panel.grid = element_blank(), aspect.ratio=0.4,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  labs(x="Participant ID", y="Cook's distance")
+
+glmgee_vif(m21b)
+
+```
+
+### analyse and visualise calibration
+
+```{r}
+
+m21bpredMeans <- avg_predictions_hybrid(m21b, newdata=na.omit(m21bData),
+                                      by=c("StimID"),
+                                      vcov=vcov(m21b, type='bias-corrected')) |>
+  dplyr::arrange(StimID)
+
+R2means <- 1 - sum((stimDataNoAmb$dProbHA20kMean - m21bpredMeans$estimate)^2)/sum((stimDataNoAmb$dProbHA20kMean - mean(stimDataNoAmb$dProbHA20kMean))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m21bpredMeans,
+                     measured_target='dProbHA20kMean', measured_ci_low='dProbHA20kMeanCI_Low',
+                     measured_ci_high='dProbHA20kMeanCI_High', fitted='estimate')
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=cbind(m21bpredMeans,
+                  response=stimDataNoAmb$dProbHA20kMean,
+                  responseCI_Low=stimDataNoAmb$dProbHA20kMeanCI_Low,
+                  responseCI_High=stimDataNoAmb$dProbHA20kMeanCI_High)) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+
+  geom_point(mapping=aes(x=response, y=estimate), size=1.75, shape=4, stroke=0.75, colour=mycolours[3], alpha=0.5) +
+
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate), width=0, colour=mycolours[3], alpha=0.1) +
+  
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=conf.low, ymax=conf.high), width=0, colour=mycolours[3], alpha=0.1) +
+
+  scale_x_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 0.9)) +
+  scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 0.9)) +
+  
+  labs(x=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb]~"("~test~")")), y=expression(paste(Predicted~"%"~highly~annoyed~"|"~HA~"'"[amb]))) +
+  
+  ggplot2::annotate("text", x=0.01, y=0.75, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=0.01, y=0.7, label=paste0("RMSE = ", sprintf("%.2f", round(eRMSE$rmse*100, 2)), "%"), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = 0.01, y = 0.65, label = paste0("RMSE[epsilon] == ", sprintf("%.2f", round(eRMSE$epsilon_rmse*100, 2)), "*'%'"), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
+
+if (saveplots){
+  
+  filename <- "dHiAnnoy_PredMod_DetCal_gee"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
+### generate deployment version
+
+```{r}
+
+m21b_deploy <- deploy_mean_model(m21b, centred_vars=list(Detect0p5dBMaxEx50MaxLRScl="Detect0p5dBMaxEx50MaxLR"),
+                                 scaling_data=subjDataNoAmb,
+                                 TrialNumberStd=0, coef_simplify=T, verbose=TRUE)
+
+```
+
+### export the models
+
+```{r}
+# save the model
+if (savedata) {
+  filename = "dHiA_Det"
+  saveRDS(m21b, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+
+  filename = "dHiA_Det_deploy"
+  saveRDS(m21b_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+}
+
+```
+
+## Export the CV results
+
+```{r}
+
+dHiAnnoy_CV_res <- compare_cv_results(list(m12=m12_cv, m13=m13_cv, m14i=m14i_cv,
+                                           m15=m15_cv, m16d=m16d_cv, m17=m17_cv,
+                                           m18h=m18h_cv, m21b=m21b_cv,
+                                           m19i=m19i_cv, m20d=m20d_cv))
+
+dHiAnnoy_CV_res
+
+write.csv(dHiAnnoy_CV_res, file=file.path(outDataPath, "dHiAnnoy_CV_results.csv"),
+          row.names=FALSE)
 
 ```
 

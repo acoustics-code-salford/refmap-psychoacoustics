@@ -144,6 +144,7 @@ class _Problem:
         self.func, self.names = func, names
         self.link, self.link_names = link, link_names     # link is None or (forward, inverse)
         self.free, self.fixed = free, fixed
+        self.lam, self.pen_idx, self.pen_width = 0.0, [], None   # optional ridge penalty
 
     def values(self, theta):
         v = dict(self.fixed)
@@ -167,7 +168,10 @@ class _Problem:
             r = r * np.sqrt(weights)
         # extreme trial parameters can give inf/NaN: a huge residual steers the
         # optimiser away instead of crashing it
-        return np.where(np.isfinite(r), r, 1e6)
+        r = np.where(np.isfinite(r), r, 1e6)
+        if self.lam > 0:     # ridge penalty on the model parameters, as extra residuals
+            r = np.concatenate([r, np.sqrt(self.lam) * np.asarray(theta)[self.pen_idx] / self.pen_width])
+        return r
 
 
 def _optimise(problem, bounds, weights, seeds, loss, f_scale, de_kwargs):
@@ -224,6 +228,7 @@ class LatentFit:
     at_bound: list = field(default_factory=list)
     _problem: object = field(default=None, repr=False)
     _predictors: dict = field(default=None, repr=False)
+    _bounds: list = field(default=None, repr=False)
 
     def _arrays(self, df):
         return {k: df[c].to_numpy(float) for k, c in self._predictors.items()}
@@ -237,6 +242,24 @@ class LatentFit:
     def latent_from_response(self, y, zero_as_eps=True):
         """Map observed responses back to the latent scale with the fitted sigmoid."""
         return _invert(self._problem, self.params.to_dict(), y, zero_as_eps)
+
+    def identifiability(self, tol=1e-3, show=True):
+        """Which parameter combinations do the data determine? Returns the singular
+        values of the (bound-width-scaled) Jacobian relative to the largest. A value
+        below `tol` is a flat direction: parameters in it can trade off without
+        changing the predictions. With show=True, the parameters making up each flat
+        direction are printed (loadings above 0.1)."""
+        n = len(self.table)
+        lb, ub = np.array(self._bounds, float).T
+        J = self.result.jac[:n] * (ub - lb)      # data rows only; columns made comparable
+        _, sv, Vt = np.linalg.svd(J, full_matrices=False)
+        ratio = sv / sv[0]
+        if show:
+            print("relative singular values:", np.round(ratio, 6))
+            for i in np.where(ratio < tol)[0]:
+                load = {p: round(float(v), 2) for p, v in zip(self.fitted, Vt[i]) if abs(v) > 0.1}
+                print("flat direction:", load)
+        return ratio
 
     def equation(self, values=True):
         """The fitted model as readable equations. values=False keeps parameter names.
@@ -273,7 +296,8 @@ class LatentFit:
     def __str__(self):
         s = self.stats
         head = (f"latent_model={self.latent_model}  sigmoid={self.sigmoid}  n={s['n_obs']}"
-                f"  free parameters={s['n_free']}\n"
+                f"  free parameters={s['n_free']}"
+                + (f"  penalty={s['penalty']:g}" if s.get("penalty") else "") + "\n"
                 f"RMSE {s['rmse']:.3f}  R2 {s['r2']:.4f}")
         if "reduced_chi2" in s:
             head += f"  reduced chi2 {s['reduced_chi2']:.2f}  tau {self.tau:.4f}"
@@ -289,7 +313,7 @@ class LatentFit:
 # --------------------------------------------------------------------------
 def fit_latent(df, predictors, obs, lower=None, upper=None, se=None, *, latent_model,
                sigmoid="gompertz", weighting=None, floor_frac=0.1, tau=None,
-               free_growth=False, bounds=None, fixed=None, loss="linear",
+               free_growth=False, penalty=0.0, bounds=None, fixed=None, loss="linear",
                f_scale=1.0, seed=0, n_seeds=3, de_kwargs=None):
     """Fit a latent model, plus an optional sigmoid link, to one response. Returns a LatentFit.
 
@@ -306,6 +330,13 @@ def fit_latent(df, predictors, obs, lower=None, upper=None, se=None, *, latent_m
                     noise) is estimated from an unweighted pilot fit unless you
                     pass a number. Treat that estimate as a heuristic.
     free_growth     fit the sigmoid's growth rate too (see the module docstring)
+    penalty         optional ridge penalty on the latent model's parameters (not the
+                    sigmoid's). Each parameter adds penalty * (value / bound width)^2 to
+                    the cost, in the same units as the cost (chi-square when weighted).
+                    0 (default) = off. It picks the smallest-magnitude point along a flat
+                    valley, so parameters become repeatable; try 0.1 to 1 and check that
+                    the cost barely rises. The result is partly set by the penalty, so
+                    do not over-interpret individual values.
     bounds, fixed   {name: (low, high)} and {name: value}, by parameter name
     loss, f_scale   passed to scipy's least_squares (e.g. "soft_l1"); with weights
                     f_scale is in standard errors, otherwise in response units
@@ -417,6 +448,13 @@ def fit_latent(df, predictors, obs, lower=None, upper=None, se=None, *, latent_m
     except Exception as e:
         raise RuntimeError(f"The latent model failed to run: {e}") from e
 
+    if penalty < 0:
+        raise ValueError("penalty must be >= 0.")
+    if penalty > 0:
+        idx = [i for i, n in enumerate(free) if n in names]
+        problem.lam, problem.pen_idx = float(penalty), idx
+        problem.pen_width = np.array([bounds_list[i][1] - bounds_list[i][0] for i in idx], float)
+
     # ---- weights --------------------------------------------------------------
     weights, tau_used = None, None
     if weighting != "none":
@@ -463,13 +501,14 @@ def fit_latent(df, predictors, obs, lower=None, upper=None, se=None, *, latent_m
         table["weight"] = weights
         table["std_residual"] = table["residual"] * np.sqrt(weights)
     sse = np.sum((pred - y) ** 2)
-    stats = dict(n_obs=len(y), n_free=len(free), n_dropped=int((~keep).sum()),
+    stats = dict(n_obs=len(y), n_free=len(free), penalty=float(penalty), n_dropped=int((~keep).sum()),
                  rmse=float(np.sqrt(sse / len(y))),
                  r2=float(1 - sse / np.sum((y - y.mean()) ** 2)))
     if weights is not None:
-        stats["reduced_chi2"] = float(np.sum(best.fun ** 2) / max(len(y) - len(free), 1))
+        stats["reduced_chi2"] = float(np.sum(best.fun[:len(y)] ** 2) / max(len(y) - len(free), 1))
     order = names + link_names + (["sig_b"] if link else [])
     return LatentFit(params=pd.Series({n: v[n] for n in order}), fitted=free, table=table,
                      stats=stats, tau=tau_used, weights=weights, seed_costs=costs,
                      result=best, latent_model=label, sigmoid=sigmoid, at_bound=at_bound,
-                     _problem=problem, _predictors={k: predictors[k] for k in needed})
+                     _problem=problem, _predictors={k: predictors[k] for k in needed},
+                     _bounds=bounds_list)

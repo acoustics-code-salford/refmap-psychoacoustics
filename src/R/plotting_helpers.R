@@ -174,7 +174,8 @@ plot_slice <- function(pred, data, x, y, colour_v, facet_v, facet_labeller,
                        q = c(0.3, 0.9),
                        option = "viridis",
                        colour_title = colour_v,
-                       colour_breaks = ggplot2::waiver()) {
+                       colour_breaks = ggplot2::waiver(),
+                       facet_orient='rows') {
   pts <- data
   pts[[facet_v]] <- hi_lo(pts[[facet_v]], q)
   
@@ -202,7 +203,12 @@ plot_slice <- function(pred, data, x, y, colour_v, facet_v, facet_labeller,
     scale_fill_viridis(option = option, discrete = TRUE, begin = 0.2, end = 0.8,
                        guide = guide_legend(title = colour_title, reverse = TRUE)) +
 
-    facet_grid(rows = vars(.data[[facet_v]]), labeller = facet_labeller)
+    if (facet_orient == 'cols') {
+      facet_grid(cols = vars(.data[[facet_v]]), labeller = facet_labeller)  
+    } else {
+      facet_grid(rows = vars(.data[[facet_v]]), labeller = facet_labeller)
+    }
+    
 }
 
 
