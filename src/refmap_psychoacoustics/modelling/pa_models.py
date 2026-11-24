@@ -16,81 +16,81 @@ import numpy as np
 
 from .latent_fit import LATENT_MODELS, with_bounds, with_equation
 
-PA_BOUNDS = {"_a": (0.0, 50.0), "_b": (-4.0, 4.0)}
+PA_BOUNDS = {"_a": (0.0, 20.0), "_b": (-3.0, 3.0)}
 
 
-@with_equation("""loud * (1 + sqrt(sharp_w**2 + tonal_w**2 + roughness_w**2 + fluctuation_w**2 + impulsive_w**2))
-    where sharp_w = sharp_a * sharp / loud**sharp_b
-          tonal_w = tonal_a * tonal / loud**tonal_b
-          roughness_w = roughness_a * roughness / roughness**tonal_b
-          fluctuation_w = fluctuation_a * fluctuation / fluctuation**tonal_b
-          impulsive_w = impulsive_a * impulsive / loud**impulsive_b""")
+@with_equation("""loudness * (1 + sqrt(sharpness_w**2 + tonality_w**2 + roughness_w**2 + fluctuation_w**2 + impulsive_w**2))
+    where sharpness_w = sharp_a * sharpness / loudness**sharp_b
+          tonality_w = tonal_a * tonality / loudness**tonal_b
+          roughness_w = rough_a * roughness / loudness**rough_b
+          fluctuation_w = fluct_a * fluctuation / loudness**fluct_b
+          impulsive_w = impuls_a * impulsive / loudness**impuls_b""")
 @with_bounds(PA_BOUNDS)
-def pa_5term(loud, sharp, tonal, rough, fluctuation, impulsive,
+def pa_5term(loudness, sharpness, tonality, roughness, fluctuation, impulsive,
                sharp_a, sharp_b, tonal_a, tonal_b, rough_a, rough_b,
-               fluctuation_a, fluctuation_b, impulsive_a, impulsive_b):
+               fluct_a, fluct_b, impuls_a, impuls_b):
     """loud * (1 + sqrt(sum of squared weighted terms))."""
-    sharp_w = sharp_a * sharp / loud**sharp_b
-    tonal_w = tonal_a * tonal / loud**tonal_b
-    rough_w = rough_a * rough / loud**rough_b
-    fluctuation_w = fluctuation_a * fluctuation / loud**fluctuation_b
-    impulsive_w = impulsive_a * impulsive / loud**impulsive_b
-    return loud * (1 + np.sqrt(
-        sharp_w**2 + tonal_w**2 + rough_w**2 + fluctuation_w**2 + impulsive_w**2))
+    sharpness_w = sharp_a * sharpness / loudness**sharp_b
+    tonality_w = tonal_a * tonality / loudness**tonal_b
+    roughness_w = rough_a * roughness / loudness**rough_b
+    fluctuation_w = fluct_a * fluctuation / loudness**fluct_b
+    impulsive_w = impuls_a * impulsive / loudness**impuls_b
+    return loudness * (1 + np.sqrt(
+        sharpness_w**2 + tonality_w**2 + roughness_w**2 + fluctuation_w**2 + impulsive_w**2))
 
 
-@with_equation("""loud * (1 + sqrt(sharp_w**2 + tonal_w**2 + modulation_w**2 + impulsive_w**2))
-    where sharp_w = sharp_a * sharp / loud**sharp_b
-          tonal_w = tonal_a * tonal / loud**tonal_b
-          modulation_w = modulation_a * (0.4*fluctuation + 0.6*rough) / loud**modulation_b
-          impulsive_w = impulsive_a * impulsive / loud**impulsive_b""")
+@with_equation("""loudness * (1 + sqrt(sharpness_w**2 + tonality_w**2 + modulation_w**2 + impulsive_w**2))
+    where sharpness_w = sharp_a * sharpness / loudness**sharp_b
+          tonality_w = tonal_a * tonality / loudness**tonal_b
+          modulation_w = modulat_a * (0.4*fluctuation + 0.6*roughness) / loudness**modulat_b
+          impulsive_w = impuls_a * impulsive / loudness**impuls_b""")
 @with_bounds(PA_BOUNDS)
-def pa_4term(loud, sharp, tonal, rough, fluctuation, impulsive,
-               sharp_a, sharp_b, tonal_a, tonal_b, modulation_a, modulation_b,
-               impulsive_a, impulsive_b):
+def pa_4term(loudness, sharpness, tonality, roughness, fluctuation, impulsive,
+               sharp_a, sharp_b, tonal_a, tonal_b, modulat_a, modulat_b,
+               impuls_a, impuls_b):
     """As pa_5term, with roughness and fluctuation merged into one
     modulation term (0.4 * fluctuation + 0.6 * roughness)."""
-    sharp_w = sharp_a * sharp / loud**sharp_b
-    tonal_w = tonal_a * tonal / loud**tonal_b
-    modulation_w = modulation_a * (0.4 * fluctuation + 0.6 * rough) / loud**modulation_b
-    impulsive_w = impulsive_a * impulsive / loud**impulsive_b
-    return loud * (1 + np.sqrt(
-        sharp_w**2 + tonal_w**2 + modulation_w**2 + impulsive_w**2))
+    sharpness_w = sharp_a * sharpness / loudness**sharp_b
+    tonality_w = tonal_a * tonality / loudness**tonal_b
+    modulation_w = modulat_a * (0.4 * fluctuation + 0.6 * roughness) / loudness**modulat_b
+    impulsive_w = impuls_a * impulsive / loudness**impuls_b
+    return loudness * (1 + np.sqrt(
+        sharpness_w**2 + tonality_w**2 + modulation_w**2 + impulsive_w**2))
 
 
-@with_equation("""loud * (1 + sqrt(sharp_w**2 + tonal_w**2 + modulation_w**2 + impulsive_w**2))
-    where sharp_w = sharp_a * max(sharp - sharp_c, 0) *sharp_b * log10(loud + 10)
-          tonal_w = tonal_a * tonal / loud**tonal_b
-          modulation_w = modulation_a * (0.4*fluctuation + 0.6*rough) / loud**modulation_b
-          impulsive_w = impulsive_a * impulsive / loud**impulsive_b""")
+@with_equation("""loudness * (1 + sqrt(sharpness_w**2 + tonality_w**2 + modulation_w**2 + impulsive_w**2))
+    where sharpness_w = sharp_a * max(sharpness - sharp_c, 0) *sharp_b * log10(loudness + 10)
+          tonality_w = tonal_a * tonality / loudness**tonal_b
+          modulation_w = modulat_a * (0.4*fluctuation + 0.6*roughness) / loudness**modulat_b
+          impulsive_w = impuls_a * impulsive / loudness**impuls_b""")
 @with_bounds(PA_BOUNDS)
-def pa_original(loud, sharp, tonal, rough, fluctuation, impulsive,
-                   sharp_a, sharp_b, sharp_c, tonal_a, tonal_b, modulation_a, modulation_b,
-                   impulsive_a, impulsive_b):
-    """loud * (1 + sqrt(...)). Has no free overall scale, so use free_growth=True."""
+def pa_original(loudness, sharpness, tonality, roughness, fluctuation, impulsive,
+                   sharp_a, sharp_b, sharp_c, tonal_a, tonal_b, modulat_a, modulat_b,
+                   impuls_a, impuls_b):
+    """loudness * (1 + sqrt(...)). Has no free overall scale, so use free_growth=True."""
 
-    sharp_w = sharp_a * np.maximum(sharp - sharp_c, 0) * sharp_b * np.log10(loud + 10)
-    tonal_w = tonal_a * tonal / loud**tonal_b
-    modulation_w = modulation_a * (0.4 * fluctuation + 0.6 * rough) / loud**modulation_b
-    impulsive_w = impulsive_a * impulsive / loud**impulsive_b
-    return loud * (1 + np.sqrt(
-        sharp_w**2 + tonal_w**2 + modulation_w**2 + impulsive_w**2))
+    sharpness_w = sharp_a * np.maximum(sharpness - sharp_c, 0) * sharp_b * np.log10(loudness + 10)
+    tonality_w = tonal_a * tonality / loudness**tonal_b
+    modulation_w = modulat_a * (0.4 * fluctuation + 0.6 * roughness) / loudness**modulat_b
+    impulsive_w = impuls_a * impulsive / loudness**impuls_b
+    return loudness * (1 + np.sqrt(
+        sharpness_w**2 + tonality_w**2 + modulation_w**2 + impulsive_w**2))
 
 
-@with_equation("""loud * (1 + sqrt(sharp_w**2 + tonal_w**2 + modulation_w**2 + impulsive_w**2))
-    where sharp_w = sharp_a * sharp / loud**sharp_b
-          tonal_w = tonal_a * tonal / loud**tonal_b
-          modulation_w = modulation_a * (0.4*fluctuation + 0.6*rough) / loud**modulation_b
-          impulsive_w = impulsive_a * impulsive / loud**impulsive_b""")
+@with_equation("""loudness * (1 + sqrt(sharpness_w**2 + tonality_w**2 + modulation_w**2 + impulsive_w**2))
+    where sharpness_w = sharp_a * sharpness / loudness**sharp_b
+          tonality_w = tonal_a * tonality / loudness**tonal_b
+          modulation_w = modulat_a * (0.4*fluctuation + 0.6*roughness) / loudness**modulat_b
+          impulsive_w = impuls_a * impulsive / loudness**impuls_b""")
 @with_bounds(PA_BOUNDS)
-def pa_4term_log(loud, sharp, tonal, rough, fluctuation, impulsive,
-                 sharp_a, sharp_b, tonal_a, tonal_b, modulation_a, modulation_b,
-                 impulsive_a, impulsive_b):
-    """log of loud * (1 + sqrt(...)). Use with free_growth=True: the growth rate
+def pa_4term_log(loudness, sharpness, tonality, roughness, fluctuation, impulsive,
+                 sharp_a, sharp_b, tonal_a, tonal_b, modulat_a, modulat_b,
+                 impuls_a, impuls_b):
+    """log of loudness * (1 + sqrt(...)). Use with free_growth=True: the growth rate
     then acts as a power-law exponent on PA."""
-    pa = pa_4term(loud, sharp, tonal, rough, fluctuation, impulsive,
-                  sharp_a, sharp_b, tonal_a, tonal_b, modulation_a, modulation_b,
-                  impulsive_a, impulsive_b)
+    pa = pa_4term(loudness, sharpness, tonality, roughness, fluctuation, impulsive,
+                  sharp_a, sharp_b, tonal_a, tonal_b, modulat_a, modulat_b,
+                  impuls_a, impuls_b)
     return np.log(pa)
 
  

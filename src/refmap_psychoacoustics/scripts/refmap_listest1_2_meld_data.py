@@ -120,6 +120,8 @@ for start, end in column_ranges:
 # Apply the dictionary directly to rename
 dataBySubjTest1Merge.rename(columns=rename_dict, inplace=True)
 
+dataBySubjTest1Merge['AmbientEnv'] = dataBySubjTest1Merge['AmbientEnv'].replace("Street", "Streetside square")
+
 dataBySubjTest1Merge.to_csv(os.path.join(outFilePath1,
                                          "refmap_listest1_testdata_forValid_BySubj.csv"),
                             index=False)
@@ -240,6 +242,13 @@ cols.insert(cols.index('StimID'), cols.pop(cols.index('StimNum')))
 dataBySubjTestMerge = dataBySubjTestMerge[cols]
 
 dataBySubjTestMerge.rename(columns={'ID': 'ParticipantNum'}, inplace=True)
+
+# make column 'AmbientEnvCore' as a copy of 'AmbientEnv' column, and replace "Park (high)" values with "Park", and "Highway (low)" values with "Highway"
+dataBySubjTestMerge['AmbientEnvCore'] = dataBySubjTestMerge['AmbientEnv'].replace({"Park (high)": "Park", "Highway (low)": "Highway"})
+# move new col to after AmbientEnv
+cols = dataBySubjTestMerge.columns.tolist()
+cols.insert(cols.index('AmbientEnv') + 1, cols.pop(cols.index('AmbientEnvCore')))
+dataBySubjTestMerge = dataBySubjTestMerge[cols]
 
 # save merged data to CSV
 dataBySubjTestMerge.to_csv(os.path.join(outFilePath_1_2,

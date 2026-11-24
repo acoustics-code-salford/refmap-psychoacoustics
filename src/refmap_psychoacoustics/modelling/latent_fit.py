@@ -44,8 +44,9 @@ default. Use free_growth=True only for a latent model with no free scale.
 How the fit works
 -----------------
 Stage 1, differential_evolution: a global search that lands in the right region
-without needing a starting guess. Stage 2, least_squares: polishes that solution,
-and is where `loss` (squared error, or a robust loss) is applied. This is repeated
+without needing a starting guess. Stage 2, least_squares: polishes that solution.
+Both stages minimise the same objective, `loss` (squared error, or a robust loss)
+applied to the weighted residuals. This is repeated
 for n_seeds seeds and the lowest cost is kept, because a single seed can land in a
 poor local optimum.
 
@@ -174,15 +175,34 @@ class _Problem:
         return r
 
 
+# The losses least_squares offers, written as rho(z) with z = residual^2 (scipy's
+# definitions), so that the global search minimises the same objective as the polish.
+_RHO = {
+    "linear": lambda z: z,
+    "soft_l1": lambda z: 2 * (np.sqrt(1 + z) - 1),
+    "huber": lambda z: np.where(z <= 1, z, 2 * np.sqrt(z) - 1),
+    "cauchy": lambda z: np.log1p(z),
+    "arctan": lambda z: np.arctan(z),
+}
+
+
+def _cost(r, loss, f_scale):
+    """least_squares' cost for residuals r: 0.5 * sum(C^2 * rho(r^2 / C^2)), C = f_scale."""
+    z = r ** 2 / f_scale ** 2
+    rho = loss(z)[0] if callable(loss) else _RHO[loss](z)
+    return 0.5 * f_scale ** 2 * np.sum(rho)
+
+
 def _optimise(problem, bounds, weights, seeds, loss, f_scale, de_kwargs):
-    """DE then least_squares for each seed; returns the lowest-cost result."""
+    """DE then least_squares for each seed; returns the lowest-cost result.
+    Both stages minimise the same objective: the chosen loss on the (weighted) residuals."""
     lb, ub = np.array(bounds, float).T
     settings = dict(maxiter=100, popsize=15, tol=1e-8, polish=False)
     settings.update(de_kwargs or {})
     runs = []
     for s in seeds:
         stage1 = differential_evolution(
-            lambda t: np.sum(problem.residuals(t, weights) ** 2),
+            lambda t: _cost(problem.residuals(t, weights), loss, f_scale),
             list(zip(lb, ub)), seed=s, **settings)
         runs.append(least_squares(problem.residuals, stage1.x, bounds=(lb, ub),
                                   args=(weights,), loss=loss, f_scale=f_scale,
@@ -338,8 +358,11 @@ def fit_latent(df, predictors, obs, lower=None, upper=None, se=None, *, latent_m
                     the cost barely rises. The result is partly set by the penalty, so
                     do not over-interpret individual values.
     bounds, fixed   {name: (low, high)} and {name: value}, by parameter name
-    loss, f_scale   passed to scipy's least_squares (e.g. "soft_l1"); with weights
-                    f_scale is in standard errors, otherwise in response units
+    loss, f_scale   "linear" (squared error, default), or a robust loss: "soft_l1",
+                    "huber", "cauchy", "arctan" (scipy's least_squares definitions),
+                    used by both stages. With weights f_scale is in standard errors,
+                    otherwise in response units. The pilot fit for tau always uses
+                    squared error.
     seed, n_seeds   n_seeds fits from seeds seed, seed+1, ...; the best is kept
     de_kwargs       overrides for differential_evolution (maxiter, popsize, ...)
     """
@@ -414,6 +437,8 @@ def fit_latent(df, predictors, obs, lower=None, upper=None, se=None, *, latent_m
             fixed.setdefault("sig_b", 1.0)
 
     # ---- data: only the columns the model uses; drop incomplete rows ---------
+    if not callable(loss) and loss not in _RHO:
+        raise ValueError(f"loss must be one of {list(_RHO)} or a callable.")
     if weighting is None:
         weighting = "se_tau" if se is not None else "none"
     if weighting not in ("se_tau", "se", "none"):
@@ -467,7 +492,8 @@ def fit_latent(df, predictors, obs, lower=None, upper=None, se=None, *, latent_m
         elif tau is not None:
             tau_used = float(tau)
         else:
-            pilot, _ = _optimise(problem, bounds_list, None, [seed], loss, f_scale, de_kwargs)
+            # always least squares: tau is a variance, estimated from squared residuals
+            pilot, _ = _optimise(problem, bounds_list, None, [seed], "linear", 1.0, de_kwargs)
             pred0 = problem.response(problem.values(pilot.x))
             msr = np.sum((pred0 - y) ** 2) / max(len(y) - len(free), 1)
             tau_used = float(np.sqrt(max(0.0, msr - np.mean(se_eff ** 2))))

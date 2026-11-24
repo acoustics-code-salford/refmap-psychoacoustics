@@ -2769,6 +2769,164 @@ fileExts = "*.xlsx"
 filepath = QFileDialog.getOpenFileName(filter=fileExts,
                                        caption=r"Select test response data files in '03 Experiment\Experiment 1\Test_files\Results'")[0]
 
+def hd_median_vec(data, axis=-1):
+    # Vectorised Harrell-Davis median along `axis`
+    n = data.shape[axis]
+    sorted_data = np.sort(data, axis=axis)
+    # Beta( (n+1)/2, (n+1)/2 ) weights for the 0.5 quantile
+    a = (n + 1) / 2.0
+    i = np.arange(n)
+    weights = stats.beta.cdf((i + 1) / n, a, a) - stats.beta.cdf(i / n, a, a)
+    # Reshape weights to broadcast along `axis`
+    shape = [1] * data.ndim
+    shape[axis] = n
+    return np.sum(sorted_data * weights.reshape(shape), axis=axis)
+
+
+def midquantile_ci(x, probs=(0.25, 0.50, 0.75), alpha=0.05, qtools_mode=False):
+    """
+    Compute sample mid-quantiles and asymptotic confidence intervals
+    (Ma, Genton, & Parzen, 2011, Theorem 2).
+
+    Parameters
+    ----------
+    x : array-like
+        1D sample of discrete or tied observations.
+    probs : float or array-like
+        Target quantile probabilities in (0, 1).
+    alpha : float
+        Significance level (e.g., 0.05 for a 95% CI).
+    qtools_mode : bool
+        If True, matches R's `Qtools::confint.midquantile` exactly:
+        uses t_{n-1} critical values, returns NaN outside [mid_cdf[0], mid_cdf[-1]],
+        and treats exact interior knots via the right-hand interval (lambda = 1).
+    """
+    x = np.asarray(x, dtype=float)
+    x = x[~np.isnan(x)]
+    n = len(x)
+    if n < 2:
+        raise ValueError("Input array must contain at least 2 valid observations.")
+
+    probs = np.atleast_1d(np.asarray(probs, dtype=float))
+    if np.any((probs <= 0) | (probs >= 1)):
+        raise ValueError("Probabilities must lie strictly in (0, 1).")
+
+    v, r = np.unique(x, return_counts=True)
+    p_hat = r / n
+    cdf_hat = np.cumsum(p_hat)
+    mid_cdf = cdf_hat - 0.5 * p_hat
+
+    q_hat = np.interp(probs, mid_cdf, v)
+    crit = stats.t.ppf(1.0 - alpha / 2.0, df=n - 1) if qtools_mode else stats.norm.ppf(1.0 - alpha / 2.0)
+
+    rows = []
+    for p, q in zip(probs, q_hat):
+        # Qtools parity branch
+        if qtools_mode:
+            # Matches R's findInterval(p, mid_cdf)
+            sel = np.searchsorted(mid_cdf, p, side="right") - 1
+            if sel < 0 or sel >= len(mid_cdf) - 1:
+                rows.append((p, q, np.nan, np.nan, np.nan))
+                continue
+            lam = (mid_cdf[sel + 1] - p) / (mid_cdf[sel + 1] - mid_cdf[sel])
+            num = (
+                p * (1.0 - p)
+                - (1.0 - (lam - 1.0) ** 2) * p_hat[sel] / 4.0
+                - (1.0 - lam**2) * p_hat[sel + 1] / 4.0
+            )
+            f_mid = 0.5 * (p_hat[sel] + p_hat[sel + 1]) / (v[sel + 1] - v[sel])
+            se = np.sqrt(max(num, 0.0) / (n * f_mid**2))
+            rows.append((p, q, q - crit * se, q + crit * se, se))
+            continue
+
+        # Strict Theorem 2 (Ma, Genton, & Parzen, 2011)
+        # Cases 1 & 2: Outside interior mid-CDF range
+        if p < mid_cdf[0] - 1e-12 or p > mid_cdf[-1] + 1e-12:
+            rows.append((p, q, q, q, 0.0))
+            continue
+
+        # Case 4: Exact hit on an empirical mid-CDF knot (two-piece normal)
+        exact_idx = np.where(np.isclose(mid_cdf, p, atol=1e-12))[0]
+        if len(exact_idx) > 0:
+            k = int(exact_idx[0])
+            num = max(p * (1.0 - p) - p_hat[k] / 4.0, 0.0)
+
+            f_minus = (
+                0.5 * (p_hat[k] + p_hat[k - 1]) / (v[k] - v[k - 1])
+                if k > 0 else np.inf
+            )
+            f_plus = (
+                0.5 * (p_hat[k] + p_hat[k + 1]) / (v[k + 1] - v[k])
+                if k < len(v) - 1 else np.inf
+            )
+
+            se_minus = np.sqrt(num / (n * f_minus**2)) if np.isfinite(f_minus) else 0.0
+            se_plus = np.sqrt(num / (n * f_plus**2)) if np.isfinite(f_plus) else 0.0
+
+            lower = v[k] - crit * se_minus
+            upper = v[k] + crit * se_plus
+            se = np.sqrt(0.5 * (se_minus**2 + se_plus**2))
+            rows.append((p, q, lower, upper, se))
+            continue
+
+        # Case 3: Strictly between mid_cdf[k] and mid_cdf[k+1]
+        k = int(np.searchsorted(mid_cdf, p, side="right") - 1)
+        lam = (mid_cdf[k + 1] - p) / (mid_cdf[k + 1] - mid_cdf[k])
+        f_mid = 0.5 * (p_hat[k] + p_hat[k + 1]) / (v[k + 1] - v[k])
+        num = (
+            p * (1.0 - p)
+            - (1.0 - (lam - 1.0) ** 2) * p_hat[k] / 4.0
+            - (1.0 - lam**2) * p_hat[k + 1] / 4.0
+        )
+        se = np.sqrt(max(num, 0.0) / (n * f_mid**2))
+        rows.append((p, q, q - crit * se, q + crit * se, se))
+
+    return pd.DataFrame(rows, columns=["p", "midquantile", "lower", "upper", "stderr"])
+
+def jittered_median(data, step=1, axis=-1):
+    noise = rng.uniform(-step/2, step/2, size=data.shape)
+    return np.median(data + noise, axis=axis)
+
+def bias_corrected_jitter_median(x_2d, step=1.0, n_resamples=20000, jitter_bw=0.25,
+                                 alpha=0.05, rng=np.random.default_rng(seed=111)):
+    """
+    Smoothed bootstrap CI for the sample median on discrete data, compensating for:
+      1. Variance inflation (via small bandwidth sigma = 0.25 * step + variance shrinkage)
+      2. Asymmetry/location bias (via recentering around the exact unjittered sample median)
+    """
+    x = np.asarray(x_2d, dtype=float).ravel()
+    raw_median = float(np.median(x))
+    
+    # Small Gaussian jitter bandwidth (0.25 * grid step breaks ties without bin-jumping)
+    sigma_jitter = jitter_bw * step
+    sample_var = np.var(x, ddof=1)
+    shrink = 1.0 / np.sqrt(1.0 + (sigma_jitter**2 / sample_var)) if sample_var > 0 else 1.0
+
+    def stat_fn(data, axis=-1):
+        noise = rng.normal(0.0, sigma_jitter, size=data.shape)
+        # Shrink spread slightly to offset added jitter variance
+        centered = (data - raw_median) * shrink + raw_median
+        return np.median(centered + noise, axis=axis)
+
+    res = stats.bootstrap(
+        x[np.newaxis, :],
+        statistic=stat_fn,
+        confidence_level=1.0 - alpha,
+        method='percentile',
+        n_resamples=n_resamples,
+        random_state=rng
+    )
+
+    # Recenter interval to remove any asymmetric jitter shift relative to raw_median
+    boot_dist = res.bootstrap_distribution
+    shift = np.median(boot_dist) - raw_median
+
+    ci_low = float(res.confidence_interval.low - shift)
+    ci_high = float(res.confidence_interval.high - shift)
+    se = float(res.standard_error)
+
+    return raw_median, ci_low, ci_high, se
+
 # Part A
 # ------
 
@@ -2908,18 +3066,19 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
     partANotice = pd.DataFrame(data=np.array(partANotice['UAS_noticed']),
                                index=columns, columns=[file]).transpose()
 
-    arousalMedianBoot = stats.bootstrap(partAArousal.values, statistic=np.median, confidence_level=0.95,
-                                        method='percentile', n_resamples=20000, random_state=rng)
+    (_, medianCI_Low,
+     medianCI_High, medianSE) = bias_corrected_jitter_median(partAArousal.values,
+                                                             step=1.0,
+                                                             n_resamples=20000,
+                                                             rng=rng)
 
     arousalMeanBoot = stats.bootstrap(partAArousal.values, statistic=np.mean, confidence_level=0.95,
                                       method='BCa', n_resamples=20000, random_state=rng)
 
-    arousalAgg = pd.DataFrame(data=[[np.percentile(partAArousal.values,
-                                                   q=50, axis=1,
-                                                   method='median_unbiased')[0],
-                                     arousalMedianBoot.confidence_interval.low,
-                                     arousalMedianBoot.confidence_interval.high,
-                                     arousalMedianBoot.standard_error,
+    arousalAgg = pd.DataFrame(data=[[np.median(partAArousal.values, axis=1)[0],
+                                     medianCI_Low,
+                                     medianCI_High,
+                                     medianSE,
                                      np.mean(partAArousal.values, axis=1)[0],
                                      arousalMeanBoot.confidence_interval.low,
                                      arousalMeanBoot.confidence_interval.high,
@@ -2940,23 +3099,22 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
         meanSE = 0
     
     else:
-        dArousalMedianBoot = stats.bootstrap(partAdArousal.values, statistic=np.median, confidence_level=0.95,
-                                            method='percentile', n_resamples=20000, random_state=rng)
+
+        (_, medianCI_Low,
+         medianCI_High, medianSE) = bias_corrected_jitter_median(partAdArousal.values,
+                                                                 step=1.0,
+                                                                 n_resamples=20000,
+                                                                 rng=rng)
         
-        medianCI_Low = dArousalMedianBoot.confidence_interval.low
-        medianCI_High = dArousalMedianBoot.confidence_interval.high
-        medianSE = dArousalMedianBoot.standard_error
-        
+
         dArousalMeanBoot = stats.bootstrap(partAdArousal.values, statistic=np.mean, confidence_level=0.95,
-                                        method='BCa', n_resamples=20000, random_state=rng)
+                                           method='BCa', n_resamples=20000, random_state=rng)
     
         meanCI_Low = dArousalMeanBoot.confidence_interval.low
         meanCI_High = dArousalMeanBoot.confidence_interval.high
         meanSE = dArousalMeanBoot.standard_error
 
-    darousalAgg = pd.DataFrame(data=[[np.percentile(partAdArousal.values,
-                                                    q=50, axis=1,
-                                                    method='median_unbiased')[0],
+    darousalAgg = pd.DataFrame(data=[[np.median(partAdArousal.values, axis=1)[0],
                                       medianCI_Low,
                                       medianCI_High,
                                       medianSE,
@@ -2970,18 +3128,19 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
                                         'dArousalMeanCI_High', 'dArousalMeanSE'],
                                index=[file])
     
-    valenceMedianBoot = stats.bootstrap(partAValence.values, statistic=np.median, confidence_level=0.95,
-                                        method='percentile', n_resamples=20000, random_state=rng)
+    (_, medianCI_Low,
+     medianCI_High, medianSE) = bias_corrected_jitter_median(partAValence.values,
+                                                             step=1.0,
+                                                             n_resamples=20000,
+                                                             rng=rng)
 
     valenceMeanBoot = stats.bootstrap(partAValence.values, statistic=np.mean, confidence_level=0.95,
                                       method='BCa', n_resamples=20000, random_state=rng)
 
-    valenceAgg = pd.DataFrame(data=[[np.percentile(partAValence.values,
-                                                   q=50, axis=1,
-                                                   method='median_unbiased')[0],
-                                     valenceMedianBoot.confidence_interval.low,
-                                     valenceMedianBoot.confidence_interval.high,
-                                     valenceMedianBoot.standard_error,
+    valenceAgg = pd.DataFrame(data=[[np.median(partAValence.values, axis=1)[0],
+                                     medianCI_Low,
+                                     medianCI_High,
+                                     medianSE,
                                      np.mean(partAValence.values, axis=1)[0],
                                      valenceMeanBoot.confidence_interval.low,
                                      valenceMeanBoot.confidence_interval.high,
@@ -3002,12 +3161,13 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
         meanSE = 0
 
     else:
-        dValenceMedianBoot = stats.bootstrap(partAdValence.values, statistic=np.median, confidence_level=0.95,
-                                            method='percentile', n_resamples=20000, random_state=rng)
+
+        (_, medianCI_Low,
+         medianCI_High, medianSE) = bias_corrected_jitter_median(partAdValence.values,
+                                                                 step=1.0,
+                                                                 n_resamples=20000,
+                                                                 rng=rng)
     
-        medianCI_Low = dValenceMedianBoot.confidence_interval.low
-        medianCI_High = dValenceMedianBoot.confidence_interval.high
-        medianSE = dValenceMedianBoot.standard_error
 
         dValenceMeanBoot = stats.bootstrap(partAdValence.values, statistic=np.mean, confidence_level=0.95,
                                         method='BCa', n_resamples=20000, random_state=rng)
@@ -3016,9 +3176,7 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
         meanCI_High = dValenceMeanBoot.confidence_interval.high
         meanSE = dValenceMeanBoot.standard_error
     
-    dvalenceAgg = pd.DataFrame(data=[[np.percentile(partAdValence.values,
-                                                    q=50, axis=1,
-                                                    method='median_unbiased')[0],
+    dvalenceAgg = pd.DataFrame(data=[[np.median(partAdValence.values, axis=1)[0],
                                       medianCI_Low,
                                       medianCI_High,
                                       medianSE,
@@ -3032,17 +3190,19 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
                                         'dValenceMeanCI_High', 'dValenceMeanSE'],
                                index=[file])
     
-    annoyMedianBoot = stats.bootstrap(partAAnnoy.values, statistic=np.median, confidence_level=0.95,
-                                      method='percentile', n_resamples=20000, random_state=rng)
+    (_, medianCI_Low,
+     medianCI_High, medianSE) = bias_corrected_jitter_median(partAAnnoy.values,
+                                                             step=1.0,
+                                                             n_resamples=20000,
+                                                             rng=rng)
+    
     annoyMeanBoot = stats.bootstrap(partAAnnoy.values, statistic=np.mean, confidence_level=0.95,
                                     method='BCa', n_resamples=20000, random_state=rng)
 
-    annoyAgg = pd.DataFrame(data=[[np.percentile(partAAnnoy.values,
-                                                 q=50, axis=1,
-                                                 method='median_unbiased')[0],
-                                   annoyMedianBoot.confidence_interval.low,
-                                   annoyMedianBoot.confidence_interval.high,
-                                   annoyMeanBoot.standard_error,
+    annoyAgg = pd.DataFrame(data=[[np.median(partAAnnoy.values, axis=1)[0],
+                                   medianCI_Low,
+                                   medianCI_High,
+                                   medianSE,
                                    np.mean(partAAnnoy.values, axis=1)[0],
                                    annoyMeanBoot.confidence_interval.low,
                                    annoyMeanBoot.confidence_interval.high,
@@ -3063,12 +3223,11 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
         meanSE = 0
 
     else:
-        dAnnoyMedianBoot = stats.bootstrap(partAdAnnoy.values, statistic=np.median, confidence_level=0.95,
-                                        method='percentile', n_resamples=20000, random_state=rng)
-        
-        medianCI_Low = dAnnoyMedianBoot.confidence_interval.low
-        medianCI_High = dAnnoyMedianBoot.confidence_interval.high
-        medianSE = dAnnoyMedianBoot.standard_error
+        (_, medianCI_Low,
+         medianCI_High, medianSE) = bias_corrected_jitter_median(partAdAnnoy.values,
+                                                                   step=1.0,
+                                                                   n_resamples=20000,
+                                                                   rng=rng)
 
         dAnnoyMeanBoot = stats.bootstrap(partAdAnnoy.values, statistic=np.mean, confidence_level=0.95,
                                         method='BCa', n_resamples=20000, random_state=rng)
@@ -3077,9 +3236,7 @@ for ii, file in enumerate(partAResponses['Recording'].unique()):
         meanCI_High = dAnnoyMeanBoot.confidence_interval.high
         meanSE = dAnnoyMeanBoot.standard_error
     
-    dannoyAgg = pd.DataFrame(data=[[np.percentile(partAdAnnoy.values,
-                                                  q=50, axis=1,
-                                                  method='median_unbiased')[0],
+    dannoyAgg = pd.DataFrame(data=[[np.median(partAdAnnoy.values, axis=1)[0],
                                     medianCI_Low,
                                     medianCI_High,
                                     medianSE,
@@ -3339,17 +3496,19 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
     partBdHighAnnoy = pd.DataFrame(data=np.array(partBdHighAnnoy['dHighAnnoy']),
                                    index=columns, columns=[file]).transpose()
 
-    arousalMedianBoot = stats.bootstrap(partBArousal.values, statistic=np.median, confidence_level=0.95,
-                                        method='percentile', n_resamples=20000, random_state=rng)
+    (_, medianCI_Low,
+     medianCI_High, medianSE) = bias_corrected_jitter_median(partBArousal.values,
+                                                             step=1.0,
+                                                             n_resamples=20000,
+                                                             rng=rng)
+    
     arousalMeanBoot = stats.bootstrap(partBArousal.values, statistic=np.mean, confidence_level=0.95,
                                       method='BCa', n_resamples=20000, random_state=rng)
 
-    arousalAgg = pd.DataFrame(data=[[np.percentile(partBArousal.values,
-                                                   q=50, axis=1,
-                                                   method='median_unbiased')[0],
-                                     arousalMedianBoot.confidence_interval.low,
-                                     arousalMedianBoot.confidence_interval.high,
-                                     arousalMedianBoot.standard_error,
+    arousalAgg = pd.DataFrame(data=[[np.median(partBArousal.values, axis=1)[0],
+                                     medianCI_Low,
+                                     medianCI_High,
+                                     medianSE,
                                      np.mean(partBArousal.values, axis=1)[0],
                                      arousalMeanBoot.confidence_interval.low,
                                      arousalMeanBoot.confidence_interval.high,
@@ -3371,12 +3530,11 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
 
     else:
 
-        dArousalMedianBoot = stats.bootstrap(partBdArousal.values, statistic=np.median, confidence_level=0.95,
-                                             method='percentile', n_resamples=20000, random_state=rng)
-        
-        medianCI_Low = dArousalMedianBoot.confidence_interval.low
-        medianCI_High = dArousalMedianBoot.confidence_interval.high
-        medianSE = dArousalMedianBoot.standard_error
+        (_, medianCI_Low,
+         medianCI_High, medianSE) = bias_corrected_jitter_median(partBdArousal.values,
+                                                                 step=1.0,
+                                                                 n_resamples=20000,
+                                                                 rng=rng)
 
         dArousalMeanBoot = stats.bootstrap(partBdArousal.values, statistic=np.mean, confidence_level=0.95,
                                            method='BCa', n_resamples=20000, random_state=rng)
@@ -3385,9 +3543,7 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
         meanCI_High = dArousalMeanBoot.confidence_interval.high
         meanSE = dArousalMeanBoot.standard_error
 
-    darousalAgg = pd.DataFrame(data=[[np.percentile(partBdArousal.values,
-                                                    q=50, axis=1,
-                                                    method='median_unbiased')[0],
+    darousalAgg = pd.DataFrame(data=[[np.median(partBdArousal.values, axis=1)[0],
                                       medianCI_Low,
                                       medianCI_High,
                                       medianSE,
@@ -3401,18 +3557,19 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
                                         'dArousalMeanCI_High', 'dArousalMeanSE'],
                                index=[file])
     
-    valenceMedianBoot = stats.bootstrap(partBValence.values, statistic=np.median, confidence_level=0.95,
-                                        method='percentile', n_resamples=20000, random_state=rng)
+    (_, medianCI_Low,
+     medianCI_High, medianSE) = bias_corrected_jitter_median(partBValence.values,
+                                                             step=1.0,
+                                                             n_resamples=20000,
+                                                             rng=rng)
+    
     valenceMeanBoot = stats.bootstrap(partBValence.values, statistic=np.mean, confidence_level=0.95,
                                       method='BCa', n_resamples=20000, random_state=rng)
 
-    valenceAgg = pd.DataFrame(data=[[np.percentile(partBValence.values,
-                                                   q=50, axis=1,
-                                                   method='median_unbiased')[0],
-                                     valenceMedianBoot.confidence_interval.low,
-                                     valenceMedianBoot.confidence_interval.high,
-                                     valenceMedianBoot.standard_error,
-
+    valenceAgg = pd.DataFrame(data=[[np.median(partBValence.values, axis=1)[0],
+                                     medianCI_Low,
+                                     medianCI_High,
+                                     medianSE,
                                      np.mean(partBValence.values, axis=1)[0],
                                      valenceMeanBoot.confidence_interval.low,
                                      valenceMeanBoot.confidence_interval.high,
@@ -3433,13 +3590,13 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
         meanSE = 0
     
     else:
-        dValenceMedianBoot = stats.bootstrap(partBdValence.values, statistic=np.median, confidence_level=0.95,
-                                             method='percentile', n_resamples=20000, random_state=rng)
-        
-        medianCI_Low = dValenceMedianBoot.confidence_interval.low
-        medianCI_High = dValenceMedianBoot.confidence_interval.high
-        medianSE = dValenceMedianBoot.standard_error
 
+        (_, medianCI_Low,
+         medianCI_High, medianSE) = bias_corrected_jitter_median(partBdValence.values,
+                                                                 step=1.0,
+                                                                 n_resamples=20000,
+                                                                 rng=rng)
+        
         dValenceMeanBoot = stats.bootstrap(partBdValence.values, statistic=np.mean, confidence_level=0.95,
                                           method='BCa', n_resamples=20000, random_state=rng)
         
@@ -3447,9 +3604,7 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
         meanCI_High = dValenceMeanBoot.confidence_interval.high
         meanSE = dValenceMeanBoot.standard_error
 
-    dvalenceAgg = pd.DataFrame(data=[[np.percentile(partBdValence.values,
-                                                    q=50, axis=1,
-                                                    method='median_unbiased')[0],
+    dvalenceAgg = pd.DataFrame(data=[[np.median(partBdValence.values, axis=1)[0],
                                       medianCI_Low,
                                       medianCI_High,
                                       medianSE,
@@ -3463,26 +3618,28 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
                                         'dValenceMeanCI_High', 'dValenceMeanSE'],
                                index=[file])
     
-    annoyMedianBoot = stats.bootstrap(partBAnnoy.values, statistic=np.median, confidence_level=0.95,
-                                      method='percentile', n_resamples=20000, random_state=rng)
+    (_, medianCI_Low,
+     medianCI_High, medianSE) = bias_corrected_jitter_median(partBAnnoy.values,
+                                                             step=1.0,
+                                                             n_resamples=20000,
+                                                             rng=rng)
+    
     annoyMeanBoot = stats.bootstrap(partBAnnoy.values, statistic=np.mean, confidence_level=0.95,
                                     method='BCa', n_resamples=20000, random_state=rng)
 
-    annoyAgg = pd.DataFrame(data=[[np.percentile(partBAnnoy.values,
-                                                 q=50, axis=1,
-                                                 method='median_unbiased')[0],
-                                   annoyMedianBoot.confidence_interval.low,
-                                   annoyMedianBoot.confidence_interval.high,
-                                   annoyMedianBoot.standard_error,
+    annoyAgg = pd.DataFrame(data=[[np.median(partBAnnoy.values, axis=1)[0],
+                                   medianCI_Low,
+                                   medianCI_High,
+                                   medianSE,
                                    np.mean(partBAnnoy.values, axis=1)[0],
                                    annoyMeanBoot.confidence_interval.low,
                                    annoyMeanBoot.confidence_interval.high,
                                    annoyMeanBoot.standard_error]],
-                             columns=['AnnoyMedian', 'AnnoyMedianCI_Low',
-                                      'AnnoyMedianCI_High', 'AnnoyMedianSE',
-                                      'AnnoyMean', 'AnnoyMeanCI_Low',
-                                      'AnnoyMeanCI_High', 'AnnoyMeanSE'],
-                             index=[file])
+                            columns=['AnnoyMedian', 'AnnoyMedianCI_Low',
+                                     'AnnoyMedianCI_High', 'AnnoyMedianSE',
+                                     'AnnoyMean', 'AnnoyMeanCI_Low',
+                                     'AnnoyMeanCI_High', 'AnnoyMeanSE'],
+                            index=[file])
     
     if file == "B2_CALBIN_Pa.wav":
 
@@ -3492,13 +3649,13 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
         meanCI_High = 0
 
     else:
-        dAnnoyMedianBoot = stats.bootstrap(partBdAnnoy.values, statistic=np.median, confidence_level=0.95,
-                                           method='percentile', n_resamples=20000, random_state=rng)
         
-        medianCI_Low = dAnnoyMedianBoot.confidence_interval.low
-        medianCI_High = dAnnoyMedianBoot.confidence_interval.high
-        medianSE = dAnnoyMedianBoot.standard_error
-
+        (_, medianCI_Low,
+                 medianCI_High, medianSE) = bias_corrected_jitter_median(partBdAnnoy.values,
+                                                                         step=1.0,
+                                                                         n_resamples=20000,
+                                                                         rng=rng)
+        
         dAnnoyMeanBoot = stats.bootstrap(partBdAnnoy.values, statistic=np.mean, confidence_level=0.95,
                                          method='BCa', n_resamples=20000, random_state=rng)
 
@@ -3506,9 +3663,7 @@ for ii, file in enumerate(partBResponses['Recording'].unique()):
         meanCI_High = dAnnoyMeanBoot.confidence_interval.high
         meanSE = dAnnoyMeanBoot.standard_error
 
-    dannoyAgg = pd.DataFrame(data=[[np.percentile(partBdAnnoy.values,
-                                                  q=50, axis=1,
-                                                  method='median_unbiased')[0],
+    dannoyAgg = pd.DataFrame(data=[[np.median(partBdAnnoy.values, axis=1)[0],
                                     medianCI_Low,
                                     medianCI_High,
                                     medianSE,

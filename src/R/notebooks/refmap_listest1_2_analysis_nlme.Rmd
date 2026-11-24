@@ -1,0 +1,2320 @@
+---
+title: "REFMAP Listening test 1 and 2: Non-linear mixed-effects regression models"
+output: html_document
+date: "2026-11-16"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup
+
+Load packages
+
+```{r}
+library(easystats)
+library(conflicted)
+library(here)
+# library(MASS)
+# library(glmtoolbox)
+# library(ggeffects)
+library(lme4)
+library(tidyverse)
+library(broom)
+library(openxlsx2)
+# library(marginaleffects)
+# library(stats)
+library(viridis)
+library(ggnewscale)
+library(patchwork)
+library(ggpmisc)
+library(gginnards)
+# library(microbenchmark)
+library(future)
+library(future.apply)
+library(glmmTMB)
+# library(SelectBoost)
+# library(SelectBoost.beta)
+# library(rsample)
+# library(glmnet)
+library(reformulas)
+# library(DHARMa)
+library(buildmer)
+library(tictoc)
+library(doFuture)
+library(doRNG)
+# library(arm)
+# library(car)
+# library(shades)
+library(scales)
+library(randomcoloR)
+
+# set package parameters
+theme_set(theme_bw())
+# 
+n_cores <- max(1, parallelly::availableCores() - 4)
+options(future.globals.maxSize = 3000 * 1024^2)
+future::plan(future::multisession, workers = n_cores, maxSizeOfObjects = 10e9)
+doFuture::registerDoFuture()
+doRNG::registerDoRNG()
+# 
+# options(marginaleffects_parallel_inferences = TRUE)
+# options(marginaleffects_parallel_packages = c("marginaleffects", "glmtoolbox", "glmmTMB"))
+# options(marginaleffects_parallel = TRUE)
+# 
+# options(glmmTMB.cores=n_cores)
+
+# lmerctrl <- lme4::lmerControl(optimizer = 'bobyqa',
+#                                optCtrl = list(maxfun = 1e6))
+# glmerctrl <- lme4::glmerControl(optimizer = 'bobyqa',
+#                                  optCtrl = list(maxfun = 1e6))
+
+lme4::nlmerControl(optimizer='bobyqa',
+                   optCtrl = list(maxfun = 1e6))
+# 
+glmmTMBctrl <- glmmTMB::glmmTMBControl(profile=TRUE, collect=TRUE,
+                                       optimizer = optim,
+                                       optArgs = list(method='BFGS'))
+
+buildMerctrl <- buildmer::buildmerControl(crit = 'BIC',
+                                             direction = c("order", "backward"))
+
+
+# options(warnPartialMatchDollar = TRUE)
+
+```
+
+Set parameters
+
+```{r}
+
+# plot colour scheme
+
+mycolourlist = list(c(0, 102, 255), c(0, 204, 153), c(255, 0, 102), c(74, 111, 152), c(251, 164, 49), c(204, 153, 255), c(90, 192, 255), c(80, 245, 233), c(255, 90, 192), c(164, 201, 242), c(255, 254, 139), c(255, 243, 255))
+mycolours = character()
+
+for (ii in 1:length(mycolourlist)){
+  mycolours[ii] = rgb(mycolourlist[[ii]][1]/255,
+                      mycolourlist[[ii]][2]/255,
+                      mycolourlist[[ii]][3]/255)
+}
+
+darker_paired <- as.character(shades::brightness(scales::brewer_pal(palette = "Paired")(12), 0.7))
+
+# toggle to save plots
+saveplots = TRUE
+
+if (saveplots){
+  # set output plot directory
+  choose.files(caption="Just cancel this", filters=matrix(data=c(" ", " "), ncol=2))  # workaround for bug in RTerm choose.dir
+  outFigPath <- utils::choose.dir(caption="Select output folder to save plots '03 Experiment\\Experiment_1_2\\Analysis\\Plots'")
+  
+  if (!dir.exists(file.path(outFigPath, "svg"))){dir.create(file.path(outFigPath, "svg"))}
+  if (!dir.exists(file.path(outFigPath, "pdf"))){dir.create(file.path(outFigPath, "pdf"))}
+  
+}
+
+# toggle to save data
+savedata = TRUE
+
+if (savedata){
+  # set output plot directory
+  if (saveplots==FALSE){
+    choose.files(caption="Just cancel this", filters=matrix(data=c(" ", " "), ncol=2))  # workaround for bug in RTerm choose.dir
+  }
+  outDataPath <- utils::choose.dir(caption="Select output folder to save data '03 Experiment\\Experiment_1_2\\Analysis\\R'")
+}
+
+set.seed(48192)
+
+
+```
+
+# Functions
+
+## model performance metrics
+
+```{r}
+
+source(here("src/R/performance_metrics.R"))
+
+```
+
+## modelling helpers
+
+```{r}
+
+source(here("src/R/modelling_helpers.R"))
+
+```
+
+## plotting helpers
+
+```{r}
+
+source(here("src/R/plotting_helpers.R"))
+
+```
+
+## deployment mean model
+
+```{r}
+
+source(here("src/R/deploy_mean_model.R"))
+
+```
+
+## boot mean model
+
+```{r}
+
+source(here("src/R/boot_mean_model.R"))
+
+```
+
+## predict_glmmTMB_ordbeta
+
+```{r}
+
+source(here("src/R/predict_glmmTMB_ordbeta.R"))
+
+```
+
+## cv_mean_model
+
+```{r}
+
+source(here("src/R/cv_mean_model.R"))
+
+```
+
+# Import data and wrangle
+
+```{r}
+
+subjDataPath <- utils::choose.files(caption=r"(Select refmap_listest1_2_testdataMerge_BySubj.csv from 03 Experiment\Experiment_1_2\Analysis\PostProcess)",
+                         filters=matrix(data=c("refmap_listest1_2_testdataMerge_BySubj.csv", "refmap_listest1_2_testdataMerge_BySubj.csv"), ncol=2))
+
+subjData <- read.csv(subjDataPath, header=TRUE)
+
+stimDataPath <- utils::choose.files(caption=r"(Select refmap_listest1_2_testdataMerge_ByStim.csv from 03 Experiment\Experiment_1_2\Analysis\PostProcess)",
+                                     filters=matrix(data=c("refmap_listest1_2_testdataMerge_ByStim.csv", "refmap_listest1_2_testdataMerge_ByStim.csv"), ncol=2))
+
+stimData <- read.csv(stimDataPath, header=TRUE, row.names=1)
+
+subjData$Experiment <- factor(subjData$Experiment)
+contrasts(subjData$Experiment) <- contr.sum(2)
+
+stimData$Experiment <- factor(stimData$Experiment)
+contrasts(stimData$Experiment) <- contr.sum(2)
+
+# definition of ordinal variable levels
+UASOpCats <- c("Baseline", "Overflight", "Takeoff", "Landing", "Delivery")
+UASTypeCats <- c("Baseline", "H520", "M300", "T150")
+
+# encode factors
+subjData$UASOperation <- factor(subjData$UASOperation, levels=UASOpCats)
+subjData$UASType <- factor(subjData$UASType, levels=UASTypeCats)
+subjData$AmbientEnv <- factor(subjData$AmbientEnv, levels=c("Park", "Residential", "Park (high)",
+                                                            "Highway (low)", "Streetside square", "Highway"))
+subjData$AmbientEnvCore <- factor(subjData$AmbientEnvCore, levels=c("Park", "Residential",
+                                                                    "Streetside square", "Highway"))
+subjData$AAMAttitude <- factor(subjData$AAMAttitude)
+subjData$HomeArea <- factor(subjData$HomeArea)
+subjData$SoundscapeArea <- factor(subjData$SoundscapeArea)
+subjData$NationGeo <- factor(subjData$NationGeo)
+subjData$UKNational <- factor(subjData$UKNational)
+subjData$Sex <- factor(subjData$Sex, levels=c("Female", "Male"))
+
+stimData$UASOperation <- factor(stimData$UASOperation, levels=UASOpCats)
+stimData$UASType <- factor(stimData$UASType, levels=UASTypeCats)
+stimData$AmbientEnv <- factor(stimData$AmbientEnv, levels=c("Park", "Residential", "Park (high)",
+                                                            "Highway (low)", "Streetside square", "Highway"))
+stimData$AmbientEnvCore <- factor(stimData$AmbientEnvCore, levels=c("Park", "Residential",
+                                                                    "Streetside square", "Highway"))
+
+# For Age column in subjData, replace "No answer" with NA, and then convert to numeric using dplyr and pipe
+subjData <- subjData |> dplyr::mutate(Age = case_when(Age == "No answer" ~ NA_character_, TRUE ~ Age)) |>
+  dplyr::mutate(Age = as.numeric(Age))
+
+# recode AAM_attitude to 2 groups
+subjData <- subjData |> dplyr::mutate(AAM_attitude2 = dplyr::recode_values(AAMAttitude,
+                                                                    "Supportive" ~ "Supportive",
+                                                                    c("Ambivalent",
+                                                                      "Concerned",
+                                                                      "Neutral") ~ "Ambiv_Concern_Neutral"))
+subjData$AAM_attitude2 <- factor(subjData$AAM_attitude2, levels=c("Supportive", "Ambiv_Concern_Neutral"))
+
+# recode NationGeo to 3 groups
+subjData <- subjData |> dplyr::mutate(NationGeo3 = dplyr::recode_values(NationGeo,
+                                                                 "UK" ~ "UK",
+                                                                 c("Africa",
+                                                                   "SouthAsia") ~ "Africa_SAsia",
+                                                                 c("EastAsia",
+                                                                   "Australasia",
+                                                                   "Europe",
+                                                                   "MidEast",
+                                                                   "SouthAmerica",
+                                                                   "NotAnswered",
+                                                                   NA, "") ~ "Other"))
+subjData$NationGeo3 <- factor(subjData$NationGeo3)
+
+# recode NationGeo to 2 groups
+subjData <- subjData |> dplyr::mutate(NationGeo2 = dplyr::recode_values(NationGeo,
+                                                                 "UK" ~ "UK",
+                                                                 c("Africa",
+                                                                   "SouthAsia",
+                                                                   "Australasia",
+                                                                   "EastAsia",
+                                                                   "Europe",
+                                                                   "MidEast",
+                                                                   "SouthAmerica",
+                                                                   "NotAnswered",
+                                                                   NA, "") ~ "Other"))
+subjData$NationGeo2 <- factor(subjData$NationGeo2)
+
+# recode Area of residence to 2 groups
+subjData <- subjData |> dplyr::mutate(Home_Area2 = dplyr::recode_values(HomeArea,
+                                                         "Urban" ~ "Urban",
+                                                         c("Suburban",
+                                                           "Rural") ~ "Suburban_Rural"))
+subjData$Home_Area2 <- factor(subjData$Home_Area2)
+
+
+# recode Area soundscape to 2 groups
+subjData <- subjData |> dplyr::mutate(Area_soundscape2 = dplyr::recode_values(SoundscapeArea,
+                                                                       c("Calm",
+                                                                         "Vibrant") ~ "Pleasant",
+                                                                       c("Chaotic",
+                                                                         "Monotonous") ~ "Unpleasant"))
+
+subjData$Area_soundscape2 <- factor(subjData$Area_soundscape2, levels=c("Unpleasant", "Pleasant"))
+
+subjData <- subjData |> dplyr::mutate(UASDisc0p5PAEMaxLR = 2e-5*10^(UASDisc0p5LAEMaxLR/20))
+subjData <- subjData |> dplyr::mutate(IntermitRatioC2MaxLRScl = IntermitRatioC2MaxLR/100)
+subjData <- subjData |> dplyr::mutate(IntermitRatioC3MaxLRScl = IntermitRatioC3MaxLR/100)
+subjData <- subjData |> dplyr::mutate(IntermitRatioC5MaxLRScl = IntermitRatioC5MaxLR/100)
+
+stimData <- stimData |> dplyr::mutate(UASDisc0p5PAEMaxLR = 2e-5*10^(UASDisc0p5LAEMaxLR/20))
+stimData <- stimData |> dplyr::mutate(IntermitRatioC2MaxLRScl = IntermitRatioC2MaxLR/100)
+stimData <- stimData |> dplyr::mutate(IntermitRatioC3MaxLRScl = IntermitRatioC3MaxLR/100)
+stimData <- stimData |> dplyr::mutate(IntermitRatioC5MaxLRScl = IntermitRatioC5MaxLR/100)
+
+# Log other variables
+subjData$PartLoudSHMPowAvgLog <- log(subjData$PartLoudSHMPowAvg)
+stimData$PartLoudSHMPowAvgLog <- log(stimData$PartLoudSHMPowAvg)
+
+# reorder by participant ID and trial number
+subjData <- subjData[with(subjData, order(Experiment, PersonNum, TrialNumber)), ]
+
+# add a rescaled dAnnoyance variable
+subjData <- subjData |>
+  dplyr::mutate(AnnoyanceOrdBetaScl = betaTransform(Annoyance, 0, 10,
+                                                    direction='forward', squeeze='none'),
+                dAnnoyanceOrdBetaScl = betaTransform(dAnnoyance, -10, 10,
+                                                     direction='forward', squeeze='none'))
+
+# add a rescaled dAnnoyance variable
+stimData <- stimData |>
+  dplyr::mutate(AnnoyMeanOrdBetaScl = betaTransform(AnnoyanceMean, 0, 10,
+                                                    direction='forward', squeeze='none'),
+                dAnnoyMeanOrdBetaScl = betaTransform(dAnnoyanceMean, -10, 10,
+                                                     direction='forward', squeeze='none'),
+                AnnoyMedianOrdBetaScl = betaTransform(AnnoyanceMedian, 0, 10,
+                                                    direction='forward', squeeze='none'),
+                dAnnoyMedianOrdBetaScl = betaTransform(dAnnoyanceMedian, 0, 10,  # note: intentional rescaling to [0, 10]
+                                                     direction='forward', squeeze='none'))
+
+# omit ambient-only stimuli
+subjDataNoAmb <- subjData |> dplyr::filter(UASType != "Baseline") |>
+  droplevels() |>
+  arrange(Experiment, PersonNum, TrialNumber)
+
+stimDataNoAmb <- stimData |> dplyr::filter(UASType != "Baseline") |>
+  droplevels() |>
+  arrange(Experiment, StimNum)
+
+subjDataNoAmb$Experiment <- factor(subjDataNoAmb$Experiment)
+contrasts(subjDataNoAmb$Experiment) <- contr.sum(2)
+
+stimDataNoAmb$Experiment <- factor(stimDataNoAmb$Experiment)
+contrasts(stimDataNoAmb$Experiment) <- contr.sum(2)
+
+```
+
+## filter and impute missing age data (median imputation)
+
+```{R}
+
+# first create a participant-level dataset
+subj1_dat <- subset(subjData, Experiment == 1) |> dplyr::select(ParticipantNum,
+                                                                      Age) |> dplyr::distinct()
+
+# create a median imputation for missing age data
+subj1_dat.med <- subj1_dat |> dplyr::mutate(Age = ifelse(is.na(Age),
+                                                   median(Age, na.rm=TRUE),
+                                                   Age))
+
+# now merge the imputed age data back into the main dataset
+subjData.med <- subjData |> dplyr::select(-Age) |> dplyr::left_join(subj1_dat.med, by="ParticipantNum")
+
+# now filter the dataset to exclude ambient-only stimuli
+subjDataNoAmb.med <- subjData.med |> dplyr::filter(UASType != "Baseline") |>
+  droplevels()
+
+```
+
+## rescaling variables
+
+```{r}
+
+# rescale variables
+
+centre_vars = c("UASLAF50ExMaxLR", "UASLAEMaxLR", "UASImpulsLoudWZAvg",
+                "UASRoughECMA10Ex", "UASSharpvBISO105Ex",
+                "UASRoughDW10Ex", "UASFluctOV10Ex",
+                "UASFluctECMA10Ex", "UASTonLdECMAPowAvg", "UASPsychAnnoyWidmann",
+                "UASPsychAnnoyWillemsen", "UASLoudISO1PowAvg",
+                "Detect0p5dBIntEx50MaxLR", "UASImpulsSHMAvg", "dImpulsSHM05Ex",
+                "UASImpulsLoudWZPowAvg", "PartSharpvBSHMPowAvg",
+                "UASSharpAurISO1Med", "dRoughECMA05Ex",
+                "dImpulsLoudWZAvg", "PartTonLdSHMPowAvg",
+                "UASFluctFZ05Ex", "dFluctOV10Ex", "UASTonShpAurSHM05Ex",
+                "dTonalECMAAvg", "dTonalAwSHM05Ex", "UASTonalECMA05Ex",
+                "EPNLLAF50diff", "LAELAF50diff", "LAeqLAF10diff",
+                "LAeqdiff", "dPsychAnnoyDi", "dPsychAnnoyWidmann", 
+                "Age", "NoiseSensitivity", "Detect0p1dBMaxEx50MaxLR",
+                "Detect0p5dBMaxEx50MaxLR", "UASLAeqMaxLR", "UASEPNLMaxLR",
+                "LAELAF90diff", "LAELAeqdiff", "UASDisc0p1LAEMaxLR",
+                "UASDisc0p5LAEMaxLR", "UASLoudECMAPowAvg",  "AmbLAeqMaxLR",
+                "AmbLAF50ExMaxLR", "Detect0p5dBIntMaxLR", "Detect0p1dBIntMaxLR",
+                "Detect0p1dBMaxIntMaxLR", "Detect0p1dBIntEx50MaxLR",
+                "UASTonalAwSHMInt05Ex", "UASSharpAurISO3PowAvg",
+                "UASSharpAurISO305Ex", "dTonalSHMIntAvg", "dSharpAurISO3PowAvg",
+                "dSharpAurSHMPowAvg", "UASRoughFZ05Ex", "dTonLdECMAPowAvg",
+                "dFluctECMA10Ex", "dRoughFZ05Ex")
+
+standardise_vars = c("TrialNumber", setdiff(centre_vars, c("Age", "NoiseSensitivity")))
+
+out <- standardise_list(list(subjData.med, subjDataNoAmb.med),
+                        vars = list(standardise=standardise_vars,
+                                    centre=centre_vars),
+                        append=c(standardise="Std", centre="Scl"))
+
+subjData.med <- out$data$subjData.med
+subjDataNoAmb.med <- out$data$subjDataNoAmb.med
+
+subjData.medScaling <- subset(out$params, df_name=='subjData.med')
+subjDataNoAmb.medScaling <- subset(out$params, df_name=='subjDataNoAmb.med')
+
+
+centre_stim_vars = setdiff(centre_vars, c("Age", "NoiseSensitivity"))
+
+standardise_stim_vars = setdiff(standardise_vars, c("TrialNumber"))
+
+out <- standardise_list(list(stimData, stimDataNoAmb),
+                        vars = list(standardise=standardise_stim_vars,
+                                    centre=centre_stim_vars),
+                        append=c(standardise="Std", centre="Scl"))
+
+stimData <- out$data$stimData
+stimDataNoAmb <- out$data$stimDataNoAmb
+
+stimDataScaling <- subset(out$params, df_name=='stimData')
+stimDataNoAmbScaling <- subset(out$params, df_name=='stimDataNoAmb')
+
+stimDataNoAmbPlot <- to_model_cols(stimDataNoAmb, subjDataNoAmbScaling)
+
+log10evts_ctr_subj <- mean(log10(subjDataNoAmb.med$UASEvents))
+print(log10evts_ctr_subj, digits=20)
+# [1] 0.10116107749662588133
+# we use 0.1011611 to centre
+
+log10evts_ctr_stim <- mean(log10(stimDataNoAmb$UASEvents))
+print(log10evts_ctr_stim, digits=20)
+# [1] 0.10591795495009254102
+# we use 0.105917955 to centre
+
+
+```
+
+# dAnnoyMedian:
+
+```{r}
+
+transform_dAnnoyMd <- \(x) betaTransform(x, 0, 10, direction = 'reverse',
+                                         squeeze = 'none')
+
+r2_1 <- \(x, y) 1 - sum((x - y)^2)/sum((x - mean(x))^2)
+
+```
+
+#### S1: LAE and UAS events
+
+##### formula
+
+```{r}
+
+m_dA1a_f <- dAnnoyMedianOrdBetaScl ~ UASLAEMaxLRScl*I(log10(UASEvents) - 0.105917955) +
+  Experiment
+
+m_dA1_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA1_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA1b_f <- dAnnoyMedianOrdBetaScl ~ UASLAEMaxLRScl + I(log10(UASEvents) - 0.105917955) +
+  Experiment
+
+```
+
+##### fit and estimate parameters
+
+```{r}
+
+
+m_dA1a <- glmmTMB::glmmTMB(formula=m_dA1a_f, dispformula= ~ Experiment,
+                          data=m_dA1_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dA1b <- glmmTMB::glmmTMB(formula=m_dA1b_f, dispformula= ~ Experiment,
+                          data=m_dA1_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+parameters::model_parameters(m_dA1a, dispersion=TRUE)
+parameters::model_parameters(m_dA1b, dispersion=TRUE)
+
+performance::compare_performance(m_dA1a, m_dA1b)
+
+```
+
+##### compare CV performance
+
+```{r}
+
+cv_m_dA1a <- cv_mean_model(m_dA1a, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA1b <- cv_mean_model(m_dA1b, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+compare_mean_models(m_dA1a=cv_m_dA1a, m_dA1b=cv_m_dA1b)
+
+```
+
+##### generate deployment version
+
+```{r}
+
+m_dA1b_deploy <- deploy_mean_model(m_dA1b,
+                                   centred_vars=list(UASLAEMaxLRScl="UASLAEMaxLR"),
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=TRUE)
+
+```
+
+##### analyse deployment performance
+
+```{r}
+
+m_dA1b_boot <- boot_mean_model(deployed=m_dA1b_deploy, trial_data=subjDataNoAmb.med,
+                               cluster='PersonNum', response='dAnnoyance',
+                               stat = 'median', by = 'StimNum',
+                               strata = 'Experiment', resample = 'crossed',
+                               stimulus_strata = 'Experiment',
+                               response_transform = function(x) pmax(x, 0)/10,
+                               jitter_step=1, interval = 'bc',
+                               jitter_rows = subjDataNoAmb.med[['Experiment']] == 1,
+                               recentre='mean', regrid=0.5, newdata = NULL,
+                               B = 2000, level = 0.95,
+                               prediction_intervals = FALSE, pi_draws = 10L,
+                               parallel = TRUE, seed = 999, verbose = TRUE)
+
+cv_m_dA1b <- cv_mean_model(m_dA1b_deploy, k = 198, reps = 1, strata = 'Experiment', group = 'StimNum',
+                     inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+m_dA1b_predict <- transform_dAnnoyMd(predict.glmmTMB.ordbeta(m_dA1b, newdata=stimDataNoAmb, type='response'))
+
+m_dA1b_cv <- cv::cv(m_dA1b, criterion=r2_1, k=10, seed=999)
+
+m_dA1b_dep_predict <- transform_dAnnoyMd(m_dA1b_deploy(stimDataNoAmb))
+
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyanceMedian - m_dA1b_dep_predict)^2)/sum((stimDataNoAmb$dAnnoyanceMedian - mean(stimDataNoAmb$dAnnoyanceMedian))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m_dA1b_dep_predict,
+                     measured_target='dAnnoyanceMedian', measured_ci_low='dAnnoyanceMedianCI_Low',
+                     measured_ci_high='dAnnoyanceMedianCI_High', fitted='estimate')
+
+R2_cv <- subset(cv_m_dA1b[['summary']], target=="deployed" & metric == "R2")['cv_mean']
+RMSE_CV <- subset(cv_m_dA1b[['summary']], target=="deployed" & metric == "RMSE")['cv_mean']
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=merge(m_dA1b_boot[['predictions']][, c('StimNum', 'estimate', 'lower', 'upper')],
+                  data.frame(Experiment = stimDataNoAmb[['Experiment']],
+                             StimNum = stimDataNoAmb[['StimNum']],
+                             response = stimDataNoAmb[['dAnnoyanceMedian']],
+                             responseCI_Low = stimDataNoAmb[['dAnnoyanceMedianCI_Low']],
+                             responseCI_High = stimDataNoAmb[['dAnnoyanceMedianCI_High']]),
+                  by = "StimNum")) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  geom_point(mapping=aes(x=response, y=estimate, colour=Experiment, shape=Experiment), size=1.75, stroke=0.75, alpha=0.5) +
+
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate, colour=Experiment), width=0, alpha=0.1) +
+
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=lower, ymax=upper, colour=Experiment), width=0, alpha=0.1) +
+  
+  scale_colour_manual(values=mycolours[1:2], name="Experiment", guide=guide_legend(ncol = 2, position = 'top')) +
+  scale_shape_manual(values=c(4, 0), name="Experiment", guide=guide_legend(ncol = 2, position = 'top')) +
+
+  scale_x_continuous(breaks=seq(-2, 10, by=1)) +
+  scale_y_continuous(breaks=seq(-2, 10, by=1)) +
+  
+  coord_cartesian(xlim=c(-1.5, 9.5), ylim=c(-0.5, 10.5), expand=FALSE) +
+  
+  labs(x="Median change in annoyance (test)", y="Predicted median annoyance increase") +
+  
+  ggplot2::annotate("text", x=-0.5, y=10, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=-0.5, y=9.25, label=deparse(bquote(italic(R)[CV]^2 == .(sprintf("%.3f", (round(R2_cv, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=-0.5, y=8.5, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = -0.5, y = 7.75, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE) +
+ggplot2::annotate("text", x = -0.5, y = 7, label = paste0("RMSE[CV] == ", sprintf("%.3f", round(RMSE_CV, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
+
+
+if (saveplots){
+  
+  filename <- "DataMeld_dAnnoyMn_PredMod_LAECal_Ob"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4.5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4, height=4.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
+#### S2: UAS SQMs, no ambient info
+
+##### formula
+
+```{r}
+
+m_dA2a_f <- dAnnoyMedianOrdBetaScl ~ UASLAEMaxLR + I(log10(UASEvents) - 0.105917955) +
+  UASSharpAurISO305Ex + Experiment
+
+m_dA2a_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA2a_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA2b_f <- dAnnoyMedianOrdBetaScl ~ UASLAEMaxLR + I(log10(UASEvents) - 0.105917955) +
+  UASTonalAwSHMInt05Ex + UASSharpAurISO305Ex + Experiment
+
+m_dA2b_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA2b_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA2c_f <- dAnnoyMedianOrdBetaScl ~ UASLAEMaxLR + I(log10(UASEvents) - 0.105917955) +
+  UASTonalAwSHMInt05Ex + UASSharpAurISO305Ex + UASImpulsSHMAvg + Experiment
+
+m_dA2c_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA2c_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA2d_f <- dAnnoyMedianOrdBetaScl ~ UASLAEMaxLR + I(log10(UASEvents) - 0.105917955) +
+  UASTonalAwSHMInt05Ex + UASSharpAurISO305Ex + UASImpulsSHMAvg + UASRoughECMA10Ex +
+  Experiment
+
+m_dA2d_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA2d_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA2e_f <- dAnnoyMedianOrdBetaScl ~ UASLoudECMAPowAvg + I(log10(UASEvents) - 0.105917955) +
+  UASSharpAurISO305Ex + Experiment
+
+m_dA2e_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA2e_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA2f_f <- dAnnoyMedianOrdBetaScl ~ UASLAEMaxLRScl*I(log10(UASEvents) - 0.105917955) +
+  UASSharpAurISO305Ex + Experiment
+
+m_dA2f_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA2f_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+
+```
+
+##### fit and estimate parameters
+
+```{r}
+
+
+m_dA2a <- glmmTMB::glmmTMB(formula=m_dA2a_f, dispformula= ~ Experiment,
+                          data=m_dA2a_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dA2b <- glmmTMB::glmmTMB(formula=m_dA2b_f, dispformula= ~ Experiment,
+                          data=m_dA2b_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dA2c <- glmmTMB::glmmTMB(formula=m_dA2c_f, dispformula= ~ Experiment,
+                          data=m_dA2c_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dA2d <- glmmTMB::glmmTMB(formula=m_dA2d_f, dispformula= ~ Experiment,
+                          data=m_dA2d_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dA2e <- glmmTMB::glmmTMB(formula=m_dA2e_f, dispformula= ~ Experiment,
+                          data=m_dA2e_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+
+m_dA2f <- glmmTMB::glmmTMB(formula=m_dA2f_f, dispformula= ~ Experiment,
+                          data=m_dA2f_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+parameters::model_parameters(m_dA2a, dispersion=TRUE)
+parameters::model_parameters(m_dA2b, dispersion=TRUE)
+parameters::model_parameters(m_dA2c, dispersion=TRUE)
+parameters::model_parameters(m_dA2d, dispersion=TRUE)
+parameters::model_parameters(m_dA2e, dispersion=TRUE)
+parameters::model_parameters(m_dA2f, dispersion=TRUE)
+
+performance::compare_performance(m_dA1b, m_dA2a, m_dA2b, m_dA2c, m_dA2d, m_dA2e,
+                                 m_dA2f)
+
+```
+
+##### compare CV performance
+
+```{r}
+
+cv_m_dA2a <- cv_mean_model(m_dA2a, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA2b <- cv_mean_model(m_dA2b, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA2c <- cv_mean_model(m_dA2c, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA2d <- cv_mean_model(m_dA2d, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA2e <- cv_mean_model(m_dA2e, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA2f <- cv_mean_model(m_dA2f, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+compare_mean_models(m_dA2a=cv_m_dA2a, m_dA2b=cv_m_dA2b, m_dA2c=cv_m_dA2c,
+                    m_dA2d=cv_m_dA2d, m_dA2e=cv_m_dA2e, m_dA2f=cv_m_dA2f)
+
+```
+
+##### generate deployment version
+
+```{r}
+
+m_dA2a_deploy <- deploy_mean_model(m_dA2a,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=TRUE)
+
+```
+
+##### analyse deployment performance
+
+```{r}
+
+m_dA2a_boot <- boot_mean_model(deployed=m_dA2a_deploy, trial_data=subjDataNoAmb.med,
+                               cluster='PersonNum', response='dAnnoyance',
+                               stat = 'median', by = 'StimNum',
+                               strata = 'Experiment', resample = 'crossed',
+                               stimulus_strata = 'Experiment',
+                               response_transform = function(x) pmax(x, 0)/10,
+                               jitter_step=1, interval = 'bc',
+                               jitter_rows = subjDataNoAmb.med[['Experiment']] == 1,
+                               recentre='mean', regrid=0.5, newdata = NULL,
+                               B = 2000, level = 0.95,
+                               prediction_intervals = FALSE, pi_draws = 10L,
+                               parallel = TRUE, seed = 999, verbose = TRUE)
+
+cv_m_dA2a <- cv_mean_model(m_dA2a_deploy, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+m_dA2a_predict <- transform_dAnnoyMd(predict.glmmTMB.ordbeta(m_dA2a, newdata=stimDataNoAmb, type='response'))
+
+m_dA2a_dep_predict <- transform_dAnnoyMd(m_dA2a_deploy(stimDataNoAmb))
+
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyanceMedian - m_dA2a_dep_predict)^2)/sum((stimDataNoAmb$dAnnoyanceMedian - mean(stimDataNoAmb$dAnnoyanceMedian))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m_dA2a_dep_predict,
+                     measured_target='dAnnoyanceMedian', measured_ci_low='dAnnoyanceMedianCI_Low',
+                     measured_ci_high='dAnnoyanceMedianCI_High', fitted='estimate')
+
+R2_cv <- subset(cv_m_dA2a[['summary']], target=="deployed" & metric == "R2")['cv_mean']
+RMSE_CV <- subset(cv_m_dA2a[['summary']], target=="deployed" & metric == "RMSE")['cv_mean']
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=merge(m_dA2a_boot[['predictions']][, c('StimNum', 'estimate', 'lower', 'upper')],
+                  data.frame(Experiment = stimDataNoAmb[['Experiment']],
+                             StimNum = stimDataNoAmb[['StimNum']],
+                             response = stimDataNoAmb[['dAnnoyanceMedian']],
+                             responseCI_Low = stimDataNoAmb[['dAnnoyanceMedianCI_Low']],
+                             responseCI_High = stimDataNoAmb[['dAnnoyanceMedianCI_High']]),
+                  by = "StimNum")) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  geom_point(mapping=aes(x=response, y=estimate, colour=Experiment, shape=Experiment), size=1.75, stroke=0.75, alpha=0.5) +
+
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate, colour=Experiment), width=0, alpha=0.1) +
+
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=lower, ymax=upper, colour=Experiment), width=0, alpha=0.1) +
+  
+  scale_colour_manual(values=mycolours[1:2], name="Experiment", guide=guide_legend(ncol = 2, position = 'top')) +
+  scale_shape_manual(values=c(4, 0), name="Experiment", guide=guide_legend(ncol = 2, position = 'top')) +
+
+  scale_x_continuous(breaks=seq(-2, 10, by=1)) +
+  scale_y_continuous(breaks=seq(-2, 10, by=1)) +
+  
+  coord_cartesian(xlim=c(-1.5, 9.5), ylim=c(-0.5, 10.5), expand=FALSE) +
+  
+  labs(x="Median change in annoyance (test)", y="Predicted median annoyance increase") +
+  
+  ggplot2::annotate("text", x=-0.5, y=10, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=-0.5, y=9.25, label=deparse(bquote(italic(R)[CV]^2 == .(sprintf("%.3f", (round(R2_cv, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=-0.5, y=8.5, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = -0.5, y = 7.75, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE) +
+ggplot2::annotate("text", x = -0.5, y = 7, label = paste0("RMSE[CV] == ", sprintf("%.3f", round(RMSE_CV, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
+
+
+if (saveplots){
+  
+  filename <- "DataMeld_dAnnoyMn_PredMod_LAESQCal_Ob"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4.5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4, height=4.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
+#### S3: LAE, UAS events and amb env
+
+##### formula
+
+```{r}
+
+m_dA3a_f <- dAnnoyMedianOrdBetaScl ~ UASLAEMaxLR + I(log10(UASEvents) - 0.105917955) +
+  AmbientEnvCore + Experiment
+
+m_dA3a_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA3a_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA3b_f <- dAnnoyMedianOrdBetaScl ~ UASLAEMaxLRScl*I(log10(UASEvents) - 0.105917955) +
+  AmbientEnvCore + Experiment
+
+m_dA3b_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA3b_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+
+```
+
+##### fit and estimate parameters
+
+```{r}
+
+
+m_dA3a <- glmmTMB::glmmTMB(formula=m_dA3a_f, dispformula= ~ Experiment,
+                           data=m_dA3a_d,
+                           family=glmmTMB::ordbeta(link='logit'),
+                           control=glmmTMBctrl)
+
+m_dA3b <- glmmTMB::glmmTMB(formula=m_dA3b_f, dispformula= ~ Experiment,
+                           data=m_dA3b_d,
+                           family=glmmTMB::ordbeta(link='logit'),
+                           control=glmmTMBctrl)
+
+parameters::model_parameters(m_dA3a, dispersion=TRUE)
+parameters::model_parameters(m_dA3b, dispersion=TRUE)
+
+performance::compare_performance(m_dA1b, m_dA2a, m_dA3a, m_dA3b)
+
+```
+
+##### compare CV performance
+
+```{r}
+
+cv_m_dA3a <- cv_mean_model(m_dA3a, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA3b <- cv_mean_model(m_dA3b, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+compare_mean_models(m_dA3a=cv_m_dA3a, m_dA3b=cv_m_dA3b)
+
+```
+
+##### generate deployment version
+
+```{r}
+
+m_dA3a_deploy <- deploy_mean_model(m_dA3a,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=TRUE)
+
+```
+
+##### analyse deployment performance
+
+```{r}
+
+m_dA3a_boot <- boot_mean_model(deployed=m_dA3a_deploy, trial_data=subjDataNoAmb.med,
+                              cluster='PersonNum', response='dAnnoyance',
+                              stat = 'median', by = 'StimNum',
+                              strata = 'Experiment', resample = 'crossed',
+                              stimulus_strata = 'Experiment',
+                              response_transform = function(x) pmax(x, 0)/10,
+                              jitter_step=1, interval = 'bc',
+                              jitter_rows = subjDataNoAmb.med[['Experiment']] == 1,
+                              recentre='mean', regrid=0.5, newdata = NULL,
+                              B = 2000, level = 0.95,
+                              prediction_intervals = FALSE, pi_draws = 10L,
+                              parallel = TRUE, seed = 999, verbose = TRUE)
+
+cv_m_dA3a <- cv_mean_model(m_dA3a_deploy, k = 198, reps = 1, strata = 'Experiment', group = 'StimNum',
+                     inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+m_dA3a_predict <- transform_dAnnoyMd(predict.glmmTMB.ordbeta(m_dA3a, newdata=stimDataNoAmb, type='response'))
+
+m_dA3a_cv <- cv::cv(m_dA3a, criterion=r2_1, k=10, seed=999)
+
+m_dA3a_dep_predict <- transform_dAnnoyMd(m_dA3a_deploy(stimDataNoAmb))
+
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyanceMedian - m_dA3a_dep_predict)^2)/sum((stimDataNoAmb$dAnnoyanceMedian - mean(stimDataNoAmb$dAnnoyanceMedian))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m_dA3a_dep_predict,
+                     measured_target='dAnnoyanceMedian', measured_ci_low='dAnnoyanceMedianCI_Low',
+                     measured_ci_high='dAnnoyanceMedianCI_High', fitted='estimate')
+
+R2_cv <- subset(cv_m_dA3a[['summary']], target=="deployed" & metric == "R2")['cv_mean']
+RMSE_CV <- subset(cv_m_dA3a[['summary']], target=="deployed" & metric == "RMSE")['cv_mean']
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=merge(m_dA3a_boot[['predictions']][, c('StimNum', 'estimate', 'lower', 'upper')],
+                  data.frame(Experiment = stimDataNoAmb[['Experiment']],
+                             StimNum = stimDataNoAmb[['StimNum']],
+                             response = stimDataNoAmb[['dAnnoyanceMedian']],
+                             responseCI_Low = stimDataNoAmb[['dAnnoyanceMedianCI_Low']],
+                             responseCI_High = stimDataNoAmb[['dAnnoyanceMedianCI_High']]),
+                  by = "StimNum")) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  geom_point(mapping=aes(x=response, y=estimate, colour=Experiment, shape=Experiment), size=1.75, stroke=0.75, alpha=0.5) +
+
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate, colour=Experiment), width=0, alpha=0.1) +
+
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=lower, ymax=upper, colour=Experiment), width=0, alpha=0.1) +
+  
+  scale_colour_manual(values=mycolours[1:2], name="Experiment", guide=guide_legend(ncol = 2, position = 'top')) +
+  scale_shape_manual(values=c(4, 0), name="Experiment", guide=guide_legend(ncol = 2, position = 'top')) +
+
+  scale_x_continuous(breaks=seq(-2, 10, by=1)) +
+  scale_y_continuous(breaks=seq(-2, 10, by=1)) +
+  
+  coord_cartesian(xlim=c(-1.5, 9.5), ylim=c(-0.5, 10.5), expand=FALSE) +
+  
+  labs(x="Median change in annoyance (test)", y="Predicted median annoyance increase") +
+  
+  ggplot2::annotate("text", x=-0.5, y=10, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=-0.5, y=9.25, label=deparse(bquote(italic(R)[CV]^2 == .(sprintf("%.3f", (round(R2_cv, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=-0.5, y=8.5, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = -0.5, y = 7.75, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE) +
+ggplot2::annotate("text", x = -0.5, y = 7, label = paste0("RMSE[CV] == ", sprintf("%.3f", round(RMSE_CV, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
+
+if (saveplots){
+  
+  filename <- "DataMeld_dAnnoyMn_PredMod_LAEEnvCal_Ob"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4.5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4, height=4.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
+#### S4: UAS SQMs with ambient
+
+##### formula
+
+```{r}
+
+m_dA4a_f <- dAnnoyMedianOrdBetaScl ~ UASLAEMaxLR + I(log10(UASEvents) - 0.105917955) +
+  UASSharpAurISO305Ex + AmbientEnvCore + Experiment
+
+m_dA4a_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA4a_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA4b_f <- dAnnoyMedianOrdBetaScl ~ UASLAEMaxLR + I(log10(UASEvents) - 0.105917955) +
+  UASTonalAwSHMInt05Ex + UASSharpAurISO305Ex + AmbientEnvCore + Experiment
+
+m_dA4b_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA4b_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA4c_f <- dAnnoyMedianOrdBetaScl ~ UASLAEMaxLR + I(log10(UASEvents) - 0.105917955) +
+  UASTonalAwSHMInt05Ex + UASSharpAurISO305Ex + UASImpulsSHMAvg + AmbientEnvCore +
+  Experiment
+
+m_dA4c_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA4c_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA4d_f <- dAnnoyMedianOrdBetaScl ~ UASLAEMaxLR + I(log10(UASEvents) - 0.105917955) +
+  UASTonalAwSHMInt05Ex + UASSharpAurISO305Ex + UASImpulsSHMAvg + UASRoughECMA10Ex +
+  AmbientEnvCore + Experiment
+
+m_dA4d_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA4d_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA4e_f <- dAnnoyMedianOrdBetaScl ~ UASLAEMaxLR + I(log10(UASEvents) - 0.105917955) +
+  UASTonalAwSHMInt05ExScl*UASSharpAurISO305ExScl + UASImpulsSHMAvg + UASRoughECMA10Ex +
+  AmbientEnvCore + Experiment
+
+m_dA4e_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA4e_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA4f_f <- dAnnoyMedianOrdBetaScl ~ UASLoudECMAPowAvg + I(log10(UASEvents) - 0.105917955) +
+  UASSharpAurISO305Ex + AmbientEnvCore + Experiment
+
+m_dA4f_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA4f_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA4g_f <- dAnnoyMedianOrdBetaScl ~ UASLAEMaxLRScl*I(log10(UASEvents) - 0.105917955) +
+  UASTonalAwSHMInt05Ex + UASSharpAurISO305Ex + UASImpulsSHMAvg + UASRoughECMA10Ex +
+  AmbientEnvCore + Experiment
+
+m_dA4g_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA4g_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+
+```
+
+##### fit and estimate parameters
+
+```{r}
+
+m_dA4a <- glmmTMB::glmmTMB(formula=m_dA4a_f, dispformula= ~ Experiment,
+                           data=m_dA4a_d,
+                           family=glmmTMB::ordbeta(link='logit'),
+                           control=glmmTMBctrl)
+
+m_dA4b <- glmmTMB::glmmTMB(formula=m_dA4b_f, dispformula= ~ Experiment,
+                           data=m_dA4b_d,
+                           family=glmmTMB::ordbeta(link='logit'),
+                           control=glmmTMBctrl)
+
+m_dA4c <- glmmTMB::glmmTMB(formula=m_dA4c_f, dispformula= ~ Experiment,
+                           data=m_dA4c_d,
+                           family=glmmTMB::ordbeta(link='logit'),
+                           control=glmmTMBctrl)
+
+m_dA4d <- glmmTMB::glmmTMB(formula=m_dA4d_f, dispformula= ~ Experiment,
+                           data=m_dA4d_d,
+                           family=glmmTMB::ordbeta(link='logit'),
+                           control=glmmTMBctrl)
+
+m_dA4e <- glmmTMB::glmmTMB(formula=m_dA4e_f, dispformula= ~ Experiment,
+                           data=m_dA4e_d,
+                           family=glmmTMB::ordbeta(link='logit'),
+                           control=glmmTMBctrl)
+
+m_dA4f <- glmmTMB::glmmTMB(formula=m_dA4f_f, dispformula= ~ Experiment,
+                           data=m_dA4f_d,
+                           family=glmmTMB::ordbeta(link='logit'),
+                           control=glmmTMBctrl)
+
+m_dA4g <- glmmTMB::glmmTMB(formula=m_dA4g_f, dispformula= ~ Experiment,
+                           data=m_dA4g_d,
+                           family=glmmTMB::ordbeta(link='logit'),
+                           control=glmmTMBctrl)
+
+parameters::model_parameters(m_dA4a, dispersion=TRUE)
+parameters::model_parameters(m_dA4b, dispersion=TRUE)
+parameters::model_parameters(m_dA4c, dispersion=TRUE)
+parameters::model_parameters(m_dA4d, dispersion=TRUE)
+parameters::model_parameters(m_dA4e, dispersion=TRUE)
+parameters::model_parameters(m_dA4f, dispersion=TRUE)
+parameters::model_parameters(m_dA4g, dispersion=TRUE)
+
+performance::compare_performance(m_dA1b, m_dA2a, m_dA3a, m_dA4a, m_dA4a, m_dA4b, m_dA4c,
+                                 m_dA4d, m_dA4e, m_dA4f, m_dA4g)
+
+```
+
+##### compare CV performance
+
+```{r}
+
+cv_m_dA4a <- cv_mean_model(m_dA4a, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA4b <- cv_mean_model(m_dA4b, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA4c <- cv_mean_model(m_dA4c, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA4d <- cv_mean_model(m_dA4d, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA4e <- cv_mean_model(m_dA4e, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA4f <- cv_mean_model(m_dA4f, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA4g <- cv_mean_model(m_dA4g, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+compare_mean_models(m_dA4a=cv_m_dA4a, m_dA4b=cv_m_dA4b, m_dA4c=cv_m_dA4c,
+                    m_dA4d=cv_m_dA4d, m_dA4e=cv_m_dA4e, m_dA4f=cv_m_dA4f, m_dA4g=cv_m_dA4g)
+
+```
+
+##### generate deployment version
+
+```{r}
+
+m_dA4d_deploy <- deploy_mean_model(m_dA4d,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=TRUE)
+
+```
+
+##### analyse deployment performance
+
+```{r}
+
+m_dA4d_boot <- boot_mean_model(deployed=m_dA4d_deploy, trial_data=subjDataNoAmb.med,
+                               cluster='PersonNum', response='dAnnoyance',
+                               stat = 'median', by = 'StimNum',
+                               strata = 'Experiment', resample = 'crossed',
+                               stimulus_strata = 'Experiment',
+                               response_transform = function(x) pmax(x, 0)/10,
+                               jitter_step=1, interval = 'bc',
+                               jitter_rows = subjDataNoAmb.med[['Experiment']] == 1,
+                               recentre='mean', regrid=0.5, newdata = NULL,
+                               B = 2000, level = 0.95,
+                               prediction_intervals = FALSE, pi_draws = 10L,
+                               parallel = TRUE, seed = 999, verbose = TRUE)
+
+cv_m_dA4d <- cv_mean_model(m_dA4d_deploy, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+m_dA4d_predict <- transform_dAnnoyMd(predict.glmmTMB.ordbeta(m_dA4d, newdata=stimDataNoAmb, type='response'))
+
+m_dA4d_dep_predict <- transform_dAnnoyMd(m_dA4d_deploy(stimDataNoAmb))
+
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyanceMedian - m_dA4d_dep_predict)^2)/sum((stimDataNoAmb$dAnnoyanceMedian - mean(stimDataNoAmb$dAnnoyanceMedian))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m_dA4d_dep_predict,
+                     measured_target='dAnnoyanceMedian', measured_ci_low='dAnnoyanceMedianCI_Low',
+                     measured_ci_high='dAnnoyanceMedianCI_High', fitted='estimate')
+
+R2_cv <- subset(cv_m_dA4d[['summary']], target=="deployed" & metric == "R2")['cv_mean']
+RMSE_CV <- subset(cv_m_dA4d[['summary']], target=="deployed" & metric == "RMSE")['cv_mean']
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=merge(m_dA4d_boot[['predictions']][, c('StimNum', 'estimate', 'lower', 'upper')],
+                  data.frame(Experiment = stimDataNoAmb[['Experiment']],
+                             StimNum = stimDataNoAmb[['StimNum']],
+                             response = stimDataNoAmb[['dAnnoyanceMedian']],
+                             responseCI_Low = stimDataNoAmb[['dAnnoyanceMedianCI_Low']],
+                             responseCI_High = stimDataNoAmb[['dAnnoyanceMedianCI_High']]),
+                  by = "StimNum")) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  geom_point(mapping=aes(x=response, y=estimate, colour=Experiment, shape=Experiment), size=1.75, stroke=0.75, alpha=0.5) +
+
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate, colour=Experiment), width=0, alpha=0.1) +
+
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=lower, ymax=upper, colour=Experiment), width=0, alpha=0.1) +
+  
+  scale_colour_manual(values=mycolours[1:2], name="Experiment", guide=guide_legend(ncol = 2, position = 'top')) +
+  scale_shape_manual(values=c(4, 0), name="Experiment", guide=guide_legend(ncol = 2, position = 'top')) +
+
+  scale_x_continuous(breaks=seq(-2, 10, by=1)) +
+  scale_y_continuous(breaks=seq(-2, 10, by=1)) +
+  
+  coord_cartesian(xlim=c(-1.5, 9.5), ylim=c(-0.5, 10.5), expand=FALSE) +
+  
+  labs(x="Median change in annoyance (test)", y="Predicted median annoyance increase") +
+  
+  ggplot2::annotate("text", x=-0.5, y=10, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=-0.5, y=9.25, label=deparse(bquote(italic(R)[CV]^2 == .(sprintf("%.3f", (round(R2_cv, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=-0.5, y=8.5, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = -0.5, y = 7.75, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE) +
+ggplot2::annotate("text", x = -0.5, y = 7, label = paste0("RMSE[CV] == ", sprintf("%.3f", round(RMSE_CV, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
+
+
+if (saveplots){
+  
+  filename <- "DataMeld_dAnnoyMn_PredMod_LAEEnvSQCal_Ob"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4.5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4, height=4.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
+#### S5: dLAE and UAS events
+
+##### formula
+
+```{r}
+
+m_dA5a_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diffScl*I(log10(UASEvents) - 0.105917955) +
+  Experiment
+
+m_dA5a_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA5a_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA5b_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diff + I(log10(UASEvents) - 0.105917955) +
+  Experiment
+
+m_dA5b_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA5b_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+
+```
+
+##### fit and estimate parameters
+
+```{r}
+
+m_dA5a <- glmmTMB::glmmTMB(formula=m_dA5a_f, dispformula= ~ Experiment,
+                          data=m_dA5a_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dA5b <- glmmTMB::glmmTMB(formula=m_dA5b_f, dispformula= ~ Experiment,
+                          data=m_dA5b_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+parameters::model_parameters(m_dA5a, dispersion=TRUE)
+parameters::model_parameters(m_dA5b, dispersion=TRUE)
+
+performance::compare_performance(m_dA1b, m_dA2a, m_dA3a, m_dA4d, m_dA5a, m_dA5b)
+
+```
+
+##### compare CV performance
+
+```{r}
+
+cv_m_dA5a <- cv_mean_model(m_dA5a, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA5b <- cv_mean_model(m_dA5b, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+compare_mean_models(m_dA5a=cv_m_dA5a, m_dA5b=cv_m_dA5b)
+
+```
+
+##### generate deployment version
+
+```{r}
+
+m_dA5b_deploy <- deploy_mean_model(m_dA5b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=TRUE)
+
+```
+
+##### analyse deployment performance
+
+```{r}
+
+m_dA5b_boot <- boot_mean_model(deployed=m_dA5b_deploy, trial_data=subjDataNoAmb.med,
+                               cluster='PersonNum', response='dAnnoyance',
+                               stat = 'median', by = 'StimNum',
+                               strata = 'Experiment', resample = 'crossed',
+                               stimulus_strata = 'Experiment',
+                               response_transform = function(x) pmax(x, 0)/10,
+                               jitter_step=1, interval = 'bc',
+                               jitter_rows = subjDataNoAmb.med[['Experiment']] == 1,
+                               recentre='mean', regrid=0.5, newdata = NULL,
+                               B = 2000, level = 0.95,
+                               prediction_intervals = FALSE, pi_draws = 10L,
+                               parallel = TRUE, seed = 999, verbose = TRUE)
+
+cv_m_dA5b <- cv_mean_model(m_dA5b_deploy, k = 198, reps = 1, strata = 'Experiment', group = 'StimNum',
+                     inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+m_dA5b_predict <- transform_dAnnoyMd(predict.glmmTMB.ordbeta(m_dA5b, newdata=stimDataNoAmb, type='response'))
+
+m_dA5b_cv <- cv::cv(m_dA5b, criterion=r2_1, k=10, seed=999)
+
+m_dA5b_dep_predict <- transform_dAnnoyMd(m_dA5b_deploy(stimDataNoAmb))
+
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyanceMedian - m_dA5b_dep_predict)^2)/sum((stimDataNoAmb$dAnnoyanceMedian - mean(stimDataNoAmb$dAnnoyanceMedian))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m_dA5b_dep_predict,
+                     measured_target='dAnnoyanceMedian', measured_ci_low='dAnnoyanceMedianCI_Low',
+                     measured_ci_high='dAnnoyanceMedianCI_High', fitted='estimate')
+
+R2_cv <- subset(cv_m_dA5b[['summary']], target=="deployed" & metric == "R2")['cv_mean']
+RMSE_CV <- subset(cv_m_dA5b[['summary']], target=="deployed" & metric == "RMSE")['cv_mean']
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=merge(m_dA5b_boot[['predictions']][, c('StimNum', 'estimate', 'lower', 'upper')],
+                  data.frame(Experiment = stimDataNoAmb[['Experiment']],
+                             StimNum = stimDataNoAmb[['StimNum']],
+                             response = stimDataNoAmb[['dAnnoyanceMedian']],
+                             responseCI_Low = stimDataNoAmb[['dAnnoyanceMedianCI_Low']],
+                             responseCI_High = stimDataNoAmb[['dAnnoyanceMedianCI_High']]),
+                  by = "StimNum")) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  geom_point(mapping=aes(x=response, y=estimate, colour=Experiment, shape=Experiment), size=1.75, stroke=0.75, alpha=0.5) +
+
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate, colour=Experiment), width=0, alpha=0.1) +
+
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=lower, ymax=upper, colour=Experiment), width=0, alpha=0.1) +
+  
+  scale_colour_manual(values=mycolours[1:2], name="Experiment", guide=guide_legend(ncol = 2, position = 'top')) +
+  scale_shape_manual(values=c(4, 0), name="Experiment", guide=guide_legend(ncol = 2, position = 'top')) +
+
+  scale_x_continuous(breaks=seq(-2, 10, by=1)) +
+  scale_y_continuous(breaks=seq(-2, 10, by=1)) +
+  
+  coord_cartesian(xlim=c(-1.5, 9.5), ylim=c(-0.5, 10.5), expand=FALSE) +
+  
+  labs(x="Median change in annoyance (test)", y="Predicted median annoyance increase") +
+  
+  ggplot2::annotate("text", x=-0.5, y=10, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=-0.5, y=9.25, label=deparse(bquote(italic(R)[CV]^2 == .(sprintf("%.3f", (round(R2_cv, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=-0.5, y=8.5, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = -0.5, y = 7.75, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE) +
+ggplot2::annotate("text", x = -0.5, y = 7, label = paste0("RMSE[CV] == ", sprintf("%.3f", round(RMSE_CV, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
+
+if (saveplots){
+  
+  filename <- "DataMeld_dAnnoyMn_PredMod_dLAECal_Ob"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4.5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4, height=4.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
+#### S6: UAS dLAE and SQMs
+
+##### formula
+
+```{r}
+
+m_dA6a_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diff + I(log10(UASEvents) - 0.105917955) +
+  UASSharpAurISO305Ex + Experiment
+
+m_dA6a_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA6a_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA6b_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diff + I(log10(UASEvents) - 0.105917955) +
+  UASTonalAwSHMInt05Ex + UASSharpAurISO305Ex + Experiment
+
+m_dA6b_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA6b_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA6c_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diff + I(log10(UASEvents) - 0.105917955) +
+  UASTonalAwSHMInt05Ex + UASSharpAurISO305Ex + UASImpulsSHMAvg + Experiment
+
+m_dA6c_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA6c_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA6d_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diff + I(log10(UASEvents) - 0.105917955) +
+  UASTonalAwSHMInt05Ex + UASSharpAurISO305Ex + UASImpulsSHMAvg + UASRoughECMA10Ex +
+  Experiment
+
+m_dA6d_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA6d_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA6e_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diff + I(log10(UASEvents) - 0.105917955) +
+  UASTonalAwSHMInt05ExScl*UASSharpAurISO305ExScl + UASImpulsSHMAvg + UASRoughECMA10Ex +
+  Experiment
+
+m_dA6e_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA6e_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA6f_f <- dAnnoyMedianOrdBetaScl ~ PartLoudSHMPowAvg + I(log10(UASEvents) - 0.105917955) +
+  UASSharpAurISO305Ex + Experiment
+
+m_dA6f_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA6f_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA6g_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diffScl*I(log10(UASEvents) - 0.105917955) +
+  UASTonalAwSHMInt05Ex + UASSharpAurISO305Ex + UASImpulsSHMAvg + UASRoughECMA10Ex +
+  Experiment
+
+m_dA6g_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA6g_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA6h_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diff +
+  UASTonalAwSHMInt05Ex + UASSharpAurISO305Ex + UASImpulsSHMAvg + UASRoughECMA10Ex +
+  Experiment
+
+```
+
+##### fit and estimate parameters
+
+```{r}
+
+m_dA6a <- glmmTMB::glmmTMB(formula=m_dA6a_f, dispformula= ~ Experiment,
+                           data=m_dA6a_d,
+                           family=glmmTMB::ordbeta(link='logit'),
+                           control=glmmTMBctrl)
+
+m_dA6b <- glmmTMB::glmmTMB(formula=m_dA6b_f, dispformula= ~ Experiment,
+                           data=m_dA6b_d,
+                           family=glmmTMB::ordbeta(link='logit'),
+                           control=glmmTMBctrl)
+
+m_dA6c <- glmmTMB::glmmTMB(formula=m_dA6c_f, dispformula= ~ Experiment,
+                           data=m_dA6c_d,
+                           family=glmmTMB::ordbeta(link='logit'),
+                           control=glmmTMBctrl)
+
+m_dA6d <- glmmTMB::glmmTMB(formula=m_dA6d_f, dispformula= ~ Experiment,
+                           data=m_dA6d_d,
+                           family=glmmTMB::ordbeta(link='logit'),
+                           control=glmmTMBctrl)
+
+m_dA6e <- glmmTMB::glmmTMB(formula=m_dA6e_f, dispformula= ~ Experiment,
+                           data=m_dA6e_d,
+                           family=glmmTMB::ordbeta(link='logit'),
+                           control=glmmTMBctrl)
+
+m_dA6f <- glmmTMB::glmmTMB(formula=m_dA6f_f, dispformula= ~ Experiment,
+                           data=m_dA6f_d,
+                           family=glmmTMB::ordbeta(link='logit'),
+                           control=glmmTMBctrl)
+
+m_dA6g <- glmmTMB::glmmTMB(formula=m_dA6g_f, dispformula= ~ Experiment,
+                           data=m_dA6g_d,
+                           family=glmmTMB::ordbeta(link='logit'),
+                           control=glmmTMBctrl)
+
+m_dA6h <- glmmTMB::glmmTMB(formula=m_dA6h_f, dispformula= ~ Experiment,
+                           data=m_dA6d_d,
+                           family=glmmTMB::ordbeta(link='logit'),
+                           control=glmmTMBctrl)
+
+parameters::model_parameters(m_dA6a, dispersion=TRUE)
+parameters::model_parameters(m_dA6b, dispersion=TRUE)
+parameters::model_parameters(m_dA6c, dispersion=TRUE)
+parameters::model_parameters(m_dA6d, dispersion=TRUE)
+parameters::model_parameters(m_dA6e, dispersion=TRUE)
+parameters::model_parameters(m_dA6f, dispersion=TRUE)
+parameters::model_parameters(m_dA6g, dispersion=TRUE)
+parameters::model_parameters(m_dA6h, dispersion=TRUE)
+
+
+performance::compare_performance(m_dA1b, m_dA2a, m_dA3a, m_dA4d, m_dA5b,
+                                 m_dA6a, m_dA6a, m_dA6b, m_dA6c,
+                                 m_dA6d, m_dA6e, m_dA6f, m_dA6g, m_dA6h)
+
+```
+
+##### compare CV performance
+
+```{r}
+
+cv_m_dA6a <- cv_mean_model(m_dA6a, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA6b <- cv_mean_model(m_dA6b, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA6c <- cv_mean_model(m_dA6c, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA6d <- cv_mean_model(m_dA6d, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA6e <- cv_mean_model(m_dA6e, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA6f <- cv_mean_model(m_dA6f, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA6g <- cv_mean_model(m_dA6g, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA6h <- cv_mean_model(m_dA6h, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+compare_mean_models(m_dA6a=cv_m_dA6a, m_dA6b=cv_m_dA6b, m_dA6c=cv_m_dA6c,
+                    m_dA6d=cv_m_dA6d, m_dA6e=cv_m_dA6e, m_dA6f=cv_m_dA6f,
+                    m_dA6g=cv_m_dA6g, m_dA6h=cv_m_dA6h)
+
+```
+
+##### generate deployment version
+
+```{r}
+
+m_dA6d_deploy <- deploy_mean_model(m_dA6d,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=TRUE)
+
+```
+
+##### analyse deployment performance
+
+```{r}
+
+m_dA6d_boot <- boot_mean_model(deployed=m_dA6d_deploy, trial_data=subjDataNoAmb.med,
+                               cluster='PersonNum', response='dAnnoyance',
+                               stat = 'median', by = 'StimNum',
+                               strata = 'Experiment', resample = 'crossed',
+                               stimulus_strata = 'Experiment',
+                               response_transform = function(x) pmax(x, 0)/10,
+                               jitter_step=1, interval = 'bc',
+                               jitter_rows = subjDataNoAmb.med[['Experiment']] == 1,
+                               recentre='mean', regrid=0.5, newdata = NULL,
+                               B = 2000, level = 0.95,
+                               prediction_intervals = FALSE, pi_draws = 10L,
+                               parallel = TRUE, seed = 999, verbose = TRUE)
+
+cv_m_dA6d <- cv_mean_model(m_dA6d_deploy, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+LAELAF50diff_swp <- seq(min(stimDataNoAmb[['LAELAF50diff']]),
+                           max(stimDataNoAmb[['LAELAF50diff']]),
+                           length.out=20)
+
+grid_pred <- insight::get_datagrid(x=subset(m_dA6d_d,
+  select=-c(StimNum, dAnnoyMedianOrdBetaScl)),
+  by=list(LAELAF50diff=LAELAF50diff_swp,
+          UASTonalAwSHMInt05Ex=mean(stimDataNoAmb[['UASTonalAwSHMInt05Ex']]),
+          UASSharpAurISO305Ex=mean(stimDataNoAmb[['UASSharpAurISO305Ex']]),
+          UASImpulsSHMAvg=mean(stimDataNoAmb[['UASImpulsSHMAvg']]),
+          UASRoughECMA10Ex=mean(stimDataNoAmb[['UASRoughECMA10Ex']]),
+          Experiment=0, UASEvents=c(1, 2, 3, 5, 9)))
+
+m_dA6d_bt_pred <- predict(m_dA6d_boot, newdata = grid_pred,
+                          model=m_dA6d_deploy, target = 'deployed')
+
+m_dA6d_predict <- transform_dAnnoyMd(predict.glmmTMB.ordbeta(m_dA6d,
+                                                             newdata=stimDataNoAmb,
+                                                             type='response'))
+
+m_dA6d_dep_predict <- transform_dAnnoyMd(m_dA6d_deploy(stimDataNoAmb))
+
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyanceMedian - m_dA6d_dep_predict)^2)/sum((stimDataNoAmb$dAnnoyanceMedian - mean(stimDataNoAmb$dAnnoyanceMedian))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m_dA6d_dep_predict,
+                     measured_target='dAnnoyanceMedian', measured_ci_low='dAnnoyanceMedianCI_Low',
+                     measured_ci_high='dAnnoyanceMedianCI_High', fitted='estimate')
+
+R2_cv <- subset(cv_m_dA6d[['summary']], target=="deployed" & metric == "R2")['cv_mean']
+RMSE_CV <- subset(cv_m_dA6d[['summary']], target=="deployed" & metric == "RMSE")['cv_mean']
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=merge(m_dA6d_boot[['predictions']][, c('StimNum', 'estimate', 'lower', 'upper')],
+                  data.frame(Experiment = stimDataNoAmb[['Experiment']],
+                             StimNum = stimDataNoAmb[['StimNum']],
+                             response = stimDataNoAmb[['dAnnoyanceMedian']],
+                             responseCI_Low = stimDataNoAmb[['dAnnoyanceMedianCI_Low']],
+                             responseCI_High = stimDataNoAmb[['dAnnoyanceMedianCI_High']]),
+                  by = "StimNum")) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  geom_point(mapping=aes(x=response, y=estimate, colour=Experiment, shape=Experiment), size=1.75, stroke=0.75, alpha=0.5) +
+
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate, colour=Experiment), width=0, alpha=0.1) +
+
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=lower, ymax=upper, colour=Experiment), width=0, alpha=0.1) +
+  
+  scale_colour_manual(values=mycolours[1:2], name="Experiment", guide=guide_legend(ncol = 2, position = 'top')) +
+  scale_shape_manual(values=c(4, 0), name="Experiment", guide=guide_legend(ncol = 2, position = 'top')) +
+
+  scale_x_continuous(breaks=seq(-2, 10, by=1)) +
+  scale_y_continuous(breaks=seq(-2, 10, by=1)) +
+  
+  coord_cartesian(xlim=c(-1.5, 9.5), ylim=c(-0.5, 10.5), expand=FALSE) +
+  
+  labs(x="Median change in annoyance (test)", y="Predicted median annoyance increase") +
+  
+  ggplot2::annotate("text", x=-0.5, y=10, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=-0.5, y=9.25, label=deparse(bquote(italic(R)[CV]^2 == .(sprintf("%.3f", (round(R2_cv, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=-0.5, y=8.5, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = -0.5, y = 7.75, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE) +
+ggplot2::annotate("text", x = -0.5, y = 7, label = paste0("RMSE[CV] == ", sprintf("%.3f", round(RMSE_CV, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
+
+
+if (saveplots){
+  
+  filename <- "DataMeld_dAnnoyMn_PredMod_dLAESQCal_Ob"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4.5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4, height=4.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+p1 <- ggplot(data=subset(m_dA6d_bt_pred[['predictions']], UASEvents==1)) +
+  theme(panel.grid = element_blank(), aspect.ratio=1.35,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14),
+        axis.text.x=element_text(family = "serif", size=12)) +
+
+  
+  geom_line(mapping=aes(x=LAELAF50diff, y=estimate), colour='black', linewidth=1) +
+  geom_ribbon(mapping=aes(x=LAELAF50diff, ymin=lower, ymax=upper), fill='black', alpha=0.2) +
+  
+  geom_point(data=subset(stimDataNoAmb, UASEvents==1),
+             mapping=aes(x=LAELAF50diff, y= dAnnoyanceMedian,
+                         colour=factor(AmbientEnvCore),
+                         shape=factor(AmbientEnvCore)),    
+             size=1.5, alpha=0.4) +
+  
+  scale_colour_viridis_d(option='magma', begin=0.2, end=0.8, direction=1,
+                         name="Ambient env.", guide=guide_legend(reverse=TRUE)) +
+  scale_shape_manual(values=c(6, 2, 0, 3),
+                     guide=guide_legend(title="Ambient env.", reverse=TRUE)) +
+  scale_x_continuous(breaks=seq(-5, 50, by=5)) +
+  scale_y_continuous(breaks=seq(0, 10, by=1)) +
+  
+  coord_cartesian(xlim=c(-5.5, 50.5), ylim=c(-0.5, 10.5), expand=FALSE) +
+  
+  labs(x=expression(paste("UAS"~italic(L)[AE]~-~"amb."~italic(L)[AF50]*","~dB)),
+       y="Median increase in annoyance")
+
+p2 <- ggplot(data=m_dA6d_bt_pred[['predictions']]) +
+  theme(panel.grid = element_blank(), aspect.ratio=1.35,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14),
+        axis.text.x=element_text(family = "serif", size=12)) +
+  
+  geom_line(mapping=aes(x=LAELAF50diff, y=estimate, colour=factor(UASEvents)),
+            linewidth=0.75) +
+  geom_ribbon(mapping=aes(x=LAELAF50diff, ymin=lower, ymax=upper,
+                          fill=factor(UASEvents)), alpha=0.2) +
+  
+  geom_point(data=stimDataNoAmb, mapping=aes(x=LAELAF50diff, y= dAnnoyanceMedian,
+                                             colour=factor(UASEvents),
+                                             shape=factor(UASEvents)),    
+             size=1.5, alpha=0.4) +
+  
+  scale_colour_viridis_d(begin=0.2, end=0.8, direction=1, name="UAS events",
+                         guide=guide_legend(reverse=TRUE)) +
+  scale_fill_viridis(discrete=TRUE, begin=0.2, end=0.8, direction=1, name="UAS events",
+                     guide=guide_legend(reverse=TRUE)) +
+  scale_shape_manual(values=c(4, 5, 7, 8, 10),
+                     guide=guide_legend(title="UAS events", reverse=TRUE)) +
+
+  scale_x_continuous(breaks=seq(-5, 50, by=5)) +
+  scale_y_continuous(breaks=seq(0, 10, by=1)) +
+  
+  coord_cartesian(xlim=c(-5.5, 50.5), ylim=c(-0.5, 10.5), expand=FALSE) +
+  
+  labs(x=expression(paste("UAS"~italic(L)[AE]~-~"amb."~italic(L)[AF50]*","~dB)),
+       y="Median increase in annoyance")
+
+p1 | p2
+
+if (saveplots){
+  
+  filename <- "DataMeld_dAnnoyMn_PredMod_dLAESQCalPred_Ob"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=10, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=10, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
+#### S7: Detectability and UAS events
+
+##### formula
+
+```{r}
+
+m_dA7a_f <- dAnnoyMedianOrdBetaScl ~ Detect0p5dBIntEx50MaxLRScl*I(log10(UASEvents) - 0.105917955) +
+  Experiment
+
+m_dA7a_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA7a_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA7b_f <- dAnnoyMedianOrdBetaScl ~ Detect0p5dBIntEx50MaxLR + I(log10(UASEvents) - 0.105917955) +
+  Experiment
+
+m_dA7b_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA7b_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA7c_f <- dAnnoyMedianOrdBetaScl ~ Detect0p5dBIntEx50MaxLR +
+  Experiment
+
+m_dA7c_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA7c_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+
+```
+
+##### fit and estimate parameters
+
+```{r}
+
+m_dA7a <- glmmTMB::glmmTMB(formula=m_dA7a_f, dispformula= ~ Experiment,
+                          data=m_dA7a_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dA7b <- glmmTMB::glmmTMB(formula=m_dA7b_f, dispformula= ~ Experiment,
+                          data=m_dA7b_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dA7c <- glmmTMB::glmmTMB(formula=m_dA7c_f, dispformula= ~ Experiment,
+                          data=m_dA7c_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+parameters::model_parameters(m_dA7a, dispersion=TRUE)
+parameters::model_parameters(m_dA7b, dispersion=TRUE)
+parameters::model_parameters(m_dA7c, dispersion=TRUE)
+
+performance::compare_performance(m_dA1b, m_dA2a, m_dA3a, m_dA4d, m_dA5b, m_dA6d,
+                                 m_dA7a, m_dA7b, m_dA7c)
+
+```
+
+##### compare CV performance
+
+```{r}
+
+cv_m_dA7a <- cv_mean_model(m_dA7a, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA7b <- cv_mean_model(m_dA7b, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA7c <- cv_mean_model(m_dA7c, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+compare_mean_models(m_dA7a=cv_m_dA7a, m_dA7b=cv_m_dA7b, m_dA7c=cv_m_dA7c)
+
+```
+
+##### generate deployment version
+
+```{r}
+
+m_dA7b_deploy <- deploy_mean_model(m_dA7b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=TRUE)
+
+```
+
+##### analyse deployment performance
+
+```{r}
+
+m_dA7b_boot <- boot_mean_model(deployed=m_dA7b_deploy, trial_data=subjDataNoAmb.med,
+                               cluster='PersonNum', response='dAnnoyance',
+                               stat = 'median', by = 'StimNum',
+                               strata = 'Experiment', resample = 'crossed',
+                               stimulus_strata = 'Experiment',
+                               response_transform = function(x) pmax(x, 0)/10,
+                               jitter_step=1, interval = 'bc',
+                               jitter_rows = subjDataNoAmb.med[['Experiment']] == 1,
+                               recentre='mean', regrid=0.5, newdata = NULL,
+                               B = 2000, level = 0.95,
+                               prediction_intervals = FALSE, pi_draws = 10L,
+                               parallel = TRUE, seed = 999, verbose = TRUE)
+
+cv_m_dA7b <- cv_mean_model(m_dA7b_deploy, k = 198, reps = 1, strata = 'Experiment', group = 'StimNum',
+                     inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+
+Detect0p5dBIntEx50_swp <- seq(min(stimDataNoAmb[['Detect0p5dBIntEx50MaxLR']]),
+                           max(stimDataNoAmb[['Detect0p5dBIntEx50MaxLR']]),
+                           length.out=20)
+
+grid_pred <- insight::get_datagrid(x=subset(m_dA7b_d,
+  select=-c(StimNum, dAnnoyMedianOrdBetaScl)),
+  by=list(Detect0p5dBIntEx50MaxLR=Detect0p5dBIntEx50_swp,
+          Experiment=0, UASEvents=c(1, 2, 3, 5, 9)))
+
+m_dA7b_bt_pred <- predict(m_dA7b_boot, newdata = grid_pred,
+                          model=m_dA7b_deploy, target = 'deployed')
+
+m_dA7b_predict <- transform_dAnnoyMd(predict.glmmTMB.ordbeta(m_dA7b,
+                                                             newdata=stimDataNoAmb,
+                                                             type='response'))
+
+m_dA7b_cv <- cv::cv(m_dA7b, criterion=r2_1, k=10, seed=999)
+
+m_dA7b_dep_predict <- transform_dAnnoyMd(m_dA7b_deploy(stimDataNoAmb))
+
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyanceMedian - m_dA7b_dep_predict)^2)/sum((stimDataNoAmb$dAnnoyanceMedian - mean(stimDataNoAmb$dAnnoyanceMedian))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m_dA7b_dep_predict,
+                     measured_target='dAnnoyanceMedian', measured_ci_low='dAnnoyanceMedianCI_Low',
+                     measured_ci_high='dAnnoyanceMedianCI_High', fitted='estimate')
+
+R2_cv <- subset(cv_m_dA7b[['summary']], target=="deployed" & metric == "R2")['cv_mean']
+RMSE_CV <- subset(cv_m_dA7b[['summary']], target=="deployed" & metric == "RMSE")['cv_mean']
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=merge(m_dA7b_boot[['predictions']][, c('StimNum', 'estimate', 'lower', 'upper')],
+                  data.frame(Experiment = stimDataNoAmb[['Experiment']],
+                             StimNum = stimDataNoAmb[['StimNum']],
+                             response = stimDataNoAmb[['dAnnoyanceMedian']],
+                             responseCI_Low = stimDataNoAmb[['dAnnoyanceMedianCI_Low']],
+                             responseCI_High = stimDataNoAmb[['dAnnoyanceMedianCI_High']]),
+                  by = "StimNum")) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  geom_point(mapping=aes(x=response, y=estimate, colour=Experiment, shape=Experiment), size=1.75, stroke=0.75, alpha=0.5) +
+
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate, colour=Experiment), width=0, alpha=0.1) +
+
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=lower, ymax=upper, colour=Experiment), width=0, alpha=0.1) +
+  
+  scale_colour_manual(values=mycolours[1:2], name="Experiment", guide=guide_legend(ncol = 2, position = 'top')) +
+  scale_shape_manual(values=c(4, 0), name="Experiment", guide=guide_legend(ncol = 2, position = 'top')) +
+
+  scale_x_continuous(breaks=seq(-2, 10, by=1)) +
+  scale_y_continuous(breaks=seq(-2, 10, by=1)) +
+  
+  coord_cartesian(xlim=c(-1.5, 9.5), ylim=c(-0.5, 10.5), expand=FALSE) +
+  
+  labs(x="Median change in annoyance (test)", y="Predicted median annoyance increase") +
+  
+  ggplot2::annotate("text", x=-0.5, y=10, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=-0.5, y=9.25, label=deparse(bquote(italic(R)[CV]^2 == .(sprintf("%.3f", (round(R2_cv, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=-0.5, y=8.5, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = -0.5, y = 7.75, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE) +
+ggplot2::annotate("text", x = -0.5, y = 7, label = paste0("RMSE[CV] == ", sprintf("%.3f", round(RMSE_CV, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
+
+if (saveplots){
+  
+  filename <- "DataMeld_dAnnoyMn_PredMod_DetCal_Ob"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4.5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4, height=4.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+
+p1 <- ggplot(data=subset(m_dA7b_bt_pred[['predictions']], UASEvents==1)) +
+  theme(panel.grid = element_blank(), aspect.ratio=1.35,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14),
+        axis.text.x=element_text(family = "serif", size=12)) +
+
+  
+  geom_line(mapping=aes(x=Detect0p5dBIntEx50MaxLR, y=estimate), colour='black', linewidth=1) +
+  geom_ribbon(mapping=aes(x=Detect0p5dBIntEx50MaxLR, ymin=lower, ymax=upper), fill='black', alpha=0.2) +
+  
+  geom_point(data=subset(stimDataNoAmb, UASEvents==1),
+             mapping=aes(x=Detect0p5dBIntEx50MaxLR, y= dAnnoyanceMedian,
+                         colour=factor(AmbientEnvCore),
+                         shape=factor(AmbientEnvCore)),    
+             size=1.5, alpha=0.4) +
+  
+  scale_colour_viridis_d(option='magma', begin=0.2, end=0.8, direction=1,
+                         name="Ambient env.", guide=guide_legend(reverse=TRUE)) +
+  scale_shape_manual(values=c(6, 2, 0, 3),
+                     guide=guide_legend(title="Ambient env.", reverse=TRUE)) +
+  scale_x_continuous(breaks=seq(-5, 50, by=5)) +
+  scale_y_continuous(breaks=seq(0, 10, by=1)) +
+  
+  coord_cartesian(xlim=c(-6, 51), ylim=c(-0.5, 10.5), expand=FALSE) +
+  
+  labs(x=expression(paste(UAS~italic(d*"'")[Sigma*50*","*0.5*s],",",~dB~re.~1)),
+       y="Median increase in annoyance")
+
+p2 <- ggplot(data=m_dA7b_bt_pred[['predictions']]) +
+  theme(panel.grid = element_blank(), aspect.ratio=1.35,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14),
+        axis.text.x=element_text(family = "serif", size=12)) +
+  
+  geom_line(mapping=aes(x=Detect0p5dBIntEx50MaxLR, y=estimate, colour=factor(UASEvents)),
+            linewidth=0.75) +
+  geom_ribbon(mapping=aes(x=Detect0p5dBIntEx50MaxLR, ymin=lower, ymax=upper,
+                          fill=factor(UASEvents)), alpha=0.2) +
+  
+  geom_point(data=stimDataNoAmb, mapping=aes(x=Detect0p5dBIntEx50MaxLR, y= dAnnoyanceMedian,
+                                             colour=factor(UASEvents),
+                                             shape=factor(UASEvents)),    
+             size=1.5, alpha=0.4) +
+  
+  scale_colour_viridis_d(begin=0.2, end=0.8, direction=1, name="UAS events",
+                         guide=guide_legend(reverse=TRUE)) +
+  scale_fill_viridis(discrete=TRUE, begin=0.2, end=0.8, direction=1, name="UAS events",
+                     guide=guide_legend(reverse=TRUE)) +
+  scale_shape_manual(values=c(4, 5, 7, 8, 10),
+                     guide=guide_legend(title="UAS events", reverse=TRUE)) +
+
+  scale_x_continuous(breaks=seq(-5, 50, by=5)) +
+  scale_y_continuous(breaks=seq(0, 10, by=1)) +
+  
+  coord_cartesian(xlim=c(-6, 51), ylim=c(-0.5, 10.5), expand=FALSE) +
+  
+  labs(x=expression(paste(UAS~italic(d*"'")[Sigma*50*","*0.5*s],",",~dB~re.~1)),
+       y="Median increase in annoyance")
+
+p1 | p2
+
+if (saveplots){
+  
+  filename <- "DataMeld_dAnnoyMn_PredMod_DetPred_Ob"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=10, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=10, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
+#### S8: All metrics and UAS events
+
+##### formula
+
+```{r}
+
+m_dA8a_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diff + I(log10(UASEvents) - 0.105917955) +
+  PartSharpvBSHMPowAvg + Experiment
+
+m_dA8a_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA8a_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA8b_f <- dAnnoyMedianOrdBetaScl ~ EPNLLAF50diffScl + I(log10(UASEvents) - 0.105917955) +
+  PartSharpvBSHMPowAvg + Experiment
+
+m_dA8b_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA8b_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA8c_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diff + I(log10(UASEvents) - 0.105917955) +
+  dSharpAurISO3PowAvg + Experiment
+
+m_dA8c_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dA8c_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA8d_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diff + I(log10(UASEvents) - 0.105917955) +
+  dSharpAurISO3PowAvg + dTonalECMAAvg + Experiment
+
+m_dA8d_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                              all.vars(m_dA8d_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA8e_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diff + I(log10(UASEvents) - 0.105917955) +
+  dSharpAurISO3PowAvg + dTonalECMAAvg + dImpulsSHM05Ex + Experiment
+
+m_dA8e_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                              all.vars(m_dA8e_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA8d_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                              all.vars(m_dA8d_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA8e_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diff + I(log10(UASEvents) - 0.105917955) +
+  dSharpAurISO3PowAvg + UASRoughECMA10Ex + Experiment
+
+m_dA8e_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                              all.vars(m_dA8e_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA8f_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diff + I(log10(UASEvents) - 0.105917955) +
+  dSharpAurISO3PowAvg + dTonalSHMIntAvg + Experiment
+
+m_dA8f_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                              all.vars(m_dA8f_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+
+m_dA8g_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diff + I(log10(UASEvents) - 0.105917955) +
+  dSharpAurISO3PowAvg + UASRoughECMA10Ex + dTonalSHMIntAvg + Experiment
+
+m_dA8g_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                              all.vars(m_dA8g_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA8h_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diff + I(log10(UASEvents) - 0.105917955) +
+  dSharpAurISO3PowAvg + UASRoughECMA10Ex + dTonalSHMIntAvg + dImpulsSHM05Ex + Experiment
+
+m_dA8h_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                              all.vars(m_dA8h_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA8i_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diff + I(log10(UASEvents) - 0.105917955) +
+  dSharpAurISO3PowAvg + UASRoughECMA10Ex + dTonalECMAAvg + dImpulsSHM05Ex + Experiment
+
+m_dA8i_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                              all.vars(m_dA8i_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+m_dA8j_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diff + I(log10(UASEvents) - 0.105917955) +
+  dSharpAurISO3PowAvg + UASRoughECMA10Ex + Experiment
+
+m_dA8j_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                              all.vars(m_dA8j_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
+
+
+```
+
+##### fit and estimate parameters
+
+```{r}
+
+m_dA8a <- glmmTMB::glmmTMB(formula=m_dA8a_f, dispformula= ~ Experiment,
+                          data=m_dA8a_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dA8b <- glmmTMB::glmmTMB(formula=m_dA8b_f, dispformula= ~ Experiment,
+                          data=m_dA8b_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dA8c <- glmmTMB::glmmTMB(formula=m_dA8c_f, dispformula= ~ Experiment,
+                          data=m_dA8c_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dA8d <- glmmTMB::glmmTMB(formula=m_dA8d_f, dispformula= ~ Experiment,
+                          data=m_dA8d_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dA8e <- glmmTMB::glmmTMB(formula=m_dA8e_f, dispformula= ~ Experiment,
+                          data=m_dA8e_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dA8f <- glmmTMB::glmmTMB(formula=m_dA8f_f, dispformula= ~ Experiment,
+                          data=m_dA8f_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dA8g <- glmmTMB::glmmTMB(formula=m_dA8g_f, dispformula= ~ Experiment,
+                          data=m_dA8g_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dA8h <- glmmTMB::glmmTMB(formula=m_dA8h_f, dispformula= ~ Experiment,
+                          data=m_dA8h_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dA8i <- glmmTMB::glmmTMB(formula=m_dA8i_f, dispformula= ~ Experiment,
+                          data=m_dA8i_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dA8j <- glmmTMB::glmmTMB(formula=m_dA8j_f, dispformula= ~ Experiment,
+                          data=m_dA8j_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+parameters::model_parameters(m_dA8a, dispersion=TRUE)
+parameters::model_parameters(m_dA8b, dispersion=TRUE)
+parameters::model_parameters(m_dA8c, dispersion=TRUE)
+parameters::model_parameters(m_dA8d, dispersion=TRUE)
+parameters::model_parameters(m_dA8e, dispersion=TRUE)
+parameters::model_parameters(m_dA8f, dispersion=TRUE)
+parameters::model_parameters(m_dA8g, dispersion=TRUE)
+parameters::model_parameters(m_dA8h, dispersion=TRUE)
+parameters::model_parameters(m_dA8i, dispersion=TRUE)
+parameters::model_parameters(m_dA8j, dispersion=TRUE)
+
+performance::compare_performance(m_dA1b, m_dA2a, m_dA3a, m_dA4d, m_dA5b, m_dA6d,
+                                 m_dA7b, m_dA8a, m_dA8b, m_dA8c, m_dA8d, m_dA8e,
+                                 m_dA8f, m_dA8g, m_dA8h, m_dA8i, m_dA8j)
+
+```
+
+##### compare CV performance
+
+```{r}
+
+cv_m_dA8a <- cv_mean_model(m_dA8a, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA8b <- cv_mean_model(m_dA8b, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA8c <- cv_mean_model(m_dA8c, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA8d <- cv_mean_model(m_dA8d, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA8e <- cv_mean_model(m_dA8e, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA8f <- cv_mean_model(m_dA8f, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA8g <- cv_mean_model(m_dA8g, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA8h <- cv_mean_model(m_dA8h, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA8i <- cv_mean_model(m_dA8i, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+cv_m_dA8j <- cv_mean_model(m_dA8j, k = 198, reps = 1,
+                           strata = 'Experiment', group = 'StimNum',
+                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+compare_mean_models(m_dA8a=cv_m_dA8a, m_dA8b=cv_m_dA8b, m_dA8c=cv_m_dA8c,
+                    m_dA8d=cv_m_dA8d, m_dA8e=cv_m_dA8e, m_dA8f=cv_m_dA8f,
+                    m_dA8g=cv_m_dA8g, m_dA8h=cv_m_dA8h, m_dA8i=cv_m_dA8i, m_dA8j=cv_m_dA8j)
+
+```
+
+##### generate deployment version
+
+```{r}
+
+m_dA7b_deploy <- deploy_mean_model(m_dA7b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=TRUE)
+
+```
+
+##### analyse deployment performance
+
+```{r}
+
+m_dA7b_boot <- boot_mean_model(deployed=m_dA7b_deploy, trial_data=subjDataNoAmb.med,
+                               cluster='PersonNum', response='dAnnoyance',
+                               stat = 'median', by = 'StimNum',
+                               strata = 'Experiment', resample = 'crossed',
+                               stimulus_strata = 'Experiment',
+                               response_transform = function(x) pmax(x, 0)/10,
+                               jitter_step=1, interval = 'bc',
+                               jitter_rows = subjDataNoAmb.med[['Experiment']] == 1,
+                               recentre='mean', regrid=0.5, newdata = NULL,
+                               B = 2000, level = 0.95,
+                               prediction_intervals = FALSE, pi_draws = 10L,
+                               parallel = TRUE, seed = 999, verbose = TRUE)
+
+cv_m_dA7b <- cv_mean_model(m_dA7b_deploy, k = 198, reps = 1, strata = 'Experiment', group = 'StimNum',
+                     inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
+
+m_dA7b_predict <- transform_dAnnoyMd(predict.glmmTMB.ordbeta(m_dA7b, newdata=stimDataNoAmb, type='response'))
+
+m_dA7b_cv <- cv::cv(m_dA7b, criterion=r2_1, k=10, seed=999)
+
+m_dA7b_dep_predict <- transform_dAnnoyMd(m_dA7b_deploy(stimDataNoAmb))
+
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyanceMedian - m_dA7b_dep_predict)^2)/sum((stimDataNoAmb$dAnnoyanceMedian - mean(stimDataNoAmb$dAnnoyanceMedian))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m_dA7b_dep_predict,
+                     measured_target='dAnnoyanceMedian', measured_ci_low='dAnnoyanceMedianCI_Low',
+                     measured_ci_high='dAnnoyanceMedianCI_High', fitted='estimate')
+
+R2_cv <- subset(cv_m_dA7b[['summary']], target=="deployed" & metric == "R2")['cv_mean']
+RMSE_CV <- subset(cv_m_dA7b[['summary']], target=="deployed" & metric == "RMSE")['cv_mean']
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=merge(m_dA7b_boot[['predictions']][, c('StimNum', 'estimate', 'lower', 'upper')],
+                  data.frame(Experiment = stimDataNoAmb[['Experiment']],
+                             StimNum = stimDataNoAmb[['StimNum']],
+                             response = stimDataNoAmb[['dAnnoyanceMedian']],
+                             responseCI_Low = stimDataNoAmb[['dAnnoyanceMedianCI_Low']],
+                             responseCI_High = stimDataNoAmb[['dAnnoyanceMedianCI_High']]),
+                  by = "StimNum")) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  geom_point(mapping=aes(x=response, y=estimate, colour=Experiment, shape=Experiment), size=1.75, stroke=0.75, alpha=0.5) +
+
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate, colour=Experiment), width=0, alpha=0.1) +
+
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=lower, ymax=upper, colour=Experiment), width=0, alpha=0.1) +
+  
+  scale_colour_manual(values=mycolours[1:2], name="Experiment", guide=guide_legend(ncol = 2, position = 'top')) +
+  scale_shape_manual(values=c(4, 0), name="Experiment", guide=guide_legend(ncol = 2, position = 'top')) +
+
+  scale_x_continuous(breaks=seq(-2, 10, by=1)) +
+  scale_y_continuous(breaks=seq(-2, 10, by=1)) +
+  
+  coord_cartesian(xlim=c(-1.5, 9.5), ylim=c(-0.5, 10.5), expand=FALSE) +
+  
+  labs(x="Median change in annoyance (test)", y="Predicted median annoyance increase") +
+  
+  ggplot2::annotate("text", x=-0.5, y=10, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=-0.5, y=9.25, label=deparse(bquote(italic(R)[CV]^2 == .(sprintf("%.3f", (round(R2_cv, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=-0.5, y=8.5, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = -0.5, y = 7.75, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE) +
+ggplot2::annotate("text", x = -0.5, y = 7, label = paste0("RMSE[CV] == ", sprintf("%.3f", round(RMSE_CV, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
+
+if (saveplots){
+  
+  filename <- "DataMeld_dAnnoyMn_PredMod_DetCal_Ob"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4.5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4, height=4.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+```
+
+
+
+

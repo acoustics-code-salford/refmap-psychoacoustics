@@ -53,6 +53,38 @@ require(glmmTMB)
 #         signs reversed (L = -linear predictor), so no minus sign sits inside
 #         the exponent.
 #
+#       * glmmTMB (and any model) with NON-DEFAULT FACTOR CONTRASTS (sum,
+#         Helmert, polynomial, user-defined): the levels and contrast matrix of
+#         every factor are now captured explicitly (glmmTMB: modelInfo$contrasts
+#         and the model frame's factor attributes), used for predictions, and used
+#         to build the printed equation (a contrast column is expanded into
+#         weighted level indicators). Constants for a factor may be a level name
+#         or a number that is not a level name, read as a contrast code (0 =
+#         all contrast columns zero: the average over levels for sum coding).
+#
+#       * glmmTMB EXPECTED VALUE. The deployed function/equation now returns E[y],
+#         not just linkinv(eta). Whitelisted families (gaussian, binomial, beta,
+#         betabinomial, poisson, Gamma, nbinom1, nbinom2, nbinom12, tweedie, lognormal,
+#         genpois, compois, skewnormal, bell; and t when exp(psi) > 1): linkinv(eta).
+#         ordbeta: E = P1 + (P(y>0) - P1) * mu with the cutpoints psi read from
+#         TMB's full parameter list parList(fit$par, fit$parfull), so FIXED (mapped)
+#         cutpoints are supported (never from family_params()); the P1 terms are dropped
+#         only if that changes E by <= tolerance/100 over the fitting data. Zero-
+#         inflated models and every other family STOP with an error. Does not
+#         use predict(type = "response") (returns mu for ordbeta in glmmTMB
+#         versions with issue 1359 unfixed).
+#         Diagnostics printed for ordbeta: cutpoints, E-scale equation check,
+#         glmmTMB behaviour detector, simulation check (models without random
+#         effects), cutpoint notes. brms/glmgee are unchanged (linkinv(eta)).
+#
+#       * the returned function also stores attr(f, "model") (the input model)
+#         and attr(f, "deploy_args") (a list of the arguments the call was made with).
+#
+#       * stats::glm objects are supported (deploy_mean_model.glm); offsets are not.
+#
+#       * the returned function now returns a data frame with one column, `fit`
+#         (row names taken from newdata), instead of an unnamed vector.
+#
 # CHANGE LOG vs v15:
 #   - NEW: un-centring / un-standardising. New arguments centred_vars,
 #     stdised_vars (model variables that were centred, or centred AND
@@ -363,9 +395,42 @@ deploy_mean_model <- function(model, ...,
 
 deploy_mean_model.default <- function(model, ...) {
   stop(sprintf(
-    "deploy_mean_model() does not support objects of class '%s'. Supported: glmgee, glmmTMB, brmsfit.",
+    "deploy_mean_model() does not support objects of class '%s'. Supported: glm, glmgee, glmmTMB, brmsfit.",
     paste(class(model), collapse = "/")
   ))
+}
+
+deploy_mean_model.glm <- function(model, ...,
+                                  coef_simplify = FALSE,
+                                  tolerance = 0.001,
+                                  tolerance_type = c("relative", "absolute"),
+                                  max_denominator = 2000,
+                                  coef_tolerance = 0.001,
+                                  centred_vars = NULL,
+                                  stdised_vars = NULL,
+                                  scaling_data = NULL,
+                                  scaling_values = NULL,
+                                  fit_data = NULL,
+                                  validation_data = NULL,
+                                  verbose = TRUE) {
+  spec <- .extract_spec_glm(model)
+  f <- .deploy_from_spec(spec, ...,
+                         coef_simplify = coef_simplify, tolerance = tolerance,
+                         tolerance_type = tolerance_type, max_denominator = max_denominator,
+                         coef_tolerance = coef_tolerance,
+                         centred_vars = centred_vars, stdised_vars = stdised_vars,
+                         scaling_data = scaling_data, scaling_values = scaling_values,
+                         fit_data = fit_data,
+                         validation_data = validation_data, verbose = verbose)
+  attr(f, "model") <- model
+  attr(f, "deploy_args") <- list(
+    constants = list(...),
+    coef_simplify = coef_simplify, tolerance = tolerance,
+    tolerance_type = match.arg(tolerance_type), max_denominator = max_denominator,
+    coef_tolerance = coef_tolerance, centred_vars = centred_vars, stdised_vars = stdised_vars,
+    scaling_data = scaling_data, scaling_values = scaling_values, fit_data = fit_data,
+    validation_data = validation_data, verbose = verbose)
+  f
 }
 
 deploy_mean_model.glmgee <- function(model, ...,
@@ -382,14 +447,23 @@ deploy_mean_model.glmgee <- function(model, ...,
                                      validation_data = NULL,
                                      verbose = TRUE) {
   spec <- .extract_spec_glmgee(model)
-  .deploy_from_spec(spec, ...,
-                    coef_simplify = coef_simplify, tolerance = tolerance,
-                    tolerance_type = tolerance_type, max_denominator = max_denominator,
-                    coef_tolerance = coef_tolerance,
-                    centred_vars = centred_vars, stdised_vars = stdised_vars,
-                    scaling_data = scaling_data, scaling_values = scaling_values,
-                    fit_data = fit_data,
-                    validation_data = validation_data, verbose = verbose)
+  f <- .deploy_from_spec(spec, ...,
+                         coef_simplify = coef_simplify, tolerance = tolerance,
+                         tolerance_type = tolerance_type, max_denominator = max_denominator,
+                         coef_tolerance = coef_tolerance,
+                         centred_vars = centred_vars, stdised_vars = stdised_vars,
+                         scaling_data = scaling_data, scaling_values = scaling_values,
+                         fit_data = fit_data,
+                         validation_data = validation_data, verbose = verbose)
+  attr(f, "model") <- model
+  attr(f, "deploy_args") <- list(
+    constants = list(...),
+    coef_simplify = coef_simplify, tolerance = tolerance,
+    tolerance_type = match.arg(tolerance_type), max_denominator = max_denominator,
+    coef_tolerance = coef_tolerance, centred_vars = centred_vars, stdised_vars = stdised_vars,
+    scaling_data = scaling_data, scaling_values = scaling_values, fit_data = fit_data,
+    validation_data = validation_data, verbose = verbose)
+  f
 }
 
 deploy_mean_model.glmmTMB <- function(model, ...,
@@ -406,14 +480,23 @@ deploy_mean_model.glmmTMB <- function(model, ...,
                                       validation_data = NULL,
                                       verbose = TRUE) {
   spec <- .extract_spec_glmmTMB(model)
-  .deploy_from_spec(spec, ...,
-                    coef_simplify = coef_simplify, tolerance = tolerance,
-                    tolerance_type = tolerance_type, max_denominator = max_denominator,
-                    coef_tolerance = coef_tolerance,
-                    centred_vars = centred_vars, stdised_vars = stdised_vars,
-                    scaling_data = scaling_data, scaling_values = scaling_values,
-                    fit_data = fit_data,
-                    validation_data = validation_data, verbose = verbose)
+  f <- .deploy_from_spec(spec, ...,
+                         coef_simplify = coef_simplify, tolerance = tolerance,
+                         tolerance_type = tolerance_type, max_denominator = max_denominator,
+                         coef_tolerance = coef_tolerance,
+                         centred_vars = centred_vars, stdised_vars = stdised_vars,
+                         scaling_data = scaling_data, scaling_values = scaling_values,
+                         fit_data = fit_data,
+                         validation_data = validation_data, verbose = verbose)
+  attr(f, "model") <- model
+  attr(f, "deploy_args") <- list(
+    constants = list(...),
+    coef_simplify = coef_simplify, tolerance = tolerance,
+    tolerance_type = match.arg(tolerance_type), max_denominator = max_denominator,
+    coef_tolerance = coef_tolerance, centred_vars = centred_vars, stdised_vars = stdised_vars,
+    scaling_data = scaling_data, scaling_values = scaling_values, fit_data = fit_data,
+    validation_data = validation_data, verbose = verbose)
+  f
 }
 
 deploy_mean_model.brmsfit <- function(model, ...,
@@ -432,14 +515,24 @@ deploy_mean_model.brmsfit <- function(model, ...,
                                       point_estimate = c("mean", "median")) {
   point_estimate <- match.arg(point_estimate)
   spec <- .extract_spec_brmsfit(model, point_estimate = point_estimate)
-  .deploy_from_spec(spec, ...,
-                    coef_simplify = coef_simplify, tolerance = tolerance,
-                    tolerance_type = tolerance_type, max_denominator = max_denominator,
-                    coef_tolerance = coef_tolerance,
-                    centred_vars = centred_vars, stdised_vars = stdised_vars,
-                    scaling_data = scaling_data, scaling_values = scaling_values,
-                    fit_data = fit_data,
-                    validation_data = validation_data, verbose = verbose)
+  f <- .deploy_from_spec(spec, ...,
+                         coef_simplify = coef_simplify, tolerance = tolerance,
+                         tolerance_type = tolerance_type, max_denominator = max_denominator,
+                         coef_tolerance = coef_tolerance,
+                         centred_vars = centred_vars, stdised_vars = stdised_vars,
+                         scaling_data = scaling_data, scaling_values = scaling_values,
+                         fit_data = fit_data,
+                         validation_data = validation_data, verbose = verbose)
+  attr(f, "model") <- model
+  attr(f, "deploy_args") <- list(
+    constants = list(...),
+    coef_simplify = coef_simplify, tolerance = tolerance,
+    tolerance_type = match.arg(tolerance_type), max_denominator = max_denominator,
+    coef_tolerance = coef_tolerance, centred_vars = centred_vars, stdised_vars = stdised_vars,
+    scaling_data = scaling_data, scaling_values = scaling_values, fit_data = fit_data,
+    validation_data = validation_data, verbose = verbose,
+    point_estimate = point_estimate)
+  f
 }
 
 # ---- Raw-data recovery (shared across all three extraction methods) -------
@@ -496,6 +589,15 @@ deploy_mean_model.brmsfit <- function(model, ...,
   stats::as.formula(txt, env = environment(formula_obj))
 }
 
+# glmmTMB's predict() method partially matches `object$fr` to `object$frame`; with
+# options(warnPartialMatchDollar = TRUE) that raises a harmless warning. Only that
+# exact message is muffled; every other warning passes through.
+.mute_fr_partial_match <- function(expr) {
+  withCallingHandlers(expr, warning = function(w) {
+    if (grepl("partial match of 'fr' to 'frame'", conditionMessage(w), fixed = TRUE)) invokeRestart("muffleWarning")
+  })
+}
+
 # ---- Extraction: glmgee (glmtoolbox) ---------------------------------
 # Verified 2026-07 against glmtoolbox source (github.com/cran/glmtoolbox/
 # blob/master/R/geeglm.R). See NOTES.
@@ -544,6 +646,52 @@ deploy_mean_model.brmsfit <- function(model, ...,
        data_is_raw = data_is_raw, fit_frame = fit_frame, point_estimate_model = TRUE)
 }
 
+# ---- Extraction: glm (stats) ---------------------------------------------
+# For every glm family the mean is mu = linkinv(eta) by definition, so no
+# per-family mapping is needed. Components used (documented in ?glm, Value):
+# coefficients, family, terms, linear.predictors, model, xlevels, contrasts,
+# data, call, offset. Not executed here (no R available); see NOTES.
+.extract_spec_glm <- function(model) {
+  if (!is.null(model[["offset"]]) || !is.null(attr(stats::terms(model), "offset"))) {
+    stop("This glm has an offset: the deployed mean would also need the offset values for new data, which is not supported.", call. = FALSE)
+  }
+  cf <- stats::coef(model)
+  if (anyNA(cf)) {
+    warning(sprintf("glm coefficient(s) not estimable (aliased) and treated as zero: %s",
+                    paste(names(cf)[is.na(cf)], collapse = ", ")))
+    cf <- cf[!is.na(cf)]
+  }
+  fam <- model[["family"]]
+  if (is.null(fam) || is.null(fam$link)) stop("Could not find model$family$link on this glm object.")
+  link <- fam$link
+  
+  terms_obj <- stats::delete.response(stats::terms(model))
+  
+  raw_data <- .recover_raw_data(model, terms_obj)
+  data_is_raw <- .data_has_required_vars(raw_data, terms_obj)
+  if (!data_is_raw && .data_has_required_vars(model[["data"]], terms_obj)) {
+    raw_data <- model[["data"]]       # the 'data' component stored on the glm
+    data_is_raw <- TRUE
+  }
+  if (!data_is_raw) {
+    warning("Could not recover the original raw fitting data for this glm (tried evaluating model$call$data ",
+            "and model$data). Falling back to the stored model frame, which will fail for any I(...)-transformed ",
+            "term when used as default validation data or in the automatic fitted-value self-check. Supply ",
+            "'validation_data' explicitly (with raw, untransformed columns) for coef_simplify.")
+    raw_data <- tryCatch(model[["model"]], error = function(e) NULL)
+    if (is.null(raw_data)) raw_data <- stats::model.frame(model)
+  }
+  
+  # eta (linear predictor) is the comparison target, as for the other model types
+  fitted_vals <- tryCatch(as.numeric(model[["linear.predictors"]]), error = function(e) NULL)
+  fit_frame <- model[["model"]]
+  if (is.null(fit_frame)) fit_frame <- tryCatch(stats::model.frame(model), error = function(e) NULL)
+  
+  list(coefficients = cf, link = link, terms = terms_obj, data = raw_data,
+       xlevels = model[["xlevels"]], contrasts = model[["contrasts"]], fitted = fitted_vals,
+       data_is_raw = data_is_raw, fit_frame = fit_frame, point_estimate_model = TRUE)
+}
+
 # ---- Extraction: glmmTMB -----------------------------------------------
 .extract_spec_glmmTMB <- function(model) {
   cf <- glmmTMB::fixef(model)$cond
@@ -558,6 +706,66 @@ deploy_mean_model.brmsfit <- function(model, ...,
   if (is.null(full_formula)) stop("Could not retrieve the conditional-model formula from this glmmTMB object.")
   fixed_formula <- .nobars(full_formula)
   terms_obj <- stats::delete.response(stats::terms(fixed_formula))
+  
+  # ---- Expected value E[y] of the response, by family (whitelist) ----
+  # linkinv(eta) is the expected value for the families below, in which glmmTMB
+  # parameterises the model so that mu is the data-scale mean (lognormal:
+  # "mean and SD on data scale"; genpois: mean theta/(1 - lambda) = mu; compois,
+  # nbinom12, tweedie, Gamma: mean mu; bell: mu = theta*exp(theta) via Lambert W;
+  # skewnormal: parameterised by the mean per glmmTMB's documentation). `t` has
+  # a mean only if its df = exp(psi) > 1. For ordbeta, linkinv(eta) is just the
+  # beta-component mean mu; the full E[y] also needs the two cutpoints psi (logit
+  # scale). These are read from TMB's full parameter list (free AND fixed/mapped
+  # values), never from family_params(), which reports them on the probability
+  # scale and was seen to disagree with the fitted parameters. glmmTMB's own
+  # predict(type = "response") returns mu for ordbeta in versions with the
+  # unfixed bug (glmmTMB issue 1359), so it is never relied on. Everything
+  # else stops. (Whitelist and cutpoint handling follow the project spec
+  # claude/ordbeta_deploy_spec.md.)
+  if (length(glmmTMB::fixef(model)$zi) > 0) {
+    stop("This glmmTMB model has a zero-inflation component: E[y] would also need the zero-inflation linear predictor, which is not yet supported.", call. = FALSE)
+  }
+  fam_name <- fam$family
+  psi <- NULL
+  psi_status <- NULL
+  if (fam_name %in% c("ordbeta", "t")) {
+    env <- model[["obj"]][["env"]]
+    psi_full <- tryCatch(unname(env[["parList"]](model[["fit"]][["par"]], model[["fit"]][["parfull"]])$psi),
+                         error = function(e) NULL)
+    if (is.null(psi_full) || length(psi_full) == 0L) {
+      stop(sprintf("Could not rebuild the full parameter list (model$obj$env$parList) to read the 'psi' parameter(s) of the %s family.", fam_name), call. = FALSE)
+    }
+    # verification 1: the free elements must equal the "psi" entries of fit$par, in order
+    free <- unname(model[["fit"]][["par"]][names(model[["fit"]][["par"]]) == "psi"])
+    mp <- tryCatch(env[["map"]][["psi"]], error = function(e) NULL)
+    fixed <- if (is.null(mp)) rep(FALSE, length(psi_full)) else is.na(mp)
+    if (length(fixed) != length(psi_full) || sum(!fixed) != length(free) ||
+        !isTRUE(all.equal(psi_full[!fixed], free, tolerance = 1e-10, check.attributes = FALSE))) {
+      stop(paste0("The 'psi' values rebuilt by TMB do not agree with the free 'psi' entries of model$fit$par ",
+                  "(or with the map). The cutpoints cannot be extracted reliably for this model."), call. = FALSE)
+    }
+    psi_status <- ifelse(fixed, "fixed via map", "estimated")
+    # verification 2 (best effort): fixed elements should equal the values given in start
+    start_psi <- tryCatch(eval(model[["call"]][["start"]], baseenv())$psi, error = function(e) NULL)
+    if (any(fixed) && !is.null(start_psi) && length(start_psi) == length(psi_full) &&
+        !isTRUE(all.equal(psi_full[fixed], start_psi[fixed], tolerance = 1e-10, check.attributes = FALSE))) {
+      warning("The fixed 'psi' value(s) rebuilt by TMB differ from those in the model's start argument; ",
+              "the log-likelihood rebuild below is the decisive check on which cutpoints were used.")
+    }
+    if (identical(fam_name, "ordbeta")) {
+      if (length(psi_full) != 2L || !(psi_full[1] < psi_full[2])) {
+        stop("ordbeta: need exactly 2 cutpoints with psi1 < psi2.", call. = FALSE)
+      }
+      psi <- psi_full
+    } else if (exp(psi_full[1]) <= 1) {
+      stop(sprintf("t family: df = exp(psi) = %.4g <= 1, so the mean is undefined.", exp(psi_full[1])), call. = FALSE)
+    }
+  } else if (!fam_name %in% c("gaussian", "binomial", "beta", "betabinomial", "poisson", "Gamma",
+                              "nbinom1", "nbinom2", "nbinom12", "tweedie", "lognormal", "genpois",
+                              "compois", "skewnormal", "bell")) {
+    stop(sprintf("glmmTMB family '%s': the mapping from the linear predictor to E[y] is not implemented/verified, so the deployed function would not be a reliable mean.", fam_name), call. = FALSE)
+  }
+  has_re <- grepl("|", paste(deparse(full_formula), collapse = ""), fixed = TRUE)
   
   raw_data <- .recover_raw_data(model, terms_obj)
   data_is_raw <- .data_has_required_vars(raw_data, terms_obj)
@@ -583,9 +791,9 @@ deploy_mean_model.brmsfit <- function(model, ...,
   # approximation gap possible here, giving a cleaner, harder-to-fool check
   # than comparing on the mu scale — NOT verified by execution here.
   fitted_vals <- tryCatch(
-    as.numeric(stats::predict(model, re.form = ~0, type = "link")),
+    as.numeric(.mute_fr_partial_match(stats::predict(model, re.form = ~0, type = "link"))),
     error = function(e) tryCatch(
-      as.numeric(stats::predict(model, re.form = NA, type = "link")),
+      as.numeric(.mute_fr_partial_match(stats::predict(model, re.form = NA, type = "link"))),
       error = function(e2) NULL
     )
   )
@@ -593,9 +801,17 @@ deploy_mean_model.brmsfit <- function(model, ...,
   fit_frame <- tryCatch(stats::model.frame(model), error = function(e) NULL)
   if (is.null(fit_frame)) fit_frame <- tryCatch(model[["frame"]], error = function(e) NULL)
   
+  # contrasts supplied through glmmTMB(contrasts = ...), if any (the factors'
+  # own "contrasts" attributes are picked up later from the model frame by
+  # .factor_var_info()). Source: predict.glmmTMB passes object$modelInfo$contrasts
+  # on to mkTMBStruc (rdrr.io/cran/glmmTMB/src/R/predict.R).
+  ctr_given <- tryCatch(model[["modelInfo"]][["contrasts"]], error = function(e) NULL)
+  
   list(coefficients = cf, link = link, terms = terms_obj, data = raw_data,
-       xlevels = NULL, contrasts = NULL, fitted = fitted_vals, data_is_raw = data_is_raw,
-       fit_frame = fit_frame, point_estimate_model = TRUE)
+       xlevels = NULL, contrasts = ctr_given, fitted = fitted_vals, data_is_raw = data_is_raw,
+       fit_frame = fit_frame, point_estimate_model = TRUE,
+       mean_info = if (!is.null(psi)) list(family = "ordbeta", psi = psi, psi_status = psi_status) else NULL,
+       family_name = fam_name, has_re = has_re, model = model)
 }
 
 # ---- Extraction: brmsfit (brms) ----------------------------------------
@@ -743,21 +959,115 @@ deploy_mean_model.brmsfit <- function(model, ...,
        fit_frame = fit_frame, fitted_error = fitted_error, point_estimate_model = FALSE)
 }
 
+# ---- Factor levels and contrasts ------------------------------------------
+# A factor's model-matrix columns depend on its CONTRAST coding (treatment,
+# sum, Helmert, polynomial, user-defined), which is stored as an attribute of
+# the factor and/or given to the fitting function. Predictions and the printed
+# equation must use the coding the model was fitted with, so the levels and
+# contrast matrix of every factor are captured once, explicitly.
+.contrast_matrix <- function(cs, lv, ordered = FALSE) {
+  if (is.null(cs)) cs <- getOption("contrasts")[[if (ordered) 2L else 1L]]
+  m <- if (is.matrix(cs)) {
+    cs
+  } else if (is.function(cs)) {
+    cs(lv)
+  } else if (is.character(cs) && length(cs) == 1L) {
+    match.fun(cs)(lv)
+  } else {
+    stop("Unrecognised contrast specification (expected a matrix, a function or the name of a contrast function).")
+  }
+  m <- as.matrix(m)
+  if (nrow(m) != length(lv)) {
+    stop(sprintf("A contrast matrix has %d rows but the factor has %d levels.", nrow(m), length(lv)))
+  }
+  rownames(m) <- lv
+  m
+}
+
+# Levels and contrast matrices for every factor-like variable of the model.
+# Sources, in priority order: what the fitting function recorded (spec$xlevels /
+# spec$contrasts), then the factor's own "contrasts" attribute (model frame
+# first, then the data), then R's default contrasts.
+.factor_var_info <- function(spec) {
+  var_strs <- vapply(attr(spec$terms, "variables")[-1], function(e) paste(deparse(e), collapse = ""), character(1))
+  srcs <- list(spec$fit_frame, spec$data)
+  xlev <- list(); ctr <- list()
+  for (v in var_strs) {
+    col <- NULL
+    for (src in srcs) {
+      if (is.data.frame(src) && v %in% names(src) && (is.factor(src[[v]]) || is.character(src[[v]]))) {
+        col <- src[[v]]; break
+      }
+    }
+    if (is.null(col)) next
+    fac <- is.factor(col)
+    lv <- spec$xlevels[[v]]
+    if (is.null(lv)) lv <- if (fac) levels(col) else sort(unique(as.character(col[!is.na(col)])))
+    xlev[[v]] <- lv
+    if (length(lv) < 2L) next
+    given <- spec$contrasts[[v]]
+    if (is.null(given) && fac) given <- attr(col, "contrasts")
+    ctr[[v]] <- .contrast_matrix(given, lv, ordered = is.ordered(col))
+  }
+  list(xlevels = if (length(xlev)) xlev else NULL, contrasts = if (length(ctr)) ctr else NULL)
+}
+
 # ---- Robust numeric evaluator (authoritative for predictions) -----------
 .eval_eta <- function(spec, data) {
+  # The contrast coding is supplied explicitly to model.matrix() below, so a
+  # "contrasts" attribute carried by a factor column is redundant; when xlev
+  # is used, stats::model.frame() re-levels the factor and warns that it
+  # "dropped" that attribute. Remove it first (no effect on the result).
+  for (v in names(spec$xlevels)) {
+    if (v %in% names(data) && is.factor(data[[v]]) && !is.null(attr(data[[v]], "contrasts"))) {
+      attr(data[[v]], "contrasts") <- NULL
+    }
+  }
   mf <- stats::model.frame(spec$terms, data, xlev = spec$xlevels, na.action = stats::na.pass)
   mm <- stats::model.matrix(spec$terms, mf, contrasts.arg = spec$contrasts)
   
   missing_cols <- setdiff(names(spec$coefficients), colnames(mm))
   if (length(missing_cols) > 0) {
     stop(sprintf(
-      "Model-matrix columns built from the supplied data do not include: %s.\nColumns present: %s\nThis usually means a factor is missing a level, or non-default contrasts were used.",
+      "Model-matrix columns built from the supplied data do not include: %s.\nColumns present: %s\nThis usually means a factor is missing a level, or its contrast coding differs from the one the model was fitted with.",
       paste(missing_cols, collapse = ", "), paste(colnames(mm), collapse = ", ")))
   }
   mm <- mm[, names(spec$coefficients), drop = FALSE]
   as.numeric(mm %*% spec$coefficients)
 }
 
+# eta when some FACTOR variables are fixed at a numeric contrast code rather
+# than at a level (e.g. Experiment = 0 for a sum-coded factor, meaning "all of
+# its contrast columns equal 0", the average over its levels). eta is linear
+# in a factor's contrast row, so a code c equals a weighted sum of the level
+# rows, sum_l p_l * C[l, ] = c with sum_l p_l = 1, and
+#   eta(code) = sum_l p_l * eta(factor fixed at level l).
+# This keeps the authoritative path on stats::model.matrix() with real levels.
+.code_weights <- function(spec, nm, code) {
+  lv <- spec$xlevels[[nm]]; C <- spec$contrasts[[nm]]
+  if (is.null(lv) || is.null(C)) stop(sprintf("No level/contrast information is available for factor '%s'.", nm))
+  A <- rbind(t(C), rep(1, length(lv)))
+  p <- tryCatch(solve(A, c(rep(code, ncol(C)), 1)), error = function(e) NULL)
+  if (is.null(p)) {
+    stop(sprintf(paste0("Cannot interpret the numeric constant %s for factor '%s' as a contrast code: its contrast ",
+                        "matrix does not span the levels. Give a level name instead."), format(code), nm))
+  }
+  stats::setNames(as.numeric(p), lv)
+}
+
+.eval_eta_codes <- function(spec, data, codes) {
+  if (length(codes) == 0L) return(.eval_eta(spec, data))
+  nm <- names(codes)[1]
+  p <- .code_weights(spec, nm, codes[[nm]])
+  eta <- 0
+  for (l in names(p)) {
+    if (abs(p[[l]]) < 1e-14) next
+    d <- data
+    d[[nm]] <- l
+    eta <- eta + p[[l]] * .eval_eta_codes(spec, d, codes[-1])
+  }
+  eta
+}
 
 # Evaluates eta directly from an ALREADY-BUILT model frame (e.g. the frame
 # a package used internally when fitting), skipping stats::model.frame()'s
@@ -797,18 +1107,20 @@ deploy_mean_model.brmsfit <- function(model, ...,
 
 # ---- Synthetic reference frame (for column-name/assign lookups only) ------
 # stats::model.matrix()'s column names and "assign" attribute depend only on
-# the TERMS STRUCTURE and factor LEVELS — not on the actual row values. So
-# for purposes of naming/term-association (never for real prediction), we
-# can build a minimal 1-row frame: real factor columns get a value drawn
-# from their actual levels (with the full level set attached, so all dummy
-# columns still appear), and every other variable (including raw variables
+# the TERMS STRUCTURE, factor LEVELS and CONTRAST coding — not on the actual
+# row values. So for purposes of naming/term-association (never for real
+# prediction), we can build a minimal 1-row frame: real factor columns get a
+# value drawn from their actual levels (with the full level set attached, so
+# all columns still appear), and every other variable (including raw variables
 # an I(...) transform depends on, which may be genuinely unavailable — see
 # NOTES) gets an arbitrary numeric placeholder. This decouples column-name/
 # term-association logic from whether raw training data was recoverable.
-.make_synthetic_frame_for_colnames <- function(terms_obj, data) {
+.make_synthetic_frame_for_colnames <- function(terms_obj, data, xlev = NULL) {
   vars <- all.vars(stats::formula(terms_obj))
   cols <- lapply(vars, function(v) {
-    if (!is.null(data) && v %in% names(data) && (is.factor(data[[v]]) || is.character(data[[v]]))) {
+    if (!is.null(xlev[[v]])) {
+      factor(xlev[[v]][1], levels = xlev[[v]])
+    } else if (!is.null(data) && v %in% names(data) && (is.factor(data[[v]]) || is.character(data[[v]]))) {
       lv <- if (is.factor(data[[v]])) levels(data[[v]]) else sort(unique(as.character(data[[v]])))
       if (length(lv) == 0) lv <- "L1"
       factor(lv[1], levels = lv)
@@ -821,11 +1133,15 @@ deploy_mean_model.brmsfit <- function(model, ...,
 }
 
 # ---- Term/column parsing for the printable "reduced" equation -----------
-# (unchanged from v2 — see prior version's comments; uses terms()'s own
-# factors/variables/term.labels attributes and model.matrix()'s "assign"
-# attribute, which are documented/official outputs, not guesswork. Assumes
-# default treatment contrasts.)
-.build_column_map <- function(terms_obj, coef_names, data) {
+# Uses terms()'s own factors/variables/term.labels attributes and
+# model.matrix()'s "assign" attribute (documented outputs, not guesswork).
+# Factor coding is taken from the supplied contrast matrices: a factor column
+# is represented by its WEIGHTS over the factor's levels (w_l = C[l, j] for
+# contrast column j, or an indicator for a full dummy-coded factor). With
+# treatment contrasts each column is a single level indicator; with sum,
+# Helmert, polynomial or user contrasts a column is a weighted sum of level
+# indicators and is expanded into them in .reduce_columns().
+.build_column_map <- function(terms_obj, coef_names, data, contrasts = NULL, xlevels = NULL) {
   term_labels <- attr(terms_obj, "term.labels")
   if (length(term_labels) == 0) return(stats::setNames(list(), character(0)))
   
@@ -834,16 +1150,27 @@ deploy_mean_model.brmsfit <- function(model, ...,
   factors_tab <- attr(terms_obj, "factors")
   
   factor_like <- stats::setNames(
-    vapply(var_expr_strs, function(ve) ve %in% names(data) && (is.factor(data[[ve]]) || is.character(data[[ve]])), logical(1)),
+    vapply(var_expr_strs, function(ve) !is.null(xlevels[[ve]]) ||
+             (ve %in% names(data) && (is.factor(data[[ve]]) || is.character(data[[ve]]))), logical(1)),
     var_expr_strs
   )
   factor_levels <- stats::setNames(
     lapply(var_expr_strs[factor_like], function(v) {
+      if (!is.null(xlevels[[v]])) return(xlevels[[v]])
       col <- data[[v]]
       if (is.factor(col)) levels(col) else sort(unique(as.character(col)))
     }),
     var_expr_strs[factor_like]
   )
+  # contrast matrix for each factor (explicit ones first, then R's defaults)
+  Cs <- stats::setNames(lapply(names(factor_levels), function(v) {
+    if (!is.null(contrasts[[v]])) .contrast_matrix(contrasts[[v]], factor_levels[[v]])
+    else if (length(factor_levels[[v]]) >= 2L) .contrast_matrix(NULL, factor_levels[[v]],
+                                                                ordered = is.ordered(data[[v]]))
+    else NULL
+  }), names(factor_levels))
+  Cs_arg <- Filter(Negate(is.null), Cs)
+  if (length(Cs_arg) == 0L) Cs_arg <- NULL
   
   term_pieces_list <- stats::setNames(vector("list", length(term_labels)), term_labels)
   for (tl in term_labels) {
@@ -851,7 +1178,7 @@ deploy_mean_model.brmsfit <- function(model, ...,
     piece_names <- rownames(factors_tab)[idx]
     term_pieces_list[[tl]] <- lapply(piece_names, function(pn) {
       if (isTRUE(factor_like[[pn]])) {
-        list(type = "factor", raw_var = pn, expr = NA_character_)
+        list(type = "factor", raw_var = pn, expr = NA_character_, coding = factors_tab[pn, tl])
       } else {
         rv <- all.vars(str2lang(pn))
         if (length(rv) != 1) {
@@ -864,7 +1191,8 @@ deploy_mean_model.brmsfit <- function(model, ...,
     })
   }
   
-  ref_mm <- stats::model.matrix(terms_obj, .make_synthetic_frame_for_colnames(terms_obj, data))
+  ref_mm <- stats::model.matrix(terms_obj, .make_synthetic_frame_for_colnames(terms_obj, data, factor_levels),
+                                contrasts.arg = Cs_arg)
   assign_vec <- attr(ref_mm, "assign")
   mm_colnames <- colnames(ref_mm)
   colname_to_term <- stats::setNames(vector("list", length(mm_colnames)), mm_colnames)
@@ -878,9 +1206,16 @@ deploy_mean_model.brmsfit <- function(model, ...,
   for (cn in col_names) {
     tl <- colname_to_term[[cn]]
     if (is.null(tl)) {
-      stop(sprintf(
-        "Could not associate coefficient '%s' with a model term via model.matrix()'s assign attribute. Inspect colnames(stats::model.matrix(terms(model), data)) manually.",
-        cn))
+      fdesc <- if (length(Cs_arg) == 0L) "no factor variables" else paste(vapply(names(Cs_arg), function(v) {
+        cc <- colnames(Cs_arg[[v]]); if (is.null(cc)) cc <- seq_len(ncol(Cs_arg[[v]]))
+        sprintf("%s: levels {%s}, contrast columns {%s}", v, paste(factor_levels[[v]], collapse = ", "), paste(cc, collapse = ", "))
+      }, character(1)), collapse = "; ")
+      stop(sprintf(paste0(
+        "Could not associate coefficient '%s' with a model term via model.matrix()'s assign attribute. ",
+        "Column names this function expects: %s. Factor information used: %s. If a coefficient name does ",
+        "not appear in that list, the variable's coding differs from the one detected (check ",
+        "levels() and contrasts() of that variable in the data used to fit the model)."),
+        cn, paste(mm_colnames, collapse = ", "), fdesc), call. = FALSE)
     }
     pieces_template <- term_pieces_list[[tl]]
     subtokens <- strsplit(cn, ":", fixed = TRUE)[[1]]
@@ -890,19 +1225,44 @@ deploy_mean_model.brmsfit <- function(model, ...,
       if (pt$type == "continuous") {
         resolved[[i]] <- pt
       } else {
+        lv <- factor_levels[[pt$raw_var]]
+        C <- Cs[[pt$raw_var]]
+        cc <- if (!is.null(C)) colnames(C) else NULL
+        if (!is.null(C) && is.null(cc)) cc <- as.character(seq_len(ncol(C)))
+        coded <- pt$coding == 1L && !is.null(C)
+        labels <- if (coded) cc else lv
         cand <- which(vapply(subtokens, function(s) {
-          startsWith(s, pt$raw_var) && substring(s, nchar(pt$raw_var) + 1) %in% factor_levels[[pt$raw_var]]
+          startsWith(s, pt$raw_var) && substring(s, nchar(pt$raw_var) + 1) %in% labels
         }, logical(1)))
         if (length(cand) != 1) {
-          stop(sprintf("Could not match a factor level for '%s' within coefficient column '%s' (assumes default treatment contrasts).", pt$raw_var, cn))
+          stop(sprintf("Could not match a factor level/contrast column for '%s' within coefficient column '%s'.", pt$raw_var, cn))
         }
-        lvl <- substring(subtokens[cand], nchar(pt$raw_var) + 1)
-        resolved[[i]] <- list(type = "factor", raw_var = pt$raw_var, level = lvl, expr = NA_character_)
+        lab <- substring(subtokens[cand], nchar(pt$raw_var) + 1)
+        w <- if (coded) C[, match(lab, cc)] else as.numeric(lv == lab)
+        w <- stats::setNames(as.numeric(w), lv)
+        onehot <- sum(w == 1) == 1L && sum(w == 0) == length(w) - 1L
+        resolved[[i]] <- list(type = "factor", raw_var = pt$raw_var,
+                              level = if (onehot) lv[w == 1] else NA_character_,
+                              weights = w, coded = coded, expr = NA_character_)
       }
     }
     column_map[[cn]] <- resolved
   }
   column_map
+}
+
+# Value taken by a factor column piece when its variable is fixed at a constant:
+# a LEVEL name gives that level's weight; a numeric value that is not a level
+# name is taken as the value of the factor's contrast columns (so 0 means
+# "all contrast columns zero": the reference level for treatment contrasts,
+# the average over levels for sum/Helmert contrasts).
+.factor_piece_const <- function(p, const) {
+  key <- as.character(const)
+  if (length(key) == 1L && key %in% names(p$weights)) return(unname(p$weights[[key]]))
+  if (is.numeric(const) && length(const) == 1L && isTRUE(p$coded)) return(as.numeric(const))
+  stop(sprintf(paste0("Constant %s for factor '%s' is neither one of its levels (%s) nor usable as a contrast ",
+                      "code (this coefficient is not contrast-coded)."),
+               format(const), p$raw_var, paste(names(p$weights), collapse = ", ")), call. = FALSE)
 }
 
 .reduce_columns <- function(coefficients, column_map, constants, data) {
@@ -913,43 +1273,54 @@ deploy_mean_model.brmsfit <- function(model, ...,
     pieces <- column_map[[cn]]
     coef_val <- unname(coefficients[[cn]])
     
-    fixed_pieces <- Filter(function(p) p$raw_var %in% names(constants), pieces)
-    free_pieces  <- Filter(function(p) !(p$raw_var %in% names(constants)), pieces)
-    
-    multiplier <- 1
-    for (p in fixed_pieces) {
-      const_val <- constants[[p$raw_var]]
+    # Each coefficient becomes one or more (coefficient, pieces) alternatives:
+    # constants multiply the coefficient; a contrast column that is a weighted
+    # sum of level indicators expands into one alternative per level.
+    alts <- list(list(coef = coef_val, pieces = list()))
+    for (p in pieces) {
+      is_fixed <- p$raw_var %in% names(constants)
       if (p$type == "continuous") {
-        env <- list2env(stats::setNames(list(const_val), p$raw_var), parent = baseenv())
-        val <- eval(str2lang(p$expr), envir = env)
+        if (is_fixed) {
+          env <- list2env(stats::setNames(list(constants[[p$raw_var]]), p$raw_var), parent = baseenv())
+          val <- eval(str2lang(p$expr), envir = env)
+          alts <- lapply(alts, function(a) { a$coef <- a$coef * val; a })
+        } else {
+          alts <- lapply(alts, function(a) { a$pieces <- c(a$pieces, list(p)); a })
+        }
+      } else if (is_fixed) {
+        val <- .factor_piece_const(p, constants[[p$raw_var]])
+        alts <- lapply(alts, function(a) { a$coef <- a$coef * val; a })
       } else {
-        val <- as.numeric(identical(as.character(const_val), p$level))
+        nz <- names(p$weights)[p$weights != 0]
+        alts <- unlist(lapply(alts, function(a) lapply(nz, function(l) {
+          list(coef = a$coef * p$weights[[l]],
+               pieces = c(a$pieces, list(list(type = "factor", raw_var = p$raw_var, level = l, expr = NA_character_))))
+        })), recursive = FALSE)
       }
-      multiplier <- multiplier * val
-      if (multiplier == 0) break
     }
     
-    new_coef <- coef_val * multiplier
-    if (new_coef == 0) next
-    
-    if (length(free_pieces) == 0) {
-      beta0 <- beta0 + new_coef
-    } else {
-      key <- paste(sort(vapply(free_pieces, function(p)
-        if (p$type == "continuous") p$expr else paste0(p$raw_var, "==", p$level),
-        character(1))), collapse = " : ")
-      if (is.null(reduced[[key]])) {
-        reduced[[key]] <- list(coef = new_coef, pieces = free_pieces)
+    for (a in alts) {
+      new_coef <- a$coef
+      if (new_coef == 0) next
+      if (length(a$pieces) == 0) {
+        beta0 <- beta0 + new_coef
       } else {
-        reduced[[key]]$coef <- reduced[[key]]$coef + new_coef
+        key <- paste(sort(vapply(a$pieces, function(p)
+          if (p$type == "continuous") p$expr else paste0(p$raw_var, "==", p$level),
+          character(1))), collapse = " : ")
+        if (is.null(reduced[[key]])) {
+          reduced[[key]] <- list(coef = new_coef, pieces = a$pieces)
+        } else {
+          reduced[[key]]$coef <- reduced[[key]]$coef + new_coef
+        }
       }
     }
   }
   list(beta0 = beta0, terms = reduced)
 }
 
-.eval_reduced_mu <- function(beta0, reduced_terms, data, link) {
-  inv_link <- .get_inverse_link(link)
+.eval_reduced_mu <- function(beta0, reduced_terms, data, link, mean_fn = NULL) {
+  inv_link <- if (is.null(mean_fn)) .get_inverse_link(link) else mean_fn
   n <- nrow(data)
   eta <- rep(beta0, n)
   for (term in reduced_terms) {
@@ -991,7 +1362,7 @@ deploy_mean_model.brmsfit <- function(model, ...,
 
 .simplify_reduced <- function(beta0, reduced_terms, data, link, original_mu,
                               tolerance, tolerance_type, max_denominator,
-                              coef_tolerance) {
+                              coef_tolerance, mean_fn = NULL) {
   denom_bound <- 1
   deviation <- Inf
   approx_beta0 <- NULL
@@ -1006,7 +1377,7 @@ deploy_mean_model.brmsfit <- function(model, ...,
       ap <- .rational_approx(t$coef, denom_bound)
       list(coef = ap$value, pieces = t$pieces, num = ap$num, den = ap$den)
     })
-    approx_mu <- .eval_reduced_mu(approx_beta0$value, approx_terms, data, link)
+    approx_mu <- .eval_reduced_mu(approx_beta0$value, approx_terms, data, link, mean_fn)
     
     deviation <- if (tolerance_type == "relative") {
       max(abs((approx_mu - original_mu) / pmax(abs(original_mu), 1e-8)))
@@ -1157,7 +1528,7 @@ deploy_mean_model.brmsfit <- function(model, ...,
 }
 
 .format_equation <- function(beta0, reduced_terms, link, digits = 4,
-                             beta0_num = NULL, beta0_den = NULL) {
+                             beta0_num = NULL, beta0_den = NULL, ordbeta = NULL) {
   # Logit link: written as 1 / (1 + exp(L)) with L = -(linear predictor), i.e.
   # every coefficient is displayed with its sign reversed so that no minus sign
   # is needed inside the exponent. Display only; predictions are unaffected.
@@ -1183,6 +1554,39 @@ deploy_mean_model.brmsfit <- function(model, ...,
                 cloglog  = sprintf("1 - exp(-exp(%s))", eta_str),
                 sprintf("g^-1(%s)  [link = %s]", eta_str, link)
   )
+  if (!is.null(ordbeta)) {
+    # ordbeta: E[y] = P1 + (P(y > 0) - P1) * mu, with P(y > 0) = plogis(eta - psi1)
+    # and P1 = plogis(eta - psi2) (cutpoints always on the logit scale). For the
+    # logit link, with L = -eta: plogis(eta - psi) = 1 / (1 + exp(L + psi)).
+    psi <- ordbeta$psi
+    fmt <- function(x) format(x, digits = 10, trim = TRUE)
+    mu_str <- switch(link,
+                     logit = "1 / (1 + exp(L))", log = "exp(eta)", identity = "eta", probit = "Phi(eta)",
+                     cloglog = "1 - exp(-exp(eta))", sprintf("g^-1(eta)  [link = %s]", link))
+    if (identical(link, "logit")) {
+      shift <- function(k) sprintf("L %s %s", if (psi[k] < 0) "-" else "+", fmt(abs(psi[k])))
+      ppos <- sprintf("1 / (1 + exp(%s))", shift(1))
+      p1   <- sprintf("1 / (1 + exp(%s))", shift(2))
+      lhs  <- sprintf("  L = %s     [L = -(linear predictor)]", eta_str)
+      e_drop <- sprintf("1 / ((1 + exp(L)) * (1 + exp(%s)))", shift(1))
+    } else {
+      cut <- function(k) sprintf("1 / (1 + exp(%s - eta))", if (psi[k] < 0) paste0("(", fmt(psi[k]), ")") else fmt(psi[k]))
+      ppos <- cut(1); p1 <- cut(2)
+      lhs  <- sprintf("  eta = %s", eta_str)
+      e_drop <- "P(y > 0) * mu"
+    }
+    lines <- c("E[y] = expected value of the response, INCLUDING the point masses at 0 and 1 (not the beta-component mean mu):",
+               lhs,
+               sprintf("  P(y > 0) = %s", ppos))
+    if (!isTRUE(ordbeta$drop_p1)) lines <- c(lines, sprintf("  P1 = P(y = 1) = %s", p1))
+    lines <- c(lines, sprintf("  mu = %s", mu_str))
+    lines <- c(lines, if (isTRUE(ordbeta$drop_p1)) {
+      sprintf("  E = %s     [P1 terms dropped]", e_drop)
+    } else {
+      "  E = P1 + (P(y > 0) - P1) * mu"
+    })
+    return(paste(lines, collapse = "\n"))
+  }
   sprintf("mu = %s", rhs)
 }
 
@@ -1573,8 +1977,10 @@ deploy_mean_model.brmsfit <- function(model, ...,
   environment(f2) <- env
   terms2 <- stats::delete.response(stats::terms(f2))
   
-  cn_old <- colnames(stats::model.matrix(spec$terms, .make_synthetic_frame_for_colnames(spec$terms, data)))
-  cn_new <- colnames(stats::model.matrix(terms2,     .make_synthetic_frame_for_colnames(terms2, data)))
+  cn_old <- colnames(stats::model.matrix(spec$terms, .make_synthetic_frame_for_colnames(spec$terms, data, spec$xlevels),
+                                         contrasts.arg = spec$contrasts))
+  cn_new <- colnames(stats::model.matrix(terms2,     .make_synthetic_frame_for_colnames(terms2, data, spec$xlevels),
+                                         contrasts.arg = spec$contrasts))
   idx <- match(names(spec$coefficients), cn_old)
   if (anyNA(idx) || length(cn_old) != length(cn_new)) {
     stop(paste0("Could not map the model's coefficient names onto the model-matrix columns after replacing ",
@@ -1859,6 +2265,140 @@ deploy_mean_model.brmsfit <- function(model, ...,
   list(ok = TRUE, max_rel_dev = dev, n = n, passed = is.finite(dev) && dev <= 1e-10)
 }
 
+# ---- glmmTMB: diagnostics for the expected-value (E[y]) map ----------------
+# Reported by print(); except for the ordbeta log-likelihood rebuild (which
+# stops the deployment on a mismatch) none of this changes the deployed function.
+#   * simulation (all whitelisted families, models without random effects):
+#     E[y] from the map vs the mean of simulate(model). With random effects
+#     simulate() draws NEW random effects from their estimated distribution
+#     (see its documentation; re.form is not implemented), so it is not
+#     comparable with a population-level mean and the check is skipped. For
+#     ordbeta the pre-fix simulate() draws ones with probability (1 - P0) * P1
+#     instead of P1, biasing its mean down by P0 * P1 * (1 - mu); the correction
+#     is applied only when the installed sampler is detected to behave that way.
+#   * ordbeta only: which glmmTMB behaviour is installed (predict(type =
+#     "response") equals mu before the fix for glmmTMB issue 1359, E after it;
+#     report only, never used as a reference); notes on cutpoints the data
+#     cannot identify; and a rebuild of logLik(model) from the closed-form
+#     ordbeta density using the extracted cutpoints and phi.
+.mean_checks <- function(spec, mean_full, inv_link, nsim = 2000L) {
+  eta <- spec$fitted
+  out <- list()
+  if (!is.numeric(eta)) {
+    out$note <- "the model's link-scale predictions were unavailable"
+    return(out)
+  }
+  ordb <- !is.null(spec$mean_info)
+  mu <- inv_link(eta)
+  if (ordb) {
+    psi <- spec$mean_info$psi
+    p0 <- 1 - stats::plogis(eta - psi[1])
+    p1 <- stats::plogis(eta - psi[2])
+    out$p1_max <- max(p1)
+    out$p0_max <- max(p0)
+    y <- tryCatch(as.numeric(spec$model$frame[[1]]), error = function(e) NULL)
+    out$n_zeros <- if (is.null(y)) NA_integer_ else sum(y == 0, na.rm = TRUE)
+    out$n_ones  <- if (is.null(y)) NA_integer_ else sum(y == 1, na.rm = TRUE)
+    
+    resp <- tryCatch(as.numeric(.mute_fr_partial_match(stats::predict(spec$model, re.form = ~0, type = "response"))),
+                     error = function(e) NULL)
+    if (is.null(resp) || length(resp) != length(eta)) {
+      out$version <- "could not be determined (predict(type = \"response\") failed)"
+    } else {
+      d_mu <- max(abs(resp - mu)); d_e <- max(abs(resp - mean_full(eta)))
+      out$version <- if (d_mu <= 1e-6 && d_e <= 1e-6) {
+        "indistinguishable here (mu and E differ by less than 1e-6 on these rows)"
+      } else if (d_mu <= 1e-6) {
+        "predict(type = \"response\") returns mu: the pre-fix glmmTMB behaviour"
+      } else if (d_e <= 1e-6) {
+        "predict(type = \"response\") returns the full mean E: the post-fix glmmTMB behaviour"
+      } else {
+        sprintf("predict(type = \"response\") matches neither mu nor E (max|dev| %.3g and %.3g)", d_mu, d_e)
+      }
+    }
+    
+    # log-likelihood rebuild from the closed-form ordbeta density
+    out$ll <- if (isTRUE(spec$has_re)) {
+      list(ok = FALSE, reason = "the model has random effects (logLik() is then a Laplace-approximated marginal likelihood)")
+    } else {
+      tryCatch({
+        dat <- spec$model[["obj"]][["env"]][["data"]]
+        yo <- dat[["yobs"]]; w <- dat[["weights"]]
+        if (is.null(yo) || is.null(w)) {
+          stop("model$obj$env$data has no 'yobs' and/or 'weights' (glmmTMB internals may have changed)")
+        }
+        phi <- as.numeric(.mute_fr_partial_match(stats::predict(spec$model, type = "disp")))
+        el <- as.numeric(.mute_fr_partial_match(stats::predict(spec$model, type = "link")))
+        if (length(unique(c(length(yo), length(w), length(phi), length(el)))) != 1L) {
+          stop("yobs, weights and the predictions have different lengths")
+        }
+        mu_l <- inv_link(el)
+        ll <- ifelse(yo == 0, stats::plogis(psi[1] - el, log.p = TRUE),
+                     ifelse(yo == 1, stats::plogis(el - psi[2], log.p = TRUE),
+                            log(stats::plogis(el - psi[1]) - stats::plogis(el - psi[2])) +
+                              stats::dbeta(yo, mu_l * phi, (1 - mu_l) * phi, log = TRUE)))
+        ll_re <- sum(w * ll)
+        ll_mod <- as.numeric(stats::logLik(spec$model))
+        rel <- abs(ll_re - ll_mod) / max(abs(ll_mod), 1)
+        list(ok = TRUE, rebuilt = ll_re, model = ll_mod, rel_diff = rel,
+             match = is.finite(rel) && rel <= 1e-6)
+      }, error = function(e) list(ok = FALSE, reason = conditionMessage(e)))
+    }
+  }
+  
+  if (isTRUE(spec$has_re)) {
+    out$sim <- list(ok = FALSE, reason = "the model has random effects (simulate() draws new random effects, so it is not comparable with a population-level mean)")
+    return(out)
+  }
+  # keep the user's random-number stream untouched
+  seed_old <- if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+    get(".Random.seed", envir = globalenv(), inherits = FALSE)
+  } else NULL
+  out$sim <- tryCatch({
+    set.seed(20260101L)
+    sims_raw <- stats::simulate(spec$model, nsim = nsim)
+    sims <- if (spec$family_name %in% c("binomial", "betabinomial")) {
+      # each simulation is a two-column (successes, failures) matrix; the response is the proportion
+      sz <- spec$model[["obj"]][["env"]][["data"]][["size"]]
+      if (is.null(sz)) stop("binomial family: could not read the binomial sizes from model$obj$env$data$size")
+      vapply(seq_len(nsim), function(i) as.numeric(sims_raw[[i]][, 1]) / sz, numeric(length(sz)))
+    } else {
+      as.matrix(sims_raw)
+    }
+    if (nrow(sims) != length(eta)) stop("simulate() returned a different number of rows from the model")
+    ey <- rowMeans(sims)
+    se <- apply(sims, 1, stats::sd) / sqrt(ncol(sims))
+    corr <- rep(0, length(eta))
+    sampler <- NA_character_
+    if (ordb) {
+      rows1 <- p1 > 0.01
+      if (sum(rows1) >= 5) {
+        obs <- mean(rowMeans(sims[rows1, , drop = FALSE] == 1))
+        lik <- mean(p1[rows1]); bug <- mean((1 - p0[rows1]) * p1[rows1])
+        if (abs(obs - bug) < abs(obs - lik)) {
+          sampler <- "biased (draws ones with probability (1 - P0) * P1): correction applied"
+          corr <- p0 * p1 * (1 - mu)
+        } else {
+          sampler <- "consistent with the likelihood (no correction applied)"
+        }
+      } else {
+        sampler <- "not detectable (P1 is negligible on these rows); no correction applied"
+      }
+    }
+    ok <- is.finite(se) & se > 0 & is.finite(ey)
+    d <- (mean_full(eta) - (ey + corr))[ok]
+    z <- d / se[ok]
+    list(ok = TRUE, n = sum(ok), nsim = ncol(sims), frac_within3 = mean(abs(z) <= 3),
+         mean_z = mean(z), max_abs_z = max(abs(z)), mean_diff = mean(d), max_abs_diff = max(abs(d)),
+         max_p0p1 = if (ordb) max(p0 * p1) else NA_real_, sampler = sampler)
+  }, error = function(e) list(ok = FALSE, reason = conditionMessage(e)),
+  finally = {
+    if (!is.null(seed_old)) assign(".Random.seed", seed_old, envir = globalenv())
+    else if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) rm(".Random.seed", envir = globalenv())
+  })
+  out
+}
+
 # ---- Orchestrator ---------------------------------------------------------
 .deploy_from_spec <- function(spec, ..., coef_simplify, tolerance, tolerance_type,
                               max_denominator, coef_tolerance, validation_data, verbose,
@@ -1873,6 +2413,11 @@ deploy_mean_model.brmsfit <- function(model, ...,
   }
   
   all_raw_vars <- all.vars(stats::formula(spec$terms))
+  
+  # ---- Factor levels and contrast coding (captured explicitly) ----
+  fi <- .factor_var_info(spec)
+  spec$xlevels <- fi$xlevels
+  spec$contrasts <- fi$contrasts
   
   # ---- Optional un-centring / un-standardising ----
   scaling <- .resolve_scaling(centred_vars, stdised_vars,
@@ -1903,6 +2448,29 @@ deploy_mean_model.brmsfit <- function(model, ...,
       constants_model[[nm]] <- val
     }
   }
+  # A constant for a FACTOR variable is either one of its levels, or a number
+  # that is not a level name, which is read as a contrast code (see
+  # .code_weights()). The latter are evaluated by .eval_eta_codes().
+  numeric_codes <- list()
+  for (nm in names(constants_model)) {
+    if (!is.null(spec$xlevels[[nm]])) {
+      val <- constants_model[[nm]]
+      if (!(length(val) == 1L && as.character(val) %in% spec$xlevels[[nm]])) {
+        if (!(is.numeric(val) && length(val) == 1L)) {
+          stop(sprintf("Constant for factor '%s' must be one of its levels (%s) or a single number (a contrast code).",
+                       nm, paste(spec$xlevels[[nm]], collapse = ", ")), call. = FALSE)
+        }
+        numeric_codes[[nm]] <- val
+      }
+    }
+  }
+  constants_levels <- constants_model[setdiff(names(constants_model), names(numeric_codes))]
+  eta_with_constants <- function(d) {
+    for (v in names(constants_levels)) {
+      d[[v]] <- if (!is.null(spec$xlevels[[v]])) as.character(constants_levels[[v]]) else constants_levels[[v]]
+    }
+    .eval_eta_codes(spec, d, numeric_codes)
+  }
   free_model_vars <- setdiff(all_raw_vars, names(constants_model))
   required_inputs <- unname(vapply(free_model_vars, function(v) {
     if (v %in% names(scaling)) scaling[[v]]$raw_name else v
@@ -1927,8 +2495,46 @@ deploy_mean_model.brmsfit <- function(model, ...,
   # ---- Robust prediction function (authoritative) ----
   # Takes RAW variables for any centred/standardised model variable, converts
   # them to the model's scale internally, then evaluates via model.matrix().
-  force(spec); force(constants_model); force(scaling); force(required_inputs)
+  force(spec); force(constants_model); force(scaling); force(required_inputs); force(numeric_codes); force(constants_levels)
   inv_link <- .get_inverse_link(spec$link)
+  
+  # ---- Mean map: linear predictor -> E[y] ----
+  # linkinv(eta) for every supported family except ordbeta, where
+  # E = P1 + (P(y > 0) - P1) * mu (see .extract_spec_glmmTMB). The P1 terms are
+  # dropped from the DEPLOYED function and equation only if that changes the
+  # model-implied E, over the fitting data, by no more than tolerance / 100
+  # (so that almost all of the tolerance is left for the coefficient simplification).
+  mean_full <- inv_link
+  mean_fn <- inv_link
+  ord_info <- NULL
+  if (!is.null(spec$mean_info)) {
+    psi <- spec$mean_info$psi
+    mean_full <- function(eta) {
+      p1 <- stats::plogis(eta - psi[2])
+      p1 + (stats::plogis(eta - psi[1]) - p1) * inv_link(eta)
+    }
+    mean_nop1 <- function(eta) stats::plogis(eta - psi[1]) * inv_link(eta)
+    drop_p1 <- FALSE
+    p1_max <- NA_real_
+    dev_drop <- NA_real_
+    if (is.numeric(spec$fitted)) {
+      e_ref <- mean_full(spec$fitted)
+      d_abs <- abs(e_ref - mean_nop1(spec$fitted))
+      dev_drop <- if (tolerance_type == "relative") max(d_abs / pmax(abs(e_ref), 1e-8)) else max(d_abs)
+      p1_max <- max(stats::plogis(spec$fitted - psi[2]))
+      drop_p1 <- is.finite(dev_drop) && dev_drop <= tolerance / 100
+    }
+    mean_fn <- if (drop_p1) mean_nop1 else mean_full
+    ord_info <- list(psi = psi, psi_status = spec$mean_info$psi_status, drop_p1 = drop_p1, p1_max = p1_max, dev_drop = dev_drop,
+                     tolerance = tolerance / 100, tolerance_type = tolerance_type)
+  }
+  mean_checks <- if (!is.null(spec$family_name)) .mean_checks(spec, mean_full, inv_link) else NULL
+  if (isTRUE(mean_checks$ll$ok) && !isTRUE(mean_checks$ll$match)) {
+    stop(sprintf(paste0("ordbeta log-likelihood rebuild failed: the likelihood rebuilt from the extracted cutpoints and phi (%.10g) ",
+                        "differs from logLik(model) (%.10g) by a relative %.3g (limit 1e-6). The extracted cutpoints/density are not those the model used, so the ",
+                        "deployed E would not be reliable."), mean_checks$ll$rebuilt, mean_checks$ll$model, mean_checks$ll$rel_diff), call. = FALSE)
+  }
+  
   predict_fn <- function(newdata) {
     stopifnot(is.data.frame(newdata))
     missing_vars <- setdiff(required_inputs, names(newdata))
@@ -1936,14 +2542,12 @@ deploy_mean_model.brmsfit <- function(model, ...,
       stop(sprintf("newdata is missing required column(s): %s", paste(missing_vars, collapse = ", ")))
     }
     full_data <- .apply_scaling(newdata, scaling)
-    for (v in names(constants_model)) full_data[[v]] <- constants_model[[v]]
-    eta <- .eval_eta(spec, full_data)
-    inv_link(eta)
+    data.frame(estimate = mean_fn(eta_with_constants(full_data)), row.names = rownames(newdata))
   }
   
   # ---- Batch-independence check of the returned function ----
   batch_check <- .validate_batch_independence(
-    predict_fn, required_inputs,
+    function(d) predict_fn(d)[["estimate"]], required_inputs,
     pools = list(spec$data, fit_data, scaling_data, validation_data))
   if (isTRUE(batch_check$ok) && !isTRUE(batch_check$passed)) {
     stop(sprintf(paste0("The deployed function's predictions depend on which other rows are passed with them ",
@@ -1957,7 +2561,7 @@ deploy_mean_model.brmsfit <- function(model, ...,
   reduced_terms <- list()
   beta0 <- unname(cf[["(Intercept)"]])
   tryCatch({
-    column_map <- .build_column_map(spec$terms, names(cf), spec$data)
+    column_map <- .build_column_map(spec$terms, names(cf), spec$data, spec$contrasts, spec$xlevels)
     red <- .reduce_columns(cf, column_map, constants_model, spec$data)
     beta0 <- red$beta0
     reduced_terms <- red$terms
@@ -2000,10 +2604,14 @@ deploy_mean_model.brmsfit <- function(model, ...,
       # compares two different models and will spuriously "disagree". With
       # scaling, this also verifies the algebraic un-scaling end to end.
       cc_data_model <- .apply_scaling(cc_data, scaling)
-      for (v in names(constants_model)) cc_data_model[[v]] <- constants_model[[v]]
       check_ok <- tryCatch({
-        check_mu_robust  <- inv_link(.eval_eta(spec, cc_data_model))
-        check_mu_reduced <- .eval_reduced_mu(beta0, reduced_terms, cc_data, spec$link)
+        check_mu_robust  <- mean_fn(eta_with_constants(cc_data_model))
+        check_mu_reduced <- .eval_reduced_mu(beta0, reduced_terms, cc_data, spec$link, mean_fn)
+        if (!is.null(ord_info)) {
+          # printed equation vs the model-implied E (full map, no P1 drop)
+          ord_info$eq_dev <- max(abs(mean_full(eta_with_constants(cc_data_model)) - check_mu_reduced))
+          ord_info$eq_n <- length(check_mu_reduced)
+        }
         max(abs(check_mu_robust - check_mu_reduced)) <= 1e-6
       }, error = function(e) NA)
       if (!isTRUE(check_ok)) {
@@ -2032,10 +2640,9 @@ deploy_mean_model.brmsfit <- function(model, ...,
       }
       val_data <- .complete_cases_for(val_data, required_vars)
       full_val <- .apply_scaling(val_data, scaling)
-      for (v in names(constants_model)) full_val[[v]] <- constants_model[[v]]
-      original_mu <- inv_link(.eval_eta(spec, full_val))
+      original_mu <- mean_full(eta_with_constants(full_val))
       simp <- .simplify_reduced(beta0, reduced_terms, val_data, spec$link, original_mu,
-                                tolerance, tolerance_type, max_denominator, coef_tolerance)
+                                tolerance, tolerance_type, max_denominator, coef_tolerance, mean_fn)
     }
   } else if (coef_simplify) {
     stop("coef_simplify = TRUE requires the reduced/printable equation, which could not be built for this model (see warning above).")
@@ -2050,14 +2657,18 @@ deploy_mean_model.brmsfit <- function(model, ...,
   attr(f, "fitted_validation") <- fitted_check
   attr(f, "frozen") <- frozen_info
   attr(f, "path_check") <- path_check
+  attr(f, "factor_codes") <- lapply(names(numeric_codes), function(nm) list(var = nm, code = numeric_codes[[nm]], weights = .code_weights(spec, nm, numeric_codes[[nm]])))
   attr(f, "batch_check") <- batch_check
+  attr(f, "mean_info") <- ord_info
+  attr(f, "mean_checks") <- mean_checks
   if (reduced_ok) {
     disp_beta0 <- if (!is.null(simp)) simp$beta0$value else beta0
     disp_terms <- if (!is.null(simp)) simp$terms else reduced_terms
     beta0_num <- if (!is.null(simp)) simp$beta0$num else NULL
     beta0_den <- if (!is.null(simp)) simp$beta0$den else NULL
     attr(f, "equation") <- .format_equation(disp_beta0, disp_terms, spec$link,
-                                            beta0_num = beta0_num, beta0_den = beta0_den)
+                                            beta0_num = beta0_num, beta0_den = beta0_den,
+                                            ordbeta = ord_info)
     attr(f, "coefficients") <- list(intercept = disp_beta0, terms = disp_terms)
     if (!is.null(simp)) {
       attr(f, "simplification") <- list(
@@ -2068,7 +2679,8 @@ deploy_mean_model.brmsfit <- function(model, ...,
       )
     }
   } else {
-    attr(f, "equation") <- sprintf("mu = g^-1(eta)  [link = %s; printable equation unavailable, see warning]", spec$link)
+    attr(f, "equation") <- sprintf("%s = g^-1(eta)  [link = %s; printable equation unavailable, see warning]",
+                                   if (is.null(ord_info)) "mu" else "E[y]", spec$link)
   }
   class(f) <- c("deployed_mean_model", class(f))
   
@@ -2099,6 +2711,14 @@ print.deployed_mean_model <- function(x, ...) {
         sprintf("   (raw scale; i.e. model variable %s = %s)", owner, format(signif(cm[[owner]], 6)))
       } else ""
       cat(sprintf("  %s = %s%s\n", nm, co[[nm]], note))
+    }
+    fcs <- attr(x, "factor_codes")
+    for (fc in fcs) {
+      wts <- fc$weights[abs(fc$weights) > 1e-12]
+      cat(sprintf(paste0("  note: factor '%s' fixed at contrast code %s (not a level name): all of its contrast columns ",
+                         "are set to %s, i.e. level weights {%s}. The mean is evaluated at that average linear predictor; with a non-linear link or mean map this is not the average of the level-specific means.\n"),
+                  fc$var, format(fc$code), format(fc$code),
+                  paste(sprintf("%s: %s", names(wts), format(signif(wts, 4))), collapse = ", ")))
     }
   }
   
@@ -2178,6 +2798,68 @@ print.deployed_mean_model <- function(x, ...) {
                   bc$n, bc$max_rel_dev))
     } else {
       cat(sprintf("\nBatch-independence check NOT performed: %s\n", bc$reason))
+    }
+  }
+  
+  oi <- attr(x, "mean_info")
+  ck <- attr(x, "mean_checks")
+  if (!is.null(oi)) {
+    cat(sprintf("\nordbeta cutpoints (logit scale, from the full TMB parameter list): psi1 = %s (%s), psi2 = %s (%s)\n",
+                format(oi$psi[1], digits = 10), oi$psi_status[1], format(oi$psi[2], digits = 10), oi$psi_status[2]))
+    if (!is.na(oi$p1_max)) {
+      if (isTRUE(oi$drop_p1)) {
+        cat(sprintf("P1 terms dropped: max P1 over the fitting data = %.3g; the drop changes E by at most %.3g (%s; limit tolerance/100 = %.3g).\n",
+                    oi$p1_max, oi$dev_drop, oi$tolerance_type, oi$tolerance))
+      } else {
+        cat(sprintf("P1 terms kept: max P1 over the fitting data = %.3g (dropping them would change E by up to %.3g, above the limit tolerance/100 = %.3g).\n",
+                    oi$p1_max, oi$dev_drop, oi$tolerance))
+      }
+    }
+    if (!is.null(oi$eq_dev)) {
+      cat(sprintf("Printed equation vs model-implied E (full map, factors fixed as requested; n=%d): max|dev| = %.4g\n", oi$eq_n, oi$eq_dev))
+    }
+  }
+  if (!is.null(ck)) {
+    if (!is.null(ck$note)) cat(sprintf("E[y] checks not performed: %s\n", ck$note))
+    if (!is.null(ck$version)) cat(sprintf("Installed glmmTMB: %s (report only; never used as a reference).\n", ck$version))
+    if (!is.null(ck$ll)) {
+      if (isTRUE(ck$ll$ok)) {
+        cat(sprintf("Log-likelihood rebuild from the closed-form ordbeta density: %.10g vs logLik(model) %.10g (relative difference %.2g; limit 1e-6)  [%s]\n",
+                    ck$ll$rebuilt, ck$ll$model, ck$ll$rel_diff, if (isTRUE(ck$ll$match)) "match" else "MISMATCH"))
+      } else {
+        cat(sprintf("Log-likelihood rebuild NOT performed: %s\n", ck$ll$reason))
+      }
+    }
+    sm <- ck$sim
+    if (!is.null(sm)) {
+      if (isTRUE(sm$ok)) {
+        pass <- sm$frac_within3 >= 0.99 && abs(sm$mean_z) <= 3 / sqrt(sm$n)
+        cat(sprintf("Simulation check of the E[y] map (%d simulations, n=%d rows): %.1f%% of rows within |z| <= 3, mean z = %.3f, max|z| = %.2f, mean difference = %.3g, max|difference| = %.3g  [%s]\n",
+                    sm$nsim, sm$n, 100 * sm$frac_within3, sm$mean_z, sm$max_abs_z, sm$mean_diff, sm$max_abs_diff,
+                    if (pass) "consistent" else "INCONSISTENT: inspect"))
+        if (!is.na(sm$sampler)) cat(sprintf("  simulate() sampler: %s; max(P0*P1) = %.3g\n", sm$sampler, sm$max_p0p1))
+      } else {
+        cat(sprintf("Simulation check NOT performed: %s\n", sm$reason))
+      }
+    }
+    if (!is.null(oi)) {
+      psi <- oi$psi
+      if (!is.null(ck$n_ones) && !is.na(ck$n_ones) && ck$n_ones == 0) {
+        if (identical(oi$psi_status[2], "estimated")) {
+          cat(sprintf(paste0("Cutpoint note: no exact 1s in the fitting data, so psi2 is not identified: its estimate is just where the optimiser stopped (the likelihood keeps rising as psi2 -> +Inf) and its standard error is meaningless. Harmless for E while P1 stays negligible (max P1 here = %.3g). ",
+                             "To pin it, refit with e.g. update(model, start = list(psi = c(%s, 15)), map = list(psi = factor(c(1, NA)))) and check the result is insensitive to the fixed value (try 12, 15, 20).\n"),
+                      ck$p1_max, format(psi[1], digits = 7)))
+        } else {
+          cat(sprintf("Cutpoint note: no exact 1s in the fitting data; psi2 is fixed (%s), as appropriate for an unidentified cutpoint (max P1 here = %.3g).\n", format(psi[2], digits = 7), ck$p1_max))
+        }
+      }
+      if (!is.null(ck$n_zeros) && !is.na(ck$n_zeros) && ck$n_zeros == 0) {
+        if (identical(oi$psi_status[1], "estimated")) {
+          cat(sprintf("Cutpoint note: no exact 0s in the fitting data, so psi1 is not identified (its estimate is where the optimiser stopped); consider fixing it at a large negative value via map. Max P0 here = %.3g.\n", ck$p0_max))
+        } else {
+          cat(sprintf("Cutpoint note: no exact 0s in the fitting data; psi1 is fixed (%s) (max P0 here = %.3g).\n", format(psi[1], digits = 7), ck$p0_max))
+        }
+      }
     }
   }
   
@@ -2280,4 +2962,3 @@ deployed_scaling <- function(x) {
 #    contrasts assumed to be default treatment contrasts; multi-variable
 #    I() expressions not supported; Rscript unavailable in this sandbox so
 #    nothing has been executed end-to-end) still applies.
-# =============================================================================
