@@ -1821,7 +1821,7 @@ p_mdA7_bCI_bsc <- make_group_plot(mdA7_bCI_range, "Between-subjects covariates",
 
 if (saveplots) {
   
-  filename <- "PtsABAnnoyMn_ExpMod_CI_brmsCo"
+  filename <- "PtsABdAnnoyMn_ExpMod_CI_brmsCo"
 
   ggsave(filename=paste(filename, ".svg", sep=""), width=24, height=12,
          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))
@@ -2789,7 +2789,7 @@ p_mdA10_bCI_bsc   <- make_group_plot(mdA10_bCI_range, "Between-subjects covariat
 
 if (saveplots) {
   
-  filename <- "PtsABAnnoyMn_ExpMod_CI_brmsOb"
+  filename <- "PtsABdAnnoyMn_ExpMod_CI_brmsOb"
 
   ggsave(filename=paste(filename, ".svg", sep=""), width=24, height=12,
          path=file.path(outFigPath, "svg"), system_fonts = list('serif'="Times New Roman"))

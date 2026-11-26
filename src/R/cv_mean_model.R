@@ -159,8 +159,8 @@ require(glmtoolbox)     # glmgee models (only needed if you cross-validate one)
 #   seed, strata, group, leave-one-out or use of inverse; when their fold
 #   assignments differ (e.g. same seed but different units); or when their
 #   stimuli or observed values (reporting scale) differ. The paired columns are
-#   NA unless folds and observed values are identical across all runs (and,
-#   for (ii), unless every run has deployed results).
+#   NA unless folds and observed values are identical across all runs; for
+#   (ii) they compare the runs that have deployed results (at least 2 needed).
 #   The SD over repeats reflects fold-to-fold randomness only, not sampling
 #   uncertainty: small differences are not evidence that one model generalises
 #   better.
@@ -175,6 +175,8 @@ require(glmtoolbox)     # glmgee models (only needed if you cross-validate one)
 #     cmp$table
 #
 # CHANGE LOG
+#   v4.1: compare_mean_models(): paired (ii) columns computed among the deployed
+#       runs when the comparison mixes deployed and plain-model results.
 #   v4: cv_mean_model() also takes a fitted glmmTMB/glmgee model (results for the
 #       model only; new data argument); first argument renamed object. AIC
 #       removed (CV answers the out-of-sample question directly);
@@ -586,15 +588,18 @@ compare_mean_models <- function(...) {
     tab[[paste0(tg, "_R2_cv")]] <- vapply(res, get_val, numeric(1), target = tg, metric = "R2", col = "cv_mean")
     tab[[paste0(tg, "_dRMSE_cv")]] <- NA_real_
     tab[[paste0(tg, "_best_share")]] <- NA_real_
-    if (paired && (tg == "model" || all(has_dep))) {
+    # paired columns among the runs that have this target (deployed: only runs
+    # from deployed objects), when at least 2 do
+    use <- if (tg == "model") rep(TRUE, length(res)) else has_dep
+    if (paired && sum(use) >= 2L) {
       n_rep <- ncol(ref$folds)
-      R <- matrix(vapply(res, function(r) apply(r$oof[[tg]], 2, function(p) {
+      R <- matrix(vapply(res[use], function(r) apply(r$oof[[tg]], 2, function(p) {
         ok <- is.finite(y) & is.finite(p)
         sqrt(mean((y[ok] - p[ok])^2))
       }), numeric(n_rep)), nrow = n_rep)
       best <- which.min(colMeans(R))
-      tab[[paste0(tg, "_dRMSE_cv")]] <- colMeans(R - R[, best])
-      tab[[paste0(tg, "_best_share")]] <- colMeans(R == apply(R, 1, min))
+      tab[[paste0(tg, "_dRMSE_cv")]][use] <- colMeans(R - R[, best])
+      tab[[paste0(tg, "_best_share")]][use] <- colMeans(R == apply(R, 1, min))
     }
   }
   tab$failed_fits <- vapply(res, function(r) as.integer(r$failures$n_failed), integer(1))
@@ -629,7 +634,7 @@ print.mean_model_comparison <- function(x, digits = 3, ...) {
   cat("\napp = apparent (in-sample); cv = CV mean over repeats; cv_sd = SD over repeats (fold randomness only);\n")
   cat("dRMSE_cv = paired CV RMSE difference from the best model; best_share = share of repeats with the lowest CV RMSE.\n")
   if (!x$checks$paired) cat("dRMSE_cv / best_share not computed: the runs do not share folds and data.\n")
-  if (any(tb$deployed) && !all(tb$deployed)) cat("Results from plain models (deployed = FALSE) have no deployed values; (ii) paired columns not computed.\n")
+  if (any(tb$deployed) && !all(tb$deployed)) cat("Results from plain models (deployed = FALSE) have no deployed values; (ii) compares the deployed runs only.\n")
   if (any(x$table$failed_fits > 0)) cat("NOTE: some refits failed (failed_fits); see each run's $failures.\n")
   invisible(x)
 }
