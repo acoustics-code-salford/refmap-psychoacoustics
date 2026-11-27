@@ -82,7 +82,7 @@ require(glmmTMB)
 #
 #       * stats::glm objects are supported (deploy_mean_model.glm); offsets are not.
 #
-#       * the returned function now returns a data frame with one column, `fit`
+#       * the returned function now returns a data frame with one column, `estimate`
 #         (row names taken from newdata), instead of an unnamed vector.
 #
 # CHANGE LOG vs v15:
@@ -1362,8 +1362,14 @@ deploy_mean_model.brmsfit <- function(model, ...,
 
 .simplify_reduced <- function(beta0, reduced_terms, data, link, original_mu,
                               tolerance, tolerance_type, max_denominator,
-                              coef_tolerance, mean_fn = NULL) {
+                              coef_tolerance, mean_fn = NULL,
+                              psi = NULL, psi_fun = NULL, psi_idx = NULL) {
+  # psi / psi_fun / psi_idx (ordbeta only): the cutpoints are approximated with the
+  # same denominator bound and held to the same per-coefficient rules as the
+  # regression coefficients; psi_fun(psi_vector) returns the E map for those
+  # cutpoints and psi_idx says which cutpoints appear in the equation.
   denom_bound <- 1
+  approx_psi <- NULL
   deviation <- Inf
   approx_beta0 <- NULL
   approx_terms <- NULL
@@ -1377,7 +1383,12 @@ deploy_mean_model.brmsfit <- function(model, ...,
       ap <- .rational_approx(t$coef, denom_bound)
       list(coef = ap$value, pieces = t$pieces, num = ap$num, den = ap$den)
     })
-    approx_mu <- .eval_reduced_mu(approx_beta0$value, approx_terms, data, link, mean_fn)
+    mean_use <- mean_fn
+    if (!is.null(psi)) {
+      approx_psi <- lapply(psi, function(v) .rational_approx(v, denom_bound))
+      mean_use <- psi_fun(vapply(approx_psi, `[[`, numeric(1), "value"))
+    }
+    approx_mu <- .eval_reduced_mu(approx_beta0$value, approx_terms, data, link, mean_use)
     
     deviation <- if (tolerance_type == "relative") {
       max(abs((approx_mu - original_mu) / pmax(abs(original_mu), 1e-8)))
@@ -1419,6 +1430,15 @@ deploy_mean_model.brmsfit <- function(model, ...,
     imprecise_labels <- vapply(reduced_terms[imprecise_idx], function(t) {
       paste(vapply(t$pieces, .format_piece_display, character(1)), collapse = "*")
     }, character(1))
+    psi_rel_err <- numeric(0)
+    if (!is.null(psi)) {
+      psi_rel_err <- vapply(psi_idx, function(k) {
+        if (psi[k] == 0) 0 else abs(approx_psi[[k]]$value - psi[k]) / abs(psi[k])
+      }, numeric(1))
+      psi_zero <- psi_idx[vapply(psi_idx, function(k) psi[k] != 0 && approx_psi[[k]]$num == 0, logical(1))]
+      zeroed_labels <- c(zeroed_labels, sprintf("cutpoint psi%d", psi_zero))
+      imprecise_labels <- c(imprecise_labels, sprintf("cutpoint psi%d", psi_idx[psi_rel_err > coef_tolerance]))
+    }
     
     tolerance_met <- deviation <= tolerance
     no_bad_zeros <- length(zeroed_labels) == 0
@@ -1447,7 +1467,8 @@ deploy_mean_model.brmsfit <- function(model, ...,
                     tolerance, max_denominator, deviation))
   }
   list(beta0 = approx_beta0, terms = approx_terms, deviation = deviation, denom_bound = denom_bound,
-       max_coef_rel_err = max(c(beta0_rel_err, term_rel_err)))
+       max_coef_rel_err = max(c(beta0_rel_err, term_rel_err, psi_rel_err)),
+       psi = approx_psi)
 }
 
 # ---- Validation against the model's own fitted values ---------------------
@@ -1559,18 +1580,22 @@ deploy_mean_model.brmsfit <- function(model, ...,
     # and P1 = plogis(eta - psi2) (cutpoints always on the logit scale). For the
     # logit link, with L = -eta: plogis(eta - psi) = 1 / (1 + exp(L + psi)).
     psi <- ordbeta$psi
-    fmt <- function(x) format(x, digits = 10, trim = TRUE)
+    # |psi_k| as text: a whole-number ratio when simplified, otherwise 10 significant digits
+    fmt_abs <- function(k) {
+      if (!is.null(ordbeta$psi_num)) .format_coef_display(abs(psi[k]), abs(ordbeta$psi_num[k]), ordbeta$psi_den[k])
+      else format(abs(psi[k]), digits = 10, trim = TRUE)
+    }
     mu_str <- switch(link,
                      logit = "1 / (1 + exp(L))", log = "exp(eta)", identity = "eta", probit = "Phi(eta)",
                      cloglog = "1 - exp(-exp(eta))", sprintf("g^-1(eta)  [link = %s]", link))
     if (identical(link, "logit")) {
-      shift <- function(k) sprintf("L %s %s", if (psi[k] < 0) "-" else "+", fmt(abs(psi[k])))
+      shift <- function(k) sprintf("L %s %s", if (psi[k] < 0) "-" else "+", fmt_abs(k))
       ppos <- sprintf("1 / (1 + exp(%s))", shift(1))
       p1   <- sprintf("1 / (1 + exp(%s))", shift(2))
       lhs  <- sprintf("  L = %s     [L = -(linear predictor)]", eta_str)
       e_drop <- sprintf("1 / ((1 + exp(L)) * (1 + exp(%s)))", shift(1))
     } else {
-      cut <- function(k) sprintf("1 / (1 + exp(%s - eta))", if (psi[k] < 0) paste0("(", fmt(psi[k]), ")") else fmt(psi[k]))
+      cut <- function(k) sprintf("1 / (1 + exp(%s - eta))", if (psi[k] < 0) paste0("(-", fmt_abs(k), ")") else fmt_abs(k))
       ppos <- cut(1); p1 <- cut(2)
       lhs  <- sprintf("  eta = %s", eta_str)
       e_drop <- "P(y > 0) * mu"
@@ -2507,13 +2532,23 @@ deploy_mean_model.brmsfit <- function(model, ...,
   mean_full <- inv_link
   mean_fn <- inv_link
   ord_info <- NULL
+  ord_psi_fun <- NULL
+  ord_psi_idx <- NULL
   if (!is.null(spec$mean_info)) {
     psi <- spec$mean_info$psi
-    mean_full <- function(eta) {
-      p1 <- stats::plogis(eta - psi[2])
-      p1 + (stats::plogis(eta - psi[1]) - p1) * inv_link(eta)
+    # builds the E map for any cutpoint vector (used with approximated cutpoints during simplification)
+    ord_mean <- function(psi_v, drop) {
+      if (drop) {
+        function(eta) stats::plogis(eta - psi_v[1]) * inv_link(eta)
+      } else {
+        function(eta) {
+          p1 <- stats::plogis(eta - psi_v[2])
+          p1 + (stats::plogis(eta - psi_v[1]) - p1) * inv_link(eta)
+        }
+      }
     }
-    mean_nop1 <- function(eta) stats::plogis(eta - psi[1]) * inv_link(eta)
+    mean_full <- ord_mean(psi, FALSE)
+    mean_nop1 <- ord_mean(psi, TRUE)
     drop_p1 <- FALSE
     p1_max <- NA_real_
     dev_drop <- NA_real_
@@ -2527,6 +2562,8 @@ deploy_mean_model.brmsfit <- function(model, ...,
     mean_fn <- if (drop_p1) mean_nop1 else mean_full
     ord_info <- list(psi = psi, psi_status = spec$mean_info$psi_status, drop_p1 = drop_p1, p1_max = p1_max, dev_drop = dev_drop,
                      tolerance = tolerance / 100, tolerance_type = tolerance_type)
+    ord_psi_fun <- function(psi_v) ord_mean(psi_v, drop_p1)
+    ord_psi_idx <- if (drop_p1) 1L else 1:2
   }
   mean_checks <- if (!is.null(spec$family_name)) .mean_checks(spec, mean_full, inv_link) else NULL
   if (isTRUE(mean_checks$ll$ok) && !isTRUE(mean_checks$ll$match)) {
@@ -2642,7 +2679,9 @@ deploy_mean_model.brmsfit <- function(model, ...,
       full_val <- .apply_scaling(val_data, scaling)
       original_mu <- mean_full(eta_with_constants(full_val))
       simp <- .simplify_reduced(beta0, reduced_terms, val_data, spec$link, original_mu,
-                                tolerance, tolerance_type, max_denominator, coef_tolerance, mean_fn)
+                                tolerance, tolerance_type, max_denominator, coef_tolerance, mean_fn,
+                                psi = if (!is.null(ord_info)) ord_info$psi else NULL,
+                                psi_fun = ord_psi_fun, psi_idx = ord_psi_idx)
     }
   } else if (coef_simplify) {
     stop("coef_simplify = TRUE requires the reduced/printable equation, which could not be built for this model (see warning above).")
@@ -2666,10 +2705,17 @@ deploy_mean_model.brmsfit <- function(model, ...,
     disp_terms <- if (!is.null(simp)) simp$terms else reduced_terms
     beta0_num <- if (!is.null(simp)) simp$beta0$num else NULL
     beta0_den <- if (!is.null(simp)) simp$beta0$den else NULL
+    ord_eq <- ord_info
+    if (!is.null(ord_eq) && !is.null(simp) && !is.null(simp$psi)) {
+      ord_eq$psi_num <- vapply(simp$psi, `[[`, numeric(1), "num")
+      ord_eq$psi_den <- vapply(simp$psi, `[[`, numeric(1), "den")
+      ord_eq$psi <- vapply(simp$psi, `[[`, numeric(1), "value")
+    }
     attr(f, "equation") <- .format_equation(disp_beta0, disp_terms, spec$link,
                                             beta0_num = beta0_num, beta0_den = beta0_den,
-                                            ordbeta = ord_info)
-    attr(f, "coefficients") <- list(intercept = disp_beta0, terms = disp_terms)
+                                            ordbeta = ord_eq)
+    attr(f, "coefficients") <- list(intercept = disp_beta0, terms = disp_terms,
+                                    cutpoints = if (!is.null(ord_eq)) ord_eq$psi else NULL)
     if (!is.null(simp)) {
       attr(f, "simplification") <- list(
         deviation = simp$deviation, denom_bound = simp$denom_bound,
@@ -2962,3 +3008,4 @@ deployed_scaling <- function(x) {
 #    contrasts assumed to be default treatment contrasts; multi-variable
 #    I() expressions not supported; Rscript unavailable in this sandbox so
 #    nothing has been executed end-to-end) still applies.
+# =============================================================================

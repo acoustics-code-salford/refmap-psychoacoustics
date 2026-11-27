@@ -9343,27 +9343,47 @@ if (savedata) {
 
 ```
 
-## UAS-env difference
+## UAS with ambient LA
 
-### LAEdiff with events
+### LAE with amb LA with events
 
 #### model 17 formula
 
 ```{r}
 
-m17formula <- dHighAnnoy ~ PartTrialNumberStd + LAELAeqdiffScl*I(log10(UASEvents) - 0.0906525)
+m17formula <- dHighAnnoy ~ PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents) - 0.0906525) +
+  AmbLAeqMaxLR
 m17formula
 
 m17Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
                                  all.vars(m17formula)), drop=FALSE] |>
   dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
 
-m17bformula <- dHighAnnoy ~ PartTrialNumberStd + LAELAF90diffScl*I(log10(UASEvents) - 0.0906525)
+m17bformula <- dHighAnnoy ~ PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents) - 0.0906525) +
+  AmbLAF90ExMaxLR
 m17bformula
 
 m17bData <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
                                   all.vars(m17bformula)), drop=FALSE] |>
   dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
+
+m17cformula <- dHighAnnoy ~ PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents) - 0.0906525) +
+  AmbLAF50ExMaxLR
+m17cformula
+
+m17cData <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                  all.vars(m17cformula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
+
+m17dformula <- dHighAnnoy ~ PartTrialNumberStd + UASLAEMaxLRScl*I(log10(UASEvents) - 0.0906525) +
+  AmbLAF10ExMaxLR
+m17dformula
+
+m17dData <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                  all.vars(m17dformula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
+
+
 
 
 ```
@@ -9379,6 +9399,13 @@ geeCorStr(m17formula, data=m17Data, family=binomial(link='logit'),
 
 geeCorStr(m17bformula, data=m17bData, family=binomial(link='logit'),
           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m17cformula, data=m17cData, family=binomial(link='logit'),
+          id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m17dformula, data=m17dData, family=binomial(link='logit'),
+          id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
 
 ```
 
@@ -9396,8 +9423,20 @@ m17b <- glmtoolbox::glmgee(m17bformula, data=m17bData,
                          id=ID, waves=TrialNumber,
                          corstr='exchangeable')
 
+m17c <- glmtoolbox::glmgee(m17cformula, data=m17cData,
+                         family=binomial(link='logit'),
+                         id=ID, waves=TrialNumber,
+                         corstr='exchangeable')
+
+m17d <- glmtoolbox::glmgee(m17dformula, data=m17dData,
+                         family=binomial(link='logit'),
+                         id=ID, waves=TrialNumber,
+                         corstr='exchangeable')
+
 geeParams(m17, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 geeParams(m17b, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m17c, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m17d, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 
 ```
 
@@ -9419,12 +9458,25 @@ m17b_cv <- cv_glmgee(m17b, id_col="ID", waves_col="TrialNumber", K=cv_folds, see
           cv_aggregated_metrics() |>
   cv_binary_metrics()
 
+m17c_cv <- cv_glmgee(m17c, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m17cData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
 
-geeModelPerformance(m12, m13, m14h, m15c, m16h, m17, m17b)
+m17d_cv <- cv_glmgee(m17d, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m17dData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
+
+geeModelPerformance(m12, m13, m14h, m15c, m16h, m17, m17b, m17c, m17d)
 
 compare_cv_results(list(m12=m12_cv, m13=m13_cv, m14h=m14h_cv,
                         m15c=m15c_cv, m16h=m16h_cv,
-                        m17=m17_cv, m17b=m17b_cv))
+                        m17=m17_cv, m17b=m17b_cv, m17c=m17c_cv, m17d=m17d_cv))
 
 ```
 
@@ -9432,21 +9484,19 @@ compare_cv_results(list(m12=m12_cv, m13=m13_cv, m14h=m14h_cv,
 
 ```{r}
 
-m17predMeans <- avg_predictions_hybrid(m17, newdata=na.omit(m17Data),
-                                      by=c("StimID",
-                                           "LAELAeqdiffScl",
-                                           "UASEvents"),
-                                      vcov=vcov(m17, type='bias-corrected')) |>
+m17dpredMeans <- avg_predictions_hybrid(m17d, newdata=na.omit(m17dData),
+                                      by=c("StimID"),
+                                      vcov=vcov(m17d, type='bias-corrected')) |>
   dplyr::arrange(StimID)
 
-R2means <- 1 - sum((stimDataNoAmb$dHighAnnoyProp - m17predMeans$estimate)^2)/sum((stimDataNoAmb$dHighAnnoyProp - mean(stimDataNoAmb$dHighAnnoyProp))^2)
+R2means <- 1 - sum((stimDataNoAmb$dHighAnnoyProp - m17dpredMeans$estimate)^2)/sum((stimDataNoAmb$dHighAnnoyProp - mean(stimDataNoAmb$dHighAnnoyProp))^2)
 
-eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m17predMeans,
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m17dpredMeans,
                      measured_target='dHighAnnoyProp', measured_ci_low='dHighAnnoyPropCI_Low',
                      measured_ci_high='dHighAnnoyPropCI_High', fitted='estimate')
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
-ggplot(data=cbind(m17predMeans,
+ggplot(data=cbind(m17dpredMeans,
                   response=stimDataNoAmb$dHighAnnoyProp,
                   responseCI_Low=stimDataNoAmb$dHighAnnoyPropCI_Low,
                   responseCI_High=stimDataNoAmb$dHighAnnoyPropCI_High)) +
@@ -9475,7 +9525,7 @@ ggplot(data=cbind(m17predMeans,
 
 if (saveplots){
   
-  filename <- "PtsABdHiAnnoy_PredMod_dLAECal_gee"
+  filename <- "PtsABdHiAnnoy_PredMod_LAEAmbLCal_gee"
 
   ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
@@ -9491,39 +9541,41 @@ if (saveplots){
 
 ```{r, fig.width=12, fig.height=4}
 
-m17.resP <- residuals(m17, type="pearson", plot.it=FALSE)
+m17d.resP <- residuals(m17d, type="pearson", plot.it=FALSE)
 
-used <- complete.cases(m17Data[all.vars(m17formula)])
+used <- complete.cases(m17dData[all.vars(m17dformula)])
 
-arm::binnedplot(fitted(m17), m17.resP)
-arm::binnedplot(m17Data$LAELAeqdiffScl[used], residuals(m17, type = "pearson"),
-                 xlab = "LAELAeqdiffScl")
-arm::binnedplot(m17Data$UASEvents[used], residuals(m17, type = "pearson"),
+arm::binnedplot(fitted(m17d), m17d.resP)
+arm::binnedplot(m17dData$UASLAEMaxLRScl[used], residuals(m17d, type = "pearson"),
+                 xlab = "UASLAEMaxLRScl")
+arm::binnedplot(m17dData$AmbLAF10ExMaxLR[used], residuals(m17d, type = "pearson"),
+                 xlab = "AmbLAF10ExMaxLR")
+arm::binnedplot(m17dData$UASEvents[used], residuals(m17d, type = "pearson"),
                  xlab = "UASEvents")
-arm::binnedplot(m17Data$PartTrialNumberStd[used], residuals(m17, type = "pearson"),
+arm::binnedplot(m17dData$PartTrialNumberStd[used], residuals(m17d, type = "pearson"),
                  xlab = "PartTrialNumberStd")
 
-m17.resM <- residuals(m17, type="mahalanobis", plot.it=FALSE)
+m17d.resM <- residuals(m17d, type="mahalanobis", plot.it=FALSE)
 
 # plot Mahalanobis residuals with ggplot2 on a stem plot replacing the index by the corresponding participant ID
-geeCluster_stemplot(m17,
-                    clusterVar=m17.resM,
+geeCluster_stemplot(m17d,
+                    clusterVar=m17d.resM,
                     colour=mycolours[2], alpha=0.7) +
     theme(panel.grid = element_blank(), aspect.ratio=0.4,
         text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   labs(x="Participant ID", y="Mahalanobis distance")
 
-m17.Cook <- cooks.distance(m17, plot.it=FALSE)
+m17d.Cook <- cooks.distance(m17d, plot.it=FALSE)
 
-geeCluster_stemplot(m17, clusterVar=m17.Cook,
+geeCluster_stemplot(m17d, clusterVar=m17d.Cook,
                     colour=mycolours[4], alpha=0.7) +
     theme(panel.grid = element_blank(), aspect.ratio=0.4,
         text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   labs(x="Participant ID", y="Cook's distance")
 
-glmgee_vif(m17)
+glmgee_vif(m17d)
 
 ```
 
@@ -9533,12 +9585,12 @@ glmgee_vif(m17)
 
 ```{r}
 
-modelStep <- glmtoolbox::stepCriterion(model=m17,
+modelStep <- glmtoolbox::stepCriterion(model=m17d,
                                        criterion='agpc', test='score',
                                        direction='backward',
                                        varest='bias-corrected')
 
-m17formula
+m17dformula
 modelStep$final
 
 ```
@@ -9547,13 +9599,13 @@ modelStep$final
 
 ```{r}
 
-mf <- model.frame(m17formula, data = m17Data)      # na.omit happens here
+mf <- model.frame(m17dformula, data = m17dData)      # na.omit happens here
 kept_rows <- as.integer(rownames(mf))               # original row indices actually retained
 
 y_matrix <- model.response(mf)
-X_matrix <- model.matrix(m17formula, data=m17Data)[,-1]
+X_matrix <- model.matrix(m17dformula, data=m17dData)[,-1]
 
-StimID_kept <- m17Data$StimID[kept_rows]
+StimID_kept <- m17dData$StimID[kept_rows]
 
 set.seed(808)
 stim_folds <- setNames(
@@ -9565,19 +9617,19 @@ foldid <- stim_folds[as.character(StimID_kept)]
 stopifnot(length(foldid) == nrow(X_matrix), length(y_matrix) == nrow(X_matrix))
 
 set.seed(808)
-m17c <- glmnet::cv.glmnet(x=X_matrix, y=y_matrix, family=binomial(link='logit'),
+m17e <- glmnet::cv.glmnet(x=X_matrix, y=y_matrix, family=binomial(link='logit'),
                           alpha=0.5, foldid=foldid, type.measure='deviance',
                           standardize=TRUE, lambda.min.ratio = 1e-100, nlambda = 500)
 
-coef(m17c, s = "lambda.min")
-coef(m17c, s = "lambda.1se")
+coef(m17e, s = "lambda.min")
+coef(m17e, s = "lambda.1se")
 
 ```
 
 ```{r}
 
 # 1. Turn the glmnet path data into a clean data frame
-coefficient_paths <- broom::tidy(m17c$glmnet.fit, return_zeros=TRUE) |>
+coefficient_paths <- broom::tidy(m17e$glmnet.fit, return_zeros=TRUE) |>
   dplyr::filter(term != "(Intercept)") # Exclude intercept to keep scale clean
 
 # 3. Create the ggplot
@@ -9587,11 +9639,11 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
-  geom_vline(xintercept = m17c$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
-  ggplot2::annotate("text", x = m17c$lambda.min*1.25, y = max(coefficient_paths$estimate) * 0.5, 
+  geom_vline(xintercept = m17e$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
+  ggplot2::annotate("text", x = m17e$lambda.min*1.25, y = max(coefficient_paths$estimate) * 0.5, 
            label = expression(paste("Minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
-  geom_vline(xintercept = m17c$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
-  ggplot2::annotate("text", x = m17c$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
+  geom_vline(xintercept = m17e$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
+  ggplot2::annotate("text", x = m17e$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
            label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
@@ -9612,8 +9664,8 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
 
 ```{r}
 
-m17_deploy <- deploy_mean_model(m17,
-                                centred_vars = list(LAELAeqdiffScl = "LAELAeqdiff"),
+m17d_deploy <- deploy_mean_model(m17d,
+                                centred_vars = list(UASLAEMaxLRScl = "UASLAEMaxLR"),
                                 scaling_data = subjDataNoAmb.med,
                                 PartTrialNumberStd=0, coef_simplify=T, verbose=TRUE)
 
@@ -9627,21 +9679,70 @@ m17_deploy <- deploy_mean_model(m17,
 
 m18formula <- dHighAnnoy ~ PartTrialNumberStd +
   UASImpulsLoudWZAvgMaxLRStd*I(log10(UASEvents) - 0.0906525) +
-  LAELAeqdiffScl +
+  AmbLAF10ExMaxLR + UASLoudECMAPowAvgBinScl +
   UASTonalAwSHMInt05ExMaxLRStd*UASSharpAurISO305ExMaxLRStd +
   UASFluctECMA10ExBinStd + UASRoughFZ05ExMaxLRStd
+m18formula
 
 m18Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
                                  all.vars(m18formula)), drop=FALSE] |>
   dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
 
-m18bformula <- update(m18formula, . ~ . - UASImpulsLoudWZAvgMaxLRStd -
-                        UASImpulsLoudWZAvgMaxLRStd:I(log10(UASEvents) - 0.0906525) +
-                        UASImpulsSHMPowAvgMaxLRStd +
-                        LAELAeqdiffScl:I(log10(UASEvents) - 0.0906525))
+m18bformula <- update(m18formula, . ~ . - UASImpulsLoudWZAvgMaxLRStd*I(log10(UASEvents) - 0.0906525) +
+                        UASImpulsSHMPowAvgMaxLRStd*I(log10(UASEvents) - 0.0906525))
+m18bformula
 
 m18bData <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
                                  all.vars(m18bformula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
+
+m18cformula <- update(m18formula, . ~ . - UASImpulsLoudWZAvgMaxLRStd:I(log10(UASEvents) - 0.0906525) +
+                        UASLoudECMAPowAvgBinScl:I(log10(UASEvents) - 0.0906525))
+m18cformula
+
+m18cData <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                 all.vars(m18cformula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
+
+m18dformula <- update(m18formula, . ~ . - UASLoudECMAPowAvgBinScl + UASLAEMaxLRScl)
+m18dformula
+
+m18dData <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                 all.vars(m18dformula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
+
+m18eformula <- update(m18formula, . ~ . - UASLoudECMAPowAvgBinScl -
+                        UASImpulsLoudWZAvgMaxLRStd:I(log10(UASEvents) - 0.0906525) +
+                        UASLAEMaxLRScl*I(log10(UASEvents) - 0.0906525))
+m18eformula
+
+m18eData <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                 all.vars(m18eformula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
+
+m18fformula <- dHighAnnoy ~ PartTrialNumberStd +
+  UASLoudECMAPowAvgBinScl*I(log10(UASEvents) - 0.0906525) +
+  AmbLAF10ExMaxLR + UASImpulsSHMPowAvgMaxLRStd +
+  UASTonalAwSHMInt05ExMaxLRStd*UASSharpAurISO305ExMaxLRStd +
+  UASFluctECMA10ExBinStd + UASRoughFZ05ExMaxLRStd
+m18fformula
+
+m18fData <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                 all.vars(m18fformula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
+
+m18gformula <- update(m18formula, . ~ . - AmbLAF10ExMaxLR + LAELAF50diff)
+m18gformula
+
+m18gData <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                 all.vars(m18gformula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
+
+m18hformula <- update(m18fformula, . ~ . - AmbLAF10ExMaxLR + LAELAeqdiff)
+m18hformula
+
+m18hData <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                 all.vars(m18hformula)), drop=FALSE] |>
   dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
 
 ```
@@ -9656,6 +9757,24 @@ geeCorStr(m18formula, data=m18Data, family=binomial(link='logit'),
           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
 
 geeCorStr(m18bformula, data=m18bData, family=binomial(link='logit'),
+          id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m18cformula, data=m18cData, family=binomial(link='logit'),
+          id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m18dformula, data=m18dData, family=binomial(link='logit'),
+          id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m18eformula, data=m18eData, family=binomial(link='logit'),
+          id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m18fformula, data=m18fData, family=binomial(link='logit'),
+          id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m18gformula, data=m18gData, family=binomial(link='logit'),
+          id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m18hformula, data=m18hData, family=binomial(link='logit'),
           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
 
 ```
@@ -9674,8 +9793,44 @@ m18b <- glmtoolbox::glmgee(m18bformula, data=m18bData,
                          id=ID, waves=TrialNumber,
                          corstr='exchangeable')
 
+m18c <- glmtoolbox::glmgee(m18cformula, data=m18cData,
+                         family=binomial(link='logit'),
+                         id=ID, waves=TrialNumber,
+                         corstr='exchangeable')
+
+m18d <- glmtoolbox::glmgee(m18dformula, data=m18dData,
+                         family=binomial(link='logit'),
+                         id=ID, waves=TrialNumber,
+                         corstr='exchangeable')
+
+m18e <- glmtoolbox::glmgee(m18eformula, data=m18eData,
+                         family=binomial(link='logit'),
+                         id=ID, waves=TrialNumber,
+                         corstr='exchangeable')
+
+m18f <- glmtoolbox::glmgee(m18fformula, data=m18fData,
+                         family=binomial(link='logit'),
+                         id=ID, waves=TrialNumber,
+                         corstr='exchangeable')
+
+m18g <- glmtoolbox::glmgee(m18gformula, data=m18gData,
+                         family=binomial(link='logit'),
+                         id=ID, waves=TrialNumber,
+                         corstr='exchangeable')
+
+m18h <- glmtoolbox::glmgee(m18hformula, data=m18hData,
+                         family=binomial(link='logit'),
+                         id=ID, waves=TrialNumber,
+                         corstr='exchangeable')
+
 geeParams(m18, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 geeParams(m18b, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m18c, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m18d, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m18e, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m18f, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m18g, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m18h, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 
 ```
 
@@ -9697,11 +9852,56 @@ m18b_cv <- cv_glmgee(m18b, id_col="ID", waves_col="TrialNumber", K=cv_folds, see
           cv_aggregated_metrics() |>
   cv_binary_metrics()
 
-geeModelPerformance(m12, m13, m14h, m15c, m16h, m17, m18, m18b)
+m18c_cv <- cv_glmgee(m18c, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m18cData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
+
+m18d_cv <- cv_glmgee(m18d, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m18dData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
+
+m18e_cv <- cv_glmgee(m18e, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m18eData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
+
+m18f_cv <- cv_glmgee(m18f, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m18fData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
+
+m18g_cv <- cv_glmgee(m18g, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m18gData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
+
+m18h_cv <- cv_glmgee(m18h, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m18hData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
+
+geeModelPerformance(m12, m13, m14h, m15c, m16h, m17d, m18, m18b, m18c, m18d,
+                    m18e, m18f, m18g, m18h)
 
 compare_cv_results(list(m12=m12_cv, m13=m13_cv, m14h=m14h_cv,
                         m15c=m15c_cv, m16h=m16h_cv,
-                        m17=m17_cv, m18=m18_cv, m18b=m18b_cv))
+                        m17d=m17d_cv, m18=m18_cv, m18b=m18b_cv,
+                        m18c=m18c_cv, m18d=m18d_cv, m18e=m18e_cv,
+                        m18f=m18f_cv, m18g=m18g_cv, m18h=m18h_cv))
 
 ```
 
@@ -9709,27 +9909,24 @@ compare_cv_results(list(m12=m12_cv, m13=m13_cv, m14h=m14h_cv,
 
 ```{r}
 
-m18predMeans <- avg_predictions_hybrid(m18, newdata=na.omit(m18Data),
-                                      by=c("StimID",
-                                           "LAELAeqdiffScl",
-                                           "UASEvents"),
-                                      vcov=vcov(m18, type='bias-corrected')) |>
+m18epredMeans <- avg_predictions_hybrid(m18e, newdata=na.omit(m18eData),
+                                      by=c("StimID"),
+                                      vcov=vcov(m18e, type='bias-corrected')) |>
   dplyr::arrange(StimID)
 
-R2means <- 1 - sum((stimDataNoAmb$dHighAnnoyProp - m18predMeans$estimate)^2)/sum((stimDataNoAmb$dHighAnnoyProp - mean(stimDataNoAmb$dHighAnnoyProp))^2)
+R2means <- 1 - sum((stimDataNoAmb$dHighAnnoyProp - m18epredMeans$estimate)^2)/sum((stimDataNoAmb$dHighAnnoyProp - mean(stimDataNoAmb$dHighAnnoyProp))^2)
 
-eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m18predMeans,
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m18epredMeans,
                      measured_target='dHighAnnoyProp', measured_ci_low='dHighAnnoyPropCI_Low',
                      measured_ci_high='dHighAnnoyPropCI_High', fitted='estimate')
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
-ggplot(data=cbind(m18predMeans,
+ggplot(data=cbind(m18epredMeans,
                   response=stimDataNoAmb$dHighAnnoyProp,
                   responseCI_Low=stimDataNoAmb$dHighAnnoyPropCI_Low,
                   responseCI_High=stimDataNoAmb$dHighAnnoyPropCI_High)) +
   theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
-  
   
   geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
 
@@ -9756,49 +9953,51 @@ ggplot(data=cbind(m18predMeans,
 
 ```{r, fig.width=12, fig.height=4}
 
-m18.resP <- residuals(m18, type="pearson", plot.it=FALSE)
+m18e.resP <- residuals(m18e, type="pearson", plot.it=FALSE)
 
-used <- complete.cases(m18Data[all.vars(m18formula)])
+used <- complete.cases(m18eData[all.vars(m18eformula)])
 
-arm::binnedplot(fitted(m18), m18.resP)
-arm::binnedplot(m18Data$LAELAeqdiffScl[used], residuals(m18, type = "pearson"),
-                 xlab = "LAELAeqdiffScl")
-arm::binnedplot(m18Data$UASImpulsLoudWZAvgMaxLRStd[used], residuals(m18, type = "pearson"),
+arm::binnedplot(fitted(m18e), m18e.resP)
+arm::binnedplot(m18eData$UASLAEMaxLRScl[used], residuals(m18e, type = "pearson"),
+                 xlab = "UASLAEMaxLRScl")
+arm::binnedplot(m18eData$AmbLAF10ExMaxLR[used], residuals(m18e, type = "pearson"),
+                 xlab = "AmbLAF10ExMaxLR")
+arm::binnedplot(m18eData$UASImpulsLoudWZAvgMaxLRStd[used], residuals(m18e, type = "pearson"),
                  xlab = "UASImpulsLoudWZAvgMaxLRStd")
-arm::binnedplot(m18Data$UASTonalAwSHMInt05ExMaxLRStd[used], residuals(m18, type = "pearson"),
+arm::binnedplot(m18eData$UASTonalAwSHMInt05ExMaxLRStd[used], residuals(m18e, type = "pearson"),
                  xlab = "UASTonalAwSHMInt05ExMaxLRStd")
-arm::binnedplot(m18Data$UASSharpAurISO305ExMaxLRStd[used], residuals(m18, type = "pearson"),
+arm::binnedplot(m18eData$UASSharpAurISO305ExMaxLRStd[used], residuals(m18e, type = "pearson"),
                  xlab = "UASSharpAurISO305ExMaxLRStd")
-arm::binnedplot(m18Data$UASRoughFZ05ExMaxLRStd[used], residuals(m18, type = "pearson"),
+arm::binnedplot(m18eData$UASRoughFZ05ExMaxLRStd[used], residuals(m18e, type = "pearson"),
                  xlab = "UASRoughFZ05ExMaxLRStd")
-arm::binnedplot(m18Data$UASFluctECMA10ExBinStd[used], residuals(m18, type = "pearson"),
+arm::binnedplot(m18eData$UASFluctECMA10ExBinStd[used], residuals(m18e, type = "pearson"),
                  xlab = "UASFluctECMA10ExBinStd")
-arm::binnedplot(m18Data$UASEvents[used], residuals(m18, type = "pearson"),
+arm::binnedplot(m18eData$UASEvents[used], residuals(m18e, type = "pearson"),
                  xlab = "UASEvents")
-arm::binnedplot(m18Data$PartTrialNumberStd[used], residuals(m18, type = "pearson"),
+arm::binnedplot(m18eData$PartTrialNumberStd[used], residuals(m18e, type = "pearson"),
                  xlab = "PartTrialNumberStd")
 
-m18.resM <- residuals(m18, type="mahalanobis", plot.it=FALSE)
+m18e.resM <- residuals(m18e, type="mahalanobis", plot.it=FALSE)
 
 # plot Mahalanobis residuals with ggplot2 on a stem plot replacing the index by the corresponding participant ID
-geeCluster_stemplot(m18,
-                    clusterVar=m18.resM,
+geeCluster_stemplot(m18e,
+                    clusterVar=m18e.resM,
                     colour=mycolours[2], alpha=0.7) +
     theme(panel.grid = element_blank(), aspect.ratio=0.4,
         text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   labs(x="Participant ID", y="Mahalanobis distance")
 
-m18.Cook <- cooks.distance(m18, plot.it=FALSE)
+m18e.Cook <- cooks.distance(m18e, plot.it=FALSE)
 
-geeCluster_stemplot(m18, clusterVar=m18.Cook,
+geeCluster_stemplot(m18e, clusterVar=m18e.Cook,
                     colour=mycolours[4], alpha=0.7) +
     theme(panel.grid = element_blank(), aspect.ratio=0.4,
         text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   labs(x="Participant ID", y="Cook's distance")
 
-glmgee_vif(m18)
+glmgee_vif(m18e)
 
 ```
 
@@ -9809,12 +10008,12 @@ glmgee_vif(m18)
 
 ```{r}
 
-modelStep <- glmtoolbox::stepCriterion(model=m18,
+modelStep <- glmtoolbox::stepCriterion(model=m18e,
                                        criterion='agpc', test='score',
                                        direction='backward',
                                        varest='bias-corrected')
 
-m18formula
+m18eformula
 modelStep$final
 
 ```
@@ -9823,13 +10022,13 @@ modelStep$final
 
 ```{r}
 
-mf <- model.frame(m18formula, data = m18Data)      # na.omit happens here
+mf <- model.frame(m18eformula, data = m18eData)      # na.omit happens here
 kept_rows <- as.integer(rownames(mf))               # original row indices actually retained
 
 y_matrix <- model.response(mf)
-X_matrix <- model.matrix(m18formula, data=m18Data)[,-1]
+X_matrix <- model.matrix(m18eformula, data=m18eData)[,-1]
 
-StimID_kept <- m18Data$StimID[kept_rows]
+StimID_kept <- m18eData$StimID[kept_rows]
 
 set.seed(808)
 stim_folds <- setNames(
@@ -9841,33 +10040,33 @@ foldid <- stim_folds[as.character(StimID_kept)]
 stopifnot(length(foldid) == nrow(X_matrix), length(y_matrix) == nrow(X_matrix))
 
 set.seed(808)
-m18c <- glmnet::cv.glmnet(x=X_matrix, y=y_matrix, family=binomial(link='logit'),
+m18i <- glmnet::cv.glmnet(x=X_matrix, y=y_matrix, family=binomial(link='logit'),
                           alpha=0.5, foldid=foldid, type.measure='deviance',
-                          standardize=TRUE, lambda.min.ratio = 1e-8, nlambda = 500)
+                          standardize=TRUE, lambda.min.ratio = 1e-80, nlambda = 500)
 
-coef(m18c, s = "lambda.min")
-coef(m18c, s = "lambda.1se")
+coef(m18i, s = "lambda.min")
+coef(m18i, s = "lambda.1se")
 
 ```
 
 ```{r}
 
 # 1. Turn the glmnet path data into a clean data frame
-coefficient_paths <- broom::tidy(m18c$glmnet.fit, return_zeros=TRUE) |>
+coefficient_paths <- broom::tidy(m18i$glmnet.fit, return_zeros=TRUE) |>
   dplyr::filter(term != "(Intercept)") # Exclude intercept to keep scale clean
 
 # 3. Create the ggplot
 ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
-  geom_line(linewidth = 1, alpha=0.6) +
+  geom_line(linewidth = 2, alpha=0.6) +
   # Use your custom colour palette mycolours as colour scale
   scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
-  geom_vline(xintercept = m18c$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
-  ggplot2::annotate("text", x = m18c$lambda.min*1.25, y = max(coefficient_paths$estimate) * 0.5, 
+  geom_vline(xintercept = m18i$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
+  ggplot2::annotate("text", x = m18i$lambda.min*1.25, y = max(coefficient_paths$estimate) * 0.5, 
            label = expression(paste("Minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
-  geom_vline(xintercept = m18c$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
-  ggplot2::annotate("text", x = m18c$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
+  geom_vline(xintercept = m18i$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
+  ggplot2::annotate("text", x = m18i$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
            label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
@@ -9889,8 +10088,53 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
 
 ```{r}
 
-m18dformula <- update(m18formula, . ~ . - UASRoughFZ05ExMaxLRStd -
+m18jformula <- update(m18eformula, . ~ . - UASFluctECMA10ExBinStd)
+m18jformula
+
+m18kformula <- update(m18eformula, . ~ . - UASRoughFZ05ExMaxLRStd)
+m18kformula
+
+m18lformula <- update(m18eformula, . ~ . - UASRoughFZ05ExMaxLRStd -
                         UASFluctECMA10ExBinStd)
+m18lformula
+
+m18mformula <- update(m18eformula, . ~ . - UASRoughFZ05ExMaxLRStd -
+                        UASFluctECMA10ExBinStd - UASLAEMaxLRScl:I(log10(UASEvents) - 0.0906525))
+m18mformula
+
+m18nformula <- update(m18eformula, . ~ . - UASRoughFZ05ExMaxLRStd -
+                        UASFluctECMA10ExBinStd -
+                        UASLAEMaxLRScl:I(log10(UASEvents) - 0.0906525) -
+                        UASImpulsLoudWZAvgMaxLRStd)
+m18nformula
+
+m18oformula <- update(m18eformula, . ~ . - UASFluctECMA10ExBinStd -
+                        UASLAEMaxLRScl:I(log10(UASEvents) - 0.0906525))
+m18oformula
+
+m18pformula <- update(m18eformula, . ~ . - UASFluctECMA10ExBinStd -
+                        UASLAEMaxLRScl*I(log10(UASEvents) - 0.0906525))
+m18pformula
+
+m18qformula <- update(m18eformula, . ~ . - UASRoughFZ05ExMaxLRStd -
+                        UASFluctECMA10ExBinStd - UASTonalAwSHMInt05ExMaxLRStd -
+                        UASTonalAwSHMInt05ExMaxLRStd:UASSharpAurISO305ExMaxLRStd)
+m18qformula
+
+m18rformula <- update(m18eformula, . ~ . - UASRoughFZ05ExMaxLRStd -
+                        UASTonalAwSHMInt05ExMaxLRStd -
+                        UASTonalAwSHMInt05ExMaxLRStd:UASSharpAurISO305ExMaxLRStd)
+m18rformula
+
+m18sformula <- update(m18eformula, . ~ . - UASRoughFZ05ExMaxLRStd -
+                        UASTonalAwSHMInt05ExMaxLRStd -
+                        UASTonalAwSHMInt05ExMaxLRStd:UASSharpAurISO305ExMaxLRStd -
+                        UASLAEMaxLRScl:I(log10(UASEvents) - 0.0906525))
+m18sformula
+
+m18tformula <- update(m18eformula, . ~ . - UASRoughFZ05ExMaxLRStd -
+                        UASLAEMaxLRScl:I(log10(UASEvents) - 0.0906525))
+m18tformula
 
 ```
 
@@ -9900,7 +10144,34 @@ m18dformula <- update(m18formula, . ~ . - UASRoughFZ05ExMaxLRStd -
 
 ```{r}
 
-geeCorStr(m18dformula, data=m18Data, family=binomial(link='logit'),
+geeCorStr(m18jformula, data=m18eData, family=binomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m18kformula, data=m18eData, family=binomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m18lformula, data=m18eData, family=binomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m18mformula, data=m18eData, family=binomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m18nformula, data=m18eData, family=binomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m18oformula, data=m18eData, family=binomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m18pformula, data=m18eData, family=binomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m18qformula, data=m18eData, family=binomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m18sformula, data=m18eData, family=binomial(link='logit'),
+           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m18tformula, data=m18eData, family=binomial(link='logit'),
            id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
 
 ```
@@ -9909,12 +10180,72 @@ geeCorStr(m18dformula, data=m18Data, family=binomial(link='logit'),
 
 ```{r}
 
-m18d <- glmtoolbox::glmgee(m18dformula, data=m18Data,
+m18j <- glmtoolbox::glmgee(m18jformula, data=m18eData,
                           family=binomial(link='logit'),
                           id=ID, waves=TrialNumber,
                           corstr='exchangeable')
 
-geeParams(m18d, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+m18k <- glmtoolbox::glmgee(m18kformula, data=m18eData,
+                          family=binomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+m18l <- glmtoolbox::glmgee(m18lformula, data=m18eData,
+                          family=binomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+m18m <- glmtoolbox::glmgee(m18mformula, data=m18eData,
+                          family=binomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+m18n <- glmtoolbox::glmgee(m18nformula, data=m18eData,
+                          family=binomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+m18o <- glmtoolbox::glmgee(m18oformula, data=m18eData,
+                          family=binomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+m18p <- glmtoolbox::glmgee(m18pformula, data=m18eData,
+                          family=binomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+m18q <- glmtoolbox::glmgee(m18qformula, data=m18eData,
+                          family=binomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+m18r <- glmtoolbox::glmgee(m18rformula, data=m18eData,
+                          family=binomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+m18s <- glmtoolbox::glmgee(m18sformula, data=m18eData,
+                          family=binomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+m18t <- glmtoolbox::glmgee(m18tformula, data=m18eData,
+                          family=binomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
+geeParams(m18j, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m18k, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m18l, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m18m, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m18n, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m18o, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m18p, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m18q, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m18r, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m18s, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m18t, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 
 ```
 
@@ -9922,16 +10253,89 @@ geeParams(m18d, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FAL
 
 ```{r}
 
-m18d_cv <- cv_glmgee(m18d, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
-                                data=na.omit(m18Data), agg_cols="StimID",
+m18j_cv <- cv_glmgee(m18j, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m18eData), agg_cols="StimID",
                                 return_predictions=TRUE,
                                 workers=n_cores) |>
           cv_aggregated_metrics() |>
   cv_binary_metrics()
 
-geeModelPerformance(m18, m18d)
+m18k_cv <- cv_glmgee(m18k, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m18eData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
 
-compare_cv_results(list(m18=m18_cv, m18d=m18d_cv))
+m18l_cv <- cv_glmgee(m18l, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m18eData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
+
+m18m_cv <- cv_glmgee(m18m, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m18eData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
+
+m18n_cv <- cv_glmgee(m18n, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m18eData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
+
+m18o_cv <- cv_glmgee(m18o, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m18eData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
+
+m18p_cv <- cv_glmgee(m18p, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m18eData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
+
+m18q_cv <- cv_glmgee(m18q, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m18eData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
+
+m18r_cv <- cv_glmgee(m18r, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m18eData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
+
+m18s_cv <- cv_glmgee(m18s, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m18eData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
+
+m18t_cv <- cv_glmgee(m18t, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m18eData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
+
+geeModelPerformance(m18e, m18j, m18k, m18l, m18m, m18n, m18o, m18p, m18q, m18r,
+                    m18s)
+
+compare_cv_results(list(m18e=m18e_cv, m18j=m18j_cv, m18k=m18k_cv, m18l=m18l_cv,
+                        m18m=m18m_cv, m18n=m18n_cv, m18o=m18o_cv, m18p=m18p_cv,
+                        m18q=m18q_cv, m18r=m18r_cv, m18s=m18s_cv, m18t=m18t_cv))
 
 ```
 
@@ -9939,43 +10343,49 @@ compare_cv_results(list(m18=m18_cv, m18d=m18d_cv))
 
 ```{r, fig.width=12, fig.height=4}
 
-m18d.resP <- residuals(m18d, type="pearson", plot.it=FALSE)
+m18k.resP <- residuals(m18k, type="pearson", plot.it=FALSE)
 
-used <- complete.cases(m18Data[all.vars(m18dformula)])
+used <- complete.cases(m18eData[all.vars(m18kformula)])
 
-arm::binnedplot(fitted(m18d), m18d.resP)
-arm::binnedplot(m18Data$UASImpulsLoudWZAvgMaxLRStd[used], residuals(m18d, type = "pearson"),
+arm::binnedplot(fitted(m18k), m18k.resP)
+arm::binnedplot(m18eData$UASImpulsLoudWZAvgMaxLRStd[used], residuals(m18k, type = "pearson"),
                  xlab = "UASImpulsLoudWZAvgMaxLRStd")
-arm::binnedplot(m18Data$UASTonalAwSHMInt05ExMaxLRStd[used], residuals(m18d, type = "pearson"),
+arm::binnedplot(m18eData$UASLAEMaxLRScl[used], residuals(m18k, type = "pearson"),
+                 xlab = "UASLAEMaxLRScl")
+arm::binnedplot(m18eData$AmbLAF10ExMaxLR[used], residuals(m18k, type = "pearson"),
+                 xlab = "AmbLAF10ExMaxLR")
+arm::binnedplot(m18eData$UASTonalAwSHMInt05ExMaxLRStd[used], residuals(m18k, type = "pearson"),
                  xlab = "UASTonalAwSHMInt05ExMaxLRStd")
-arm::binnedplot(m18Data$UASSharpAurISO305ExMaxLRStd[used], residuals(m18d, type = "pearson"),
+arm::binnedplot(m18eData$UASSharpAurISO305ExMaxLRStd[used], residuals(m18k, type = "pearson"),
                  xlab = "UASSharpAurISO305ExMaxLRStd")
-arm::binnedplot(m18Data$UASEvents[used], residuals(m18d, type = "pearson"),
+arm::binnedplot(m18eData$UASFluctECMA10ExBinStd[used], residuals(m18k, type = "pearson"),
+                 xlab = "UASFluctECMA10ExBinStd")
+arm::binnedplot(m18eData$UASEvents[used], residuals(m18k, type = "pearson"),
                  xlab = "UASEvents")
-arm::binnedplot(m18Data$PartTrialNumberStd[used], residuals(m18d, type = "pearson"),
+arm::binnedplot(m18eData$PartTrialNumberStd[used], residuals(m18k, type = "pearson"),
                  xlab = "PartTrialNumberStd")
 
-m18d.resM <- residuals(m18d, type="mahalanobis", plot.it=FALSE)
+m18k.resM <- residuals(m18k, type="mahalanobis", plot.it=FALSE)
 
 # plot Mahalanobis residuals with ggplot2 on a stem plot replacing the index by the corresponding participant ID
-geeCluster_stemplot(m18d,
-                    clusterVar=m18d.resM,
+geeCluster_stemplot(m18k,
+                    clusterVar=m18k.resM,
                     colour=mycolours[2], alpha=0.7) +
     theme(panel.grid = element_blank(), aspect.ratio=0.4,
         text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   labs(x="Participant ID", y="Mahalanobis distance")
 
-m18d.Cook <- cooks.distance(m18d, plot.it=FALSE)
+m18k.Cook <- cooks.distance(m18k, plot.it=FALSE)
 
-geeCluster_stemplot(m18d, clusterVar=m18d.Cook,
+geeCluster_stemplot(m18k, clusterVar=m18k.Cook,
                     colour=mycolours[4], alpha=0.7) +
     theme(panel.grid = element_blank(), aspect.ratio=0.4,
         text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   labs(x="Participant ID", y="Cook's distance")
 
-glmgee_vif(m18d)
+glmgee_vif(m18k)
 
 ```
 
@@ -9983,21 +10393,19 @@ glmgee_vif(m18d)
 
 ```{r}
 
-m18dpredMeans <- avg_predictions_hybrid(m18d, newdata=na.omit(m18Data),
-                                      by=c("StimID",
-                                           "UASImpulsLoudWZAvgMaxLRStd",
-                                           "UASEvents"),
-                                      vcov=vcov(m18d, type='bias-corrected')) |>
+m18kpredMeans <- avg_predictions_hybrid(m18k, newdata=na.omit(m18eData),
+                                      by=c("StimID"),
+                                      vcov=vcov(m18k, type='bias-corrected')) |>
   dplyr::arrange(StimID)
 
-R2means <- 1 - sum((stimDataNoAmb$dHighAnnoyProp - m18dpredMeans$estimate)^2)/sum((stimDataNoAmb$dHighAnnoyProp - mean(stimDataNoAmb$dHighAnnoyProp))^2)
+R2means <- 1 - sum((stimDataNoAmb$dHighAnnoyProp - m18kpredMeans$estimate)^2)/sum((stimDataNoAmb$dHighAnnoyProp - mean(stimDataNoAmb$dHighAnnoyProp))^2)
 
-eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m18dpredMeans,
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m18kpredMeans,
                      measured_target='dHighAnnoyProp', measured_ci_low='dHighAnnoyPropCI_Low',
                      measured_ci_high='dHighAnnoyPropCI_High', fitted='estimate')
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
-ggplot(data=cbind(m18dpredMeans,
+ggplot(data=cbind(m18kpredMeans,
                   response=stimDataNoAmb$dHighAnnoyProp,
                   responseCI_Low=stimDataNoAmb$dHighAnnoyPropCI_Low,
                   responseCI_High=stimDataNoAmb$dHighAnnoyPropCI_High)) +
@@ -10026,7 +10434,7 @@ ggplot(data=cbind(m18dpredMeans,
 
 if (saveplots){
   
-  filename <- "PtsABdHiAnnoy_PredMod_dLAESQnetCal_gee"
+  filename <- "PtsABdHiAnnoy_PredMod_LAEAmbLSQnetCal_gee"
 
   ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4, path=file.path(outFigPath, "svg"))
   unlink(paste(filename, ".svg", sep=""))
@@ -10037,177 +10445,15 @@ if (saveplots){
 
 ```
 
-###### analyse population-average predictions
-
-```{r}
-
-UASImpulsLoudWZAvgMaxLRStd_sweep <- seq(min(stimDataNoAmb$UASImpulsLoudWZAvgMaxLRStd),
-                                    max(stimDataNoAmb$UASImpulsLoudWZAvgMaxLRStd),
-                                    length.out = 25)
-UASSharpAurISO305ExMaxLRStd_sweep <- seq(-2.4, 2, by=0.87)
-UASTonalAwSHMInt05ExMaxLRStd_sweep <- seq(-1.89, 2.5, by=1.05)
-
-q1 <- 0.1
-q2 <- 0.9
-
-m18dDataFit <- insight::get_data(m18d)
-m18dpredEvt <- avg_predictions_hybrid(m18d, newdata=m18dDataFit,
-                                      variables = list(UASImpulsLoudWZAvgMaxLRStd=UASImpulsLoudWZAvgMaxLRStd_sweep),
-                                  by = c("UASImpulsLoudWZAvgMaxLRStd", "UASEvents"),
-                                  vcov = vcov(m18d, type = "bias-corrected")) |>
-  add_original_units(subjDataNoAmb.medScaling)
-gc()
-
-
-m18dpredIS <- avg_predictions_hybrid(m18d, newdata=m18dDataFit,
-                                  variables = list(UASImpulsLoudWZAvgMaxLRStd=UASImpulsLoudWZAvgMaxLRStd_sweep,
-                                    UASSharpAurISO305ExMaxLRStd=UASSharpAurISO305ExMaxLRStd_sweep,
-                                    UASTonalAwSHMInt05ExMaxLRStd = to_model(
-                                      unname(quantile(stimDataNoAmb$UASTonalAwSHMInt05ExMaxLR, c(q1, q2))),
-                                      "UASTonalAwSHMInt05ExMaxLRStd",
-                                      subjDataNoAmb.medScaling)),
-                                      by = c("UASImpulsLoudWZAvgMaxLRStd", "UASSharpAurISO305ExMaxLRStd",
-                                             "UASTonalAwSHMInt05ExMaxLRStd"),
-                                      vcov = vcov(m18d, type = "bias-corrected")) |>
-  add_original_units(subjDataNoAmb.medScaling) |>
-  dplyr::mutate(
-    UASSharpAurISO305ExMaxLR = num_factor(UASSharpAurISO305ExMaxLR),
-    UASTonalAwSHMInt05ExMaxLR  = num_factor(UASTonalAwSHMInt05ExMaxLR)
-  )
-
-gc()
-
-m18dpredIT <- avg_predictions_hybrid(m18d, newdata=m18dDataFit,
-                                    variables = list(UASImpulsLoudWZAvgMaxLRStd=UASImpulsLoudWZAvgMaxLRStd_sweep,
-                                      UASTonalAwSHMInt05ExMaxLRStd=UASTonalAwSHMInt05ExMaxLRStd_sweep,
-                                      UASSharpAurISO305ExMaxLRStd = to_model(
-                                        unname(quantile(stimDataNoAmb$UASSharpAurISO305ExMaxLR, c(q1, q2))),
-                                        "UASSharpAurISO305ExMaxLRStd",
-                                        subjDataNoAmb.medScaling)),
-                                by = c("UASImpulsLoudWZAvgMaxLRStd", "UASTonalAwSHMInt05ExMaxLRStd",
-                                       "UASSharpAurISO305ExMaxLRStd"),
-                                vcov = vcov(m18d, type = "bias-corrected")) |>
-  add_original_units(subjDataNoAmb.medScaling) |>
-  dplyr::mutate(
-    UASSharpAurISO305ExMaxLR = num_factor(UASSharpAurISO305ExMaxLR),
-    UASTonalAwSHMInt05ExMaxLR  = num_factor(UASTonalAwSHMInt05ExMaxLR)
-  )
-gc()
-
-```
-
-###### visualise plots of PA effects
-
-```{r}
-
-ggplot(data=m18dpredEvt) +
-      theme(panel.grid = element_blank(), aspect.ratio=1.35,
-            text = element_text(family = "serif", size=16),
-            axis.text=element_text(family = "serif", size=14)) +
-      
-      geom_point(data=stimDataNoAmb,
-                 aes(x=UASImpulsLoudWZAvgMaxLR, y=dHighAnnoyProp,
-                     colour=factor(UASEvents), shape=factor(UASEvents)),
-                 alpha=0.55, size=2) +
-      
-      geom_ribbon(aes(x=UASImpulsLoudWZAvgMaxLR, ymin=conf.low, ymax=conf.high, fill=factor(UASEvents)),
-                  alpha=0.15) +
-      
-      geom_line(aes(x=UASImpulsLoudWZAvgMaxLR, y=estimate, colour=factor(UASEvents)), linewidth=1) +
-      
-      scale_color_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
-                          guide=guide_legend(title="UAS events", reverse=TRUE)) +
-      scale_fill_viridis(option='viridis', direction=1, discrete=TRUE, begin = 0.2, end = 0.8,
-                         guide=guide_legend(title="UAS events", reverse=TRUE)) +
-      scale_shape_manual(values=c(4, 5, 7, 8), guide=guide_legend(title="UAS events", reverse=TRUE)) +
-
-      scale_x_continuous(breaks=seq(0.2, 1.4,
-                                    by=0.2)) +
-
-      scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10), limits=c(0, 1)) +
-      
-      labs(x=expression(paste(UAS~italic(bar(I)[N]),",",~sone[W*"-"*R~"|"~Z])),
-           y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
-
-if (saveplots){
-  
-  filename <- "PtsABdHiAnnoy_PredMod_dLAESQnetEvt_gee"
-
-  ggsave(filename=paste(filename, ".svg", sep=""), width=5, height=4, path=file.path(outFigPath, "svg"))
-  unlink(paste(filename, ".svg", sep=""))
-
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=5, height=4, path=file.path(outFigPath, "pdf"))
-  unlink(paste(filename, ".pdf", sep=""))
-}
-
-sharp_title <- expression(paste(UAS~italic(S)^"*"*","~acum[A~"|"~"M-G-S"]))
-tonal_title <- expression(paste(UAS~italic(T)[a*Sigma*5]*","~tu[SHM]))
-
-p1 <- plot_slice(m18dpredIS, stimDataNoAmb,
-                 x = "UASImpulsLoudWZAvgMaxLR", y = "dHighAnnoyProp",
-                 colour_v = "UASSharpAurISO305ExMaxLR",
-                 facet_v  = "UASTonalAwSHMInt05ExMaxLR",
-                 facet_labeller = label_bquote(rows = UAS~italic(T)[a*Sigma*5]*","~tu[SHM] %->%
-                                                 .(as.character(UASTonalAwSHMInt05ExMaxLR))),
-                 q = c(q1, q2), option = "mako",
-                 colour_title = expression(paste(UAS~italic(S)[5]*","~acum[A~"|"~"M-G-S"])),
-                 colour_breaks = to_original(UASSharpAurISO305ExMaxLRStd_sweep,
-                                             "UASSharpAurISO305ExMaxLRStd",
-                                             subjDataNoAmb.medScaling)) +
-  theme(panel.grid = element_blank(), aspect.ratio = 1.35, legend.position = 'right',
-        text = element_text(family = "serif", size = 16),
-        axis.text.x = element_text(family = "serif", size = 10),
-        axis.text.y = element_text(family = "serif", size = 14)) &
-  scale_x_continuous(breaks = scales::breaks_width(0.2)) &
-  scale_y_continuous(breaks = seq(0, 1, by = 0.1), labels = seq(0, 100, by = 10), limits = c(0, 1)) &
-  labs(x = expression(paste(UAS~italic(bar(I)[N]), ",", ~sone[W*"-"*R~"|"~Z])),
-       y = expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
-
-p2 <- plot_slice(m18dpredIT, stimDataNoAmb,
-                 x = "UASImpulsLoudWZAvgMaxLR", y = "dHighAnnoyProp",
-                 colour_v = "UASTonalAwSHMInt05ExMaxLR",
-                 facet_v  = "UASSharpAurISO305ExMaxLR",
-                 facet_labeller = label_bquote(rows = UAS~italic(S)[5]*","~acum[A~"|"~"M-G-S"] %->%
-                                                 .(as.character(UASSharpAurISO305ExMaxLR))),
-                 q = c(q1, q2), option = "rocket",
-                 colour_title = expression(paste(UAS~italic(T)[a*Sigma*5]*","~tu[SHM])),
-                 colour_breaks = to_original(UASTonalAwSHMInt05ExMaxLRStd_sweep,
-                                             "UASTonalAwSHMInt05ExMaxLRStd",
-                                             subjDataNoAmb.medScaling)) +
-  theme(panel.grid = element_blank(), aspect.ratio = 1.35, legend.position = 'right',
-        text = element_text(family = "serif", size = 16),
-        axis.text.x = element_text(family = "serif", size = 10),
-        axis.text.y = element_text(family = "serif", size = 14)) &
-  scale_x_continuous(breaks = scales::breaks_width(0.2)) &
-  scale_y_continuous(breaks = seq(0, 1, by = 0.1), labels = seq(0, 100, by = 10), limits = c(0, 1)) &
-  labs(x = expression(paste(UAS~italic(bar(I)[N]), ",", ~sone[W*"-"*R~"|"~Z])),
-       y = expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
-
-
-p1 + p2 + plot_layout(guides = 'collect') & theme(legend.position = 'right')
-
-if (saveplots){
-  
-  filename <- "PtsABdHiAnnoy_PredMod_dLAESQnetIST_gee"
-
-  ggsave(filename=paste(filename, ".svg", sep=""), width=10.5, height=8, path=file.path(outFigPath, "svg"))
-  unlink(paste(filename, ".svg", sep=""))
-
-  ggsave(filename=paste(filename, ".pdf", sep=""), width=10.5, height=8, path=file.path(outFigPath, "pdf"))
-  unlink(paste(filename, ".pdf", sep=""))
-}
-
-
-```
-
 #### generate deployment version
 
 ```{r}
 
-m18d_deploy <- deploy_mean_model(m18d,
-                                 centred_vars = list(LAELAeqdiffScl = "LAELAeqdiff"),
+m18k_deploy <- deploy_mean_model(m18k,
+                                 centred_vars = list(UASLAEMaxLRScl = "UASLAEMaxLR"),
                                  stdised_vars = list(UASTonalAwSHMInt05ExMaxLRStd = "UASTonalAwSHMInt05ExMaxLR",
                                                      UASSharpAurISO305ExMaxLRStd = "UASSharpAurISO305ExMaxLR",
+                                                     UASFluctECMA10ExBinStd = "UASFluctECMA10ExBin",
                                                      UASImpulsLoudWZAvgMaxLRStd = "UASImpulsLoudWZAvgMaxLR"),
                                  scaling_data = subjDataNoAmb.med,
                                  PartTrialNumberStd=0, coef_simplify=T, verbose=TRUE)
@@ -10221,16 +10467,16 @@ m18d_deploy <- deploy_mean_model(m18d,
 # save the model
 if (savedata) {
   filename = "dHiA_dLAE"
-  saveRDS(m17, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+  saveRDS(m17d, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
 
   filename = "dHiA_dLAE_deploy"
-  saveRDS(m17_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+  saveRDS(m17d_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
     
   filename = "dHiA_dLAESQnet"
-  saveRDS(m18d, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+  saveRDS(m18k, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
 
   filename = "dHiA_dLAESQnet_deploy"
-  saveRDS(m18d_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+  saveRDS(m18k_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
   
 }
 
@@ -10269,6 +10515,12 @@ m19cData <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNu
                                  all.vars(m19cformula)), drop=FALSE] |>
   dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
 
+m19dformula <- update(m19formula, . ~ . + AmbLAF10ExMaxLR)
+m19dformula
+
+m19dData <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
+                                 all.vars(m19dformula)), drop=FALSE] |>
+  dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
 
 ```
 
@@ -10285,6 +10537,9 @@ geeCorStr(m19bformula, data=m19bData, family=binomial(link='logit'),
           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
 
 geeCorStr(m19cformula, data=m19cData, family=binomial(link='logit'),
+          id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
+
+geeCorStr(m19dformula, data=m19dData, family=binomial(link='logit'),
           id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
 
 ```
@@ -10308,9 +10563,15 @@ m19c <- glmtoolbox::glmgee(m19cformula, data=m19cData,
                           id=ID, waves=TrialNumber,
                           corstr='exchangeable')
 
+m19d <- glmtoolbox::glmgee(m19dformula, data=m19dData,
+                          family=binomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
+
 geeParams(m19, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 geeParams(m19b, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 geeParams(m19c, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m19d, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 
 ```
 
@@ -10339,12 +10600,20 @@ m19c_cv <- cv_glmgee(m19c, id_col="ID", waves_col="TrialNumber", K=cv_folds, see
           cv_aggregated_metrics() |>
   cv_binary_metrics()
 
-geeModelPerformance(m12, m13, m14h, m15c, m16h, m17, m18d, m19, m19b, m19c)
+m19d_cv <- cv_glmgee(m19d, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m19dData), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
+
+geeModelPerformance(m12, m13, m14h, m15c, m16h, m17d, m18k, m19, m19b, m19c,
+                    m19d)
 
 compare_cv_results(list(m12=m12_cv, m13=m13_cv, m14h=m14h_cv,
                         m15c=m15c_cv, m16h=m16h_cv,
-                        m17=m17_cv, m18d=m18d_cv, m19=m19_cv, m19b=m19b_cv,
-                        m19c=m19c_cv))
+                        m17d=m17d_cv, m18k=m18k_cv, m19=m19_cv, m19b=m19b_cv,
+                        m19c=m19c_cv, m19d=m19d_cv))
 
 ```
 
@@ -10353,9 +10622,7 @@ compare_cv_results(list(m12=m12_cv, m13=m13_cv, m14h=m14h_cv,
 ```{r}
 
 m19predMeans <- avg_predictions_hybrid(m19, newdata=na.omit(m19Data),
-                                      by=c("StimID",
-                                           "UASImpulsLoudWZAvgMaxLRStd",
-                                           "UASEvents"),
+                                      by=c("StimID"),
                                       vcov=vcov(m19, type='bias-corrected')) |>
   dplyr::arrange(StimID)
 
@@ -10483,19 +10750,19 @@ foldid <- stim_folds[as.character(StimID_kept)]
 stopifnot(length(foldid) == nrow(X_matrix), length(y_matrix) == nrow(X_matrix))
 
 set.seed(808)
-m19d <- glmnet::cv.glmnet(x=X_matrix, y=y_matrix, family=binomial(link='logit'),
+m19e <- glmnet::cv.glmnet(x=X_matrix, y=y_matrix, family=binomial(link='logit'),
                           alpha=0.5, foldid=foldid, type.measure='deviance',
                           standardize=TRUE, lambda.min.ratio = 1e-120, nlambda = 5000)
 
-coef(m19d, s = "lambda.min")
-coef(m19d, s = "lambda.1se")
+coef(m19e, s = "lambda.min")
+coef(m19e, s = "lambda.1se")
 
 ```
 
 ```{r}
 
 # 1. Turn the glmnet path data into a clean data frame
-coefficient_paths <- broom::tidy(m19d$glmnet.fit, return_zeros=TRUE) |>
+coefficient_paths <- broom::tidy(m19e$glmnet.fit, return_zeros=TRUE) |>
   dplyr::filter(term != "(Intercept)") # Exclude intercept to keep scale clean
 
 # 3. Create the ggplot
@@ -10505,11 +10772,11 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
   scale_color_manual(values = mycolours) +
   scale_x_log10() + # Lambda spans orders of magnitude, log-scale is best
   # scale_y_log10() +
-  geom_vline(xintercept = m19d$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
-  ggplot2::annotate("text", x = m19d$lambda.min*1.25, y = max(coefficient_paths$estimate) * 0.5, 
+  geom_vline(xintercept = m19e$lambda.min, linetype = 'dotted', color = "grey", linewidth = 0.8) +
+  ggplot2::annotate("text", x = m19e$lambda.min*1.25, y = max(coefficient_paths$estimate) * 0.5, 
            label = expression(paste("Minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
-  geom_vline(xintercept = m19d$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
-  ggplot2::annotate("text", x = m19d$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
+  geom_vline(xintercept = m19e$lambda.1se, linetype = 'dotted', color = "grey", linewidth = 0.8) +
+  ggplot2::annotate("text", x = m19e$lambda.1se*1.25, y = max(coefficient_paths$estimate) * 0.5, 
            label = expression(paste("1SE from minimum CV-error ",~lambda)), color = "black", angle = 90, vjust = 0.5) +
   labs(x = expression(Penalty*","~lambda),
       y = "Coefficient estimate",
@@ -10544,15 +10811,15 @@ if (saveplots){
 
 ```{r}
 
-m19eformula <- update(m19formula, . ~ . - UASFluctECMA10ExBinStd -
-                        dRoughFZ05ExMaxLRStd - UASLoudECMAPowAvgBinScl:I(log10(UASEvents) - 0.0906525))
-m19eformula
-
 m19fformula <- update(m19formula, . ~ . - UASFluctECMA10ExBinStd -
                         dRoughFZ05ExMaxLRStd - UASLoudECMAPowAvgBinScl:I(log10(UASEvents) - 0.0906525)
                       - UASImpulsLoudWZAvgMaxLRStd)
 m19fformula
 
+
+m19gformula <- update(m19formula, . ~ . - UASFluctECMA10ExBinStd -
+                        dRoughFZ05ExMaxLRStd - UASLoudECMAPowAvgBinScl:I(log10(UASEvents) - 0.0906525))
+m19gformula
 
 ```
 
@@ -10562,10 +10829,10 @@ m19fformula
 
 ```{r}
 
-geeCorStr(m19eformula, data=m19Data, family=binomial(link='logit'),
+geeCorStr(m19fformula, data=m19Data, family=binomial(link='logit'),
            id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
 
-geeCorStr(m19fformula, data=m19Data, family=binomial(link='logit'),
+geeCorStr(m19gformula, data=m19Data, family=binomial(link='logit'),
            id=ID, waves=TrialNumber, maxit=2e3, verbose=FALSE)
 
 ```
@@ -10574,31 +10841,24 @@ geeCorStr(m19fformula, data=m19Data, family=binomial(link='logit'),
 
 ```{r}
 
-m19e <- glmtoolbox::glmgee(m19eformula, data=m19Data,
-                          family=binomial(link='logit'),
-                          id=ID, waves=TrialNumber,
-                          corstr='exchangeable')
 m19f <- glmtoolbox::glmgee(m19fformula, data=m19Data,
                           family=binomial(link='logit'),
                           id=ID, waves=TrialNumber,
                           corstr='exchangeable')
 
-geeParams(m19e, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
-geeParams(m19f, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+m19g <- glmtoolbox::glmgee(m19gformula, data=m19Data,
+                          family=binomial(link='logit'),
+                          id=ID, waves=TrialNumber,
+                          corstr='exchangeable')
 
+geeParams(m19f, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
+geeParams(m19g, ci=0.95, exponentiate=TRUE, varest='bias-corrected', verbose=FALSE)
 
 ```
 
 ##### analyse performance
 
 ```{r}
-
-m19e_cv <- cv_glmgee(m19e, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
-                                data=na.omit(m19Data), agg_cols="StimID",
-                                return_predictions=TRUE,
-                                workers=n_cores) |>
-          cv_aggregated_metrics() |>
-  cv_binary_metrics()
 
 m19f_cv <- cv_glmgee(m19f, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
                                 data=na.omit(m19Data), agg_cols="StimID",
@@ -10608,12 +10868,20 @@ m19f_cv <- cv_glmgee(m19f, id_col="ID", waves_col="TrialNumber", K=cv_folds, see
   cv_binary_metrics()
 
 
-geeModelPerformance(m12, m13, m14h, m15c, m16h, m17, m18d, m19, m19e, m19f)
+m19g_cv <- cv_glmgee(m19g, id_col="ID", waves_col="TrialNumber", K=cv_folds, seed=cv_seed,
+                                data=na.omit(m19Data), agg_cols="StimID",
+                                return_predictions=TRUE,
+                                workers=n_cores) |>
+          cv_aggregated_metrics() |>
+  cv_binary_metrics()
+
+
+geeModelPerformance(m12, m13, m14h, m15c, m16h, m17d, m18d, m19, m19f, m19g)
 
 compare_cv_results(list(m12=m12_cv, m13=m13_cv, m14h=m14h_cv,
                         m15c=m15c_cv, m16h=m16h_cv,
-                        m17=m17_cv, m18d=m18d_cv, m19=m19_cv,
-                        m19e=m19e_cv, m19f=m19f_cv))
+                        m17d=m17d_cv, m18k=m18k_cv, m19=m19_cv,
+                        m19f=m19f_cv, m19g=m19g_cv))
 
 ```
 
@@ -10621,45 +10889,45 @@ compare_cv_results(list(m12=m12_cv, m13=m13_cv, m14h=m14h_cv,
 
 ```{r, fig.width=12, fig.height=4}
 
-m19e.resP <- residuals(m19e, type="pearson", plot.it=FALSE)
+m19g.resP <- residuals(m19g, type="pearson", plot.it=FALSE)
 
-used <- complete.cases(m19Data[all.vars(m19eformula)])
+used <- complete.cases(m19Data[all.vars(m19gformula)])
 
-arm::binnedplot(fitted(m19e), m19e.resP)
-arm::binnedplot(m19Data$UASLoudECMAPowAvgBinScl[used], residuals(m19e, type = "pearson"),
+arm::binnedplot(fitted(m19g), m19g.resP)
+arm::binnedplot(m19Data$UASLoudECMAPowAvgBinScl[used], residuals(m19g, type = "pearson"),
                  xlab = "UASLoudECMAPowAvgBinScl")
-arm::binnedplot(m19Data$UASImpulsLoudWZAvgMaxLRStd[used], residuals(m19e, type = "pearson"),
+arm::binnedplot(m19Data$UASImpulsLoudWZAvgMaxLRStd[used], residuals(m19g, type = "pearson"),
                  xlab = "UASImpulsLoudWZAvgMaxLRStd")
-arm::binnedplot(m19Data$UASTonalAwSHMInt05ExMaxLRStd[used], residuals(m19e, type = "pearson"),
+arm::binnedplot(m19Data$UASTonalAwSHMInt05ExMaxLRStd[used], residuals(m19g, type = "pearson"),
                  xlab = "UASTonalAwSHMInt05ExMaxLRStd")
-arm::binnedplot(m19Data$dSharpAurSHMPowAvgMaxLRStd[used], residuals(m19e, type = "pearson"),
+arm::binnedplot(m19Data$dSharpAurSHMPowAvgMaxLRStd[used], residuals(m19g, type = "pearson"),
                  xlab = "dSharpAurSHMPowAvgMaxLRStd")
-arm::binnedplot(m19Data$UASEvents[used], residuals(m19e, type = "pearson"),
+arm::binnedplot(m19Data$UASEvents[used], residuals(m19g, type = "pearson"),
                  xlab = "UASEvents")
-arm::binnedplot(m19Data$PartTrialNumberStd[used], residuals(m19e, type = "pearson"),
+arm::binnedplot(m19Data$PartTrialNumberStd[used], residuals(m19g, type = "pearson"),
                  xlab = "PartTrialNumberStd")
 
-m19e.resM <- residuals(m19e, type="mahalanobis", plot.it=FALSE)
+m19g.resM <- residuals(m19g, type="mahalanobis", plot.it=FALSE)
 
 # plot Mahalanobis residuals with ggplot2 on a stem plot replacing the index by the corresponding participant ID
-geeCluster_stemplot(m19e,
-                    clusterVar=m19e.resM,
+geeCluster_stemplot(m19g,
+                    clusterVar=m19g.resM,
                     colour=mycolours[2], alpha=0.7) +
     theme(panel.grid = element_blank(), aspect.ratio=0.4,
         text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   labs(x="Participant ID", y="Mahalanobis distance")
 
-m19e.Cook <- cooks.distance(m19e, plot.it=FALSE)
+m19g.Cook <- cooks.distance(m19g, plot.it=FALSE)
 
-geeCluster_stemplot(m19e, clusterVar=m19e.Cook,
+geeCluster_stemplot(m19g, clusterVar=m19g.Cook,
                     colour=mycolours[4], alpha=0.7) +
     theme(panel.grid = element_blank(), aspect.ratio=0.4,
         text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   labs(x="Participant ID", y="Cook's distance")
 
-glmgee_vif(m19e)
+glmgee_vif(m19g)
 
 ```
 
@@ -10667,19 +10935,19 @@ glmgee_vif(m19e)
 
 ```{r}
 
-m19epredMeans <- avg_predictions_hybrid(m19e, newdata=na.omit(m19Data),
+m19gpredMeans <- avg_predictions_hybrid(m19g, newdata=na.omit(m19Data),
                                       by=c("StimID"),
-                                      vcov=vcov(m19e, type='bias-corrected')) |>
+                                      vcov=vcov(m19g, type='bias-corrected')) |>
   dplyr::arrange(StimID)
 
-R2means <- 1 - sum((stimDataNoAmb$dHighAnnoyProp - m19epredMeans$estimate)^2)/sum((stimDataNoAmb$dHighAnnoyProp - mean(stimDataNoAmb$dHighAnnoyProp))^2)
+R2means <- 1 - sum((stimDataNoAmb$dHighAnnoyProp - m19gpredMeans$estimate)^2)/sum((stimDataNoAmb$dHighAnnoyProp - mean(stimDataNoAmb$dHighAnnoyProp))^2)
 
-eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m19epredMeans,
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m19gpredMeans,
                      measured_target='dHighAnnoyProp', measured_ci_low='dHighAnnoyPropCI_Low',
                      measured_ci_high='dHighAnnoyPropCI_High', fitted='estimate')
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
-ggplot(data=cbind(m19epredMeans,
+ggplot(data=cbind(m19gpredMeans,
                   response=stimDataNoAmb$dHighAnnoyProp,
                   responseCI_Low=stimDataNoAmb$dHighAnnoyPropCI_Low,
                   responseCI_High=stimDataNoAmb$dHighAnnoyPropCI_High)) +
@@ -10733,23 +11001,23 @@ UASTonalAwSHMInt05ExMaxLRStd_sweep <- seq(-1.89, 2.5, by=1.05)
 q1 <- 0.5
 q2 <- 0.95
 
-m19eDataFit <- insight::get_data(m19e)
+m19gDataFit <- insight::get_data(m19g)
 
-m19epredEvt <- avg_predictions_hybrid(m19e, newdata = m19eDataFit,
+m19gpredEvt <- avg_predictions_hybrid(m19g, newdata = m19gDataFit,
                   variables = list(UASLoudECMAPowAvgBinScl = UASLoudECMAPowAvgBinScl_sweep),
                   by = c("UASLoudECMAPowAvgBinScl", "UASEvents"),
-                  vcov = vcov(m19e, type = "bias-corrected")) |>
+                  vcov = vcov(m19g, type = "bias-corrected")) |>
   add_original_units(subjDataNoAmb.medScaling)
 gc()
 
-m19epredEnv <- avg_predictions_hybrid(m19e, newdata = m19eDataFit,
+m19gpredEnv <- avg_predictions_hybrid(m19g, newdata = m19gDataFit,
                   variables = list(UASLoudECMAPowAvgBinScl = UASLoudECMAPowAvgBinScl_sweep),
                   by = c("UASLoudECMAPowAvgBinScl"),
-                  vcov = vcov(m19e, type = "bias-corrected")) |>
+                  vcov = vcov(m19g, type = "bias-corrected")) |>
   add_original_units(subjDataNoAmb.medScaling)
 gc()
 
-m19epredNdS <- avg_predictions_hybrid(m19e, newdata = m19eDataFit,
+m19gpredNdS <- avg_predictions_hybrid(m19g, newdata = m19gDataFit,
                   variables = list(
                     UASLoudECMAPowAvgBinScl = UASLoudECMAPowAvgBinScl_sweep,
                     dSharpAurSHMPowAvgMaxLRStd = dSharpAurSHMPowAvgMaxLRStd_sweep,
@@ -10758,13 +11026,13 @@ m19epredNdS <- avg_predictions_hybrid(m19e, newdata = m19eDataFit,
                       "UASTonalAwSHMInt05ExMaxLRStd", subjDataNoAmb.medScaling)),
                   by = c("UASLoudECMAPowAvgBinScl", "dSharpAurSHMPowAvgMaxLRStd",
                          "UASTonalAwSHMInt05ExMaxLRStd"),
-                  vcov = vcov(m19e, type = "bias-corrected")) |>
+                  vcov = vcov(m19g, type = "bias-corrected")) |>
   add_original_units(subjDataNoAmb.medScaling) |>
   dplyr::mutate(dSharpAurSHMPowAvgMaxLR = num_factor(dSharpAurSHMPowAvgMaxLR),
                 UASTonalAwSHMInt05ExMaxLR  = num_factor(UASTonalAwSHMInt05ExMaxLR))
 gc()
 
-m19epredNT <- avg_predictions_hybrid(m19e, newdata = m19eDataFit,
+m19gpredNT <- avg_predictions_hybrid(m19g, newdata = m19gDataFit,
                   variables = list(
                     UASLoudECMAPowAvgBinScl = UASLoudECMAPowAvgBinScl_sweep,
                     UASTonalAwSHMInt05ExMaxLRStd = UASTonalAwSHMInt05ExMaxLRStd_sweep,
@@ -10773,7 +11041,7 @@ m19epredNT <- avg_predictions_hybrid(m19e, newdata = m19eDataFit,
                       "dSharpAurSHMPowAvgMaxLRStd", subjDataNoAmb.medScaling)),
                   by = c("UASLoudECMAPowAvgBinScl", "UASTonalAwSHMInt05ExMaxLRStd",
                          "dSharpAurSHMPowAvgMaxLRStd"),
-                  vcov = vcov(m19e, type = "bias-corrected")) |>
+                  vcov = vcov(m19g, type = "bias-corrected")) |>
   add_original_units(subjDataNoAmb.medScaling) |>
   dplyr::mutate(dSharpAurSHMPowAvgMaxLR = num_factor(dSharpAurSHMPowAvgMaxLR),
                 UASTonalAwSHMInt05ExMaxLR  = num_factor(UASTonalAwSHMInt05ExMaxLR))
@@ -10786,9 +11054,7 @@ gc()
 
 ```{r}
 
-
-
-p1 <- ggplot(data=m19epredEnv) +
+p1 <- ggplot(data=m19gpredEnv) +
   theme(panel.grid = element_blank(), aspect.ratio=1.35,
         text = element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14),
@@ -10821,7 +11087,7 @@ p1 <- ggplot(data=m19epredEnv) +
        y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
 
-p2 <- ggplot(data=m19epredEvt) +
+p2 <- ggplot(data=m19gpredEvt) +
   theme(panel.grid = element_blank(), aspect.ratio=1.35,
         text = element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
@@ -10849,7 +11115,7 @@ p2 <- ggplot(data=m19epredEvt) +
   labs(x=expression(paste(UAS~italic(N)^"*",",",~sone[SHM])),
        y=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
-p3 <- plot_slice(m19epredNdS, stimDataNoAmb,
+p3 <- plot_slice(m19gpredNdS, stimDataNoAmb,
                  x = "UASLoudECMAPowAvgBin", y = "dHighAnnoyProp",
                  colour_v = "dSharpAurSHMPowAvgMaxLR",
                  facet_v  = "UASTonalAwSHMInt05ExMaxLR",
@@ -10869,7 +11135,7 @@ p3 <- plot_slice(m19epredNdS, stimDataNoAmb,
   labs(x = expression(paste(UAS~italic(N)^"*", ",", ~sone[SHM])),
        y = expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb])))
 
-p4 <- plot_slice(m19epredNT, stimDataNoAmb,
+p4 <- plot_slice(m19gpredNT, stimDataNoAmb,
                  x = "UASLoudECMAPowAvgBin", y = "dHighAnnoyProp",
                  colour_v = "UASTonalAwSHMInt05ExMaxLR",
                  facet_v  = "dSharpAurSHMPowAvgMaxLR",
@@ -10914,7 +11180,7 @@ if (saveplots){
 
 ```{r}
 
-m19e_deploy <- deploy_mean_model(m19e,
+m19g_deploy <- deploy_mean_model(m19g,
                                  centred_vars = list(UASLoudECMAPowAvgBinScl = "UASLoudECMAPowAvgBin"),
                                  stdised_vars = list(UASTonalAwSHMInt05ExMaxLRStd = "UASTonalAwSHMInt05ExMaxLR",
                                                      dSharpAurSHMPowAvgMaxLRStd = "dSharpAurSHMPowAvgMaxLR",
@@ -10931,10 +11197,10 @@ m19e_deploy <- deploy_mean_model(m19e,
 if (savedata) {
 
   filename = "dHiA_AllSQnet"
-  saveRDS(m19e, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+  saveRDS(m19g, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
   
   filename = "dHiA_AllSQnet_deploy"
-  saveRDS(m19e_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
+  saveRDS(m19g_deploy, file=file.path(outDataPath, paste(filename, ".rds", sep="")))
 }
 
 ```
@@ -10945,14 +11211,16 @@ if (savedata) {
 
 ```{r}
 
-m20formula <- dHighAnnoy ~ PartTrialNumberStd + Detect0p1dBIntEx50MaxLRScl*I(log10(UASEvents) - 0.0906525)
+m20formula <- dHighAnnoy ~ PartTrialNumberStd + Detect0p1dBIntEx50MaxLRScl*I(log10(UASEvents) - 0.0906525) +
+  AmbLAF10ExMaxLR
 m20formula
 
 m20Data <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
                                  all.vars(m20formula)), drop=FALSE] |>
   dplyr::filter(!is.na(TrialNumber) & !is.na(dHighAnnoy))
 
-m20bformula <- dHighAnnoy ~ PartTrialNumberStd + Detect0p5dBIntEx50MaxLRScl*I(log10(UASEvents) - 0.0906525)
+m20bformula <- dHighAnnoy ~ PartTrialNumberStd + Detect0p5dBIntEx50MaxLRScl*I(log10(UASEvents) - 0.0906525) +
+  AmbLAF10ExMaxLR
 m20bformula
 
 m20bData <- subjDataNoAmb.med[, c(ID='ID', StimID='StimID', TrialNumber='TrialNumber',
@@ -11012,11 +11280,11 @@ m20b_cv <- cv_glmgee(m20b, id_col="ID", waves_col="TrialNumber", K=cv_folds, see
           cv_aggregated_metrics() |>
   cv_binary_metrics()
 
-geeModelPerformance(m12, m13, m14h, m15c, m16h, m17, m18d, m19e, m20, m20b)
+geeModelPerformance(m12, m13, m14h, m15c, m16h, m17d, m18d, m19g, m20, m20b)
 
 compare_cv_results(list(m12=m12_cv, m13=m13_cv, m14h=m14h_cv,
-                        m15c=m15c_cv, m16h=m16h_cv, m17=m17_cv, m18d=m18d_cv,
-                        m19e=m19e_cv, m20=m20_cv, m20b=m20b_cv))
+                        m15c=m15c_cv, m16h=m16h_cv, m17d=m17d_cv, m18k=m18k_cv,
+                        m19g=m19g_cv, m20=m20_cv, m20b=m20b_cv))
 
 ```
 
@@ -11024,19 +11292,19 @@ compare_cv_results(list(m12=m12_cv, m13=m13_cv, m14h=m14h_cv,
 
 ```{r}
 
-m20bpredMeans <- avg_predictions_hybrid(m20b, newdata=na.omit(m20bData),
+m20predMeans <- avg_predictions_hybrid(m20, newdata=na.omit(m20Data),
                                       by=c("StimID"),
-                                      vcov=vcov(m20b, type='bias-corrected')) |>
+                                      vcov=vcov(m20, type='bias-corrected')) |>
   dplyr::arrange(StimID)
 
-R2means <- 1 - sum((stimDataNoAmb$dHighAnnoyProp - m20bpredMeans$estimate)^2)/sum((stimDataNoAmb$dHighAnnoyProp - mean(stimDataNoAmb$dHighAnnoyProp))^2)
+R2means <- 1 - sum((stimDataNoAmb$dHighAnnoyProp - m20predMeans$estimate)^2)/sum((stimDataNoAmb$dHighAnnoyProp - mean(stimDataNoAmb$dHighAnnoyProp))^2)
 
-eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m20bpredMeans,
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m20predMeans,
                      measured_target='dHighAnnoyProp', measured_ci_low='dHighAnnoyPropCI_Low',
                      measured_ci_high='dHighAnnoyPropCI_High', fitted='estimate')
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
-ggplot(data=cbind(m20bpredMeans,
+ggplot(data=cbind(m20predMeans,
                   response=stimDataNoAmb$dHighAnnoyProp,
                   responseCI_Low=stimDataNoAmb$dHighAnnoyPropCI_Low,
                   responseCI_High=stimDataNoAmb$dHighAnnoyPropCI_High)) +
@@ -11081,39 +11349,41 @@ if (saveplots){
 
 ```{r, fig.width=12, fig.height=4}
 
-m20b.resP <- residuals(m20b, type="pearson", plot.it=FALSE)
+m20.resP <- residuals(m20, type="pearson", plot.it=FALSE)
 
-used <- complete.cases(m20bData[all.vars(m20bformula)])
+used <- complete.cases(m20Data[all.vars(m20formula)])
 
-arm::binnedplot(fitted(m20b), m20b.resP)
-arm::binnedplot(m20bData$Detect0p5dBIntEx50MaxLRScl[used], residuals(m20b, type = "pearson"),
-                 xlab = "Detect0p5dBIntEx50MaxLRScl")
-arm::binnedplot(m20bData$UASEvents[used], residuals(m20b, type = "pearson"),
+arm::binnedplot(fitted(m20), m20.resP)
+arm::binnedplot(m20Data$Detect0p1dBIntEx50MaxLRScl[used], residuals(m20, type = "pearson"),
+                 xlab = "Detect0p1dBIntEx50MaxLRScl")
+arm::binnedplot(m20Data$AmbLAF10ExMaxLR[used], residuals(m20, type = "pearson"),
+                 xlab = "AmbLAF10ExMaxLR")
+arm::binnedplot(m20Data$UASEvents[used], residuals(m20, type = "pearson"),
                  xlab = "UASEvents")
-arm::binnedplot(m20bData$PartTrialNumberStd[used], residuals(m20b, type = "pearson"),
+arm::binnedplot(m20Data$PartTrialNumberStd[used], residuals(m20, type = "pearson"),
                  xlab = "PartTrialNumberStd")
 
-m20b.resM <- residuals(m20b, type="mahalanobis", plot.it=FALSE)
+m20.resM <- residuals(m20, type="mahalanobis", plot.it=FALSE)
 
 # plot Mahalanobis residuals with ggplot2 on a stem plot replacing the index by the corresponding participant ID
-geeCluster_stemplot(m20b,
-                    clusterVar=m20b.resM,
+geeCluster_stemplot(m20,
+                    clusterVar=m20.resM,
                     colour=mycolours[2], alpha=0.7) +
     theme(panel.grid = element_blank(), aspect.ratio=0.4,
         text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   labs(x="Participant ID", y="Mahalanobis distance")
 
-m20b.Cook <- cooks.distance(m20b, plot.it=FALSE)
+m20.Cook <- cooks.distance(m20, plot.it=FALSE)
 
-geeCluster_stemplot(m20b, clusterVar=m20b.Cook,
+geeCluster_stemplot(m20, clusterVar=m20.Cook,
                     colour=mycolours[4], alpha=0.7) +
     theme(panel.grid = element_blank(), aspect.ratio=0.4,
         text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14)) +
   labs(x="Participant ID", y="Cook's distance")
 
-glmgee_vif(m20b)
+glmgee_vif(m20)
 
 ```
 
@@ -11123,12 +11393,12 @@ glmgee_vif(m20b)
 
 ```{r}
 
-modelStep <- glmtoolbox::stepCriterion(model=m20b,
+modelStep <- glmtoolbox::stepCriterion(model=m20,
                                        criterion='agpc', test='score',
                                        direction='backward',
                                        varest='bias-corrected')
 
-m20bformula
+m20formula
 modelStep$final
 
 ```
@@ -11137,13 +11407,13 @@ modelStep$final
 
 ```{r}
 
-mf <- model.frame(m20bformula, data = m20bData)      # na.omit happens here
+mf <- model.frame(m20formula, data = m20Data)      # na.omit happens here
 kept_rows <- as.integer(rownames(mf))               # original row indices actually retained
 
 y_matrix <- model.response(mf)
-X_matrix <- model.matrix(m20bformula, data=m20bData)[,-1]
+X_matrix <- model.matrix(m20formula, data=m20Data)[,-1]
 
-StimID_kept <- m20bData$StimID[kept_rows]
+StimID_kept <- m20Data$StimID[kept_rows]
 
 set.seed(808)
 stim_folds <- setNames(
@@ -11202,8 +11472,8 @@ ggplot(coefficient_paths, aes(x = lambda, y = estimate, color = term)) +
 
 ```{r}
 
-m20b_deploy <- deploy_mean_model(m20b,
-                                centred_vars = list(Detect0p5dBIntEx50MaxLRScl = "Detect0p5dBIntEx50MaxLR"),
+m20_deploy <- deploy_mean_model(m20,
+                                centred_vars = list(Detect0p1dBIntEx50MaxLRScl = "Detect0p1dBIntEx50MaxLR"),
                                 scaling_data = subjDataNoAmb.med,
                                 PartTrialNumberStd=0, coef_simplify=T, verbose=TRUE)
 
@@ -11215,9 +11485,9 @@ m20b_deploy <- deploy_mean_model(m20b,
 
 dHiAnnoy_CV_res <- compare_cv_results(list(m12=m12_cv, m13=m13_cv,
                                            m14h=m14h_cv, m15c=m15c_cv,
-                                           m16h=m16h_cv, m17=m17_cv,
-                                           m18d=m18d_cv, m20b=m20b_cv,
-                                           m19e=m19e_cv))
+                                           m16h=m16h_cv, m17d=m17d_cv,
+                                           m18k=m18k_cv, m20=m20_cv,
+                                           m19g=m19g_cv))
 
 dHiAnnoy_CV_res
 

@@ -188,7 +188,7 @@ source(here("src/R/predict_glmmTMB_ordbeta.R"))
 source(here("src/R/cv_mean_model.R"))
 
 k_fold = 10
-cv_reps = cv_reps
+cv_reps = 20
 
 ```
 
@@ -427,7 +427,7 @@ stimDataNoAmb <- out$data$stimDataNoAmb
 stimDataScaling <- subset(out$params, df_name=='stimData')
 stimDataNoAmbScaling <- subset(out$params, df_name=='stimDataNoAmb')
 
-stimDataNoAmbPlot <- to_model_cols(stimDataNoAmb, subjDataNoAmbScaling)
+stimDataNoAmbPlot <- to_model_cols(stimDataNoAmb, subjDataNoAmb.medScaling)
 
 log10evts_ctr_subj <- mean(log10(subjDataNoAmb.med$UASEvents))
 print(log10evts_ctr_subj, digits=20)
@@ -485,10 +485,19 @@ m_dA1a <- glmmTMB::glmmTMB(formula=m_dA1a_f, dispformula= ~ Experiment,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dA1a_deploy <- deploy_mean_model(m_dA1a,
+                                   centred_vars=list(UASLAEMaxLRScl="UASLAEMaxLR"),
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA1b <- glmmTMB::glmmTMB(formula=m_dA1b_f, dispformula= ~ Experiment,
                           data=m_dA1b_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dA1b_deploy <- deploy_mean_model(m_dA1b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 parameters::model_parameters(m_dA1a, dispersion=TRUE)
 parameters::model_parameters(m_dA1b, dispersion=TRUE)
@@ -501,11 +510,11 @@ performance::compare_performance(m_dA1a, m_dA1b)
 
 ```{r}
 
-cv_m_dA1a <- cv_mean_model(m_dA1a, k = k_fold, reps = cv_reps,
+cv_m_dA1a <- cv_mean_model(m_dA1a_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA1b <- cv_mean_model(m_dA1b, k = k_fold, reps = cv_reps,
+cv_m_dA1b <- cv_mean_model(m_dA1b_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
@@ -539,10 +548,6 @@ m_dA1b_boot <- boot_mean_model(deployed=m_dA1b_deploy, trial_data=subjDataNoAmb.
                                B = 2000, level = 0.95,
                                prediction_intervals = FALSE, pi_draws = 10L,
                                parallel = TRUE, seed = 999, verbose = TRUE)
-
-cv_m_dA1b <- cv_mean_model(m_dA1b_deploy, k = k_fold, reps = cv_reps, strata = 'Experiment',
-                           group = 'StimNum',
-                     inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
 UASLAE_swp <- seq(min(stimDataNoAmb[['UASLAEMaxLR']]),
                            max(stimDataNoAmb[['UASLAEMaxLR']]),
@@ -755,31 +760,54 @@ m_dA2a <- glmmTMB::glmmTMB(formula=m_dA2a_f, dispformula= ~ Experiment,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dA2a_deploy <- deploy_mean_model(m_dA2a,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA2b <- glmmTMB::glmmTMB(formula=m_dA2b_f, dispformula= ~ Experiment,
                           data=m_dA2b_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dA2b_deploy <- deploy_mean_model(m_dA2b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dA2c <- glmmTMB::glmmTMB(formula=m_dA2c_f, dispformula= ~ Experiment,
                           data=m_dA2c_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dA2c_deploy <- deploy_mean_model(m_dA2c,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA2d <- glmmTMB::glmmTMB(formula=m_dA2d_f, dispformula= ~ Experiment,
                           data=m_dA2d_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dA2d_deploy <- deploy_mean_model(m_dA2d,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dA2e <- glmmTMB::glmmTMB(formula=m_dA2e_f, dispformula= ~ Experiment,
                           data=m_dA2e_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dA2e_deploy <- deploy_mean_model(m_dA2e,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dA2f <- glmmTMB::glmmTMB(formula=m_dA2f_f, dispformula= ~ Experiment,
                           data=m_dA2f_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dA2f_deploy <- deploy_mean_model(m_dA2f,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 parameters::model_parameters(m_dA2a, dispersion=TRUE)
 parameters::model_parameters(m_dA2b, dispersion=TRUE)
@@ -797,27 +825,27 @@ performance::compare_performance(m_dA1b, m_dA2a, m_dA2b, m_dA2c, m_dA2d, m_dA2e,
 
 ```{r}
 
-cv_m_dA2a <- cv_mean_model(m_dA2a, k = k_fold, reps = cv_reps,
+cv_m_dA2a <- cv_mean_model(m_dA2a_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA2b <- cv_mean_model(m_dA2b, k = k_fold, reps = cv_reps,
+cv_m_dA2b <- cv_mean_model(m_dA2b_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA2c <- cv_mean_model(m_dA2c, k = k_fold, reps = cv_reps,
+cv_m_dA2c <- cv_mean_model(m_dA2c_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA2d <- cv_mean_model(m_dA2d, k = k_fold, reps = cv_reps,
+cv_m_dA2d <- cv_mean_model(m_dA2d_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA2e <- cv_mean_model(m_dA2e, k = k_fold, reps = cv_reps,
+cv_m_dA2e <- cv_mean_model(m_dA2e_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA2f <- cv_mean_model(m_dA2f, k = k_fold, reps = cv_reps,
+cv_m_dA2f <- cv_mean_model(m_dA2f_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
@@ -852,10 +880,6 @@ m_dA2a_boot <- boot_mean_model(deployed=m_dA2a_deploy, trial_data=subjDataNoAmb.
                                B = 2000, level = 0.95,
                                prediction_intervals = FALSE, pi_draws = 10L,
                                parallel = TRUE, seed = 999, verbose = TRUE)
-
-cv_m_dA2a <- cv_mean_model(m_dA2a_deploy, k = k_fold, reps = cv_reps,
-                           strata = 'Experiment', group = 'StimNum',
-                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
 m_dA2a_predict <- transform_dAnnoyMd(predict.glmmTMB.ordbeta(m_dA2a, newdata=stimDataNoAmb, type='response'))
 
@@ -955,10 +979,18 @@ m_dA3a <- glmmTMB::glmmTMB(formula=m_dA3a_f, dispformula= ~ Experiment,
                            family=glmmTMB::ordbeta(link='logit'),
                            control=glmmTMBctrl)
 
+m_dA3a_deploy <- deploy_mean_model(m_dA3a,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA3b <- glmmTMB::glmmTMB(formula=m_dA3b_f, dispformula= ~ Experiment,
                            data=m_dA3b_d,
                            family=glmmTMB::ordbeta(link='logit'),
                            control=glmmTMBctrl)
+
+m_dA3b_deploy <- deploy_mean_model(m_dA3b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 parameters::model_parameters(m_dA3a, dispersion=TRUE)
 parameters::model_parameters(m_dA3b, dispersion=TRUE)
@@ -971,11 +1003,11 @@ performance::compare_performance(m_dA1b, m_dA2a, m_dA3a, m_dA3b)
 
 ```{r}
 
-cv_m_dA3a <- cv_mean_model(m_dA3a, k = k_fold, reps = cv_reps,
+cv_m_dA3a <- cv_mean_model(m_dA3a_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA3b <- cv_mean_model(m_dA3b, k = k_fold, reps = cv_reps,
+cv_m_dA3b <- cv_mean_model(m_dA3b_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
@@ -1009,9 +1041,6 @@ m_dA3a_boot <- boot_mean_model(deployed=m_dA3a_deploy, trial_data=subjDataNoAmb.
                               B = 2000, level = 0.95,
                               prediction_intervals = FALSE, pi_draws = 10L,
                               parallel = TRUE, seed = 999, verbose = TRUE)
-
-cv_m_dA3a <- cv_mean_model(m_dA3a_deploy, k = k_fold, reps = cv_reps, strata = 'Experiment', group = 'StimNum',
-                     inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
 m_dA3a_predict <- transform_dAnnoyMd(predict.glmmTMB.ordbeta(m_dA3a, newdata=stimDataNoAmb, type='response'))
 
@@ -1150,35 +1179,63 @@ m_dA4a <- glmmTMB::glmmTMB(formula=m_dA4a_f, dispformula= ~ Experiment,
                            family=glmmTMB::ordbeta(link='logit'),
                            control=glmmTMBctrl)
 
+m_dA4a_deploy <- deploy_mean_model(m_dA4a,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA4b <- glmmTMB::glmmTMB(formula=m_dA4b_f, dispformula= ~ Experiment,
                            data=m_dA4b_d,
                            family=glmmTMB::ordbeta(link='logit'),
                            control=glmmTMBctrl)
+
+m_dA4b_deploy <- deploy_mean_model(m_dA4b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dA4c <- glmmTMB::glmmTMB(formula=m_dA4c_f, dispformula= ~ Experiment,
                            data=m_dA4c_d,
                            family=glmmTMB::ordbeta(link='logit'),
                            control=glmmTMBctrl)
 
+m_dA4c_deploy <- deploy_mean_model(m_dA4c,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA4d <- glmmTMB::glmmTMB(formula=m_dA4d_f, dispformula= ~ Experiment,
                            data=m_dA4d_d,
                            family=glmmTMB::ordbeta(link='logit'),
                            control=glmmTMBctrl)
+
+m_dA4d_deploy <- deploy_mean_model(m_dA4d,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dA4e <- glmmTMB::glmmTMB(formula=m_dA4e_f, dispformula= ~ Experiment,
                            data=m_dA4e_d,
                            family=glmmTMB::ordbeta(link='logit'),
                            control=glmmTMBctrl)
 
+m_dA4e_deploy <- deploy_mean_model(m_dA4e,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA4f <- glmmTMB::glmmTMB(formula=m_dA4f_f, dispformula= ~ Experiment,
                            data=m_dA4f_d,
                            family=glmmTMB::ordbeta(link='logit'),
                            control=glmmTMBctrl)
 
+m_dA4f_deploy <- deploy_mean_model(m_dA4f,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA4g <- glmmTMB::glmmTMB(formula=m_dA4g_f, dispformula= ~ Experiment,
                            data=m_dA4g_d,
                            family=glmmTMB::ordbeta(link='logit'),
                            control=glmmTMBctrl)
+
+m_dA4g_deploy <- deploy_mean_model(m_dA4g,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 parameters::model_parameters(m_dA4a, dispersion=TRUE)
 parameters::model_parameters(m_dA4b, dispersion=TRUE)
@@ -1197,31 +1254,31 @@ performance::compare_performance(m_dA1b, m_dA2a, m_dA3a, m_dA4a, m_dA4a, m_dA4b,
 
 ```{r}
 
-cv_m_dA4a <- cv_mean_model(m_dA4a, k = k_fold, reps = cv_reps,
+cv_m_dA4a <- cv_mean_model(m_dA4a_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA4b <- cv_mean_model(m_dA4b, k = k_fold, reps = cv_reps,
+cv_m_dA4b <- cv_mean_model(m_dA4b_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA4c <- cv_mean_model(m_dA4c, k = k_fold, reps = cv_reps,
+cv_m_dA4c <- cv_mean_model(m_dA4c_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA4d <- cv_mean_model(m_dA4d, k = k_fold, reps = cv_reps,
+cv_m_dA4d <- cv_mean_model(m_dA4d_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA4e <- cv_mean_model(m_dA4e, k = k_fold, reps = cv_reps,
+cv_m_dA4e <- cv_mean_model(m_dA4e_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA4f <- cv_mean_model(m_dA4f, k = k_fold, reps = cv_reps,
+cv_m_dA4f <- cv_mean_model(m_dA4f_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA4g <- cv_mean_model(m_dA4g, k = k_fold, reps = cv_reps,
+cv_m_dA4g <- cv_mean_model(m_dA4g_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
@@ -1256,10 +1313,6 @@ m_dA4d_boot <- boot_mean_model(deployed=m_dA4d_deploy, trial_data=subjDataNoAmb.
                                B = 2000, level = 0.95,
                                prediction_intervals = FALSE, pi_draws = 10L,
                                parallel = TRUE, seed = 999, verbose = TRUE)
-
-cv_m_dA4d <- cv_mean_model(m_dA4d_deploy, k = k_fold, reps = cv_reps,
-                           strata = 'Experiment', group = 'StimNum',
-                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
 m_dA4d_predict <- transform_dAnnoyMd(predict.glmmTMB.ordbeta(m_dA4d, newdata=stimDataNoAmb, type='response'))
 
@@ -1358,10 +1411,18 @@ m_dA5a <- glmmTMB::glmmTMB(formula=m_dA5a_f, dispformula= ~ Experiment,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dA5a_deploy <- deploy_mean_model(m_dA5a,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA5b <- glmmTMB::glmmTMB(formula=m_dA5b_f, dispformula= ~ Experiment,
                           data=m_dA5b_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dA5b_deploy <- deploy_mean_model(m_dA5b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 parameters::model_parameters(m_dA5a, dispersion=TRUE)
 parameters::model_parameters(m_dA5b, dispersion=TRUE)
@@ -1374,11 +1435,11 @@ performance::compare_performance(m_dA1b, m_dA2a, m_dA3a, m_dA4d, m_dA5a, m_dA5b)
 
 ```{r}
 
-cv_m_dA5a <- cv_mean_model(m_dA5a, k = k_fold, reps = cv_reps,
+cv_m_dA5a <- cv_mean_model(m_dA5a_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA5b <- cv_mean_model(m_dA5b, k = k_fold, reps = cv_reps,
+cv_m_dA5b <- cv_mean_model(m_dA5b_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
@@ -1412,9 +1473,6 @@ m_dA5b_boot <- boot_mean_model(deployed=m_dA5b_deploy, trial_data=subjDataNoAmb.
                                B = 2000, level = 0.95,
                                prediction_intervals = FALSE, pi_draws = 10L,
                                parallel = TRUE, seed = 999, verbose = TRUE)
-
-cv_m_dA5b <- cv_mean_model(m_dA5b_deploy, k = k_fold, reps = cv_reps, strata = 'Experiment', group = 'StimNum',
-                     inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
 LAELAF50diff_swp <- seq(min(stimDataNoAmb[['LAELAF50diff']]),
                            max(stimDataNoAmb[['LAELAF50diff']]),
@@ -1638,40 +1696,72 @@ m_dA6a <- glmmTMB::glmmTMB(formula=m_dA6a_f, dispformula= ~ Experiment,
                            family=glmmTMB::ordbeta(link='logit'),
                            control=glmmTMBctrl)
 
+m_dA6a_deploy <- deploy_mean_model(m_dA6a,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA6b <- glmmTMB::glmmTMB(formula=m_dA6b_f, dispformula= ~ Experiment,
                            data=m_dA6b_d,
                            family=glmmTMB::ordbeta(link='logit'),
                            control=glmmTMBctrl)
+
+m_dA6b_deploy <- deploy_mean_model(m_dA6b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dA6c <- glmmTMB::glmmTMB(formula=m_dA6c_f, dispformula= ~ Experiment,
                            data=m_dA6c_d,
                            family=glmmTMB::ordbeta(link='logit'),
                            control=glmmTMBctrl)
 
+m_dA6c_deploy <- deploy_mean_model(m_dA6c,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA6d <- glmmTMB::glmmTMB(formula=m_dA6d_f, dispformula= ~ Experiment,
                            data=m_dA6d_d,
                            family=glmmTMB::ordbeta(link='logit'),
                            control=glmmTMBctrl)
+
+m_dA6d_deploy <- deploy_mean_model(m_dA6d,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dA6e <- glmmTMB::glmmTMB(formula=m_dA6e_f, dispformula= ~ Experiment,
                            data=m_dA6e_d,
                            family=glmmTMB::ordbeta(link='logit'),
                            control=glmmTMBctrl)
 
+m_dA6e_deploy <- deploy_mean_model(m_dA6e,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA6f <- glmmTMB::glmmTMB(formula=m_dA6f_f, dispformula= ~ Experiment,
                            data=m_dA6f_d,
                            family=glmmTMB::ordbeta(link='logit'),
                            control=glmmTMBctrl)
+
+m_dA6f_deploy <- deploy_mean_model(m_dA6f,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dA6g <- glmmTMB::glmmTMB(formula=m_dA6g_f, dispformula= ~ Experiment,
                            data=m_dA6g_d,
                            family=glmmTMB::ordbeta(link='logit'),
                            control=glmmTMBctrl)
 
+m_dA6g_deploy <- deploy_mean_model(m_dA6g,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA6h <- glmmTMB::glmmTMB(formula=m_dA6h_f, dispformula= ~ Experiment,
                            data=m_dA6d_d,
                            family=glmmTMB::ordbeta(link='logit'),
                            control=glmmTMBctrl)
+
+m_dA6h_deploy <- deploy_mean_model(m_dA6h,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 parameters::model_parameters(m_dA6a, dispersion=TRUE)
 parameters::model_parameters(m_dA6b, dispersion=TRUE)
@@ -1693,35 +1783,35 @@ performance::compare_performance(m_dA1b, m_dA2a, m_dA3a, m_dA4d, m_dA5b,
 
 ```{r}
 
-cv_m_dA6a <- cv_mean_model(m_dA6a, k = k_fold, reps = cv_reps,
+cv_m_dA6a <- cv_mean_model(m_dA6a_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA6b <- cv_mean_model(m_dA6b, k = k_fold, reps = cv_reps,
+cv_m_dA6b <- cv_mean_model(m_dA6b_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA6c <- cv_mean_model(m_dA6c, k = k_fold, reps = cv_reps,
+cv_m_dA6c <- cv_mean_model(m_dA6c_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA6d <- cv_mean_model(m_dA6d, k = k_fold, reps = cv_reps,
+cv_m_dA6d <- cv_mean_model(m_dA6d_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA6e <- cv_mean_model(m_dA6e, k = k_fold, reps = cv_reps,
+cv_m_dA6e <- cv_mean_model(m_dA6e_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA6f <- cv_mean_model(m_dA6f, k = k_fold, reps = cv_reps,
+cv_m_dA6f <- cv_mean_model(m_dA6f_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA6g <- cv_mean_model(m_dA6g, k = k_fold, reps = cv_reps,
+cv_m_dA6g <- cv_mean_model(m_dA6g_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA6h <- cv_mean_model(m_dA6h, k = k_fold, reps = cv_reps,
+cv_m_dA6h <- cv_mean_model(m_dA6h_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
@@ -1735,7 +1825,8 @@ compare_mean_models(m_dA6a=cv_m_dA6a, m_dA6b=cv_m_dA6b, m_dA6c=cv_m_dA6c,
 
 ```{r}
 
-m_dA6d_deploy <- deploy_mean_model(m_dA6d,
+m_dA6g_deploy <- deploy_mean_model(m_dA6g,
+                                   centred_vars=list(LAELAF50diffScl="LAELAF50diff"),
                                    scaling_data = stimDataNoAmb,
                                    Experiment=0, coef_simplify=T, verbose=TRUE)
 
@@ -1745,7 +1836,7 @@ m_dA6d_deploy <- deploy_mean_model(m_dA6d,
 
 ```{r}
 
-m_dA6d_boot <- boot_mean_model(deployed=m_dA6d_deploy, trial_data=subjDataNoAmb.med,
+m_dA6g_boot <- boot_mean_model(deployed=m_dA6g_deploy, trial_data=subjDataNoAmb.med,
                                cluster='PersonNum', response='dAnnoyance',
                                stat = 'median', by = 'StimNum',
                                strata = 'Experiment', resample = 'clusters',
@@ -1758,43 +1849,37 @@ m_dA6d_boot <- boot_mean_model(deployed=m_dA6d_deploy, trial_data=subjDataNoAmb.
                                prediction_intervals = FALSE, pi_draws = 10L,
                                parallel = TRUE, seed = 999, verbose = TRUE)
 
-cv_m_dA6d <- cv_mean_model(m_dA6d_deploy, k = k_fold, reps = cv_reps,
-                           strata = 'Experiment', group = 'StimNum',
-                           inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
-
-LAELAF50diff_swp <- seq(min(stimDataNoAmb[['LAELAF50diff']]),
-                           max(stimDataNoAmb[['LAELAF50diff']]),
+LAELAF50diff_swp <- seq(min(stimDataNoAmb[['LAELAF50diffScl']]),
+                           max(stimDataNoAmb[['LAELAF50diffScl']]),
                            length.out=20)
 
-grid_pred <- insight::get_datagrid(x=subset(m_dA6d_d,
+grid_pred <- insight::get_datagrid(x=subset(m_dA6g_d,
   select=-c(StimNum, dAnnoyMedianOrdBetaScl)),
-  by=list(LAELAF50diff=LAELAF50diff_swp,
-          UASTonalAwSHMInt05Ex=mean(stimDataNoAmb[['UASTonalAwSHMInt05Ex']]),
-          UASSharpAurISO305Ex=mean(stimDataNoAmb[['UASSharpAurISO305Ex']]),
-          UASImpulsSHMAvg=mean(stimDataNoAmb[['UASImpulsSHMAvg']]),
-          UASRoughECMA10Ex=mean(stimDataNoAmb[['UASRoughECMA10Ex']]),
-          Experiment=0, UASEvents=c(1, 2, 3, 5, 9)))
+  by=list(LAELAF50diffScl=LAELAF50diff_swp,
+          Experiment=0, UASEvents=c(1, 2, 3, 5, 9)),
+  numerics='mode') |>
+  add_original_units(stimDataNoAmbScaling)
 
-m_dA6d_bt_pred <- predict(m_dA6d_boot, newdata = grid_pred,
-                          model=m_dA6d_deploy, target = 'deployed')
+m_dA6g_bt_pred <- predict(m_dA6g_boot, newdata = grid_pred,
+                          model=m_dA6g_deploy, target = 'deployed')
 
-m_dA6d_predict <- transform_dAnnoyMd(predict.glmmTMB.ordbeta(m_dA6d,
+m_dA6g_predict <- transform_dAnnoyMd(predict.glmmTMB.ordbeta(m_dA6g,
                                                              newdata=stimDataNoAmb,
                                                              type='response'))
 
-m_dA6d_dep_predict <- transform_dAnnoyMd(m_dA6d_deploy(stimDataNoAmb))
+m_dA6g_dep_predict <- transform_dAnnoyMd(m_dA6g_deploy(stimDataNoAmb))
 
-R2means <- 1 - sum((stimDataNoAmb$dAnnoyanceMedian - m_dA6d_dep_predict)^2)/sum((stimDataNoAmb$dAnnoyanceMedian - mean(stimDataNoAmb$dAnnoyanceMedian))^2)
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyanceMedian - m_dA6g_dep_predict)^2)/sum((stimDataNoAmb$dAnnoyanceMedian - mean(stimDataNoAmb$dAnnoyanceMedian))^2)
 
-eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m_dA6d_dep_predict,
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m_dA6g_dep_predict,
                      measured_target='dAnnoyanceMedian', measured_ci_low='dAnnoyanceMedianCI_Low',
                      measured_ci_high='dAnnoyanceMedianCI_High', fitted='estimate')
 
-R2_cv <- subset(cv_m_dA6d[['summary']], target=="deployed" & metric == "R2")['cv_mean']
-RMSE_CV <- subset(cv_m_dA6d[['summary']], target=="deployed" & metric == "RMSE")['cv_mean']
+R2_cv <- subset(cv_m_dA6g[['summary']], target=="deployed" & metric == "R2")['cv_mean']
+RMSE_CV <- subset(cv_m_dA6g[['summary']], target=="deployed" & metric == "RMSE")['cv_mean']
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
-ggplot(data=merge(m_dA6d_boot[['predictions']][, c('StimNum', 'estimate', 'lower', 'upper')],
+ggplot(data=merge(m_dA6g_boot[['predictions']][, c('StimNum', 'estimate', 'lower', 'upper')],
                   data.frame(Experiment = stimDataNoAmb[['Experiment']],
                              StimNum = stimDataNoAmb[['StimNum']],
                              response = stimDataNoAmb[['dAnnoyanceMedian']],
@@ -1843,7 +1928,7 @@ if (saveplots){
   unlink(paste(filename, ".pdf", sep=""))
 }
 
-p1 <- ggplot(data=subset(m_dA6d_bt_pred[['predictions']], UASEvents==1)) +
+p1 <- ggplot(data=subset(m_dA6g_bt_pred[['predictions']], UASEvents==1)) +
   theme(panel.grid = element_blank(), aspect.ratio=1.35,
         text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14),
@@ -1870,7 +1955,7 @@ p1 <- ggplot(data=subset(m_dA6d_bt_pred[['predictions']], UASEvents==1)) +
   labs(x=expression(paste("UAS"~italic(L)[AE]~-~"amb."~italic(L)[AF50]*","~dB)),
        y="Median increase in annoyance")
 
-p2 <- ggplot(data=m_dA6d_bt_pred[['predictions']]) +
+p2 <- ggplot(data=m_dA6g_bt_pred[['predictions']]) +
   theme(panel.grid = element_blank(), aspect.ratio=1.35,
         text=element_text(family = "serif", size=16),
         axis.text=element_text(family = "serif", size=14),
@@ -1967,25 +2052,45 @@ m_dA7a <- glmmTMB::glmmTMB(formula=m_dA7a_f, dispformula= ~ Experiment,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dA7a_deploy <- deploy_mean_model(m_dA7a,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA7b <- glmmTMB::glmmTMB(formula=m_dA7b_f, dispformula= ~ Experiment,
                           data=m_dA7b_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dA7b_deploy <- deploy_mean_model(m_dA7b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dA7c <- glmmTMB::glmmTMB(formula=m_dA7c_f, dispformula= ~ Experiment,
                           data=m_dA7c_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dA7c_deploy <- deploy_mean_model(m_dA7c,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA7d <- glmmTMB::glmmTMB(formula=m_dA7d_f, dispformula= ~ Experiment,
                           data=m_dA7d_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dA7d_deploy <- deploy_mean_model(m_dA7d,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA7e <- glmmTMB::glmmTMB(formula=m_dA7e_f, dispformula= ~ Experiment,
                           data=m_dA7e_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dA7e_deploy <- deploy_mean_model(m_dA7e,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 parameters::model_parameters(m_dA7a, dispersion=TRUE)
 parameters::model_parameters(m_dA7b, dispersion=TRUE)
@@ -1993,7 +2098,7 @@ parameters::model_parameters(m_dA7c, dispersion=TRUE)
 parameters::model_parameters(m_dA7d, dispersion=TRUE)
 parameters::model_parameters(m_dA7e, dispersion=TRUE)
 
-performance::compare_performance(m_dA1b, m_dA2a, m_dA3a, m_dA4d, m_dA5b, m_dA6d,
+performance::compare_performance(m_dA1b, m_dA2a, m_dA3a, m_dA4d, m_dA5b, m_dA6g,
                                  m_dA7a, m_dA7b, m_dA7c, m_dA7d, m_dA7e)
 
 ```
@@ -2002,23 +2107,23 @@ performance::compare_performance(m_dA1b, m_dA2a, m_dA3a, m_dA4d, m_dA5b, m_dA6d,
 
 ```{r}
 
-cv_m_dA7a <- cv_mean_model(m_dA7a, k = k_fold, reps = cv_reps,
+cv_m_dA7a <- cv_mean_model(m_dA7a_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA7b <- cv_mean_model(m_dA7b, k = k_fold, reps = cv_reps,
+cv_m_dA7b <- cv_mean_model(m_dA7b_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA7c <- cv_mean_model(m_dA7c, k = k_fold, reps = cv_reps,
+cv_m_dA7c <- cv_mean_model(m_dA7c_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA7d <- cv_mean_model(m_dA7d, k = k_fold, reps = cv_reps,
+cv_m_dA7d <- cv_mean_model(m_dA7d_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA7e <- cv_mean_model(m_dA7e, k = k_fold, reps = cv_reps,
+cv_m_dA7e <- cv_mean_model(m_dA7e_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
@@ -2053,9 +2158,6 @@ m_dA7b_boot <- boot_mean_model(deployed=m_dA7b_deploy, trial_data=subjDataNoAmb.
                                B = 2000, level = 0.95,
                                prediction_intervals = FALSE, pi_draws = 10L,
                                parallel = TRUE, seed = 999, verbose = TRUE)
-
-cv_m_dA7b <- cv_mean_model(m_dA7b_deploy, k = k_fold, reps = cv_reps, strata = 'Experiment', group = 'StimNum',
-                     inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
 Detect0p5dBIntEx50_swp <- seq(min(stimDataNoAmb[['Detect0p5dBIntEx50MaxLR']]),
                            max(stimDataNoAmb[['Detect0p5dBIntEx50MaxLR']]),
@@ -2250,17 +2352,6 @@ m_dA8e_d <- stimDataNoAmb[, c(StimNum='StimNum',
                               all.vars(m_dA8e_f)), drop=FALSE] |>
   dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
 
-m_dA8d_d <- stimDataNoAmb[, c(StimNum='StimNum',
-                              all.vars(m_dA8d_f)), drop=FALSE] |>
-  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
-
-m_dA8e_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diff + I(log10(UASEvents) - 0.105917955) +
-  dSharpAurISO3PowAvg + UASRoughECMA10Ex + Experiment
-
-m_dA8e_d <- stimDataNoAmb[, c(StimNum='StimNum',
-                              all.vars(m_dA8e_f)), drop=FALSE] |>
-  dplyr::filter(!is.na(dAnnoyMedianOrdBetaScl))
-
 m_dA8f_f <- dAnnoyMedianOrdBetaScl ~ LAELAF50diff + I(log10(UASEvents) - 0.105917955) +
   dSharpAurISO3PowAvg + dTonalSHMIntAvg + Experiment
 
@@ -2347,75 +2438,135 @@ m_dA8a <- glmmTMB::glmmTMB(formula=m_dA8a_f, dispformula= ~ Experiment,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dA8a_deploy <- deploy_mean_model(m_dA8a,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA8b <- glmmTMB::glmmTMB(formula=m_dA8b_f, dispformula= ~ Experiment,
                           data=m_dA8b_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dA8b_deploy <- deploy_mean_model(m_dA8b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dA8c <- glmmTMB::glmmTMB(formula=m_dA8c_f, dispformula= ~ Experiment,
                           data=m_dA8c_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dA8c_deploy <- deploy_mean_model(m_dA8c,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA8d <- glmmTMB::glmmTMB(formula=m_dA8d_f, dispformula= ~ Experiment,
                           data=m_dA8d_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dA8d_deploy <- deploy_mean_model(m_dA8d,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dA8e <- glmmTMB::glmmTMB(formula=m_dA8e_f, dispformula= ~ Experiment,
                           data=m_dA8e_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dA8e_deploy <- deploy_mean_model(m_dA8e,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA8f <- glmmTMB::glmmTMB(formula=m_dA8f_f, dispformula= ~ Experiment,
                           data=m_dA8f_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dA8f_deploy <- deploy_mean_model(m_dA8f,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dA8g <- glmmTMB::glmmTMB(formula=m_dA8g_f, dispformula= ~ Experiment,
                           data=m_dA8g_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dA8g_deploy <- deploy_mean_model(m_dA8g,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA8h <- glmmTMB::glmmTMB(formula=m_dA8h_f, dispformula= ~ Experiment,
                           data=m_dA8h_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dA8h_deploy <- deploy_mean_model(m_dA8h,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dA8i <- glmmTMB::glmmTMB(formula=m_dA8i_f, dispformula= ~ Experiment,
                           data=m_dA8i_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dA8i_deploy <- deploy_mean_model(m_dA8i,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA8j <- glmmTMB::glmmTMB(formula=m_dA8j_f, dispformula= ~ Experiment,
                           data=m_dA8j_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dA8j_deploy <- deploy_mean_model(m_dA8j,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dA8k <- glmmTMB::glmmTMB(formula=m_dA8k_f, dispformula= ~ Experiment,
                           data=m_dA8k_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dA8k_deploy <- deploy_mean_model(m_dA8k,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA8l <- glmmTMB::glmmTMB(formula=m_dA8l_f, dispformula= ~ Experiment,
                           data=m_dA8l_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dA8l_deploy <- deploy_mean_model(m_dA8l,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dA8m <- glmmTMB::glmmTMB(formula=m_dA8m_f, dispformula= ~ Experiment,
                           data=m_dA8m_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dA8m_deploy <- deploy_mean_model(m_dA8m,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA8n <- glmmTMB::glmmTMB(formula=m_dA8n_f, dispformula= ~ Experiment,
                           data=m_dA8n_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dA8n_deploy <- deploy_mean_model(m_dA8n,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dA8o <- glmmTMB::glmmTMB(formula=m_dA8o_f, dispformula= ~ Experiment,
                           data=m_dA8o_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dA8o_deploy <- deploy_mean_model(m_dA8o,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 parameters::model_parameters(m_dA8a, dispersion=TRUE)
 parameters::model_parameters(m_dA8b, dispersion=TRUE)
@@ -2433,7 +2584,7 @@ parameters::model_parameters(m_dA8m, dispersion=TRUE)
 parameters::model_parameters(m_dA8n, dispersion=TRUE)
 parameters::model_parameters(m_dA8o, dispersion=TRUE)
 
-performance::compare_performance(m_dA1b, m_dA2a, m_dA3a, m_dA4d, m_dA5b, m_dA6d,
+performance::compare_performance(m_dA1b, m_dA2a, m_dA3a, m_dA4d, m_dA5b, m_dA6g,
                                  m_dA7b, m_dA8a, m_dA8b, m_dA8c, m_dA8d, m_dA8e,
                                  m_dA8f, m_dA8g, m_dA8h, m_dA8i, m_dA8j, m_dA8k,
                                  m_dA8l, m_dA8m, m_dA8n, m_dA8o)
@@ -2444,63 +2595,63 @@ performance::compare_performance(m_dA1b, m_dA2a, m_dA3a, m_dA4d, m_dA5b, m_dA6d,
 
 ```{r}
 
-cv_m_dA8a <- cv_mean_model(m_dA8a, k = k_fold, reps = cv_reps,
+cv_m_dA8a <- cv_mean_model(m_dA8a_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA8b <- cv_mean_model(m_dA8b, k = k_fold, reps = cv_reps,
+cv_m_dA8b <- cv_mean_model(m_dA8b_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA8c <- cv_mean_model(m_dA8c, k = k_fold, reps = cv_reps,
+cv_m_dA8c <- cv_mean_model(m_dA8c_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA8d <- cv_mean_model(m_dA8d, k = k_fold, reps = cv_reps,
+cv_m_dA8d <- cv_mean_model(m_dA8d_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA8e <- cv_mean_model(m_dA8e, k = k_fold, reps = cv_reps,
+cv_m_dA8e <- cv_mean_model(m_dA8e_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA8f <- cv_mean_model(m_dA8f, k = k_fold, reps = cv_reps,
+cv_m_dA8f <- cv_mean_model(m_dA8f_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA8g <- cv_mean_model(m_dA8g, k = k_fold, reps = cv_reps,
+cv_m_dA8g <- cv_mean_model(m_dA8g_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA8h <- cv_mean_model(m_dA8h, k = k_fold, reps = cv_reps,
+cv_m_dA8h <- cv_mean_model(m_dA8h_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA8i <- cv_mean_model(m_dA8i, k = k_fold, reps = cv_reps,
+cv_m_dA8i <- cv_mean_model(m_dA8i_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA8j <- cv_mean_model(m_dA8j, k = k_fold, reps = cv_reps,
+cv_m_dA8j <- cv_mean_model(m_dA8j_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA8k <- cv_mean_model(m_dA8k, k = k_fold, reps = cv_reps,
+cv_m_dA8k <- cv_mean_model(m_dA8k_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA8l <- cv_mean_model(m_dA8l, k = k_fold, reps = cv_reps,
+cv_m_dA8l <- cv_mean_model(m_dA8l_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA8m <- cv_mean_model(m_dA8m, k = k_fold, reps = cv_reps,
+cv_m_dA8m <- cv_mean_model(m_dA8m_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA8n <- cv_mean_model(m_dA8n, k = k_fold, reps = cv_reps,
+cv_m_dA8n <- cv_mean_model(m_dA8n_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
-cv_m_dA8o <- cv_mean_model(m_dA8o, k = k_fold, reps = cv_reps,
+cv_m_dA8o <- cv_mean_model(m_dA8o_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
 
@@ -2516,7 +2667,7 @@ compare_mean_models(m_dA8a=cv_m_dA8a, m_dA8b=cv_m_dA8b, m_dA8c=cv_m_dA8c,
 
 ```{r}
 
-m_dA8k_deploy <- deploy_mean_model(m_dA8k,
+m_dA8j_deploy <- deploy_mean_model(m_dA8j,
                                    scaling_data = stimDataNoAmb,
                                    Experiment=0, coef_simplify=T, verbose=TRUE)
 
@@ -2526,7 +2677,7 @@ m_dA8k_deploy <- deploy_mean_model(m_dA8k,
 
 ```{r}
 
-m_dA8k_boot <- boot_mean_model(deployed=m_dA8k_deploy, trial_data=subjDataNoAmb.med,
+m_dA8j_boot <- boot_mean_model(deployed=m_dA8j_deploy, trial_data=subjDataNoAmb.med,
                                cluster='PersonNum', response='dAnnoyance',
                                stat = 'median', by = 'StimNum',
                                strata = 'Experiment', resample = 'clusters',
@@ -2539,43 +2690,36 @@ m_dA8k_boot <- boot_mean_model(deployed=m_dA8k_deploy, trial_data=subjDataNoAmb.
                                prediction_intervals = FALSE, pi_draws = 10L,
                                parallel = TRUE, seed = 999, verbose = TRUE)
 
-cv_m_dA8k <- cv_mean_model(m_dA8k_deploy, k = k_fold, reps = cv_reps, strata = 'Experiment', group = 'StimNum',
-                     inverse = function(p) 10 * p, seed = 1, parallel = TRUE)
-
 LAELAF50diff_swp <- seq(min(stimDataNoAmb[['LAELAF50diff']]),
                            max(stimDataNoAmb[['LAELAF50diff']]),
                            length.out=20)
 
-grid_pred <- insight::get_datagrid(x=subset(m_dA8k_d,
+grid_pred <- insight::get_datagrid(x=subset(m_dA8j_d,
   select=-c(StimNum, dAnnoyMedianOrdBetaScl)),
   by=list(LAELAF50diff=LAELAF50diff_swp,
-          dTonalECMAAvg=mean(stimDataNoAmb[['dTonalECMAAvg']]),
-          dSharpAurISO3PowAvg=quantile(stimDataNoAmb[['dSharpAurISO3PowAvg']], probs=c(0.25, 0.5, 0.75), na.rm=TRUE),
-          dImpulsSHM05Ex=mean(stimDataNoAmb[['dImpulsSHM05Ex']]),
-          UASRoughECMA10Ex=mean(stimDataNoAmb[['UASRoughECMA10Ex']]),
-          dFluctECMA10Ex=mean(stimDataNoAmb[['dFluctECMA10Ex']]),
-          Experiment=0, UASEvents=c(1, 2, 3, 5, 9)))
+          Experiment=0, UASEvents=c(1, 2, 3, 5, 9)),
+  numerics='mode')
 
-m_dA8k_bt_pred <- predict(m_dA8k_boot, newdata = grid_pred,
-                          model=m_dA8k_deploy, target = 'deployed')
+m_dA8j_bt_pred <- predict(m_dA8j_boot, newdata = grid_pred,
+                          model=m_dA8j_deploy, target = 'deployed')
 
-m_dA8k_predict <- transform_dAnnoyMd(predict.glmmTMB.ordbeta(m_dA8k, newdata=stimDataNoAmb, type='response'))
+m_dA8j_predict <- transform_dAnnoyMd(predict.glmmTMB.ordbeta(m_dA8j, newdata=stimDataNoAmb, type='response'))
 
-m_dA8k_cv <- cv::cv(m_dA8k, criterion=r2_1, k=10, seed=999)
+m_dA8j_cv <- cv::cv(m_dA8j, criterion=r2_1, k=10, seed=999)
 
-m_dA8k_dep_predict <- transform_dAnnoyMd(m_dA8k_deploy(stimDataNoAmb))
+m_dA8j_dep_predict <- transform_dAnnoyMd(m_dA8j_deploy(stimDataNoAmb))
 
-R2means <- 1 - sum((stimDataNoAmb$dAnnoyanceMedian - m_dA8k_dep_predict)^2)/sum((stimDataNoAmb$dAnnoyanceMedian - mean(stimDataNoAmb$dAnnoyanceMedian))^2)
+R2means <- 1 - sum((stimDataNoAmb$dAnnoyanceMedian - m_dA8j_dep_predict)^2)/sum((stimDataNoAmb$dAnnoyanceMedian - mean(stimDataNoAmb$dAnnoyanceMedian))^2)
 
-eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m_dA8k_dep_predict,
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m_dA8j_dep_predict,
                      measured_target='dAnnoyanceMedian', measured_ci_low='dAnnoyanceMedianCI_Low',
                      measured_ci_high='dAnnoyanceMedianCI_High', fitted='estimate')
 
-R2_cv <- subset(cv_m_dA8k[['summary']], target=="deployed" & metric == "R2")['cv_mean']
-RMSE_CV <- subset(cv_m_dA8k[['summary']], target=="deployed" & metric == "RMSE")['cv_mean']
+R2_cv <- subset(cv_m_dA8j[['summary']], target=="deployed" & metric == "R2")['cv_mean']
+RMSE_CV <- subset(cv_m_dA8j[['summary']], target=="deployed" & metric == "RMSE")['cv_mean']
 
 # using ggplot, plot the predicted fit against the responses in predictMeans
-ggplot(data=merge(m_dA8k_boot[['predictions']][, c('StimNum', 'estimate', 'lower', 'upper')],
+ggplot(data=merge(m_dA8j_boot[['predictions']][, c('StimNum', 'estimate', 'lower', 'upper')],
                   data.frame(Experiment = stimDataNoAmb[['Experiment']],
                              StimNum = stimDataNoAmb[['StimNum']],
                              response = stimDataNoAmb[['dAnnoyanceMedian']],
@@ -2665,15 +2809,27 @@ m_dHA0a <- glmmTMB::glmmTMB(formula=m_dHA0a_f, dispformula= ~ Experiment,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA0a_deploy <- deploy_mean_model(m_dHA0a,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA0b <- glmmTMB::glmmTMB(formula=m_dHA0b_f, dispformula= ~ Experiment,
                           data=m_dHA0b_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA0b_deploy <- deploy_mean_model(m_dHA0b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA0c <- glmmTMB::glmmTMB(formula=m_dHA0c_f, dispformula= ~ Experiment,
                           data=m_dHA0c_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dHA0c_deploy <- deploy_mean_model(m_dHA0c,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 parameters::model_parameters(m_dHA0a, dispersion=TRUE)
 parameters::model_parameters(m_dHA0b, dispersion=TRUE)
@@ -2687,15 +2843,15 @@ performance::compare_performance(m_dHA0a, m_dHA0b, m_dHA0c)
 
 ```{r}
 
-cv_m_dHA0a <- cv_mean_model(m_dHA0a, k = k_fold, reps = cv_reps,
+cv_m_dHA0a <- cv_mean_model(m_dHA0a_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA0b <- cv_mean_model(m_dHA0b, k = k_fold, reps = cv_reps,
+cv_m_dHA0b <- cv_mean_model(m_dHA0b_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA0c <- cv_mean_model(m_dHA0c, k = k_fold, reps = cv_reps,
+cv_m_dHA0c <- cv_mean_model(m_dHA0c_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
@@ -2729,9 +2885,6 @@ m_dHA0a_boot <- boot_mean_model(deployed=m_dHA0a_deploy, trial_data=subjDataNoAm
                                 B = 2000, level = 0.95,
                                 prediction_intervals = FALSE, pi_draws = 10L,
                                 parallel = TRUE, seed = 999, verbose = TRUE)
-
-cv_m_dHA0a <- cv_mean_model(m_dHA0a_deploy, k = k_fold, reps = cv_reps, strata = 'Experiment',
-                           group = 'StimNum', seed = 1, parallel = TRUE)
 
 UASLAE_swp <- seq(min(stimDataNoAmb[['UASLAEMaxLR']]),
                            max(stimDataNoAmb[['UASLAEMaxLR']]),
@@ -3053,10 +3206,18 @@ m_dHA1a <- glmmTMB::glmmTMB(formula=m_dHA1a_f, dispformula= ~ Experiment,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA1a_deploy <- deploy_mean_model(m_dHA1a,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA1b <- glmmTMB::glmmTMB(formula=m_dHA1b_f, dispformula= ~ Experiment,
                           data=m_dHA1b_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dHA1b_deploy <- deploy_mean_model(m_dHA1b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 parameters::model_parameters(m_dHA1a, dispersion=TRUE)
 parameters::model_parameters(m_dHA1b, dispersion=TRUE)
@@ -3069,11 +3230,11 @@ performance::compare_performance(m_dHA1a, m_dHA1b)
 
 ```{r}
 
-cv_m_dHA1a <- cv_mean_model(m_dHA1a, k = k_fold, reps = cv_reps,
+cv_m_dHA1a <- cv_mean_model(m_dHA1a_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA1b <- cv_mean_model(m_dHA1b, k = k_fold, reps = cv_reps,
+cv_m_dHA1b <- cv_mean_model(m_dHA1b_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
@@ -3108,9 +3269,6 @@ m_dHA1a_boot <- boot_mean_model(deployed=m_dHA1a_deploy,
                                B = 2000, level = 0.95,
                                prediction_intervals = FALSE, pi_draws = 10L,
                                parallel = TRUE, seed = 999, verbose = TRUE)
-
-cv_m_dHA1a <- cv_mean_model(m_dHA1a_deploy, k = k_fold, reps = cv_reps, strata = 'Experiment',
-                           group = 'StimNum', seed = 1, parallel = TRUE)
 
 UASLAE_swp <- seq(min(stimDataNoAmb[['UASLAEMaxLR']]),
                            max(stimDataNoAmb[['UASLAEMaxLR']]),
@@ -3333,8 +3491,6 @@ m_dHA2i_d <- stimDataNoAmb[, c(StimNum='StimNum',
                              all.vars(m_dHA2i_f)), drop=FALSE] |>
   dplyr::filter(!is.na(dHighlyAnnoyedProp))
 
-
-
 ```
 
 ### fit and estimate parameters
@@ -3346,45 +3502,81 @@ m_dHA2a <- glmmTMB::glmmTMB(formula=m_dHA2a_f, dispformula= ~ Experiment,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA2a_deploy <- deploy_mean_model(m_dHA2a,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA2b <- glmmTMB::glmmTMB(formula=m_dHA2b_f, dispformula= ~ Experiment,
                           data=m_dHA2b_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dHA2b_deploy <- deploy_mean_model(m_dHA2b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dHA2c <- glmmTMB::glmmTMB(formula=m_dHA2c_f, dispformula= ~ Experiment,
                           data=m_dHA2c_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA2c_deploy <- deploy_mean_model(m_dHA2c,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA2d <- glmmTMB::glmmTMB(formula=m_dHA2d_f, dispformula= ~ Experiment,
                           data=m_dHA2d_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dHA2d_deploy <- deploy_mean_model(m_dHA2d,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dHA2e <- glmmTMB::glmmTMB(formula=m_dHA2e_f, dispformula= ~ Experiment,
                           data=m_dHA2e_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA2e_deploy <- deploy_mean_model(m_dHA2e,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA2f <- glmmTMB::glmmTMB(formula=m_dHA2f_f, dispformula= ~ Experiment,
                           data=m_dHA2f_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dHA2f_deploy <- deploy_mean_model(m_dHA2f,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dHA2g <- glmmTMB::glmmTMB(formula=m_dHA2g_f, dispformula= ~ Experiment,
                           data=m_dHA2g_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA2g_deploy <- deploy_mean_model(m_dHA2g,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA2h <- glmmTMB::glmmTMB(formula=m_dHA2h_f, dispformula= ~ Experiment,
                           data=m_dHA2h_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA2h_deploy <- deploy_mean_model(m_dHA2h,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA2i <- glmmTMB::glmmTMB(formula=m_dHA2i_f, dispformula= ~ Experiment,
                           data=m_dHA2i_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dHA2i_deploy <- deploy_mean_model(m_dHA2i,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 parameters::model_parameters(m_dHA2a, dispersion=TRUE)
 parameters::model_parameters(m_dHA2b, dispersion=TRUE)
@@ -3405,39 +3597,39 @@ performance::compare_performance(m_dHA1a, m_dHA2a, m_dHA2b, m_dHA2c, m_dHA2d,
 
 ```{r}
 
-cv_m_dHA2a <- cv_mean_model(m_dHA2a, k = k_fold, reps = cv_reps,
+cv_m_dHA2a <- cv_mean_model(m_dHA2a_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA2b <- cv_mean_model(m_dHA2b, k = k_fold, reps = cv_reps,
+cv_m_dHA2b <- cv_mean_model(m_dHA2b_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA2c <- cv_mean_model(m_dHA2c, k = k_fold, reps = cv_reps,
+cv_m_dHA2c <- cv_mean_model(m_dHA2c_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA2d <- cv_mean_model(m_dHA2d, k = k_fold, reps = cv_reps,
+cv_m_dHA2d <- cv_mean_model(m_dHA2d_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA2e <- cv_mean_model(m_dHA2e, k = k_fold, reps = cv_reps,
+cv_m_dHA2e <- cv_mean_model(m_dHA2e_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA2f <- cv_mean_model(m_dHA2f, k = k_fold, reps = cv_reps,
+cv_m_dHA2f <- cv_mean_model(m_dHA2f_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA2g <- cv_mean_model(m_dHA2g, k = k_fold, reps = cv_reps,
+cv_m_dHA2g <- cv_mean_model(m_dHA2g_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA2h <- cv_mean_model(m_dHA2h, k = k_fold, reps = cv_reps,
+cv_m_dHA2h <- cv_mean_model(m_dHA2h_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA2i <- cv_mean_model(m_dHA2i, k = k_fold, reps = cv_reps,
+cv_m_dHA2i <- cv_mean_model(m_dHA2i_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
@@ -3475,10 +3667,6 @@ m_dHA2d_boot <- boot_mean_model(deployed=m_dHA2d_deploy,
   prediction_intervals = FALSE, pi_draws = 10L,
   parallel = TRUE, seed = 999, verbose = TRUE)
 
-cv_m_dHA2d <- cv_mean_model(m_dHA2d_deploy, k = k_fold,
-                            reps = cv_reps, strata = 'Experiment',
-                           group = 'StimNum', seed = 1, parallel = TRUE)
-
 UASLoudECMAPowAvg_swp <- seq(min(stimDataNoAmb[['UASLoudECMAPowAvg']]),
                            max(stimDataNoAmb[['UASLoudECMAPowAvg']]),
                            length.out=20)
@@ -3486,7 +3674,8 @@ UASLoudECMAPowAvg_swp <- seq(min(stimDataNoAmb[['UASLoudECMAPowAvg']]),
 grid_pred <- insight::get_datagrid(x=subset(m_dHA2d_d,
                                             select=-c(StimNum, dHighlyAnnoyedProp)),
   by=list(UASLoudECMAPowAvg=UASLoudECMAPowAvg_swp,
-          Experiment=0, UASEvents=c(1, 2, 3, 5, 9)))
+          Experiment=0, UASEvents=c(1, 2, 3, 5, 9)),
+  numerics='mode')
 
 m_dHA2d_bt_pred <- predict(m_dHA2d_boot, newdata = grid_pred,
                            model=m_dHA2d_deploy, target = 'deployed')
@@ -3664,10 +3853,18 @@ m_dHA3a <- glmmTMB::glmmTMB(formula=m_dHA3a_f, dispformula= ~ Experiment,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA3a_deploy <- deploy_mean_model(m_dHA3a,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA3b <- glmmTMB::glmmTMB(formula=m_dHA3b_f, dispformula= ~ Experiment,
                           data=m_dHA3b_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dHA3b_deploy <- deploy_mean_model(m_dHA3b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 parameters::model_parameters(m_dHA3a, dispersion=TRUE)
 parameters::model_parameters(m_dHA3b, dispersion=TRUE)
@@ -3680,11 +3877,11 @@ performance::compare_performance(m_dHA1a, m_dHA2d, m_dHA3a, m_dHA3b)
 
 ```{r}
 
-cv_m_dHA3a <- cv_mean_model(m_dHA3a, k = k_fold, reps = cv_reps,
+cv_m_dHA3a <- cv_mean_model(m_dHA3a_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA3b <- cv_mean_model(m_dHA3b, k = k_fold, reps = cv_reps,
+cv_m_dHA3b <- cv_mean_model(m_dHA3b_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
@@ -3719,10 +3916,6 @@ m_dHA3a_boot <- boot_mean_model(deployed=m_dHA3a_deploy,
   B = 2000, level = 0.95,
   prediction_intervals = FALSE, pi_draws = 10L,
   parallel = TRUE, seed = 999, verbose = TRUE)
-
-cv_m_dHA3a <- cv_mean_model(m_dHA3a_deploy, k = k_fold,
-                            reps = cv_reps, strata = 'Experiment',
-                           group = 'StimNum', seed = 1, parallel = TRUE)
 
 UASLAE_swp <- seq(min(stimDataNoAmb[['UASLAEMaxLR']]),
                            max(stimDataNoAmb[['UASLAEMaxLR']]),
@@ -3971,45 +4164,81 @@ m_dHA4a <- glmmTMB::glmmTMB(formula=m_dHA4a_f, dispformula= ~ Experiment,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA4a_deploy <- deploy_mean_model(m_dHA4a,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA4b <- glmmTMB::glmmTMB(formula=m_dHA4b_f, dispformula= ~ Experiment,
                           data=m_dHA4b_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dHA4b_deploy <- deploy_mean_model(m_dHA4b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dHA4c <- glmmTMB::glmmTMB(formula=m_dHA4c_f, dispformula= ~ Experiment,
                           data=m_dHA4c_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA4c_deploy <- deploy_mean_model(m_dHA4c,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA4d <- glmmTMB::glmmTMB(formula=m_dHA4d_f, dispformula= ~ Experiment,
                           data=m_dHA4d_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dHA4d_deploy <- deploy_mean_model(m_dHA4d,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dHA4e <- glmmTMB::glmmTMB(formula=m_dHA4e_f, dispformula= ~ Experiment,
                           data=m_dHA4e_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA4e_deploy <- deploy_mean_model(m_dHA4e,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA4f <- glmmTMB::glmmTMB(formula=m_dHA4f_f, dispformula= ~ Experiment,
                           data=m_dHA4f_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dHA4f_deploy <- deploy_mean_model(m_dHA4f,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dHA4g <- glmmTMB::glmmTMB(formula=m_dHA4g_f, dispformula= ~ Experiment,
                           data=m_dHA4g_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA4g_deploy <- deploy_mean_model(m_dHA4g,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA4h <- glmmTMB::glmmTMB(formula=m_dHA4h_f, dispformula= ~ Experiment,
                           data=m_dHA4h_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA4h_deploy <- deploy_mean_model(m_dHA4h,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA4i <- glmmTMB::glmmTMB(formula=m_dHA4i_f, dispformula= ~ Experiment,
                           data=m_dHA4i_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dHA4i_deploy <- deploy_mean_model(m_dHA4i,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 parameters::model_parameters(m_dHA4a, dispersion=TRUE)
 parameters::model_parameters(m_dHA4b, dispersion=TRUE)
@@ -4030,39 +4259,39 @@ performance::compare_performance(m_dHA1a, m_dHA2d, m_dHA3a, m_dHA4a, m_dHA4b,
 
 ```{r}
 
-cv_m_dHA4a <- cv_mean_model(m_dHA4a, k = k_fold, reps = cv_reps,
+cv_m_dHA4a <- cv_mean_model(m_dHA4a_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA4b <- cv_mean_model(m_dHA4b, k = k_fold, reps = cv_reps,
+cv_m_dHA4b <- cv_mean_model(m_dHA4b_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA4c <- cv_mean_model(m_dHA4c, k = k_fold, reps = cv_reps,
+cv_m_dHA4c <- cv_mean_model(m_dHA4c_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA4d <- cv_mean_model(m_dHA4d, k = k_fold, reps = cv_reps,
+cv_m_dHA4d <- cv_mean_model(m_dHA4d_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA4e <- cv_mean_model(m_dHA4e, k = k_fold, reps = cv_reps,
+cv_m_dHA4e <- cv_mean_model(m_dHA4e_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA4f <- cv_mean_model(m_dHA4f, k = k_fold, reps = cv_reps,
+cv_m_dHA4f <- cv_mean_model(m_dHA4f_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA4g <- cv_mean_model(m_dHA4g, k = k_fold, reps = cv_reps,
+cv_m_dHA4g <- cv_mean_model(m_dHA4g_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA4h <- cv_mean_model(m_dHA4h, k = k_fold, reps = cv_reps,
+cv_m_dHA4h <- cv_mean_model(m_dHA4h_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA4i <- cv_mean_model(m_dHA4i, k = k_fold, reps = cv_reps,
+cv_m_dHA4i <- cv_mean_model(m_dHA4i_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
@@ -4101,10 +4330,6 @@ m_dHA4d_boot <- boot_mean_model(deployed=m_dHA4d_deploy,
   prediction_intervals = FALSE, pi_draws = 10L,
   parallel = TRUE, seed = 999, verbose = TRUE)
 
-cv_m_dHA4d <- cv_mean_model(m_dHA4d_deploy, k = k_fold,
-                            reps = cv_reps, strata = 'Experiment',
-                           group = 'StimNum', seed = 1, parallel = TRUE)
-
 UASLoudECMAPowAvg_swp <- seq(min(stimDataNoAmb[['UASLoudECMAPowAvg']]),
                            max(stimDataNoAmb[['UASLoudECMAPowAvg']]),
                            length.out=20)
@@ -4113,12 +4338,14 @@ grid_pred_1 <- insight::get_datagrid(x=subset(m_dHA4d_d,
                                             select=-c(StimNum, dHighlyAnnoyedProp)),
   by=list(UASLoudECMAPowAvg=UASLoudECMAPowAvg_swp,
           AmbientEnvCore=levels(stimDataNoAmb[['AmbientEnvCore']]),
-          Experiment=0, UASEvents=c(1, 2, 3, 5, 9)))
+          Experiment=0, UASEvents=c(1, 2, 3, 5, 9)),
+  numerics='mode')
 
 grid_pred_2 <- insight::get_datagrid(x=subset(m_dHA4d_d,
                                             select=-c(StimNum, dHighlyAnnoyedProp)),
   by=list(UASLoudECMAPowAvg=UASLoudECMAPowAvg_swp,
-          Experiment=0, UASEvents=c(1, 2, 3, 5, 9)))
+          Experiment=0, UASEvents=c(1, 2, 3, 5, 9)),
+  numerics='mode')
 
 m_dHA4d_bt_pred_1 <- predict(m_dHA4d_boot, newdata = grid_pred_1,
                            model=m_dHA4d_deploy, target = 'deployed')
@@ -4324,25 +4551,45 @@ m_dHA5a <- glmmTMB::glmmTMB(formula=m_dHA5a_f, dispformula= ~ Experiment,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA5a_deploy <- deploy_mean_model(m_dHA5a,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA5b <- glmmTMB::glmmTMB(formula=m_dHA5b_f, dispformula= ~ Experiment,
                           data=m_dHA5b_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dHA5b_deploy <- deploy_mean_model(m_dHA5b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dHA5c <- glmmTMB::glmmTMB(formula=m_dHA5c_f, dispformula= ~ Experiment,
                           data=m_dHA5c_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA5c_deploy <- deploy_mean_model(m_dHA5c,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA5d <- glmmTMB::glmmTMB(formula=m_dHA5d_f, dispformula= ~ Experiment,
                           data=m_dHA5d_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA5d_deploy <- deploy_mean_model(m_dHA5d,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA5e <- glmmTMB::glmmTMB(formula=m_dHA5e_f, dispformula= ~ Experiment,
                           data=m_dHA5e_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dHA5e_deploy <- deploy_mean_model(m_dHA5e,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 parameters::model_parameters(m_dHA5a, dispersion=TRUE)
 parameters::model_parameters(m_dHA5b, dispersion=TRUE)
@@ -4359,23 +4606,23 @@ performance::compare_performance(m_dHA1a, m_dHA2d, m_dHA3a, m_dHA4d,
 
 ```{r}
 
-cv_m_dHA5a <- cv_mean_model(m_dHA5a, k = k_fold, reps = cv_reps,
+cv_m_dHA5a <- cv_mean_model(m_dHA5a_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA5b <- cv_mean_model(m_dHA5b, k = k_fold, reps = cv_reps,
+cv_m_dHA5b <- cv_mean_model(m_dHA5b_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA5c <- cv_mean_model(m_dHA5c, k = k_fold, reps = cv_reps,
+cv_m_dHA5c <- cv_mean_model(m_dHA5c_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA5d <- cv_mean_model(m_dHA5d, k = k_fold, reps = cv_reps,
+cv_m_dHA5d <- cv_mean_model(m_dHA5d_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA5e <- cv_mean_model(m_dHA5e, k = k_fold, reps = cv_reps,
+cv_m_dHA5e <- cv_mean_model(m_dHA5e_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
@@ -4411,9 +4658,6 @@ m_dHA5e_boot <- boot_mean_model(deployed=m_dHA5e_deploy,
                                B = 2000, level = 0.95,
                                prediction_intervals = FALSE, pi_draws = 10L,
                                parallel = TRUE, seed = 999, verbose = TRUE)
-
-cv_m_dHA5e <- cv_mean_model(m_dHA5e_deploy, k = k_fold, reps = cv_reps, strata = 'Experiment',
-                            group = 'StimNum', seed = 1, parallel = TRUE)
 
 UASLAE_swp <- seq(min(stimDataNoAmb[['UASLAEMaxLR']]),
                       max(stimDataNoAmb[['UASLAEMaxLR']]),
@@ -4654,35 +4898,63 @@ m_dHA6a <- glmmTMB::glmmTMB(formula=m_dHA6a_f, dispformula= ~ Experiment,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA6a_deploy <- deploy_mean_model(m_dHA6a,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA6b <- glmmTMB::glmmTMB(formula=m_dHA6b_f, dispformula= ~ Experiment,
                           data=m_dHA6b_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dHA6b_deploy <- deploy_mean_model(m_dHA6b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dHA6c <- glmmTMB::glmmTMB(formula=m_dHA6c_f, dispformula= ~ Experiment,
                           data=m_dHA6c_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA6c_deploy <- deploy_mean_model(m_dHA6c,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA6d <- glmmTMB::glmmTMB(formula=m_dHA6d_f, dispformula= ~ Experiment,
                           data=m_dHA6d_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dHA6d_deploy <- deploy_mean_model(m_dHA6d,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 m_dHA6e <- glmmTMB::glmmTMB(formula=m_dHA6e_f, dispformula= ~ Experiment,
                           data=m_dHA6e_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA6e_deploy <- deploy_mean_model(m_dHA6e,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA6f <- glmmTMB::glmmTMB(formula=m_dHA6f_f, dispformula= ~ Experiment,
                           data=m_dHA6f_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA6f_deploy <- deploy_mean_model(m_dHA6f,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA6g <- glmmTMB::glmmTMB(formula=m_dHA6g_f, dispformula= ~ Experiment,
                           data=m_dHA6g_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dHA6g_deploy <- deploy_mean_model(m_dHA6g,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 parameters::model_parameters(m_dHA6a, dispersion=TRUE)
 parameters::model_parameters(m_dHA6b, dispersion=TRUE)
@@ -4702,31 +4974,31 @@ performance::compare_performance(m_dHA1a, m_dHA2d, m_dHA3a, m_dHA4d, m_dHA5e,
 
 ```{r}
 
-cv_m_dHA6a <- cv_mean_model(m_dHA6a, k = k_fold, reps = cv_reps,
+cv_m_dHA6a <- cv_mean_model(m_dHA6a_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA6b <- cv_mean_model(m_dHA6b, k = k_fold, reps = cv_reps,
+cv_m_dHA6b <- cv_mean_model(m_dHA6b_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA6c <- cv_mean_model(m_dHA6c, k = k_fold, reps = cv_reps,
+cv_m_dHA6c <- cv_mean_model(m_dHA6c_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA6d <- cv_mean_model(m_dHA6d, k = k_fold, reps = cv_reps,
+cv_m_dHA6d <- cv_mean_model(m_dHA6d_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA6e <- cv_mean_model(m_dHA6e, k = k_fold, reps = cv_reps,
+cv_m_dHA6e <- cv_mean_model(m_dHA6e_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA6f <- cv_mean_model(m_dHA6f, k = k_fold, reps = cv_reps,
+cv_m_dHA6f <- cv_mean_model(m_dHA6f_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA6g <- cv_mean_model(m_dHA6g, k = k_fold, reps = cv_reps,
+cv_m_dHA6g <- cv_mean_model(m_dHA6g_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
@@ -4764,10 +5036,6 @@ m_dHA6b_boot <- boot_mean_model(deployed=m_dHA6b_deploy,
   prediction_intervals = FALSE, pi_draws = 10L,
   parallel = TRUE, seed = 999, verbose = TRUE)
 
-cv_m_dHA6b <- cv_mean_model(m_dHA6b_deploy, k = k_fold,
-                            reps = cv_reps, strata = 'Experiment',
-                           group = 'StimNum', seed = 1, parallel = TRUE)
-
 UASLoudECMAPowAvg_swp <- seq(min(stimDataNoAmb[['UASLoudECMAPowAvg']]),
                            max(stimDataNoAmb[['UASLoudECMAPowAvg']]),
                            length.out=20)
@@ -4775,7 +5043,8 @@ UASLoudECMAPowAvg_swp <- seq(min(stimDataNoAmb[['UASLoudECMAPowAvg']]),
 grid_pred <- insight::get_datagrid(x=subset(m_dHA6b_d,
                                             select=-c(StimNum, dHighlyAnnoyedProp)),
   by=list(UASLoudECMAPowAvg=UASLoudECMAPowAvg_swp,
-          Experiment=0, UASEvents=c(1, 2, 3, 5, 9)))
+          Experiment=0, UASEvents=c(1, 2, 3, 5, 9)),
+  numerics='mode')
 
 m_dHA6b_bt_pred <- predict(m_dHA6b_boot, newdata = grid_pred,
                            model=m_dHA6b_deploy, target = 'deployed')
@@ -4952,10 +5221,18 @@ m_dHA7a <- glmmTMB::glmmTMB(formula=m_dHA7a_f, dispformula= ~ Experiment,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
 
+m_dHA7a_deploy <- deploy_mean_model(m_dHA7a,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
 m_dHA7b <- glmmTMB::glmmTMB(formula=m_dHA7b_f, dispformula= ~ Experiment,
                           data=m_dHA7b_d,
                           family=glmmTMB::ordbeta(link='logit'),
                           control=glmmTMBctrl)
+
+m_dHA7b_deploy <- deploy_mean_model(m_dHA7b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
 
 parameters::model_parameters(m_dHA7a, dispersion=TRUE)
 parameters::model_parameters(m_dHA7b, dispersion=TRUE)
@@ -4969,11 +5246,11 @@ performance::compare_performance(m_dHA1a, m_dHA2d, m_dHA3a, m_dHA4d, m_dHA5e,
 
 ```{r}
 
-cv_m_dHA7a <- cv_mean_model(m_dHA7a, k = k_fold, reps = cv_reps,
+cv_m_dHA7a <- cv_mean_model(m_dHA7a_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
-cv_m_dHA7b <- cv_mean_model(m_dHA7b, k = k_fold, reps = cv_reps,
+cv_m_dHA7b <- cv_mean_model(m_dHA7b_deploy, k = k_fold, reps = cv_reps,
                            strata = 'Experiment', group = 'StimNum',
                            seed = 1, parallel = TRUE)
 
@@ -5008,9 +5285,6 @@ m_dHA7a_boot <- boot_mean_model(deployed=m_dHA7a_deploy,
                                B = 2000, level = 0.95,
                                prediction_intervals = FALSE, pi_draws = 10L,
                                parallel = TRUE, seed = 999, verbose = TRUE)
-
-cv_m_dHA7a <- cv_mean_model(m_dHA7a_deploy, k = k_fold, reps = cv_reps, strata = 'Experiment',
-                           group = 'StimNum', seed = 1, parallel = TRUE)
 
 Detect0p5dBIntEx50MaxLR_swp <- seq(min(stimDataNoAmb[['Detect0p5dBIntEx50MaxLR']]),
                            max(stimDataNoAmb[['Detect0p5dBIntEx50MaxLR']]),
@@ -5111,9 +5385,9 @@ p1 <- ggplot(data=subset(m_dHA7a_bt_pred[['predictions']], UASEvents==1)) +
                      guide=guide_legend(title="Ambient env.", reverse=TRUE)) +
 
   scale_x_continuous(breaks=seq(-5, 50, by=5)) +
-  scale_y_continuous(breaks=seq(0, 10, by=1)) +
+  scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10)) +
   
-  coord_cartesian(xlim=c(-6, 51), ylim=c(-0.5, 10.5), expand=FALSE) +
+  coord_cartesian(xlim=c(-6, 51), ylim=c(-0.05, 1.05), expand=FALSE) +
   
   labs(x=expression(paste(UAS~italic(d*"'")[Sigma*50*","*0.5*s],",",~dB~re.~1)),
        y=expression(paste(Predicted~"%"~highly~annoyed~"|"~HA~"'"[amb])))
@@ -5142,9 +5416,9 @@ p2 <- ggplot(data=m_dHA7a_bt_pred[['predictions']]) +
                      guide=guide_legend(title="UAS events", reverse=TRUE)) +
 
   scale_x_continuous(breaks=seq(-5, 50, by=5)) +
-  scale_y_continuous(breaks=seq(0, 10, by=1)) +
+  scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10)) +
   
-  coord_cartesian(xlim=c(-6, 51), ylim=c(-0.5, 10.5), expand=FALSE) +
+  coord_cartesian(xlim=c(-6, 51), ylim=c(-0.05, 1.05), expand=FALSE) +
   
   labs(x=expression(paste(UAS~italic(d*"'")[Sigma*50*","*0.5*s],",",~dB~re.~1)),
        y=expression(paste(Predicted~"%"~highly~annoyed~"|"~HA~"'"[amb])))
@@ -5165,9 +5439,379 @@ if (saveplots){
 
 ```
 
+## S8: UAS and ambient SQMs and events
+
+### formula
+
+```{r}
+
+m_dHA8a_f <- dHighlyAnnoyedProp ~ UASLoudECMAPowAvg + AmbLAF10ExMaxLR +
+  dSharpAurSHMPowAvg + I(log10(UASEvents) - 0.105917955) +
+  Experiment
+
+m_dHA8a_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dHA8a_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dHighlyAnnoyedProp))
+
+m_dHA8b_f <- dHighlyAnnoyedProp ~ UASLoudECMAPowAvg + AmbLAF10ExMaxLR + I(log10(UASEvents) - 0.105917955) +
+  UASTonalAwSHMInt05Ex + dSharpAurSHMPowAvg + Experiment
+
+m_dHA8b_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dHA8b_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dHighlyAnnoyedProp))
+
+m_dHA8c_f <- dHighlyAnnoyedProp ~ UASLoudECMAPowAvg + AmbLAF10ExMaxLR + I(log10(UASEvents) - 0.105917955) +
+  dSharpAurSHMPowAvg + dImpulsSHM05Ex + Experiment
+
+m_dHA8c_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dHA8c_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dHighlyAnnoyedProp))
+
+m_dHA8d_f <- dHighlyAnnoyedProp ~ UASLoudECMAPowAvg + AmbLAF10ExMaxLR + I(log10(UASEvents) - 0.105917955) +
+  dSharpAurSHMPowAvg + dImpulsSHM05Ex + UASRoughECMA10Ex + Experiment
+
+m_dHA8d_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dHA8d_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dHighlyAnnoyedProp))
+
+m_dHA8e_f <- dHighlyAnnoyedProp ~ UASLoudECMAPowAvg + AmbLAF10ExMaxLR + I(log10(UASEvents) - 0.105917955) +
+  PartSharpAurSHMPowAvg + Experiment
+
+m_dHA8e_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dHA8e_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dHighlyAnnoyedProp))
+
+m_dHA8f_f <- dHighlyAnnoyedProp ~ UASLoudECMAPowAvg + AmbLAF10ExMaxLR + I(log10(UASEvents) - 0.105917955) +
+  dSharpAurSHMPowAvg + dImpulsSHM05Ex + UASRoughECMA10Ex + UASFluctECMA10Ex + Experiment
+
+m_dHA8f_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dHA8f_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dHighlyAnnoyedProp))
+
+m_dHA8g_f <- dHighlyAnnoyedProp ~ UASLoudECMAPowAvg + AmbLAF10ExMaxLR + I(log10(UASEvents) - 0.105917955) +
+  dSharpAurSHMPowAvg + dImpulsSHM05Ex + UASRoughECMA10Ex + dFluctECMA10Ex + Experiment
+
+m_dHA8g_d <- stimDataNoAmb[, c(StimNum='StimNum',
+                             all.vars(m_dHA8g_f)), drop=FALSE] |>
+  dplyr::filter(!is.na(dHighlyAnnoyedProp))
+
+```
+
+### fit and estimate parameters
+
+```{r}
+
+m_dHA8a <- glmmTMB::glmmTMB(formula=m_dHA8a_f, dispformula= ~ Experiment,
+                          data=m_dHA8a_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dHA8a_deploy <- deploy_mean_model(m_dHA8a,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
+m_dHA8b <- glmmTMB::glmmTMB(formula=m_dHA8b_f, dispformula= ~ Experiment,
+                          data=m_dHA8b_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dHA8b_deploy <- deploy_mean_model(m_dHA8b,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
+m_dHA8c <- glmmTMB::glmmTMB(formula=m_dHA8c_f, dispformula= ~ Experiment,
+                          data=m_dHA8c_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dHA8c_deploy <- deploy_mean_model(m_dHA8c,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
+m_dHA8d <- glmmTMB::glmmTMB(formula=m_dHA8d_f, dispformula= ~ Experiment,
+                          data=m_dHA8d_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dHA8d_deploy <- deploy_mean_model(m_dHA8d,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
+m_dHA8e <- glmmTMB::glmmTMB(formula=m_dHA8e_f, dispformula= ~ Experiment,
+                          data=m_dHA8e_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dHA8e_deploy <- deploy_mean_model(m_dHA8e,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
+m_dHA8f <- glmmTMB::glmmTMB(formula=m_dHA8f_f, dispformula= ~ Experiment,
+                          data=m_dHA8f_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dHA8f_deploy <- deploy_mean_model(m_dHA8f,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
+m_dHA8g <- glmmTMB::glmmTMB(formula=m_dHA8g_f, dispformula= ~ Experiment,
+                          data=m_dHA8g_d,
+                          family=glmmTMB::ordbeta(link='logit'),
+                          control=glmmTMBctrl)
+
+m_dHA8g_deploy <- deploy_mean_model(m_dHA8g,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=FALSE)
+
+parameters::model_parameters(m_dHA8a, dispersion=TRUE)
+parameters::model_parameters(m_dHA8b, dispersion=TRUE)
+parameters::model_parameters(m_dHA8c, dispersion=TRUE)
+parameters::model_parameters(m_dHA8d, dispersion=TRUE)
+parameters::model_parameters(m_dHA8e, dispersion=TRUE)
+parameters::model_parameters(m_dHA8f, dispersion=TRUE)
+parameters::model_parameters(m_dHA8g, dispersion=TRUE)
+
+performance::compare_performance(m_dHA1a, m_dHA2d, m_dHA3a, m_dHA4d, m_dHA5e,
+                                 m_dHA6b, m_dHA7b,
+                                 m_dHA8a, m_dHA8b, m_dHA8c, m_dHA8d,
+                                 m_dHA8e, m_dHA8f, m_dHA8g)
+
+```
+
+### compare CV performance
+
+```{r}
+
+cv_m_dHA8a <- cv_mean_model(m_dHA8a_deploy, k = k_fold, reps = cv_reps,
+                           strata = 'Experiment', group = 'StimNum',
+                           seed = 1, parallel = TRUE)
+
+cv_m_dHA8b <- cv_mean_model(m_dHA8b_deploy, k = k_fold, reps = cv_reps,
+                           strata = 'Experiment', group = 'StimNum',
+                           seed = 1, parallel = TRUE)
+
+cv_m_dHA8c <- cv_mean_model(m_dHA8c_deploy, k = k_fold, reps = cv_reps,
+                           strata = 'Experiment', group = 'StimNum',
+                           seed = 1, parallel = TRUE)
+
+cv_m_dHA8d <- cv_mean_model(m_dHA8d_deploy, k = k_fold, reps = cv_reps,
+                           strata = 'Experiment', group = 'StimNum',
+                           seed = 1, parallel = TRUE)
+
+cv_m_dHA8e <- cv_mean_model(m_dHA8e_deploy, k = k_fold, reps = cv_reps,
+                           strata = 'Experiment', group = 'StimNum',
+                           seed = 1, parallel = TRUE)
+
+cv_m_dHA8f <- cv_mean_model(m_dHA8f_deploy, k = k_fold, reps = cv_reps,
+                           strata = 'Experiment', group = 'StimNum',
+                           seed = 1, parallel = TRUE)
+
+cv_m_dHA8g <- cv_mean_model(m_dHA8g_deploy, k = k_fold, reps = cv_reps,
+                           strata = 'Experiment', group = 'StimNum',
+                           seed = 1, parallel = TRUE)
+
+compare_mean_models(m_dHA8a=cv_m_dHA8a, m_dHA8b=cv_m_dHA8b, m_dHA8c=cv_m_dHA8c,
+                    m_dHA8d=cv_m_dHA8d, m_dHA8e=cv_m_dHA8e, m_dHA8f=cv_m_dHA8f,
+                    m_dHA8g=cv_m_dHA8g)
+
+```
+
+### generate deployment version
+
+```{r}
+
+m_dHA8e_deploy <- deploy_mean_model(m_dHA8e,
+                                   scaling_data = stimDataNoAmb,
+                                   Experiment=0, coef_simplify=T, verbose=TRUE)
+
+```
+
+### analyse deployment performance
+
+```{r}
+
+m_dHA8e_boot <- boot_mean_model(deployed=m_dHA8e_deploy,
+  trial_data=subjDataNoAmb.med,
+  cluster='PersonNum', response='dHighlyAnnoyed',
+  stat = 'mean', by = 'StimNum',
+  strata = 'Experiment', resample = 'clusters',
+  stimulus_strata = 'Experiment',
+  response_transform = NULL,
+  jitter_step=1, interval = 'bc',
+  jitter_rows = NULL,
+  recentre='mean', regrid=NULL, newdata = NULL,
+  B = 2000, level = 0.95,
+  prediction_intervals = FALSE, pi_draws = 10L,
+  parallel = TRUE, seed = 999, verbose = TRUE)
+
+cv_m_dHA8e <- cv_mean_model(m_dHA8e_deploy, k = k_fold,
+                            reps = cv_reps, strata = 'Experiment',
+                            group = 'StimNum', seed = 1, parallel = TRUE)
+
+UASLoudECMAPowAvg_swp <- seq(min(stimDataNoAmb[['UASLoudECMAPowAvg']]),
+                           max(stimDataNoAmb[['UASLoudECMAPowAvg']]),
+                           length.out=20)
+
+grid_pred <- insight::get_datagrid(x=subset(m_dHA8e_d,
+                                            select=-c(StimNum, dHighlyAnnoyedProp)),
+  by=list(UASLoudECMAPowAvg=UASLoudECMAPowAvg_swp,
+          Experiment=0, UASEvents=c(1, 2, 3, 5, 9)),
+  numerics = 'mode')
+
+m_dHA8e_bt_pred <- predict(m_dHA8e_boot, newdata = grid_pred,
+                           model=m_dHA8e_deploy, target = 'deployed')
+
+m_dHA8e_predict <- predict.glmmTMB.ordbeta(m_dHA8e, newdata=stimDataNoAmb, type='response')
+
+m_dHA8e_dep_predict <- m_dHA8e_deploy(stimDataNoAmb)
+
+R2means <- 1 - sum((stimDataNoAmb$dHighlyAnnoyedProp - m_dHA8e_dep_predict)^2)/sum((stimDataNoAmb$dHighlyAnnoyedProp -
+                                                                                      mean(stimDataNoAmb$dHighlyAnnoyedProp))^2)
+
+eRMSE <- epsilonRMSE(measured_data=stimDataNoAmb, predicted_data=m_dHA8e_dep_predict,
+                     measured_target='dHighlyAnnoyedProp', measured_ci_low='dHighlyAnnoyedPropCI_Low',
+                     measured_ci_high='dHighlyAnnoyedPropCI_High', fitted='estimate')
+
+R2_cv <- subset(cv_m_dHA8e[['summary']], target=="deployed" & metric == "R2")['cv_mean']
+RMSE_CV <- subset(cv_m_dHA8e[['summary']], target=="deployed" & metric == "RMSE")['cv_mean']
+
+# using ggplot, plot the predicted fit against the responses in predictMeans
+ggplot(data=merge(m_dHA8e_boot[['predictions']][, c('StimNum', 'estimate', 'lower', 'upper')],
+                  data.frame(Experiment = stimDataNoAmb[['Experiment']],
+                             StimNum = stimDataNoAmb[['StimNum']],
+                             response = stimDataNoAmb[['dHighlyAnnoyedProp']],
+                             responseCI_Low = stimDataNoAmb[['dHighlyAnnoyedPropCI_Low']],
+                             responseCI_High = stimDataNoAmb[['dHighlyAnnoyedPropCI_High']]),
+                  by = "StimNum")) +
+  theme(panel.grid = element_blank(), aspect.ratio=1, text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14)) +
+  
+  geom_abline(aes(intercept=0, slope=1), colour='grey', alpha=0.5) +
+  
+  geom_point(mapping=aes(x=response, y=estimate, colour=Experiment, shape=Experiment), size=1.75, stroke=0.75, alpha=0.5) +
+
+  geom_errorbar(mapping=aes(x=response, xmin=responseCI_Low, xmax=responseCI_High,
+                            y=estimate, colour=Experiment), width=0, alpha=0.1) +
+
+  geom_errorbar(mapping=aes(x=response, y=estimate, ymin=lower, ymax=upper, colour=Experiment), width=0, alpha=0.1) +
+  
+  scale_colour_manual(values=mycolours[1:2], name="Experiment", guide=guide_legend(ncol = 2, position = 'top')) +
+  scale_shape_manual(values=c(4, 0), name="Experiment", guide=guide_legend(ncol = 2, position = 'top')) +
+
+  scale_x_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10)) +
+  scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10)) +
+  
+  coord_cartesian(xlim=c(-0.05, 1.05), ylim=c(-0.05, 1.05), expand=FALSE) +
+  
+  labs(x=expression(paste("%"~Highly~annoyed~"|"~HA~"'"[amb]~"("~test~")")), y=expression(paste(Predicted~"%"~highly~annoyed~"|"~HA~"'"[amb]))) +
+  
+  ggplot2::annotate("text", x=0.05, y=1, label=deparse(bquote(italic(R)^2 == .(sprintf("%.3f", (round(R2means, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=0.05, y=0.925, label=deparse(bquote(italic(R)[CV]^2 == .(sprintf("%.3f", (round(R2_cv, 3)))))), family="serif", size=4, hjust = 0, parse=TRUE) +
+  ggplot2::annotate("text", x=0.05, y=0.85, label=paste0("RMSE = ", sprintf("%.3f", round(eRMSE$rmse, 3))), family="serif", size=4, hjust = 0) +
+  ggplot2::annotate("text", x = 0.05, y = 0.775, label = paste0("RMSE[epsilon] == ", sprintf("%.3f", round(eRMSE$epsilon_rmse, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE) +
+ggplot2::annotate("text", x = 0.05, y = 0.7, label = paste0("RMSE[CV] == ", sprintf("%.3f", round(RMSE_CV, 3))), 
+  family = "serif", size = 4, hjust = 0, parse = TRUE)
 
 
+if (saveplots){
+  
+  filename <- "DataMeld_dHighAnnoy_PredMod_AllSQAmbLCal_Ob"
 
+  ggsave(filename=paste(filename, ".svg", sep=""), width=4, height=4.5, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=4, height=4.5, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+
+p1 <- ggplot(data=subset(m_dHA8e_bt_pred[['predictions']], UASEvents==1)) +
+  theme(panel.grid = element_blank(), aspect.ratio=1.35,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14),
+        axis.text.x=element_text(family = "serif", size=12)) +
+
+  
+  geom_line(mapping=aes(x=UASLoudECMAPowAvg, y=estimate), colour='black', linewidth=1) +
+  geom_ribbon(mapping=aes(x=UASLoudECMAPowAvg, ymin=lower, ymax=upper), fill='black', alpha=0.2) +
+  
+  geom_point(data=subset(stimDataNoAmb, UASEvents==1),
+             mapping=aes(x=UASLoudECMAPowAvg, y= dHighlyAnnoyedProp,
+                         colour=factor(AmbientEnvCore),
+                         shape=factor(AmbientEnvCore)),    
+             size=1.5, alpha=0.4) +
+  
+  scale_colour_viridis_d(option='magma', begin=0.2, end=0.8, direction=1,
+                         name="Ambient env.", guide=guide_legend(reverse=TRUE)) +
+  scale_shape_manual(values=c(6, 2, 0, 3),
+                     guide=guide_legend(title="Ambient env.", reverse=TRUE)) +
+  scale_x_continuous(breaks=seq(1, 9, by=1)) +
+  scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10)) +
+  
+  coord_cartesian(xlim=c(1.5, 8.7), ylim=c(-0.05, 1.05), expand=FALSE) +
+  
+  labs(x=expression(paste("UAS"~italic(N)^"*"*","~sone[SHM])),
+       y=expression(paste(Predicted~"%"~highly~annoyed~"|"~HA~"'"[amb])))
+
+p2 <- ggplot(data=m_dHA8e_bt_pred[['predictions']]) +
+  theme(panel.grid = element_blank(), aspect.ratio=1.35,
+        text=element_text(family = "serif", size=16),
+        axis.text=element_text(family = "serif", size=14),
+        axis.text.x=element_text(family = "serif", size=12)) +
+  
+  geom_point(data=stimDataNoAmb, mapping=aes(x=UASLoudECMAPowAvg, y= dHighlyAnnoyedProp,
+                                             colour=factor(UASEvents),
+                                             shape=factor(UASEvents)),    
+             size=1.5, alpha=0.4) +
+  
+  geom_line(mapping=aes(x=UASLoudECMAPowAvg, y=estimate, colour=factor(UASEvents)),
+            linewidth=0.75) +
+  geom_ribbon(mapping=aes(x=UASLoudECMAPowAvg, ymin=lower, ymax=upper,
+                          fill=factor(UASEvents)), alpha=0.2) +
+  
+  
+  scale_colour_viridis_d(begin=0.2, end=0.8, direction=1, name="UAS events",
+                         guide=guide_legend(reverse=TRUE)) +
+  scale_fill_viridis(discrete=TRUE, begin=0.2, end=0.8, direction=1, name="UAS events",
+                     guide=guide_legend(reverse=TRUE)) +
+  scale_shape_manual(values=c(4, 5, 7, 8, 10),
+                     guide=guide_legend(title="UAS events", reverse=TRUE)) +
+
+  scale_x_continuous(breaks=seq(1, 9, by=1)) +
+  scale_y_continuous(breaks=seq(0, 1, by=0.1), labels=seq(0, 100, by=10)) +
+  
+  coord_cartesian(xlim=c(1.5, 8.7), ylim=c(-0.05, 1.05), expand=FALSE) +
+  
+  labs(x=expression(paste("UAS"~italic(N)^"*"*","~sone[SHM])),
+       y=expression(paste(Predicted~"%"~highly~annoyed~"|"~HA~"'"[amb])))
+
+p1 | p2
+
+if (saveplots){
+  
+  filename <- "DataMeld_dHiAnnoy_PredMod_AllSQAmbLPred_Ob"
+
+  ggsave(filename=paste(filename, ".svg", sep=""), width=10, height=4, path=file.path(outFigPath, "svg"))
+  unlink(paste(filename, ".svg", sep=""))
+
+  ggsave(filename=paste(filename, ".pdf", sep=""), width=10, height=4, path=file.path(outFigPath, "pdf"))
+  unlink(paste(filename, ".pdf", sep=""))
+}
+
+
+```
+
+### Save the workspace to file
+
+```{r}
+
+if (savedata){
+  save.image(file.path(outDataPath, "refmap_listest1_2_analysis_ordbeta.RData"))
+}
+
+```
 
 
 

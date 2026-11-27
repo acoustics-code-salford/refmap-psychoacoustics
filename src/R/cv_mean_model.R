@@ -154,7 +154,7 @@ require(glmtoolbox)     # glmgee models (only needed if you cross-validate one)
 #   apparent and CV RMSE and R^2, the SD of CV RMSE over repeats, and, when the
 #   runs share their folds and data, the paired difference in CV RMSE from the
 #   best model (mean over repeats) and the share of repeats in which the model
-#   has the lowest CV RMSE.
+#   has the lowest CV RMSE (a repeat tied between models is shared equally).
 #   Warnings (the table is still produced) when the runs differ in k, reps,
 #   seed, strata, group, leave-one-out or use of inverse; when their fold
 #   assignments differ (e.g. same seed but different units); or when their
@@ -175,6 +175,8 @@ require(glmtoolbox)     # glmgee models (only needed if you cross-validate one)
 #     cmp$table
 #
 # CHANGE LOG
+#   v4.2: best_share splits tied repeats equally between the tied models (the
+#       shares now sum to 1; ties were previously counted for each).
 #   v4.1: compare_mean_models(): paired (ii) columns computed among the deployed
 #       runs when the comparison mixes deployed and plain-model results.
 #   v4: cv_mean_model() also takes a fitted glmmTMB/glmgee model (results for the
@@ -599,7 +601,10 @@ compare_mean_models <- function(...) {
       }), numeric(n_rep)), nrow = n_rep)
       best <- which.min(colMeans(R))
       tab[[paste0(tg, "_dRMSE_cv")]][use] <- colMeans(R - R[, best])
-      tab[[paste0(tg, "_best_share")]][use] <- colMeans(R == apply(R, 1, min))
+      # lowest CV RMSE per repeat; a tie (equal to relative 1e-12) shares that
+      # repeat equally between the tied models, so the shares sum to 1
+      is_best <- abs(R - apply(R, 1, min)) <= 1e-12 * pmax(1, abs(R))
+      tab[[paste0(tg, "_best_share")]][use] <- colMeans(is_best / rowSums(is_best))
     }
   }
   tab$failed_fits <- vapply(res, function(r) as.integer(r$failures$n_failed), integer(1))
@@ -632,7 +637,7 @@ print.mean_model_comparison <- function(x, digits = 3, ...) {
     print(part, digits = digits, row.names = FALSE)
   }
   cat("\napp = apparent (in-sample); cv = CV mean over repeats; cv_sd = SD over repeats (fold randomness only);\n")
-  cat("dRMSE_cv = paired CV RMSE difference from the best model; best_share = share of repeats with the lowest CV RMSE.\n")
+  cat("dRMSE_cv = paired CV RMSE difference from the best model; best_share = share of repeats with the lowest CV RMSE (ties shared).\n")
   if (!x$checks$paired) cat("dRMSE_cv / best_share not computed: the runs do not share folds and data.\n")
   if (any(tb$deployed) && !all(tb$deployed)) cat("Results from plain models (deployed = FALSE) have no deployed values; (ii) compares the deployed runs only.\n")
   if (any(x$table$failed_fits > 0)) cat("NOTE: some refits failed (failed_fits); see each run's $failures.\n")
